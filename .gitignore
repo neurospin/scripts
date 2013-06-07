@@ -1,0 +1,6 @@
+*.pyc
+*~
+.nfs*
+*.pdf
+*.doc
+*.docx
