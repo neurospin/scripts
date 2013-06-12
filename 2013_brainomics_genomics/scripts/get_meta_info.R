@@ -60,5 +60,6 @@ names(pathw.synaptic.SETgeneName) <- lapply(pathw.synaptic.GSCgeneName, setName)
 
 
 # get snp info
-snp.info <- read.delim("/neurosin/imagen/SNPath/500-simu.bim", header=F, stringsAsFactors=FALSE)
+snp.info <- read.delim("/neurospin/brainomics/2013_brainomics_genomics/data/snp_b37_intersect_maf5hwe4_qcsubject.bim", header=F, stringsAsFactors=FALSE)
 snp.info = data.frame(Snp.name=snp.info[,"V2"],chr=snp.info[,"V1"],pos=snp.info[,"V4"])
+
