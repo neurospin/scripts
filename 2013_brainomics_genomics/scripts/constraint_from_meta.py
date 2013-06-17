@@ -8,7 +8,7 @@ import json
 import numpy as np
 
 #  load meta info from GO/GSEA, USCC refGene and snps available from mes
-go  = json.load(open("/home/vf140245/gits/scripts/2013_brainomics_genomics/data/test.json"))
+go  = json.load(open("/neurospin/brainomics/2013_brainomics_genomics/data/test.json"))
 ref = pybedtools.BedTool('/neurospin/brainomics/2013_brainomics_genomics/data/refGene.bed')
 snps = pybedtools.BedTool("/neurospin/brainomics/2013_brainomics_genomics/data/snps_b37_ref.bed")
 
@@ -31,10 +31,9 @@ def gene_snp(name='UTS2'):
    tmp = snps.intersect(subset)
    return np.unique([i.name for i in tmp]).tolist()
    
-# example with a go entry
-tree = tree_path_gene_snp()
+if __name__=="__main__":
+   # example with a go entry
+   tree = tree_path_gene_snp()
 
-# exmaple with a gene entry
-snp_list = gene_snp()
-
-
+   # exmaple with a gene entry
+   snp_list = gene_snp()
