@@ -44,6 +44,8 @@ import pandas as pd
 import numpy as np
 
 WD = "/neurospin/mescog"
+WD = "/home/edouard/data/2013_mescog"
+
 MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps_mapping_summary") #.csv | .html
 MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps-common") #.csv | .html
 
@@ -357,3 +359,9 @@ db_columns = ["ID", "BASE"] + mapping_summary[mapping_summary.IN_COMMON_BD==1]["
 
 common_db = pd.DataFrame(common_db, columns=db_columns)
 common_db.to_csv(MERGE_CADASIL_ASPS_FILEPATH+".csv", sep="\t", index=False)
+
+mapping_summary = pd.read_table(MAPPING_SUMMARY_FILEPATH+".csv", header=0)
+s = mapping_summary.to_string()
+f = open(MERGE_CADASIL_ASPS_FILEPATH+".txt", "w")
+f.write(s)
+f.close()
