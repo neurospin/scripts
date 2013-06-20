@@ -2,15 +2,51 @@
 """
 Created on Mon Jun 10 13:39:45 2013
 
-@author: ed203246
+Produce two files:
+- db_clinic_cadasil-asps_mapping_summary.csv
+  Contain a summary of the variables within the merged DB.
+
+  Fields:
+
+      NEW_NAME: The new name in the merged DB
+
+      IN_BOTH : Is the variable present in both DB ?
+
+      IN_COMMON_BD: Is the variable present in the common DB?
+      A variable is present in the common DB if it is in both DB at baseline
+      and it is least present in one two DB for other time points.
+
+      CADASIL_NAME & ASPS_NAME: original names
+
+      cada_base_commun: is the variable present in the file "base_commun.xls" ?
+
+      cada_france2012: is the variable present in the file "france2012.xls" ?
+
+      recoding: The re-coding python code if relevent. 3 types of re-coding may occcur:
+          - change discrete value: ex: " cada={1:'M', 2:'F'};" means that 1
+          are re-coded 'M' and 2 'F'
+          - Creation of new variables using original ones. Ex for BMI
+              var_cada = cadasil_base["POIDS"] / cadasil_base["TAILLE"]**2
+          - Unit convertion. Exa: var_cada = mmoll_to_mgdl(cadasil_base[cadasil_name], mm=386.65)
+
+      remark: 
+    
+- db_clinic_cadasil-asps-common.csv
+  the common DB
+
+@author: edouard.duchesnay@cea.fr
 """
+
+print __doc__
 
 import os.path
 import pandas as pd
 import numpy as np
 
 WD = "/neurospin/mescog"
-OUTPUT_FILEPATH = os.path.join(WD, "clinic", "DB_Mapping_summary") #.csv | .html
+MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps_mapping_summary") #.csv | .html
+MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps-common") #.csv | .html
+
 mapping_filepath = os.path.join(WD, "clinic",
                                 "DB_Mapping_Longit_Last_EJ_2013-05-08.csv")
 
@@ -47,6 +83,7 @@ cadasil_base = cadasil_base_commun
 n_asps = 100
 asps_dict = {mapping["ASPS.name"][i]: [np.nan] * n_asps for i in \
     xrange(mapping.shape[0]) if mapping["ASPS.given"][i]}
+asps_dict["ID"] = range(n_asps)
 asps_base = pd.DataFrame(asps_dict)
 
 def replace(values, rep):
@@ -82,7 +119,8 @@ for i in xrange(mapping.shape[0]):
     if cadasil_name and asps_name:
         IN_BOTH = 1
         IN_COMMON_BD = 1
-    if IN_COMMON_BD:
+    if IN_COMMON_BD and (cadasil_name or asps_name):
+        print i, "new_name", new_name, "cada:", cadasil_name, "asps:", asps_name, "time", l['time point']
         in_cadasil_base = int(cadasil_name in cadasil_base.columns)
         in_cadasil_france2012 = int(cadasil_name in cadasil_france2012.columns)
         if in_cadasil_base:
@@ -97,13 +135,13 @@ for i in xrange(mapping.shape[0]):
 
         # Start re-coding
         if new_name == "AGE_AT_INCLUSION":
-            recode_srt = "DATEINCL-DATENAIS"
+            recode_srt = """var_cada=cadasil_base["DATEINCL"]-cadasil_base["DATENAIS"]"""
             remark_str = "PROBLEM: DATEINCL, DATENAIS not found in base_commun, What is Ts in base_commun only for german patient"
 
-        if new_name.find("SYS_BP") != -1:
+        if new_name.find("SYS_BP") == 0:
             remark_str = "ok"
 
-        if new_name.find("DIA_BP") != -1:
+        if new_name.find("DIA_BP") == 0:
             remark_str = "ok"
 
         if new_name == "SEX":
@@ -116,11 +154,11 @@ for i in xrange(mapping.shape[0]):
         if new_name == "HEIGHT":
             remark_str = "ok"
 
-        if new_name.find("WEIGHT") != -1:
+        if new_name.find("WEIGHT") == 0:
             remark_str = "ok"
 
-        if (new_name.find('MIGRAINE_WO_AURA') != -1) or (new_name.find('MIGRAINE_WITH_AURA') != -1) :
-            recode_srt = "cada={1:1, 2:0}; asps={}"
+        if (new_name.find('MIGRAINE_WO_AURA') == 0) or (new_name.find('MIGRAINE_WITH_AURA') == 0) :
+            recode_srt = "cada={2:0}; asps={}"
             remark_str = "recode"
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
@@ -167,9 +205,9 @@ for i in xrange(mapping.shape[0]):
 
         if new_name == "BMI@M54":
             recode_srt = 'var_cada = cadasil_base["POIDS54"] / cadasil_base["TAILLE"]**2'
-            remark_str = "ok"
-            exec(recode_srt)
-            var_cada = var_cada.tolist()
+            remark_str = "PROBLEM: POIDS54 not in cadasil_base"
+            #exec(recode_srt)
+            #var_cada = var_cada.tolist()
 
         if new_name == "BMI@M72":
             remark_str = "ok"
@@ -201,168 +239,107 @@ for i in xrange(mapping.shape[0]):
             #var_cada = replace(var_cada, cada)
             var_asps = replace(var_asps, asps)
 
-        if new_name.find("HYPERTENSION") != -1 :
+        if new_name.find("HYPERTENSION") == 0 :
             remark_str = "ok"
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("DIABETES") != -1 :
+        if new_name.find("DIABETES") == 0 :
             remark_str = "ok"
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("HYPERCHOL") != -1 :
+        if new_name.find("HYPERCHOL") == 0 :
             remark_str = "ok"
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("PERIPH_VASC_DIS") != -1 :
+        if new_name.find("PERIPH_VASC_DIS") == 0 :
             remark_str = "ok"
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("VENOUS_DIS") != -1 :
+        if new_name.find("VENOUS_DIS") == 0 :
             remark_str = "ok"
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("FAST_GLUC") != -1 :
+        if new_name.find("FAST_GLUC") == 0 :
             remark_str = "ok, conv cadasil to mg/dl. 1 mmol/l = 180/10 mg/dL. (mm=180 for glucose)"
             recode_srt = """var_cada = mmoll_to_mgdl(cadasil_base[cadasil_name], mm=180)"""
-            exec(recode_srt)
-            var_cada = var_cada.tolist()
+            if cadasil_name in cadasil_base.columns:
+                exec(recode_srt)
+                var_cada = var_cada.tolist()
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("HBA1C") != -1 :
+        if new_name.find("HBA1C") == 0 :
             remark_str = "STANDARDIZE: How to conv cadasil % to mg/dl"
             recode_srt = """"""
             #exec(recode_srt)
             #var_cada = var_cada.tolist()
             #var_asps = replace(var_asps, asps)
 
-        if (new_name.find("CHOL") != -1) or (new_name.find("HDL") != -1) \
-            or (new_name.find("LDL") != -1):
+        if (new_name.find("CHOL") == 0) or (new_name.find("HDL") == 0) \
+            or (new_name.find("LDL") == 0):
             remark_str = "ok, conv cadasil to mg/dl. 1 mmol/L = 386.65/10 mg/dL. (mm=386.65 for C27H46O, HDL and LDL)"
             recode_srt = """var_cada = mmoll_to_mgdl(cadasil_base[cadasil_name], mm=386.65)"""
-            exec(recode_srt)
-            var_cada = var_cada.tolist()
+            if cadasil_name in cadasil_base.columns:
+                exec(recode_srt)
+                var_cada = var_cada.tolist()
             #var_asps = replace(var_asps, asps)
 
-        if (new_name.find("TRIGLY") != -1):
+        if (new_name.find("TRIGLY") == 0):
             remark_str = "ok, conv cadasil to mg/dl. 1 mmol/L = 875/10 mg/dL. (mm=875 for triglycerides)"
             recode_srt = """var_cada = mmoll_to_mgdl(cadasil_base[cadasil_name], mm=875)"""
-            exec(recode_srt)
-            var_cada = var_cada.tolist()
+            if cadasil_name in cadasil_base.columns:
+                exec(recode_srt)
+                var_cada = var_cada.tolist()
             #var_asps = replace(var_asps, asps)
 
-        if (new_name.find("HEMOGLOBIN") != -1) \
-            or (new_name.find("LEUKO_COUNT") != -1) \
-            or new_name.find("THROMBO_COUNT") != -1:
+        if (new_name.find("HEMOGLOBIN") == 0) \
+            or (new_name.find("LEUKO_COUNT") == 0) \
+            or new_name.find("THROMBO_COUNT") == 0:
             remark_str = "ok"
 
-        if new_name.find("FIBRINOGEN") != -1 :
+        if new_name.find("FIBRINOGEN") == 0 :
             remark_str = "ok, conv cadasil from g/L to mg/dL"
-            recode_srt = """var_cada = cadasil_base[cadasil_name] * 100"""
-            exec(recode_srt)
-            var_cada = var_cada.tolist()
-            #var_asps = replace(var_asps, asps)
+            if cadasil_name in cadasil_base.columns:
+                recode_srt = """var_cada = cadasil_base[cadasil_name] * 100"""
+                exec(recode_srt)
+                var_cada = var_cada.tolist()
 
-        if new_name.find("") != -1 :
-            remark_str = "ok"
+        if new_name == "AF_HIST":
             recode_srt = """cada={2:0}; asps={}"""
             exec(recode_srt)
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
 
-        if new_name.find("") != -1 :
-            remark_str = "ok"
-            recode_srt = """cada={2:0}; asps={}"""
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            #var_asps = replace(var_asps, asps)
-
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-        if new_name == "":
-            recode_srt = """ """
-            exec(recode_srt)
-            var_cada = replace(var_cada, cada)
-            var_asps = replace(var_asps, asps)
-
+        ## Add to common DB
         common_db[new_name] = pd.Series(var_cada + var_asps)
     if new_name:  # if new common name has been difined keep it
-#        if new_name == "SEX":
-#            break
-        #recode_srt, remark_str = recoding(new_name=new_name,
-        #    in_cadasil_base, in_cadasil_france2012)
         variables.append((new_name, IN_BOTH, IN_COMMON_BD, cadasil_name, asps_name,
                           in_cadasil_base, in_cadasil_france2012,
                           recode_srt, remark_str))
 
-mapping_summary =  pd.DataFrame(variables,
-             columns=['NEW_NAME', 'IN_BOTH', 'IN_COMMON_BD', 'CADASIL_NAME', 'ASPS_NAME',
+common_db["ID"] = pd.Series(cadasil_base["ID"].tolist() + asps_base["ID"].tolist())
+common_db["BASE"] = pd.Series(["cadasil"]*len(cadasil_base["ID"]) + ["asps"]*len(asps_base["ID"]))
+
+
+## Mapping summary re-order IN_COMMON_BD first
+mapping_summary = pd.DataFrame(variables,
+                               columns=['NEW_NAME', 'IN_BOTH', 'IN_COMMON_BD', 'CADASIL_NAME', 'ASPS_NAME',
                       'cada_base_commun', 'cada_france2012',
                       'recoding', 'remark'])
-
 
 mapping_summary = pd.concat([mapping_summary[mapping_summary['IN_COMMON_BD'] == 1],
 mapping_summary[mapping_summary['IN_COMMON_BD'] == 0]])
@@ -370,18 +347,13 @@ mapping_summary.index = range(mapping_summary.shape[0])
 #print mapping_summary.to_string()
 print mapping_summary[mapping_summary['IN_COMMON_BD'] == 1].to_string()
 
+mapping_summary.to_csv(MAPPING_SUMMARY_FILEPATH+".csv", sep="\t", index=False)
+mapping_summary.to_html(MAPPING_SUMMARY_FILEPATH+".html")
 
+mapping_summary.to_csv(MAPPING_SUMMARY_FILEPATH+".csv", sep="\t", index=False)
 
+## COMMON_DB
+db_columns = ["ID", "BASE"] + mapping_summary[mapping_summary.IN_COMMON_BD==1]["NEW_NAME"].tolist()
 
-
-
-mapping_summary.to_csv(OUTPUT_FILEPATH+".csv", sep="\t", index=False)
-mapping_summary.to_html(OUTPUT_FILEPATH+".html")
-
-
-
-##############################################################################
-## Standardize IN_BOTH variables
-##############################################################################
-new_var = 'AGE_AT_INCLUSION'
-cadasil_base.DATEINCL
+common_db = pd.DataFrame(common_db, columns=db_columns)
+common_db.to_csv(MERGE_CADASIL_ASPS_FILEPATH+".csv", sep="\t", index=False)
