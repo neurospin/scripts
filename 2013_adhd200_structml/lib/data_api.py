@@ -2,36 +2,35 @@ from os.path import join, exists
 import tables
 from numpy import where, array
 
-_base_path = join(ADHD200_DATA_BASE_PATH, "python_analysis", "data")
-#_base_path = "/neurospin/adhd200/python_analysis/data"
+#base_path = "/neurospin/adhd200/python_analysis/data"
 
 
-def get_h5_path(feature,test=False):
+def get_h5_path(base_path, feature, test=False, test_exist=True):
     if test:
         tt = "test"
     else:
         tt = "train"
-    pp = join(_base_path,feature+"_"+tt+".h5")
-    if exists(pp):
+    pp = join(base_path, feature+"_"+tt+".h5")
+    if not test_exist or exists(pp):
         return pp
     else:
         raise Exception("feature does not seem to exist")
         return
 
-def get_csv_path(feature,test=False):
+def get_csv_path(base_path, feature, test=False, test_exist=True):
     if test:
         tt = "test"
     else:
         tt = "train"
-    pp = join(_base_path,feature+"_"+tt+".csv")
-    if exists(pp):
+    pp = join(base_path, feature+"_"+tt+".csv")
+    if not test_exist or exists(pp):
         return pp
     else:
         raise Exception("feature does not seem to exist")
         return
 
-def get_csv(feature,test=False,test_filtered=True):
-    f = open(get_csv_path(feature,test))
+def get_csv(base_path, feature,test=False,test_filtered=True):
+    f = open(get_csv_path(base_path, feature,test))
     rows = []
     import csv
     reader = csv.reader(f)
@@ -45,8 +44,8 @@ def get_csv(feature,test=False,test_filtered=True):
     f.close()
     return rows
 
-def get_data(feature,test=False,test_filtered=True):
-    h5_path = get_h5_path(feature,test)
+def get_data(base_path, feature, test=False, test_filtered=True):
+    h5_path = get_h5_path(base_path, feature, test)
     f = tables.openFile(h5_path)
     X = f.root.X.read()
     Y = array(f.root.DX.read())
@@ -55,9 +54,18 @@ def get_data(feature,test=False,test_filtered=True):
         Y = Y[where(Y>-1)]
     return (X,Y)
 
-def get_mask_path():
-    return join(_base_path,"mask_t0.1_sum0.8_closing.nii")
+def write_data(X, y, base_path, feature, test=False):
+    file_path = get_h5_path(base_path, feature, test=test, test_exist=False)
+    print file_path
+    out_hf5 = tables.openFile(file_path, "w")
+    out_hf5.createArray(out_hf5.root, "X", X)
+    out_hf5.createArray(out_hf5.root, "DX", y)
+    out_hf5.flush()
+    out_hf5.close()
 
-def get_mask():
+def get_mask_path(base_path):
+    return join(base_path,"mask_t0.1_sum0.8_closing.nii")
+
+def get_mask(base_path="/neurospin/adhd200/python_analysis/data"):
     import nibabel
-    return nibabel.load(get_mask_path()).get_data()
+    return nibabel.load(get_mask_path(base_path)).get_data()
