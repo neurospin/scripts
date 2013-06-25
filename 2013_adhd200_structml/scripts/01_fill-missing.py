@@ -41,7 +41,7 @@ ADHD200_DATA_BASE_PATH = "/neurospin/adhd200"
 
 # DATA PATH
 INPUT_PATH = os.path.join(ADHD200_DATA_BASE_PATH, "python_analysis", "data")
-OUTPUT_PATH = os.path.join("/volatile/adhd200/data", "python_analysis", "data")
+OUTPUT_PATH = os.path.join("/volatile/duchesnay/data/2013_adhd_structml", "python_analysis", "data")
 
 
 if not os.path.exists(OUTPUT_PATH):

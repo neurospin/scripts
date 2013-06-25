@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 21 10:43:24 2013
+Created on Tue Jun 25 10:28:34 2013
 
-@author: ed203246
-
+@author: edouard.duchesnay@cea.fr
 """
-#import logging
 
-from sklearn import svm
+from structured import LogisticRegressionL1TV
 from sklearn import preprocessing
 from sklearn.metrics import Scorer, recall_score 
 
@@ -38,15 +36,20 @@ scaler = preprocessing.StandardScaler().fit(X_train)
 X_train = scaler.transform(X_train)
 X_test = scaler.transform(X_test)
 
+mask = get_mask(INPUT_PATH)
+
+from structured import loss_functions
+l=1; gamma=1; shape=mask.shape; mask=mask; mu=None
+self = LogisticRegressionL1TV(l=1, gamma=1, shape=mask.shape, mask=mask)
+
+clf = LogisticRegressionL1TV(l=1, gamma=1, shape=mask.shape, mask=mask)
 
 
-svmlin = svm.LinearSVC(class_weight='auto')
-%time svmlin.fit(X_train, y_train)
+#%time svmlin.fit(X_train, y_train)
 # CPU times: user 17.58 s, sys: 1.50 s, total: 19.09 s
 
-y_pred = svmlin.predict(X_test)
-# global accuracy
-print svmlin.score(X_test, y_test)
+y_pred = clf.predict(X_test)
+
 
 # Use Scorer
 # scorer = Scorer(score_func=recall_score, pos_label=None, average='macro')
