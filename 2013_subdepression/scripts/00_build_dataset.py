@@ -70,7 +70,7 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
             Y_data[column] = data[column]
     Y = pandas.DataFrame(Y_data).values # Very inefficient
 
-    # Create groups and table
+    # Store data
     # X
     atom = tables.Atom.from_dtype(X.dtype)
     filters = tables.Filters(complib='blosc', complevel=5)
@@ -87,6 +87,11 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
     filters = tables.Filters(complib='blosc', complevel=5)
     ds = h5file.createCArray(h5file.root, 'subject_id', atom, subject_id.shape, filters=filters)
     ds[:] = subject_id
+    # Mask
+    atom = tables.Atom.from_dtype(mask.dtype)
+    filters = tables.Filters(complib='blosc', complevel=5)
+    ds = h5file.createCArray(h5file.root, 'mask', atom, mask.shape, filters=filters)
+    ds[:] = mask
     h5file.close()
     
     return X, Y
