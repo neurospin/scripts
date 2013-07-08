@@ -33,6 +33,9 @@ feature = "mw"
 #INPUT_PATH2 = os.path.join(ADHD200_DATA_BASE_PATH, "python_analysis", "data")
 
 X_train , y_train = get_data(INPUT_PATH, feature, test=False)
+X_train = X_train.astype(np.float)
+y_train = y_train.astype(np.float)[:, np.newaxis]
+
 #X_test , y_test = get_data(INPUT_PATH, feature, test=True)
 
 # Scale data
@@ -41,9 +44,9 @@ X_train = scaler.transform(X_train)
 #X_test = scaler.transform(X_test)
 
 
-#mask = np.array(get_mask(INPUT_PATH) == 1, dtype=np.int)
-#shape=mask.shape
-#mask = mask.ravel()
+mask = np.array(get_mask(INPUT_PATH) == 1, dtype=np.int)
+shape = mask.shape
+mask = mask.ravel()
 
 
 l=1; gamma=1; mu=None
@@ -51,11 +54,11 @@ l=1; gamma=1; mu=None
 ## BUILD SAVE tv =============================================================
 l=1; gamma=1; mu=None
 #clf = LogisticRegressionL1TV(l=1, gamma=1, shape=mask.shape, mask=mask)
-#tv = loss_functions.TotalVariation(gamma, shape, mu, mask)
+tv = loss_functions.TotalVariation(gamma, shape, mu, mask)
 #with open(tv_path, 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
 
 ## SAVE Everything
-nith open("X.npy", 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
+with open("X.npy", 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
 np.save("X.npy", X_train)
 np.save("y.npy", y_train)
 
@@ -64,6 +67,8 @@ np.save("y.npy", y_train)
 with open(tv_path, 'rb') as infile: tv = pickle.load(infile)
 
 # save Ax, Ay, Az, 
+clf = LogisticRegressionL1TV(l=1., gamma=1., shape=(5,5,5))
+
 
 clf = LogisticRegressionL1TV(l=1, gamma=1, shape=(5,5,5))
 self = clf
