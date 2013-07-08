@@ -13,7 +13,7 @@ This is used mainly for fast local access.
 import os, sys, argparse
 import math
 # Numpy and friends
-import numpy, pandas, patsy
+import numpy, pandas
 # For writing HDF5 files
 import tables
 # For loading images
@@ -59,41 +59,36 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
         X[index, :] = masked_image
     
     # Load regressors, dummy code them and concatenate them
-    Y_data = {}
-    for column, mapper in zip(data_api.REGRESSORS, data_api.REGRESSOR_MAPS):
-        if mapper:
-            for level in data[column].unique():
-                column_name = '{cat}_{value}'.format(cat=column, value=level)
-                column_serie = (data[column] == level).astype(numpy.float64)
-                Y_data[column_name] = column_serie
+    n_cols = sum(map(data_api.n_columns, data_api.REGRESSOR_VALUES))
+    print "Expanding categorical variables yields %i columns" % n_cols
+
+    Y = numpy.zeros((n_subjects, n_cols))
+    col_index = 0
+    for column, values in zip(data_api.REGRESSORS, data_api.REGRESSOR_VALUES):
+        if values:
+            if len(values) == 2:
+                # Map all the values
+                print "Putting binary variable %s at col %i (%s)" % (column, col_index, list(enumerate(values)))
+                Y[:, col_index] = numpy.array([values.index(l) for l in data[column]])
+                col_index += 1
+            else:
+                for level in values:
+                    column_name = '{cat}_{value}'.format(cat=column, value=level)
+                    print "Putting %s at col %i" % (column_name, col_index)
+                    column_serie = (data[column] == level).astype(numpy.float64)
+                    Y[:, col_index] = column_serie
+                    col_index += 1
         else:
-            Y_data[column] = data[column]
-    Y = pandas.DataFrame(Y_data).values # Very inefficient
+            print "Putting ordinal variable %s at col %i" % (column, col_index)
+            Y[:, col_index] = data[column]
+            col_index += 1
 
     # Store data
-    # X
-    atom = tables.Atom.from_dtype(X.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'X', atom, X.shape, filters=filters)
-    ds[:] = X
-    # Y
-    atom = tables.Atom.from_dtype(Y.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'Y', atom, Y.shape, filters=filters)
-    ds[:] = Y
-    # Subject ids
     subject_id = data['Subject'].values
-    atom = tables.Atom.from_dtype(subject_id.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'subject_id', atom, subject_id.shape, filters=filters)
-    ds[:] = subject_id
-    # Mask
-    atom = tables.Atom.from_dtype(mask.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'mask', atom, mask.shape, filters=filters)
-    ds[:] = mask
+    data_api.write_data(h5file, X, Y, subject_id, mask)
+
     h5file.close()
-    
+
     return X, Y
 
 if __name__ == '__main__':
