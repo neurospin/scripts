@@ -31,7 +31,10 @@ from sklearn import preprocessing
 from epac import Pipe, CV
 n_folds = 10
 
-anova_svm = Pipe(SelectKBest(k=5), preprocessing.StandardScaler(), SVM(class_weight='auto'))
+anova_svm = Pipe(SelectKBest(k=5), 
+                 preprocessing.StandardScaler(), 
+                 SVM(class_weight='auto'))
+
 cv = CV(anova_svm, n_folds=n_folds)
 cv.run(X=X, y=y)
 #
@@ -81,7 +84,7 @@ anova_svms = Methods(*[Pipe(SelectKBest(k=k), preprocessing.StandardScaler(),
                   for k in k_values])
 
 # Take a look
-print [l for l in anova_svm.walk_leaves()]
+print [l for l in anova_svms.walk_leaves()]
 
 ## k and C selection based on CV
 anova_svms_cv = CVBestSearchRefit(anova_svms)
