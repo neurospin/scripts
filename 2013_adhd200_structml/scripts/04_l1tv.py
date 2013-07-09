@@ -43,34 +43,34 @@ scaler = preprocessing.StandardScaler().fit(X_train)
 X_train = scaler.transform(X_train)
 #X_test = scaler.transform(X_test)
 
-
+# Flatten mask
 mask = np.array(get_mask(INPUT_PATH) == 1, dtype=np.int)
 shape = mask.shape
 mask = mask.ravel()
 
 
-l=1; gamma=1; mu=None
+# !! Gamma as float
+l=1; gamma=1.; mu=None
 
 ## BUILD SAVE tv =============================================================
-l=1; gamma=1; mu=None
-#clf = LogisticRegressionL1TV(l=1, gamma=1, shape=mask.shape, mask=mask)
-tv = loss_functions.TotalVariation(gamma, shape, mu, mask)
-#with open(tv_path, 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
+if False:
+    tv = loss_functions.TotalVariation(gamma, shape, mu, mask)
+    with open(tv_path, 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
 
 ## SAVE Everything
-with open("X.npy", 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
-np.save("X.npy", X_train)
-np.save("y.npy", y_train)
+#with open("X.npy", 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
+#np.save("X.npy", X_train)
+#np.save("y.npy", y_train)
 
 
 # RE-READ tv ============================================================
 with open(tv_path, 'rb') as infile: tv = pickle.load(infile)
 
 # save Ax, Ay, Az, 
-clf = LogisticRegressionL1TV(l=1., gamma=1., shape=(5,5,5))
+clf = LogisticRegressionL1TV(l=l., gamma=1gamma., shape=(5,5,5))
 
 
-clf = LogisticRegressionL1TV(l=1, gamma=1, shape=(5,5,5))
+clf = LogisticRegressionL1TV(l=1, gamma=gamma, shape=(5,5,5))
 self = clf
 
 self._tv =  tv

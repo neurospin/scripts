@@ -55,6 +55,7 @@ res_cv_svms = cv.reduce()
 print res_cv_svms
 print res_cv_svms["LinearSVC(penalty=l1)"]['y/test/score_recall']
 print res_cv_svms["LinearSVC(penalty=l2)"]['y/test/score_recall']
+# !!! BIASED RESULT !!!
 
 ##############################################################################
 # Automatic model selection: "CVBestSearchRefit"
@@ -90,7 +91,6 @@ print [l for l in anova_svms.walk_leaves()]
 anova_svms_cv = CVBestSearchRefit(anova_svms)
 
 #anova_svm_all = Methods(anova_svm, anova_svm_cv)
-               
 cv = CV(anova_svms_cv, n_folds=n_folds)
 time_fit_predict = time.time()
 cv.run(X=X, y=y)
