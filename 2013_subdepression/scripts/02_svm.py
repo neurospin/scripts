@@ -27,11 +27,7 @@ import data_api
 def apply_svm(h5filename, n_folds_nested, n_folds_eval, n_cores):
     # Open the output file
     h5file = tables.openFile(h5filename, mode = "r")
-    X, y, mask = data_api.get_data(h5file)
-    #Xnp = numpy.array(X)
-    #Ynp = numpy.array(y)
-    Xnp = X
-    Ynp = y
+    X, Y, mask = data_api.get_data(h5file)
     n_features = X.shape[1]
 
     # EPAC workflow
@@ -53,12 +49,16 @@ def apply_svm(h5filename, n_folds_nested, n_folds_eval, n_cores):
     # Evaluate it
     wf = epac.CV(best_pipeline,
                  n_folds=n_folds_eval)
+    
+    # Create local soma workflow engine
+    engine = epac.map_reduce.engine.SomaWorkflowEngine(
+        tree_root=wf,
+        num_processes=n_cores)
+    
     # Run the workflow
     print 'Running'
     epac.conf.TRACE_TOPDOWN=True
-    #local_engine = epac.map_reduce.engine.LocalEngine(tree_root=wf, num_processes=n_cores)
-    #wf = local_engine.run(X=Xnp, y=Ynp[:, 0])
-    wf.run(X=Xnp, y=Ynp[:, 0])
+    wf = engine.run(X=X, y=Y[:, 0])
     print 'Finished'
     
     h5file.close()
