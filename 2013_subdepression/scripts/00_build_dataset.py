@@ -58,38 +58,29 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
         # Store in X
         X[index, :] = masked_image
     
-    # Load regressors, dummy code them and concatenate them
-    n_cols = sum(map(data_api.n_columns, data_api.REGRESSOR_VALUES))
-    print "Expanding categorical variables yields %i columns" % n_cols
-
+    # Map regressors, values
+    n_cols = len(data_api.REGRESSORS)
     Y = numpy.zeros((n_subjects, n_cols))
-    col_index = 0
-    for column, values in zip(data_api.REGRESSORS, data_api.REGRESSOR_VALUES):
-        if values:
-            if len(values) == 2:
-                # Map all the values
-                print "Putting binary variable %s at col %i (%s)" % (column, col_index, list(enumerate(values)))
-                Y[:, col_index] = numpy.array([values.index(l) for l in data[column]])
-                col_index += 1
-            else:
-                for level in values:
-                    column_name = '{cat}_{value}'.format(cat=column, value=level)
-                    print "Putting %s at col %i" % (column_name, col_index)
-                    column_serie = (data[column] == level).astype(numpy.float64)
-                    Y[:, col_index] = column_serie
-                    col_index += 1
+    for col_index, (column, mapping) in enumerate(zip(data_api.REGRESSORS, data_api.REGRESSOR_MAPPINGS)):
+        if mapping:
+            # Map values
+            print "Mapping categorical variable %s at col %i" % (column, col_index)
+            Y[:, col_index] = numpy.array([mapping[l] for l in data[column]])
         else:
             print "Putting ordinal variable %s at col %i" % (column, col_index)
             Y[:, col_index] = data[column]
-            col_index += 1
 
     # Store data
     subject_id = data['Subject'].values
     data_api.write_data(h5file, X, Y, subject_id, mask)
+    
+    # Dummy coding
+    Y_dummy = data_api.dummy_coding(Y)
+    data_api.write_dummy(h5file, Y_dummy)
 
     h5file.close()
 
-    return X, Y
+    return X, Y, Y_dummy
 
 if __name__ == '__main__':
     # Parse CLI
@@ -108,4 +99,4 @@ if __name__ == '__main__':
       help='Title')
 
     args = parser.parse_args()
-    X, Y = dump_in_hdf5(**vars(args))
+    X, Y, Y_dummy = dump_in_hdf5(**vars(args))
