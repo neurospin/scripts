@@ -34,12 +34,11 @@ GenderMap      = collections.OrderedDict((
                                           ('Male', 0),
                                           ('Female', 1)))
 # The values are arbitrary (there are some missing values)
-HandednessMap = tables.misc.enum.Enum({
-                'NA'          : 0,
-                'Right'       : 1,
-                'Left'        : 2,
-                'Both-handed' : 3
-                })
+HandednessMap = collections.OrderedDict((
+                  ('NA',          0),
+                  ('Right',       1),
+                  ('Left',        2),
+                  ('Both-handed', 3)))
 # The values are in the Center column
 # The names in the ImagingCenterCity column
 CityMap       = collections.OrderedDict((
@@ -50,7 +49,7 @@ CityMap       = collections.OrderedDict((
                   ('HAMBURG',    5),
                   ('MANNHEIM',   6),
                   ('PARIS',      7),
-                  ('DRESDEN',     8)))
+                  ('DRESDEN',    8)))
 # The values are in the Scanner column
 # The names in the Scanner_Type column
 ScannerMap     = collections.OrderedDict((
