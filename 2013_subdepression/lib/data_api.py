@@ -142,29 +142,29 @@ def write_data(h5file, X, Y, subject_id, mask):
     '''Write basic representation of the dataset (X, Y, mask ad subject_id)'''
     # X
     atom = tables.Atom.from_dtype(X.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
+    filters = tables.Filters(complib='zlib', complevel=5)
     ds = h5file.createCArray(h5file.root, 'X', atom, X.shape, filters=filters)
     ds[:] = X
     # Y
     atom = tables.Atom.from_dtype(Y.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
+    filters = tables.Filters(complib='zlib', complevel=5)
     ds = h5file.createCArray(h5file.root, 'Y', atom, Y.shape, filters=filters)
     ds[:] = Y
     # Subject ids
     atom = tables.Atom.from_dtype(subject_id.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
+    filters = tables.Filters(complib='zlib', complevel=5)
     ds = h5file.createCArray(h5file.root, 'subject_id', atom, subject_id.shape, filters=filters)
     ds[:] = subject_id
     # Mask
     atom = tables.Atom.from_dtype(mask.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
+    filters = tables.Filters(complib='zlib', complevel=5)
     ds = h5file.createCArray(h5file.root, 'mask', atom, mask.shape, filters=filters)
     ds[:] = mask
 
 def write_dummy(h5file, Y_dummy):
     '''Write dummy variables'''
     atom = tables.Atom.from_dtype(Y_dummy.dtype)
-    filters = tables.Filters(complib='blosc', complevel=5)
+    filters = tables.Filters(complib='zlib', complevel=5)
     ds = h5file.createCArray(h5file.root, 'Y_dummy', atom, Y_dummy.shape, filters=filters)
     ds[:] = Y_dummy
 
