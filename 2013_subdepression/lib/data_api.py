@@ -28,11 +28,9 @@ IMAGE_SIZE            = (121, 145, 121)
 #
 
 # The values are arbitrary
-GroupMap       = collections.OrderedDict((('control', 0), ('sub', 1)))
+GroupMap      = collections.OrderedDict((('control', 0), ('sub', 1)))
 # The values are arbitrary
-GenderMap      = collections.OrderedDict((
-                                          ('Male', 0),
-                                          ('Female', 1)))
+GenderMap     = collections.OrderedDict((('Male', 0), ('Female', 1)))
 # The values are arbitrary (there are some missing values)
 HandednessMap = collections.OrderedDict((
                   ('NA',          0),
@@ -52,7 +50,7 @@ CityMap       = collections.OrderedDict((
                   ('DRESDEN',    8)))
 # The values are in the Scanner column
 # The names in the Scanner_Type column
-ScannerMap     = collections.OrderedDict((
+ScannerMap    = collections.OrderedDict((
                   ('GE',      1),
                   ('Philips', 2),
                   ('Siemens', 3)))
