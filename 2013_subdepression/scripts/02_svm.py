@@ -49,11 +49,16 @@ def apply_svm(h5filename, n_folds_nested, n_folds_eval, n_cores):
     # Evaluate it
     wf = epac.CV(best_pipeline,
                  n_folds=n_folds_eval)
-   
+    
+    # Create local soma workflow engine
+    engine = epac.map_reduce.engine.SomaWorkflowEngine(
+        tree_root=wf,
+        num_processes=n_cores)
+    
     # Run the workflow
     print 'Running'
     epac.conf.TRACE_TOPDOWN=True
-    wf.run(X=X, y=Y[:, 0])
+    wf = engine.run(X=X, y=Y[:, 0])
     print 'Finished'
     
     h5file.close()
