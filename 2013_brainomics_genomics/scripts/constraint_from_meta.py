@@ -27,7 +27,7 @@ def tree_path_gene_snp(ontology, ref=None, snps=None, name = 'synaptic transmiss
             go_gene_snp[name][g] = np.unique([i.name for i in tmp]).tolist()
    return go_gene_snp
 
-def gene_snp(name='UTS2'):
+def gene_snp(ref=None, name='UTS2'):
    subset = pybedtools.BedTool(ref.filter(lambda b: b.name.endswith('|%s'%name)>0).saveas())
    tmp = snps.intersect(subset)
    return np.unique([i.name for i in tmp]).tolist()
@@ -39,10 +39,10 @@ if __name__=="__main__":
    ref, snps = loadrefDB()
    
    #  load meta info from GO/GSEA, USCC refGene and snps available from mes
-   go  = json.load(open("/neurospin/brainomics/2013_brainomics_genomics/data/test.json"))
+   go  = json.load(open("/neurospin/brainomics/2013_brainomics_genomics/data/go_synaptic.json"))
 
    # example with a go entry
    tree = tree_path_gene_snp(go, ref=ref, snps=snps, name = 'synaptic transmission')
 
    # exmaple with a gene entry
-   snp_list = gene_snp(ref=ref, snps=snps,name='UTS2')
+   snp_list = gene_snp(ref=ref, name='UTS2')

@@ -89,3 +89,7 @@ if __name__=="__main__":
    #gsubset = ['rs2645081','rs3128309','rs2803285']
    blocks = build_websters(gfn, pfn, pafn, gsubset=gsubset)
    blocks.keys()
+   basepath = '/neurospin/brainomics/2013_brainomics_genomics/'
+   f = open(basepath+'data/blocks.pickle', 'w')
+   pickle.dump(blocks, f)
+   f.close()
