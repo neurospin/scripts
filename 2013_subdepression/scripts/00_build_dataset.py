@@ -41,6 +41,7 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
     print "Loading mask {mask_filename}".format(mask_filename=mask_filename)
     babel_mask = nibabel.load(mask_filename)
     mask = babel_mask.get_data()
+    mask_affine = babel_mask.get_affine()
     binary_mask = mask!=0
     useful_voxels = numpy.ravel_multi_index(numpy.where(binary_mask), mask.shape)
     n_useful_voxels = len(useful_voxels)
@@ -72,7 +73,7 @@ def dump_in_hdf5(DB_PATH, outfilename, title):
 
     # Store data
     subject_id = data['Subject'].values
-    data_api.write_data(h5file, X, Y, subject_id, mask)
+    data_api.write_data(h5file, X, Y, subject_id, mask, mask_affine)
     
     # Dummy coding
     Y_dummy = data_api.dummy_coding(Y)
