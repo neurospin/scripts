@@ -178,4 +178,4 @@ def get_data(h5file):
     return (h5file.root.X, h5file.root.Y, h5file.root.mask, h5file.root.mask_affine_transform)
 
 def get_dummy(h5file):
-    return h5file.Y_dummy
+    return h5file.root.Y_dummy
