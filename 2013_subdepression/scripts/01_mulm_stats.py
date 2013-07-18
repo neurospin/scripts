@@ -8,9 +8,11 @@ This script generate a workflow to perform a MULM cluster-level analysis with pe
 
 """
 
-import os, sys
+# Standard library modules
+import os, sys, argparse, ast
 import numpy
 import scipy, scipy.ndimage
+import sklearn.preprocessing
 import tables
 
 from epac import BaseNode, Pipe
@@ -21,6 +23,10 @@ from mulm import LinearRegression
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
 import data_api
 
+DEFAULT_N_PERMS  = 1000
+DEFAULT_THRESH   = 0.001
+DEFAULT_CONTRAST = 'auto'
+
 class MULMStats(BaseNode):
     def transform(self, **kwargs):
         lm = LinearRegression()
@@ -29,7 +35,7 @@ class MULMStats(BaseNode):
         contrast = kwargs['contrast']
         print 'Fitting LM'
         lm.fit(X=X, Y=Y)
-        print 'Computing  p-values'
+        print 'Computing p-values'
         tval, pval = lm.stats(X, Y, contrast=contrast, pval=True)
         kwargs["pval"] = pval
         return kwargs
@@ -51,20 +57,67 @@ class ClusterStats(BaseNode):
         out = dict(clust_sizes=clust_sizes)
         return out
 
-h5filename = '/volatile/micro_subdepression.hdf5'
+def mulm_stat(h5filename, workflow_dir,
+              n_perms=DEFAULT_N_PERMS, thresh=DEFAULT_THRESH,
+              contrast=DEFAULT_CONTRAST):
+    # Load the file
+    h5file = tables.openFile(h5filename, mode = "r")
+    images, regressors, mask, mask_affine = data_api.get_data(h5file)
+    Y_dummy = data_api.get_dummy(h5file)
+    n_useful_voxels = images.shape[1]
+    n_obs           = images.shape[0]
+    n_regressors    = Y_dummy.shape[1]
+    if regressors.shape[0] != n_obs:
+        print 'You stupid'
+        sys.exit()
 
-# Load the file
-h5file = tables.openFile(h5filename, mode = "r")
-images, regressors, mask, mask_affine = data_api.get_data(h5file)
-design_mat = data_api.get_dummy(h5file)
-n_useful_voxels = images.shape[1]
-n_obs           = images.shape[0]
-n_regressors    = design_mat.shape[1]
-if regressors.shape[0] != n_obs:
-    print 'You stupid'
-    sys.exit()
+    # Create design matrix: add an intercept column to Y_dummy & normalize
+    design_mat = numpy.ones((n_obs, n_regressors+1))
+    design_mat[:, 0:-1] = Y_dummy
+    design_mat = sklearn.preprocessing.scale(design_mat)
 
-pipeline = Pipe(MULMStats(), ClusterStats())
-pipeline.run(Y=images, design_matrix=design_mat, mask=numpy.asarray(mask), thresh=0.001, contrast=[1, 0, 0, 0, 0, 0])
+    if contrast == 'auto':
+        contrast = numpy.zeros((n_regressors+1))
+        contrast[0] = 1
 
-#h5file.close()
+    pipeline = Pipe(MULMStats(), ClusterStats())
+    pipeline.run(Y=images, design_matrix=design_mat, mask=numpy.asarray(mask),
+                 thresh=thresh, contrast=contrast)
+
+    h5file.close()
+    return pipeline
+
+if __name__ == '__main__':
+    # Stupid type convert for k_values
+    def convert_contrast(arg):
+        try:
+            contrast = ast.literal_eval(arg)
+        except:
+            contrast = arg
+        return contrast
+
+    # Parse CLI
+    parser = argparse.ArgumentParser(description='''Create a workflow for MULM and cluster level stat''')
+
+    parser.add_argument('h5filename',
+      type=str,
+      help='Read from filename')
+
+    parser.add_argument('workflow_dir',
+      type=str,
+      help='Directory on which to save the workflow')
+
+    parser.add_argument('--n_perms',
+      type=int, default=DEFAULT_N_PERMS,
+      help='Number of permutations')
+
+    parser.add_argument('--thresh',
+      type=float, default=DEFAULT_N_PERMS,
+      help='p-values threshold')
+
+    parser.add_argument('--contrast',
+      type=convert_contrast, default=DEFAULT_CONTRAST,
+      help='Contrast (python list or ''auto''; by default 1 with as many 0 as needed')
+
+    args = parser.parse_args()
+    pipeline = mulm_stat(**vars(args))
