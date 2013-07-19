@@ -45,7 +45,7 @@ def svm_choose_param_worfkflow(h5filename, workflow_dir,
 
     # Open the output file
     h5file = tables.openFile(h5filename, mode = "r")
-    X, Y, mask = data_api.get_data(h5file)
+    X, Y, mask, mask_affine = data_api.get_data(h5file)
     n_features = X.shape[1]
     y = Y[:, 0]
 
