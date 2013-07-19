@@ -11,7 +11,6 @@ This is used mainly for fast local access.
 
 # Standard library modules
 import os, sys, argparse
-import math
 # Numpy and friends
 import numpy, pandas
 # For writing HDF5 files
