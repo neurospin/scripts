@@ -24,7 +24,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib
 import data_api
 
 DEFAULT_N_PERMS  = 1000
-DEFAULT_THRESH   = 0.001
+DEFAULT_THRESH   = 0.01
 DEFAULT_CONTRAST = 'auto'
 
 class MULMStats(BaseNode):
@@ -81,14 +81,14 @@ def mulm_stat(h5filename, workflow_dir,
         contrast[0] = 1
 
     pipeline = Pipe(MULMStats(), ClusterStats())
-    pipeline.run(Y=images, design_matrix=design_mat, mask=numpy.asarray(mask),
-                 thresh=thresh, contrast=contrast)
+    results = pipeline.run(Y=images, design_matrix=design_mat, mask=numpy.asarray(mask),
+                           thresh=thresh, contrast=contrast)
 
     h5file.close()
-    return pipeline
+    return pipeline, results
 
 if __name__ == '__main__':
-    # Stupid type convert for k_values
+    # Stupid type convert for contrast
     def convert_contrast(arg):
         try:
             contrast = ast.literal_eval(arg)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
       help='Number of permutations')
 
     parser.add_argument('--thresh',
-      type=float, default=DEFAULT_N_PERMS,
+      type=float, default=DEFAULT_THRESH,
       help='p-values threshold')
 
     parser.add_argument('--contrast',
