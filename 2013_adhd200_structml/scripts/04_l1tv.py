@@ -67,7 +67,7 @@ if False:
 with open(tv_path, 'rb') as infile: tv = pickle.load(infile)
 
 # save Ax, Ay, Az, 
-clf = LogisticRegressionL1TV(l=l., gamma=1gamma., shape=(5,5,5))
+clf = LogisticRegressionL1TV(l=l., gamma=gamma., shape=(5,5,5))
 
 
 clf = LogisticRegressionL1TV(l=1, gamma=gamma, shape=(5,5,5))

@@ -9,8 +9,12 @@ import os
 #import pandas as pd
 import numpy as np
 import time
+import pandas as pd
 
 WD = "/home/ed203246/data/2013_cati-freesurfer-roi-thickness"
+csv_imaging_filepath = os.path.join(WD,"data/imaging.csv")
+imaging_df = pd.read_table(csv_imaging_filepath, header=0)
+imaging_variables = imaging_df.columns
 
 ## ===========================================================================
 ## AD vs CTL
@@ -41,7 +45,6 @@ cv.run(X=X, y=y)
 res_cv_anova_svm = cv.reduce()
 res_cv_anova_svm["SelectKBest/StandardScaler/LinearSVC"]['y/test/score_recall']
 
-
 ##############################################################################
 ## Multimethods, "Methods": SVM l1 vs l2
 from epac import Methods, CV
@@ -57,6 +60,21 @@ print res_cv_svms["LinearSVC(penalty=l1)"]['y/test/score_recall']
 print res_cv_svms["LinearSVC(penalty=l2)"]['y/test/score_recall']
 # !!! BIASED RESULT !!!
 
+# Re-fit on all data to see which mode is choosen. Warning !!! this is biased
+# since all data have been used. We use for information only. No score can be
+# used from it. We look the weights map.
+svms.run(X=X, y=y)
+print svms.children[0]
+svms.children[0].estimator.coef_
+print svms.children[1]
+svms.children[1].estimator.coef_
+
+print "Weights given by SVMs"
+d = dict(var = imaging_variables,
+svm_weights_l1 = svms.children[0].estimator.coef_.ravel(),
+svm_weights_l2 = svms.children[1].estimator.coef_.ravel())
+print pd.DataFrame(d).to_string()
+
 ##############################################################################
 # Automatic model selection: "CVBestSearchRefit"
 from epac import CVBestSearchRefit, Methods, CV
@@ -68,9 +86,11 @@ cv.run(X=X, y=y)
 res_cv_svms_auto = cv.reduce()
 print res_cv_svms_auto
 print res_cv_svms_auto["CVBestSearchRefit"]['y/test/score_recall']
-# Re-run on all data to see which mode is choosen (biaised)
+
+# Re-fit on all data. Warning: biased !!!
 svms_auto.run(X=X, y=y)
-print svms_auto.reduce()["CVBestSearchRefit"]['best_params']
+print svms_auto.best_params
+print svms_auto.refited.estimator.coef_
 
 ##############################################################################
 # Put everything together
@@ -88,14 +108,27 @@ anova_svms = Methods(*[Pipe(SelectKBest(k=k), preprocessing.StandardScaler(),
 print [l for l in anova_svms.walk_leaves()]
 
 ## k and C selection based on CV
-anova_svms_cv = CVBestSearchRefit(anova_svms)
+anova_svms_auto = CVBestSearchRefit(anova_svms)
 
 #anova_svm_all = Methods(anova_svm, anova_svm_cv)
-cv = CV(anova_svms_cv, n_folds=n_folds)
+cv = CV(anova_svms_auto, n_folds=n_folds)
 time_fit_predict = time.time()
 cv.run(X=X, y=y)
 print time.time() - time_fit_predict
 print cv.reduce()
+
+# Re-fit on all data. Warning: biased !!!
+anova_svms_auto.run(X=X, y=y)
+
+print anova_svms_auto.best_params
+print "Features selected by univariate filter"
+selected_features = imaging_variables[anova_svms_auto.refited.estimator.get_support()]
+
+print "Features selected weights"
+d = dict(var = selected_features,
+svm_weights_l1 = anova_svms_auto.refited.children[0].children[0].estimator.coef_.ravel())
+print pd.DataFrame(d).to_string()
+
 
 ##############################################################################
 ## Use multi-process
@@ -106,27 +139,4 @@ wf = local_engine.run(X=X, y=y)
 print time.time() - time_fit_predict
 
 print wf.reduce()
-
-
-
-
-#############################################################################
-
-
-
-# {'key': SelectKBest(k=4)/StandardScaler/LinearSVC(penalty=l1,C=10), 'mean_score_te': 0.84, 'mean_score_tr': 0.846666666667},
-
-pipe = Pipe(SelectKBest(k=4), preprocessing.StandardScaler(), LinearSVC(C=10, penalty="l1", 
-     class_weight='auto', dual=False))
-pipe.fit_predict(X=X, y=y)
-
-sv = pipe.children[0].children[0]     
-sv.estimator.coef_
-kb = pipe.estimator
-kb.get_support()
-np.where(kb.get_support())
-#Out[114]: (array([ 22,  36,  96, 146]),)
-
-d_num.columns[np.array([ 22,  36,  96, 146])]
-Index([u'LH_G_OCTEMP_MEDPARAHIP_THICKNESS', u'LH_G_TEMPORAL_INF_THICKNESS', u'RH_G_OCTEMP_MEDPARAHIP_THICKNESS', u'RH_S_TEMPORAL_SUP_THICKNESS'], dtype=object)
 

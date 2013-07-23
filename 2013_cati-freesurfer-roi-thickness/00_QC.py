@@ -11,13 +11,15 @@ import numpy as np
 
 WD = "/home/ed203246/data/2013_cati-freesurfer-roi-thickness"
 csvfilename = os.path.join(WD,"data/freesurfer.csv")
-datasets_filepath = os.path.join(WD,"data/AD_CTL.npz")
+numpydataset_ad_ctl_filepath = os.path.join(WD,"data/AD_CTL.npz")
+csv_imaging_filepath = os.path.join(WD,"data/imaging.csv")
 
 ## Read and clean the table
 df = pd.read_table(csvfilename, header=0)
 # import utils
 run /home/ed203246/git/scripts/2013_cati-freesurfer-roi-thickness/utils.py
 d_num, d_cat, d_nas, stats = dataframe_quality_control(df)
+d_num.to_csv(csv_imaging_filepath, sep="\t", index=False)
 
 print d_cat.to_string()
 print stats.to_string()
@@ -29,4 +31,6 @@ idx = np.array(d_cat.DIAGNOSTIC == "AD") | np.array(d_cat.DIAGNOSTIC == "CONTROL
 X = d_num[idx]
 y = np.array(d_cat.DIAGNOSTIC[idx] == "AD", dtype=int)
 
-np.savez(datasets_filepath, X=X, y=y)
+d_num.to_csv(MERGE_CADASIL_ASPS_FILEPATH+".csv", sep="\t", index=False)
+
+np.savez(numpydataset_ad_ctl_filepath, X=X, y=y)
