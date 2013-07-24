@@ -15,7 +15,7 @@ import scipy, scipy.ndimage
 import sklearn.preprocessing
 import tables
 
-from epac import BaseNode, Pipe
+import epac
 from mulm import LinearRegression
 # X(nxp), y(nx1), mask => MULMStats => pval(px1) => ClusterStat() => sizes(kx1)
 
@@ -26,8 +26,9 @@ import data_api
 DEFAULT_N_PERMS  = 1000
 DEFAULT_THRESH   = 0.01
 DEFAULT_CONTRAST = 'auto'
+DEFAULT_NUM_PROCESSES = 'auto'
 
-class MULMStats(BaseNode):
+class MULMStats(epac.BaseNode):
     def transform(self, **kwargs):
         lm = LinearRegression()
         X = kwargs['design_matrix']
@@ -40,7 +41,7 @@ class MULMStats(BaseNode):
         kwargs["pval"] = pval
         return kwargs
 
-class ClusterStats(BaseNode):
+class ClusterStats(epac.BaseNode):
     def transform(self, **kwargs):
         print 'Clustering'
         mask   = kwargs['mask']
@@ -58,8 +59,10 @@ class ClusterStats(BaseNode):
         return out
 
 def mulm_stat(h5filename, workflow_dir,
-              n_perms=DEFAULT_N_PERMS, thresh=DEFAULT_THRESH,
-              contrast=DEFAULT_CONTRAST):
+              thresh=DEFAULT_THRESH, contrast=DEFAULT_CONTRAST,
+              n_perms=DEFAULT_N_PERMS,
+              num_processes=DEFAULT_NUM_PROCESSES):
+
     # Load the file
     h5file = tables.openFile(h5filename, mode = "r")
     images, regressors, mask, mask_affine = data_api.get_data(h5file)
@@ -79,13 +82,23 @@ def mulm_stat(h5filename, workflow_dir,
     if contrast == 'auto':
         contrast = numpy.zeros((n_regressors+1))
         contrast[0] = 1
+    if num_processes == 'auto':
+        num_processes = n_perms
 
-    pipeline = Pipe(MULMStats(), ClusterStats())
-    results = pipeline.run(Y=images, design_matrix=design_mat, mask=numpy.asarray(mask),
-                           thresh=thresh, contrast=contrast)
+    pipeline = epac.Pipe(MULMStats(), ClusterStats())
+
+    permutation_wf = epac.Perms(pipeline,
+                                permute="design_matrix",
+                                n_perms=n_perms)
+
+    # Save the workflow
+    sfw_engine = epac.map_reduce.engine.SomaWorkflowEngine(tree_root=permutation_wf,
+                                                           num_processes=num_processes)
+    sfw_engine.export_to_gui(workflow_dir,
+                             Y=images, design_matrix=design_mat, mask=numpy.asarray(mask),
+                             thresh=thresh, contrast=contrast)
 
     h5file.close()
-    return pipeline, results
 
 if __name__ == '__main__':
     # Stupid type convert for contrast
@@ -95,6 +108,13 @@ if __name__ == '__main__':
         except:
             contrast = arg
         return contrast
+
+    def convert_num_processes(arg):
+        try:
+            num_processes = int(arg)
+        except:
+            num_processes = arg
+        return num_processes
 
     # Parse CLI
     parser = argparse.ArgumentParser(description='''Create a workflow for MULM and cluster level stat''')
@@ -119,5 +139,9 @@ if __name__ == '__main__':
       type=convert_contrast, default=DEFAULT_CONTRAST,
       help='Contrast (python list or ''auto''; by default 1 with as many 0 as needed')
 
+    parser.add_argument('--num_processes',
+      type=convert_num_processes, default=DEFAULT_NUM_PROCESSES,
+      help='Number of processes to use or ''auto'' (defaut number of permutations)')
+
     args = parser.parse_args()
-    pipeline = mulm_stat(**vars(args))
+    mulm_stat(**vars(args))
