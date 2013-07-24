@@ -69,7 +69,7 @@ def n_dummy_columns(mapping):
     else:
         return len(mapping) - 1
 
-def dummy_coding(Y):
+def dummy_coding(Y, variables=REGRESSORS):
     '''Return a dummy coded Y matrix'''
     n_subjects = Y.shape[0]
     variables = REGRESSORS
@@ -138,44 +138,14 @@ def get_mask_file_path(base_path, test_exist=True):
     else:
         raise Exception("File %s does not seem to exist" % mask_file_path)
 
-def write_data(h5file, X, Y, subject_id, mask, affine_transform):
-    '''Write basic representation of the dataset (X, Y, mask ad subject_id)'''
+def write_images(h5file, X):
+    '''Write grey matter masked images'''
     # X
     atom = tables.Atom.from_dtype(X.dtype)
     filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'X', atom, X.shape, filters=filters)
+    ds = h5file.createCArray(h5file.root, 'masked_images', atom, X.shape, filters=filters)
     ds[:] = X
-    # Y
-    atom = tables.Atom.from_dtype(Y.dtype)
-    filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'Y', atom, Y.shape, filters=filters)
-    ds[:] = Y
-    # Subject ids
-    atom = tables.Atom.from_dtype(subject_id.dtype)
-    filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'subject_id', atom, subject_id.shape, filters=filters)
-    ds[:] = subject_id
-    # Mask
-    atom = tables.Atom.from_dtype(mask.dtype)
-    filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'mask', atom, mask.shape, filters=filters)
-    ds[:] = mask
-    # Mask affine transform
-    atom = tables.Atom.from_dtype(affine_transform.dtype)
-    filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'mask_affine_transform', atom, affine_transform.shape, filters=filters)
-    ds[:] = affine_transform
 
-def write_dummy(h5file, Y_dummy):
-    '''Write dummy variables'''
-    atom = tables.Atom.from_dtype(Y_dummy.dtype)
-    filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'Y_dummy', atom, Y_dummy.shape, filters=filters)
-    ds[:] = Y_dummy
-
-def get_data(h5file):
-    '''Return data from the HDF5 file'''
-    return (h5file.root.X, h5file.root.Y, h5file.root.mask, h5file.root.mask_affine_transform)
-
-def get_dummy(h5file):
-    return h5file.root.Y_dummy
+def get_images(h5file):
+    '''Return images from the HDF5 file'''
+    return h5file.root.masked_images
