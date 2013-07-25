@@ -1,0 +1,44 @@
+Palette
+=======
+Need a palette with transparent zero value.
+
+1 Use predifided palette
+------------------------
+copy /neurospin/brainomics/ressources/anatomist/weights_map_blackcenter.tiff in ~/.anatomist/rgb/
+(create rgb directory if needed)
+
+
+2 Build custom palette
+----------------------
+
+Click right weight image goto palette editor. Design palette using RGBA chanel
+     _ 
+R __/
+
+G \__/
+
+B _
+   \__
+
+=> Check that middle of the palette is black
+A ---- (full opacity, eventually add a sharp hole in the middle of the palette)
+
+Usage
+-----
+Right click on obejct / color / Palette choose "weights_map_blackcenter"
+Check value 0 at center
+
+1) Fusion with anat
+===================
+Objects 
+ - weights (A)
+ - anat   (B)
+Mapping mode: linear / B (anat) if A (weights) is black.
+
+2) Surface rendering
+====================
+
+3) Volume rendering
+===================
+
+
