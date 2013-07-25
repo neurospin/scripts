@@ -11,7 +11,7 @@
 
 import os.path
 import collections
-import tables, numpy
+import tables, pandas
 
 # Some constants
 CLINIC_DIRECTORY_NAME = 'clinic'
@@ -55,52 +55,13 @@ ScannerMap    = collections.OrderedDict((
                   ('Philips', 2),
                   ('Siemens', 3)))
 
-# Variables name and mappings
-# None is used to indicate ordinal variables
-REGRESSORS         = ["group_sub_ctl", "Age", "Gender", "VSF", "Scanner_Type"]
-REGRESSOR_MAPPINGS = [GroupMap, None, GenderMap, None, ScannerMap]
-
-def n_dummy_columns(mapping):
-    '''Determine the number of columns for dummy coding of a given categorical variable mapping:
-         - if the values is None -> 1 column
-         - else len(values)-1 columns'''
-    if mapping == None:
-        return 1
-    else:
-        return len(mapping) - 1
-
-def dummy_coding(Y, variables=REGRESSORS):
-    '''Return a dummy coded Y matrix'''
-    n_subjects = Y.shape[0]
-    variables = REGRESSORS
-    mappings  = REGRESSOR_MAPPINGS
-    n_cols = sum(map(n_dummy_columns, mappings))
-    print "Expanding categorical variables yields %i columns" % n_cols
-
-    Y_dummy = numpy.zeros((n_subjects, n_cols))
-    col_index = 0
-    dummy_col_index = 0
-    for variable, mapping in zip(variables, mappings):
-        if mapping:
-            categorical_values = mapping.keys()
-            categorical_ref_value = categorical_values.pop(0)
-            numerical_values = mapping.values();
-            numerical_values = mapping.values();
-            numerical_ref_value = numerical_values.pop(0)
-            print "Reference value for %s is %s (%d)" % (variable, categorical_ref_value, numerical_ref_value)
-            for level_index, level in enumerate(numerical_values):
-                dummy_var = '{cat}_d{value}'.format(cat=variable, value=level_index)
-                print "Putting %s at col %i" % (dummy_var, dummy_col_index)
-                column_serie = (Y[:, col_index] == level).astype(numpy.float64)
-                Y_dummy[:, dummy_col_index] = column_serie
-                dummy_col_index += 1
-            col_index += 1
-        else:
-            print "Putting ordinal variable %s at col %i" % (variable, dummy_col_index)
-            Y_dummy[:, dummy_col_index] = Y[:, col_index]
-            dummy_col_index += 1
-            col_index += 1
-    return Y_dummy
+# Categorical variables mappings
+REGRESSOR_MAPPINGS = {
+"group_sub_ctl":     GroupMap,
+"Gender":            GenderMap,
+"Scanner_Type":      ScannerMap,
+"ImagingCentreCity": CityMap
+}
 
 def get_clinic_dir_path(base_path, test_exist=True):
     '''Returns the name of the clinic dir'''
@@ -149,3 +110,10 @@ def write_images(h5file, X):
 def get_images(h5file):
     '''Return images from the HDF5 file'''
     return h5file.root.masked_images
+
+def read_clinic_file(path):
+    '''Read the clinic filename and perform basic conversions.
+       Return a dataframe.'''
+    # The first column is the line number so we can skip it
+    df = pandas.io.parsers.read_csv(path, index_col=0)
+    return df
