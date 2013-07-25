@@ -1,12 +1,5 @@
 '''A module to ease access to the subdepression database.
-   The basic idea is to store everything in a HDF5 file.
-   The database is first compressed in the HDF5 file:
-    - X: concatenated masked images (size (n_subjects, n_useful_voxels))
-    - Y: concatenated regressors (the first column is the group) (size (n_subjects, n_regressors))
-    - mask: the mask
-   Dummy codig can be peformed and stored in Y_dummy.
-   TODO: add indicator variables coding?
-   TODO: use named array
+   The basic idea is to store images in a HDF5 file for fast access.
 '''
 
 import os.path
