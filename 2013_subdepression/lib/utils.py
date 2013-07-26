@@ -22,14 +22,14 @@ def n_indicator_columns(mapping):
     '''Determine the number of columns for indicator variables coding of a given categorical variable mapping:
          - if the values is None -> 1 column
          - else len(values) columns'''
-    if mapping == None:
+    if mapping is None:
         return 1
     else:
         return len(mapping)
 
 def indicator_variables(df, variables=None):
     '''Return a dataframe with indicator variables'''
-    if not variables:
+    if variables is None:
         variables = df.columns()
     mappings  = map(data_api.REGRESSOR_MAPPINGS.get, variables)
     n_cols = sum(map(n_indicator_columns, mappings))
@@ -57,14 +57,14 @@ def n_dummy_columns(mapping):
     '''Determine the number of columns for dummy coding of a given categorical variable mapping:
          - if the values is None -> 1 column
          - else len(values)-1 columns'''
-    if mapping == None:
+    if mapping is None:
         return 1
     else:
         return len(mapping) - 1
 
 def dummy_coding(df, variables=None):
     '''Return a dummy coded dataframe'''
-    if not variables:
+    if variables is None:
         variables = df.columns()
     mappings  = map(data_api.REGRESSOR_MAPPINGS.get, variables)
     n_cols = sum(map(n_dummy_columns, mappings))

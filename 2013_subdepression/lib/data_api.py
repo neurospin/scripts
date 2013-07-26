@@ -48,13 +48,34 @@ ScannerMap    = collections.OrderedDict((
                   ('Philips', 2),
                   ('Siemens', 3)))
 
+QualityControlMap = collections.OrderedDict((
+                  ('A', 1),
+                  ('B', 2)))
+                  
+TemplateMap =  collections.OrderedDict((
+                  ('no',  0),
+                  ('yes', 1)))
+
 # Categorical variables mappings
 REGRESSOR_MAPPINGS = {
 "group_sub_ctl":     GroupMap,
 "Gender":            GenderMap,
 "Scanner_Type":      ScannerMap,
-"ImagingCentreCity": CityMap
+"ImagingCentreCity": CityMap,
+"Handedness":        HandednessMap,
+"quality_control":   QualityControlMap,
+"template":          TemplateMap
 }
+
+# Some columns are redundant so I remove them:
+#  - Center is the numerical representation of ImagingCentreCity
+#  - Scanner is the numerical representation of Scanner_Type
+# Also the image field is special
+COLUMNS = ['Subject', 'group_sub_ctl', 'Gender', 'pds', 'Age',
+           'ImagingCentreCity', 'Scanner_Type',
+           'quality_control', 'template',
+           'vol_GM', 'vol_WM', 'vol_CSF', 'TIV', 'GM_on_TIV', 'WM_on_TIV', 'CSF_on_TIV', 'VSF', 'Handedness',
+           'IQ', 'tristesse', 'irritabilite', 'anhedonie', 'total_symptoms_dep']
 
 def get_clinic_dir_path(base_path, test_exist=True):
     '''Returns the name of the clinic dir'''
@@ -109,4 +130,5 @@ def read_clinic_file(path):
        Return a dataframe.'''
     # The first column is the line number so we can skip it
     df = pandas.io.parsers.read_csv(path, index_col=0)
+    df = df[COLUMNS]
     return df
