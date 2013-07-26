@@ -31,10 +31,10 @@ except NameError:
     sys.path.append(os.path.join(os.environ["HOME"] , "Code", "scripts", "2013_subdepression", "lib"))
 import data_api, utils
 
-DB_PATH='/home/md238665/DB/micro_subdep'
-LOCAL_PATH='/volatile/micro_subdepression.hdf5'
-DEFAULT_N_PERMS  = 1000
-DEFAULT_THRESH   = 0.01
+DB_PATH='/neurospin/brainomics/2012_imagen_subdepression'
+LOCAL_PATH='/volatile/imagen_subdepression.hdf5'
+N_PERMS  = 1000
+THRESH   = 0.01
 
 class MULMStats(epac.BaseNode):
     def __init__(self):
@@ -87,6 +87,7 @@ masked_images = data_api.get_images(fd)
 #####################################################
 # 1st part: fit MULM models and store p-values maps #
 #####################################################
+
 OUT_DIR='results/mulm/'
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
@@ -94,35 +95,90 @@ if not os.path.exists(OUT_DIR):
 # Construct EPAC workflow
 pipeline = epac.Pipe(MULMStats(), ClusterStats())
 
-# 1st model
-MODEL = ["group_sub_ctl", "Gender", "pds", "VSF", "Scanner_Type"]
-MODEL_OUT = os.path.join(OUT_DIR, "-".join(MODEL))
+# 1st model: most of the covariables
+MODEL = ['group_sub_ctl', 'Gender', 'pds', 'Age',
+         'ImagingCentreCity', 'Scanner_Type',
+         'vol_GM', 'vol_WM', 'vol_CSF', 'TIV', 'GM_on_TIV', 'WM_on_TIV', 'CSF_on_TIV', 'VSF',
+         'tristesse', 'irritabilite', 'anhedonie', 'total_symptoms_dep']
+MODEL_OUT = os.path.join(OUT_DIR, "all-covariates")
 if not os.path.exists(MODEL_OUT):
     os.makedirs(MODEL_OUT)
-design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=True)
+design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+Y = masked_images
 contrast = numpy.zeros(design_mat.shape[1])
 contrast[0] = 1
+isnan = numpy.isnan(design_mat)
+if isnan.any():
+    bad_subject_ind = numpy.where(isnan)[0]
+    print "Removing subject", bad_subject_ind
+    design_mat = numpy.delete(design_mat, bad_subject_ind, axis=0)
+    Y = numpy.delete(Y, bad_subject_ind, axis=0)
 
-pipeline_res = pipeline.run(design_matrix=design_mat, Y=masked_images, mask=mask,
-                            contrast=contrast, thresh=0.01)
+pipeline_res = pipeline.run(design_matrix=design_mat, Y=Y, mask=mask,
+                            contrast=contrast, thresh=THRESH)
 # Make a map
 outimg = utils.make_image_from_array(pipeline_res['pval'], babel_mask)
 nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval.nii'))
+outimg = utils.make_image_from_array(pipeline_res['pval'] < THRESH, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval_inf_thresh.nii'))
+smallest_pval = numpy.sort(pipeline_res['pval'])[-1000]
+outimg = utils.make_image_from_array(pipeline_res['pval'] < smallest_pval, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'selected_features.nii'))
+
 
 # 2nd model
+MODEL = ["group_sub_ctl", "Gender", "pds", "VSF", "ImagingCentreCity"]
+MODEL_OUT = os.path.join(OUT_DIR, "-".join(MODEL))
+if not os.path.exists(MODEL_OUT):
+    os.makedirs(MODEL_OUT)
+design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+Y = masked_images
+contrast = numpy.zeros(design_mat.shape[1])
+contrast[0] = 1
+isnan = numpy.isnan(design_mat)
+if isnan.any():
+    bad_subject_ind = numpy.where(isnan)[0]
+    print "Removing subject", bad_subject_ind
+    design_mat = numpy.delete(design_mat, bad_subject_ind, axis=0)
+    Y = numpy.delete(Y, bad_subject_ind, axis=0)
+
+pipeline_res = pipeline.run(design_matrix=design_mat, Y=Y, mask=mask,
+                            contrast=contrast, thresh=THRESH)
+# Make a map
+outimg = utils.make_image_from_array(pipeline_res['pval'], babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval.nii'))
+outimg = utils.make_image_from_array(pipeline_res['pval'] < THRESH, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval_inf_thresh.nii'))
+smallest_pval = numpy.sort(pipeline_res['pval'])[-1000]
+outimg = utils.make_image_from_array(pipeline_res['pval'] < smallest_pval, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'selected_features.nii'))
+
+# 3rd model: the one from ML Paillère
 MODEL = ["group_sub_ctl", "Gender", "Age", "VSF", "Scanner_Type"]
 MODEL_OUT = os.path.join(OUT_DIR, "-".join(MODEL))
 if not os.path.exists(MODEL_OUT):
     os.makedirs(MODEL_OUT)
-design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=True)
+design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+Y = masked_images
 contrast = numpy.zeros(design_mat.shape[1])
 contrast[0] = 1
+isnan = numpy.isnan(design_mat)
+if isnan.any():
+    bad_subject_ind = numpy.where(isnan)[0]
+    print "Removing subject", bad_subject_ind
+    design_mat = numpy.delete(design_mat, bad_subject_ind, axis=0)
+    Y = numpy.delete(Y, bad_subject_ind, axis=0)
 
-pipeline_res = pipeline.run(design_matrix=design_mat, Y=masked_images, mask=mask,
-                            contrast=contrast, thresh=0.01)
+pipeline_res = pipeline.run(design_matrix=design_mat, Y=Y, mask=mask,
+                            contrast=contrast, thresh=THRESH)
 # Make a map
 outimg = utils.make_image_from_array(pipeline_res['pval'], babel_mask)
 nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval.nii'))
+outimg = utils.make_image_from_array(pipeline_res['pval'] < THRESH, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'pval_inf_thresh.nii'))
+smallest_pval = numpy.sort(pipeline_res['pval'])[-1000]
+outimg = utils.make_image_from_array(pipeline_res['pval'] < smallest_pval, babel_mask)
+nibabel.save(outimg, os.path.join(MODEL_OUT, 'selected_features.nii'))
 
 #######
 # End #
