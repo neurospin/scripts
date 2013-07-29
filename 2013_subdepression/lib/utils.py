@@ -18,6 +18,20 @@ import nibabel
 
 import data_api
 
+def numerical_coding(df, variables=None):
+    '''Return a dataframe where categorical variables are mapped to their numerical values'''
+    if variables is None:
+        variables = df.columns()
+    mappings  = map(data_api.REGRESSOR_MAPPINGS.get, variables)
+    series_dict = collections.OrderedDict()
+    for variable, mapping in zip(variables, mappings):
+        if mapping is not None:
+            series_dict[variable] = df[variable].map(data_api.GroupMap)
+        else:
+            series_dict[variable] = df[variable]
+    return pandas.DataFrame(series_dict)
+            
+
 def n_indicator_columns(mapping):
     '''Determine the number of columns for indicator variables coding of a given categorical variable mapping:
          - if the values is None -> 1 column
@@ -38,7 +52,7 @@ def indicator_variables(df, variables=None):
     series_dict = collections.OrderedDict()
     dummy_col_index = 0
     for variable, mapping in zip(variables, mappings):
-        if mapping:
+        if mapping is not None:
             categorical_values = mapping.keys()
             numerical_values = mapping.values()
             for level_index, (level, category) in enumerate(zip(numerical_values, categorical_values)):
@@ -73,7 +87,7 @@ def dummy_coding(df, variables=None):
     series_dict = collections.OrderedDict()
     dummy_col_index = 0
     for variable, mapping in zip(variables, mappings):
-        if mapping:
+        if mapping is not None:
             categorical_values = mapping.keys()
             categorical_ref_value = categorical_values.pop(0)
             numerical_values = mapping.values()
@@ -92,7 +106,7 @@ def dummy_coding(df, variables=None):
     return pandas.DataFrame(series_dict)
 
 def make_design_matrix(df, regressors=None, intercept=True, scale=False, use_dummy_coding=True):
-    if not regressors:
+    if regressors is None:
         regressors = df.columns
     n_obs = df.shape[0]
 
