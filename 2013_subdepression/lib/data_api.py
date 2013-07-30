@@ -1,5 +1,6 @@
 '''A module to ease access to the subdepression database.
    The basic idea is to store images in a HDF5 file for fast access.
+   TODO: what about categorical variables that are not strings (integers)?
 '''
 
 import os.path

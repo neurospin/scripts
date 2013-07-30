@@ -11,7 +11,6 @@ Some useful functions.
 import collections
 
 import numpy
-import sklearn.preprocessing
 import pandas
 
 import nibabel
@@ -106,6 +105,13 @@ def dummy_coding(df, variables=None):
     return pandas.DataFrame(series_dict)
 
 def make_design_matrix(df, regressors=None, intercept=True, scale=False, use_dummy_coding=True):
+    """Return a design matrix from the data frame.
+    >>> df = pandas.DataFrame({'Gender': ['Male', 'Female', 'Male']})
+    >>> design_mat = make_design_matrix(df, ['Gender'])
+    Dummy coding categorical variables yields 1 columns
+    Reference value for Gender is Male (0)
+    Putting Gender#Female at col 0
+    """
     if regressors is None:
         regressors = df.columns
     n_obs = df.shape[0]
@@ -118,9 +124,9 @@ def make_design_matrix(df, regressors=None, intercept=True, scale=False, use_dum
 
     # Add an intercept column & normalize (we loose dataframe here - well done)
     if scale:
-        design_mat = sklearn.preprocessing.scale(design_mat)
+        design_mat = (design_mat - design_mat.mean()) / (design_mat.max() - design_mat.min())
     if intercept:
-        design_mat = numpy.hstack((design_mat, numpy.ones((n_obs, 1))))
+        design_mat['Intercept'] = numpy.ones((n_obs, 1))
 
     return design_mat
 
@@ -131,3 +137,7 @@ def make_image_from_array(array, babel_mask):
     img[binary_mask] = array
     outimg = nibabel.Nifti1Image(img, babel_mask.get_affine())
     return outimg
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
