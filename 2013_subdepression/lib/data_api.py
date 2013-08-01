@@ -1,17 +1,11 @@
 '''A module to ease access to the subdepression database.
-   The basic idea is to store everything in a HDF5 file.
-   The database is first compressed in the HDF5 file:
-    - X: concatenated masked images (size (n_subjects, n_useful_voxels))
-    - Y: concatenated regressors (the first column is the group) (size (n_subjects, n_regressors))
-    - mask: the mask
-   Dummy codig can be peformed and stored in Y_dummy.
-   TODO: add indicator variables coding?
-   TODO: use named array
+   The basic idea is to store images in a HDF5 file for fast access.
+   TODO: what about categorical variables that are not strings (integers)?
 '''
 
 import os.path
 import collections
-import tables, numpy
+import tables, pandas
 
 # Some constants
 CLINIC_DIRECTORY_NAME = 'clinic'
@@ -55,52 +49,34 @@ ScannerMap    = collections.OrderedDict((
                   ('Philips', 2),
                   ('Siemens', 3)))
 
-# Variables name and mappings
-# None is used to indicate ordinal variables
-REGRESSORS         = ["group_sub_ctl", "Age", "Gender", "VSF", "Scanner_Type"]
-REGRESSOR_MAPPINGS = [GroupMap, None, GenderMap, None, ScannerMap]
+QualityControlMap = collections.OrderedDict((
+                  ('A', 1),
+                  ('B', 2)))
+                  
+TemplateMap =  collections.OrderedDict((
+                  ('no',  0),
+                  ('yes', 1)))
 
-def n_dummy_columns(mapping):
-    '''Determine the number of columns for dummy coding of a given categorical variable mapping:
-         - if the values is None -> 1 column
-         - else len(values)-1 columns'''
-    if mapping == None:
-        return 1
-    else:
-        return len(mapping) - 1
+# Categorical variables mappings
+REGRESSOR_MAPPINGS = {
+"group_sub_ctl":     GroupMap,
+"Gender":            GenderMap,
+"Scanner_Type":      ScannerMap,
+"ImagingCentreCity": CityMap,
+"Handedness":        HandednessMap,
+"quality_control":   QualityControlMap,
+"template":          TemplateMap
+}
 
-def dummy_coding(Y, variables=REGRESSORS):
-    '''Return a dummy coded Y matrix'''
-    n_subjects = Y.shape[0]
-    variables = REGRESSORS
-    mappings  = REGRESSOR_MAPPINGS
-    n_cols = sum(map(n_dummy_columns, mappings))
-    print "Expanding categorical variables yields %i columns" % n_cols
-
-    Y_dummy = numpy.zeros((n_subjects, n_cols))
-    col_index = 0
-    dummy_col_index = 0
-    for variable, mapping in zip(variables, mappings):
-        if mapping:
-            categorical_values = mapping.keys()
-            categorical_ref_value = categorical_values.pop(0)
-            numerical_values = mapping.values();
-            numerical_values = mapping.values();
-            numerical_ref_value = numerical_values.pop(0)
-            print "Reference value for %s is %s (%d)" % (variable, categorical_ref_value, numerical_ref_value)
-            for level_index, level in enumerate(numerical_values):
-                dummy_var = '{cat}_d{value}'.format(cat=variable, value=level_index)
-                print "Putting %s at col %i" % (dummy_var, dummy_col_index)
-                column_serie = (Y[:, col_index] == level).astype(numpy.float64)
-                Y_dummy[:, dummy_col_index] = column_serie
-                dummy_col_index += 1
-            col_index += 1
-        else:
-            print "Putting ordinal variable %s at col %i" % (variable, dummy_col_index)
-            Y_dummy[:, dummy_col_index] = Y[:, col_index]
-            dummy_col_index += 1
-            col_index += 1
-    return Y_dummy
+# Some columns are redundant so I remove them:
+#  - Center is the numerical representation of ImagingCentreCity
+#  - Scanner is the numerical representation of Scanner_Type
+# Also the image field is special
+COLUMNS = ['Subject', 'group_sub_ctl', 'Gender', 'pds', 'Age',
+           'ImagingCentreCity', 'Scanner_Type',
+           'quality_control', 'template',
+           'vol_GM', 'vol_WM', 'vol_CSF', 'TIV', 'GM_on_TIV', 'WM_on_TIV', 'CSF_on_TIV', 'VSF', 'Handedness',
+           'IQ', 'tristesse', 'irritabilite', 'anhedonie', 'total_symptoms_dep']
 
 def get_clinic_dir_path(base_path, test_exist=True):
     '''Returns the name of the clinic dir'''
@@ -149,3 +125,11 @@ def write_images(h5file, X):
 def get_images(h5file):
     '''Return images from the HDF5 file'''
     return h5file.root.masked_images
+
+def read_clinic_file(path):
+    '''Read the clinic filename and perform basic conversions.
+       Return a dataframe.'''
+    # The first column is the line number so we can skip it
+    df = pandas.io.parsers.read_csv(path, index_col=0)
+    df = df[COLUMNS]
+    return df
