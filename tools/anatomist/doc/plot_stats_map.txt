@@ -4,7 +4,7 @@ Need a palette with transparent zero value.
 
 1 Use predifided palette
 ------------------------
-copy /neurospin/brainomics/ressources/anatomist/weights_map_blackcenter.tiff in ~/.anatomist/rgb/
+copy /neurospin/brainomics/ressources/anatomist/palette_signed_values_blackcenter.tiff in ~/.anatomist/rgb/
 (create rgb directory if needed)
 
 
@@ -38,7 +38,26 @@ Mapping mode: linear / B (anat) if A (weights) is black.
 2) Surface rendering
 ====================
 
+- Mesh larg cluster (> 10) AimsClusterArg => graph
+- Create spheres (mesh) for small cluster < 10
+  pyaims.SurfaceGenerator
+- Load graph => concat meshs + spheres
+  SurphaceManip.MeshCat => to mesh
+
+
+- Fusion: mode Geometrical
+- Methods: Point to point with depht offset (inside)
+- Submethods: Mean
+- Parameters: Deth (mm= 1/2 voxel size typycally 0.75 mm or 0.5 mm
+
 3) Volume rendering
 ===================
+
+cd /neurospin/brainomics/neuroimaging_ressources
+anatomist examples_images/weights_map_l*
+
+single_subject_mni_icbm200T/default_analysis/nobias_200.nii.gz
+
+anatomist single_subject_mni_icbm200T/default_analysis/segmentation/*
 
 
