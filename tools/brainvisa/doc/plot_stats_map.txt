@@ -1,0 +1,112 @@
+Goal: Vizualization of signed stattistic map or weigths (predictor) map.
+
+1. Palette for signed values
+2. Fusion of map with T1
+
+
+1 Palette for signed values
+============================
+
+If stat map is signed, we need a palette with transparent zero value.
+
+1.1 Use predifided palette
+-------------------------
+
+cp /neurospin/brainomics/neuroimaging_ressources/anatomist/palette_signed_values_blackcenter.tiff in ~/.anatomist/rgb/
+(create rgb directory if needed)
+
+
+1.2 Build custom palette
+-----------------------
+
+Click right weight image goto palette editor. Design palette using RGBA chanel
+     _ 
+R __/
+
+G \__/
+
+B _
+   \__
+
+=> Check that middle of the palette is black
+A ---- (full opacity, eventually add a sharp hole in the middle of the palette)
+
+Usage
+-----
+Right click on obecjt / color / Palette choose "palette_signed_values_blackcenter"
+Check value 0 at center
+
+2. Fusion 2D of map with T1
+===========================
+
+- Load map and anatomy (anat)
+anat: /neurospin/brainomics/neuroimaging_ressources/single_subject_mni_icbm200T/default_analysis/nobias_200.nii.gz
+
+Realign the to images (see referential.txt)
+
+- Fusion map with anat (fusion2DMethod)
+Objects 
+ * map (A)
+ * anat   (B)
+click right on Fusion2D / Fusion / control 2 fusion:
+ * Mapping mode: linear / B (anat) if A (map) is black. Mixing rate: 100%
+
+- Set map palette: right click on object / color / Palette choose "palette_signed_values_blackcenter"
+Check value 0 at center
+
+- Drop fusion in axial view
+
+
+3. Surface rendering
+====================
+
+3.1 Extract clusters meshs
+--------------------------
+
+brainvisa/bin/map_clusters_analysis.py --input neuroimaging_ressources/examples_images/weights_map_mixte.nii
+
+Output
+weights_map_mixte_info_clusters.csv: csv file with cluster info
+weights_map_mixte_labels_clusters.nii: image with clusters labels
+weights_map_mixte_large_clusters.mesh: mesh of large clusters
+weights_map_mixte_small_clusters.mesh: mesh of large clusters
+
+3.2 load mesh files in antomist
+-------------------------------
+
+3.3 Realign Meshs the to images (see referential.txt)
+-----------------------------------------------------
+
+Referential / Load information from the header / Settings referential windows / establish links
+The two meshs are in the same referential than "weights_map_mixte.nii".
+Most of time the transformation goes to the MNI, so link identity transfom (CTL) to 
+"Coordinate aligned to another file ... weights_map_mixte_large_clusters.mesh" to
+"Talairach-MNI"
+
+3.4 Fusion  (Fusion 3D)
+-----------------------
+
+- weights_map_mixte.nii with weights_map_mixte_large_clusters.mesh
+  Fusion / CTL 3D Fusion
+  * Fusion: mode Geometrical
+  * Methods: Point to point with deth offset (inside)
+  * Parameters: (mm= 1/2 voxel size typycally 0.75 mm or 0.5 mm
+
+- weights_map_mixte.nii with weights_map_mixte_small_clusters.mesh
+
+3.5 Load meshs of left/right hemispheres
+----------------------------------------- 
+neuroimaging_ressources/single_subject_mni_icbm200T/default_analysis/segmentation/mesh/200_Lhemi.mesh
+neuroimaging_ressources/single_subject_mni_icbm200T/default_analysis/segmentation/mesh/200_Rhemi.mesh
+Referential / Load information from the header / Settings referential windows / establish links
+Those mesh are in the same referential than nobias_200.nii.gz, so if nobias_200.nii.gz is loaded
+and realigned there is nothong to do.
+Put some transparancy to the cortical meshs: color / Material: 
+  Fast color Selection: Opacity 40%
+  Rendering: Wireframe with hidden frame
+
+3.6 Cut mesh
+------------
+Fusion: Fusion 2D with cortex mesh using FusionCutMeshMethod 
+
+

@@ -27,13 +27,17 @@ Purple: MNI
 - By default image are shown in Talairach/AC-PC-Anatomist.
 For each image (in the anatomist windows) right clic / load information from file header
 
-- Display images, drop into Axial
+- Open settings / referential windows
 
-- Link transformations
-  * T1.mni contains a transfo toward MNI
+Link transformations:
+  * T1.mni contains a transfo toward MNI (nothing to do)
   * weights_map_l2.nii transformation goes toward MNI: In Referentials windows
     create an identity transfo to MNI (purple) left click + CTL
   * nobias_200.nii: load a tranfo from nobias_200.nii to Talairach/AC-PC-Anatomist:
     single_subject_mni_icbm200T/registration/RawT1-200_default_acquisition_TO_Talairach-ACPC.trm
+
+
+- Display images, drop into Axial
+
 
 
