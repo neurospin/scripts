@@ -114,17 +114,17 @@ def get_mask_file_path(base_path, test_exist=True):
     else:
         raise Exception("File %s does not seem to exist" % mask_file_path)
 
-def write_images(h5file, X):
+def write_images(h5file, X, name='masked_images'):
     '''Write grey matter masked images'''
     # X
     atom = tables.Atom.from_dtype(X.dtype)
     filters = tables.Filters(complib='zlib', complevel=5)
-    ds = h5file.createCArray(h5file.root, 'masked_images', atom, X.shape, filters=filters)
+    ds = h5file.createCArray(h5file.root, name, atom, X.shape, filters=filters)
     ds[:] = X
 
-def get_images(h5file):
+def get_images(h5file, name='masked_images'):
     '''Return images from the HDF5 file'''
-    return h5file.root.masked_images
+    return h5file.getNode(h5file.root, name)
 
 def read_clinic_file(path):
     '''Read the clinic filename and perform basic conversions.
