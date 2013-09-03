@@ -14,6 +14,9 @@ def loadrefDB():
 
    return ref, snps
 
+# With BEDTools : windowBed -a snps_b37_ref.bed -b refGene.bed -w 10000 > snps.within10kbOfRefGenes.bed
+# to get a bed file containing the snps within a 10kb window of the genes in refGene.bed
+
 def tree_path_gene_snp(ontology, ref=None, snps=None, name = 'synaptic transmission'):
    go_gene_snp = dict()
    go_gene_snp[name] = dict()
