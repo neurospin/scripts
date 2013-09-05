@@ -140,3 +140,14 @@
 
 # Dartel: template estimation for 510 subjects (G + W)
 - start: 12:07:10 02/09/2013
+- end: after "18 510 it" 02:28:09 04/09/2013
+-> time 38h21
+
+#------------------------------------------------------------------------------
+# registration on a template for 3 subjects (G + W)
+- start: 14:06:33
+- end: 
+- affine template registering: 14:06:33 -> 14:11:11 -> 4min38
+- subjects registration: 14:11:11 -> 14:11:33 -> 22s
+
+# time estimation for 510 subjects: 4min38 + 510 * (22s / 3.) ~= 50min à 1h20
