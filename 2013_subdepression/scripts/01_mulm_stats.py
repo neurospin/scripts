@@ -6,13 +6,11 @@ Created on Tue Jul  9 11:16:43 2013
 
 This script performs MULM analysis:
  1) fit various LM and store t-values and p-values maps to find biomarkers
-    this should give the same results
- 2) generate a workflow to perform a MULM cluster-level analysis with permutation
 
 """
 
 # Standard library modules
-import os, sys
+import os, sys, argparse
 import numpy
 import scipy, scipy.ndimage
 import tables
@@ -31,10 +29,28 @@ except NameError:
     sys.path.append(os.path.join(os.environ["HOME"] , "Code", "scripts", "2013_subdepression", "lib"))
 import data_api, utils
 
-DB_PATH='/neurospin/brainomics/2012_imagen_subdepression'
-LOCAL_PATH='/volatile/imagen_subdepression.hdf5'
-N_PERMS  = 1000
+parser = argparse.ArgumentParser(description='''Perform MULM analysis.''')
+
+parser.add_argument('--test_mode',
+      action='store_true',
+      help='Use test mode')
+
+args = parser.parse_args()
+
+TEST_MODE     = args.test_mode
+
+if TEST_MODE:
+    DB_PATH='/volatile/DB/micro_subdepression/'
+    LOCAL_PATH='/volatile/DB/cache/micro_subdepression.hdf5'
+else:
+    DB_PATH='/neurospin/brainomics/2012_imagen_subdepression'
+    LOCAL_PATH='/volatile/DB/cache/imagen_subdepression.hdf5'
+
 THRESH   = 0.01
+
+OUT_DIR=os.path.join(DB_PATH, 'results', 'mulm')
+if not os.path.exists(OUT_DIR):
+    os.makedirs(OUT_DIR)
 
 class MULMStats(epac.BaseNode):
     def __init__(self):
@@ -88,10 +104,6 @@ masked_images = data_api.get_images(fd)
 # 1st part: fit MULM models and store p-values maps #
 #####################################################
 
-OUT_DIR='results/mulm/'
-if not os.path.exists(OUT_DIR):
-    os.makedirs(OUT_DIR)
-
 # Construct EPAC workflow
 pipeline = epac.Pipe(MULMStats(), ClusterStats())
 
@@ -103,10 +115,10 @@ MODEL = ['group_sub_ctl', 'Gender', 'pds', 'Age',
 MODEL_OUT = os.path.join(OUT_DIR, "all-covariates")
 if not os.path.exists(MODEL_OUT):
     os.makedirs(MODEL_OUT)
-design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+design_mat = utils.make_design_matrix(df, regressors=MODEL).as_matrix()
 Y = masked_images
 contrast = numpy.zeros(design_mat.shape[1])
-contrast[0] = 1
+contrast[0] = 1; contrast[1] = -1
 isnan = numpy.isnan(design_mat)
 if isnan.any():
     bad_subject_ind = numpy.where(isnan)[0]
@@ -131,10 +143,10 @@ MODEL = ["group_sub_ctl", "Gender", "pds", "VSF", "ImagingCentreCity"]
 MODEL_OUT = os.path.join(OUT_DIR, "-".join(MODEL))
 if not os.path.exists(MODEL_OUT):
     os.makedirs(MODEL_OUT)
-design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+design_mat = utils.make_design_matrix(df, regressors=MODEL).as_matrix()
 Y = masked_images
 contrast = numpy.zeros(design_mat.shape[1])
-contrast[0] = 1
+contrast[0] = 1; contrast[1] = -1
 isnan = numpy.isnan(design_mat)
 if isnan.any():
     bad_subject_ind = numpy.where(isnan)[0]
@@ -158,10 +170,10 @@ MODEL = ["group_sub_ctl", "Gender", "Age", "VSF", "Scanner_Type"]
 MODEL_OUT = os.path.join(OUT_DIR, "-".join(MODEL))
 if not os.path.exists(MODEL_OUT):
     os.makedirs(MODEL_OUT)
-design_mat = utils.make_design_matrix(df, regressors=MODEL, scale=False)
+design_mat = utils.make_design_matrix(df, regressors=MODEL).as_matrix()
 Y = masked_images
 contrast = numpy.zeros(design_mat.shape[1])
-contrast[0] = 1
+contrast[0] = 1; contrast[1] = -1
 isnan = numpy.isnan(design_mat)
 if isnan.any():
     bad_subject_ind = numpy.where(isnan)[0]
