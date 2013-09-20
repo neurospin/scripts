@@ -8,12 +8,12 @@ import collections
 import tables, pandas
 
 # Some constants
-CLINIC_DIRECTORY_NAME = 'clinic'
-CLINIC_FILE_NAME      = 'fichier_groups_119sub_461ctl_version2.csv'
-DATA_DIRECTORY_NAME  =  'data_normalized_segmented'
-SEGMENTED_IMAGES_DIRECTORY_NAME  ='new_segment_spm8'
+DATA_DIRECTORY_NAME  =  'data'
+SEGMENTED_IMAGES_DIRECTORY_NAME  = os.path.join('VBM', 'new_segment_spm8')
 MASK_FILE_NAME        = 'mask.img'
 IMAGE_SIZE            = (121, 145, 121)
+CLINIC_DIRECTORY_NAME = 'clinic'
+CLINIC_FILE_NAME      = 'fichier_groups_119sub_461ctl_version2.csv'
 
 #
 # List the values of the categorical variables and the associated numeric values.
@@ -80,7 +80,7 @@ COLUMNS = ['Subject', 'group_sub_ctl', 'Gender', 'pds', 'Age',
 
 def get_clinic_dir_path(base_path, test_exist=True):
     '''Returns the name of the clinic dir'''
-    clinic_dir_path = os.path.join(base_path, CLINIC_DIRECTORY_NAME)
+    clinic_dir_path = os.path.join(base_path, DATA_DIRECTORY_NAME, CLINIC_DIRECTORY_NAME)
     if not test_exist or os.path.exists(clinic_dir_path):
         return clinic_dir_path
     else:
