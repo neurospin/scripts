@@ -18,8 +18,8 @@ import tables
 # For loading images
 import nibabel
 
-DEFAULT_DB_PATH="/neurospin/brainomics/2012_imagen_subdepression/"
-DEFAULT_OUTPUT="/volatile/imagen_subdepression.hdf5"
+DEFAULT_DB_PATH="/neurospin/brainomics/2013_imagen_subdepression/"
+DEFAULT_OUTPUT="/volatile/DB/cache/imagen_subdepression.hdf5"
 DEFAULT_TITLE="imagen_subdepression"
 
 # Local import
