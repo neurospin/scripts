@@ -10,7 +10,7 @@ This script uses SVM for classification:
 """
 
 # Standard library modules
-import os, sys
+import os, sys, argparse
 # Numpy and friends
 import numpy
 import sklearn, sklearn.svm, sklearn.feature_selection
@@ -30,33 +30,28 @@ except NameError:
     sys.path.append(os.path.join(os.environ["HOME"] , "Code", "scripts", "2013_subdepression", "lib"))
 import data_api, utils
 
-TEST_MODE = False
+parser = argparse.ArgumentParser(description='''Create a workflow for SVM classification.''')
+
+parser.add_argument('--test_mode',
+      action='store_true',
+      help='Use test mode')
+
+parser.add_argument('--analysis_mode',
+      action='store_true',
+      help='Use analysis mode')
+
+args = parser.parse_args()
+
+TEST_MODE     = args.test_mode
+ANALYSIS_MODE = args.analysis_mode
+WF_MODE       = not ANALYSIS_MODE
 
 if TEST_MODE:
-    DB_PATH='/home/md238665/DB/micro_subdep/'
-    LOCAL_PATH='/volatile/micro_subdepression.hdf5'
+    DB_PATH='/volatile/DB/micro_subdepression/'
+    LOCAL_PATH='/volatile/DB/cache/micro_subdepression.hdf5'
 else:
-    DB_PATH='/neurospin/brainomics/2012_imagen_subdepression'
-    LOCAL_PATH='/volatile/imagen_subdepression.hdf5'
-
-#########################
-# Oth step: access data #
-#########################
-
-csv_file_name = data_api.get_clinic_file_path(DB_PATH)
-df = data_api.read_clinic_file(csv_file_name)
-
-babel_mask = nibabel.load(data_api.get_mask_file_path(DB_PATH))
-mask = babel_mask.get_data()
-binary_mask = mask != 0
-
-h5file = tables.openFile(LOCAL_PATH)
-masked_images = data_api.get_images(h5file)
-
-###########################################
-# 1st step: SVM without feature selection #
-#           We cross-validate the results #
-###########################################
+    DB_PATH='/neurospin/brainomics/2013_imagen_subdepression'
+    LOCAL_PATH='/volatile/DB/cache/imagen_subdepression.hdf5'
 
 if TEST_MODE:
     C_VALUES = [0.1, 1, 10]
@@ -69,48 +64,89 @@ if TEST_MODE:
     N_FOLDS_EVAL    = 3
 else:
   N_FOLDS_NESTED  = 5
-  N_FOLDS_EVAL    = 10  
+  N_FOLDS_EVAL    = 10
 
-
-OUT_DIR='results/svm/'
+OUT_DIR=os.path.join(DB_PATH, 'results', 'svm')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
+WORKFLOW_PATH= os.path.join(OUT_DIR, "svm_wf")
 OUT_IMAGE_FORMAT = 'C={C}_penalty={penalty}.CV.nii'
 
-# Create all the classifiers
-svms = epac.Pipe(sklearn.preprocessing.StandardScaler(),
-                 epac.Methods(*[sklearn.svm.LinearSVC(class_weight='auto',
-                           C=C, penalty=penalty,
-                           dual=False)
-                           for C in C_VALUES
-                           for penalty in REGULARIZATION_METHODS]))
-# Select the best with CV
-svms_auto = epac.CVBestSearchRefit(svms, n_folds=N_FOLDS_NESTED)
+if WF_MODE:
+    print "Running in pipeline creation mode"
+if ANALYSIS_MODE:
+    print "Running in pipeline analysis mode"
 
-# Evaluate it
-svms_auto_cv = epac.CV(svms_auto, n_folds=N_FOLDS_EVAL)
+###############
+# access data #
+###############
 
-# Run model selection
+csv_file_name = data_api.get_clinic_file_path(DB_PATH)
+df = data_api.read_clinic_file(csv_file_name)
+
+babel_mask = nibabel.load(data_api.get_mask_file_path(DB_PATH))
+mask = babel_mask.get_data()
+binary_mask = mask != 0
+
+h5file = tables.openFile(LOCAL_PATH)
+masked_images = data_api.get_images(h5file)
+
 X = numpy.asarray(masked_images)
 y = numpy.asarray(utils.numerical_coding(df, variables=['group_sub_ctl']).group_sub_ctl)
 
-engine = epac.map_reduce.engine.LocalEngine(svms_auto_cv,
-                                            num_processes=5)
-svms_auto_cv = engine.run(X=X, y=y)
-svms_auto_cv_results = svms_auto_cv.reduce()
-# Voir résultats (reduce) et les paramètres séléctionnés
+########################################
+# Create workflow:                     #
+#       SVM without feature selection  #
+#       & cross-validation             #
+########################################
 
-# Re-fit the best classifier on the whole datatset. Warning: biased !!!
-svms_auto.run(X=X, y=y)
-thetas = svms_auto.best_params
-print "Best SVM parameters:", thetas[1]
-betas = svms_auto.refited.children[0].estimator.coef_
-print betas
+if WF_MODE:
+    # Create all the classifiers
+    svms = epac.Pipe(sklearn.preprocessing.StandardScaler(),
+                     epac.Methods(*[sklearn.svm.LinearSVC(class_weight='auto',
+                               C=C, penalty=penalty,
+                               dual=False)
+                               for C in C_VALUES
+                               for penalty in REGULARIZATION_METHODS]))
+    # Select the best with CV
+    svms_auto = epac.CVBestSearchRefitParallel(svms, n_folds=N_FOLDS_NESTED)
 
-# Store in an image
-betas_img = numpy.zeros(binary_mask.shape)
-betas_img[binary_mask] = betas[0, :]
-outimg = nibabel.Nifti1Image(betas_img, babel_mask.get_affine())
-nibabel.save(outimg, os.path.join(OUT_DIR, OUT_IMAGE_FORMAT.format(**thetas[1])))
+    # Evaluate it
+    svms_auto_cv = epac.CV(svms_auto, n_folds=N_FOLDS_EVAL)
+
+    # Run model selection
+    engine = epac.map_reduce.engine.SomaWorkflowEngine(svms_auto_cv,
+                                                       resource_id="md238665@gabriel",
+                                                       login="md238665",
+                                                       num_processes=10,
+                                                       remove_finished_wf=False)
+    print "Creating workflow at {path}".format(path=WORKFLOW_PATH)
+    engine.export_to_gui(WORKFLOW_PATH, X=X, y=y)
+    print "Execute the workflow at {path} with SOMA Workflow GUI and re-run this script in analysis mode".format(path=WORKFLOW_PATH)
+
+###################
+# Analyze results #
+###################
+
+if ANALYSIS_MODE:
+    svms_auto_cv = epac.map_reduce.engine.SomaWorkflowEngine.load_from_gui(WORKFLOW_PATH)
+    print "Workflow loaded"
+    svms_auto_cv_results = svms_auto_cv.reduce()
+    # Voir résultats (reduce) et les paramètres séléctionnés
+
+    # Re-fit one of the best classifier on the whole datatset. Warning: biased !!!
+    print "Refitting on the whole data set"
+    svms_auto = svms_auto_cv.children[0].children[0]
+    svms_auto.run(X=X, y=y)
+    thetas = svms_auto.best_params
+    print "Best SVM parameters:", thetas[1]
+    betas = svms_auto.refited.children[0].estimator.coef_
+    print betas
+
+    # Store in an image
+    betas_img = numpy.zeros(binary_mask.shape)
+    betas_img[binary_mask] = betas[0, :]
+    outimg = nibabel.Nifti1Image(betas_img, babel_mask.get_affine())
+    nibabel.save(outimg, os.path.join(OUT_DIR, OUT_IMAGE_FORMAT.format(**thetas[1])))
 
 h5file.close()
