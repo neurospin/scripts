@@ -21,6 +21,9 @@ import nibabel
 
 import epac, epac.map_reduce.engine
 
+DEFAULT_WF_NAME    = "svm_wf"
+DEFAULT_IMAGES_NAME = "masked_images"
+
 # Local import
 try:
     # When executed as a script
@@ -35,6 +38,14 @@ parser = argparse.ArgumentParser(description='''Create a workflow for SVM classi
 parser.add_argument('--test_mode',
       action='store_true',
       help='Use test mode')
+
+parser.add_argument('--wf_name',
+      type=str, default=DEFAULT_WF_NAME,
+      help='Name of the workflow (default: %s)'% (DEFAULT_WF_NAME))
+
+parser.add_argument('--images_name',
+      type=str, default=DEFAULT_IMAGES_NAME,
+      help='Name of the image dataset (default: %s)'% (DEFAULT_IMAGES_NAME))
 
 parser.add_argument('--analysis_mode',
       action='store_true',
@@ -69,7 +80,7 @@ else:
 OUT_DIR=os.path.join(DB_PATH, 'results', 'svm')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
-WORKFLOW_PATH= os.path.join(OUT_DIR, "svm_wf")
+WORKFLOW_PATH= os.path.join(OUT_DIR, args.wf_name)
 OUT_IMAGE_FORMAT = 'C={C}_penalty={penalty}.CV.nii'
 
 if WF_MODE:
@@ -89,7 +100,7 @@ mask = babel_mask.get_data()
 binary_mask = mask != 0
 
 h5file = tables.openFile(LOCAL_PATH)
-masked_images = data_api.get_images(h5file)
+masked_images = data_api.get_images(h5file, name=args.images_name)
 
 X = numpy.asarray(masked_images)
 y = numpy.asarray(utils.numerical_coding(df, variables=['group_sub_ctl']).group_sub_ctl)
@@ -109,7 +120,7 @@ if WF_MODE:
                                for C in C_VALUES
                                for penalty in REGULARIZATION_METHODS]))
     # Select the best with CV
-    svms_auto = epac.CVBestSearchRefitParallel(svms, n_folds=N_FOLDS_NESTED)
+    svms_auto = epac.CVBestSearchRefit(svms, n_folds=N_FOLDS_NESTED)
 
     # Evaluate it
     svms_auto_cv = epac.CV(svms_auto, n_folds=N_FOLDS_EVAL)
