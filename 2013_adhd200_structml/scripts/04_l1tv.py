@@ -46,7 +46,7 @@ X_train = scaler.transform(X_train)
 # Flatten mask
 mask = np.array(get_mask(INPUT_PATH) == 1, dtype=np.int)
 shape = mask.shape
-mask = mask.ravel()
+#mask = mask.ravel()
 
 
 # !! Gamma as float
@@ -54,7 +54,7 @@ l=1; gamma=1.; mu=None
 
 ## BUILD SAVE tv =============================================================
 if False:
-    tv = loss_functions.TotalVariation(gamma, shape, mu, mask)
+    tv = loss_functions.TotalVariation(gamma, shape, mu, mask.ravel())
     with open(tv_path, 'wb') as outfile: pickle.dump(tv, outfile, pickle.HIGHEST_PROTOCOL)
 
 ## SAVE Everything
