@@ -13,7 +13,7 @@ import tables
 # Nipy
 import nibabel
 
-from mulm import LinearRegression
+import mulm
 
 # Local import
 try:
@@ -38,7 +38,7 @@ if TEST_MODE:
     DB_PATH='/volatile/DB/micro_subdepression/'
     LOCAL_PATH='/volatile/DB/cache/micro_subdepression.hdf5'
 else:
-    DB_PATH='/neurospin/brainomics/2012_imagen_subdepression'
+    DB_PATH='/neurospin/brainomics/2013_imagen_subdepression'
     LOCAL_PATH='/volatile/DB/cache/imagen_subdepression.hdf5'
 
 
@@ -74,13 +74,14 @@ if isnan.any():
     images = numpy.delete(images, bad_subject_ind, axis=0)
 
 # Fit LM & compute residuals
-lm = LinearRegression()
+lm = mulm.MUOLS()
 lm.fit(X=design_mat, Y=images)
 images_pred = lm.predict(X=design_mat)
 res = images - images_pred
 
 # Write to file
 residual_name = 'masked_images_' + '_'.join(MODEL)
+print "Writing images to", residual_name
 data_api.write_images(h5file, res, residual_name)
 
 # 2nd model
@@ -97,13 +98,14 @@ if isnan.any():
     images = numpy.delete(images, bad_subject_ind, axis=0)
 
 # Fit LM & compute residuals
-lm = LinearRegression()
+lm = mulm.MUOLS()
 lm.fit(X=design_mat, Y=images)
 images_pred = lm.predict(X=design_mat)
 res = images - images_pred
 
 # Write to file
 residual_name = 'masked_images_' + '_'.join(MODEL)
+print "Writing images to", residual_name
 data_api.write_images(h5file, res, residual_name)
 
 h5file.close()
