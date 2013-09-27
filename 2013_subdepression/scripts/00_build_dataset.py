@@ -50,7 +50,7 @@ def dump_in_hdf5(db_path, output, title):
     
     # Load grey matter images (X), apply mask and concatenate them
     print "Loading {n_images} images, apply mask and flatten".format(n_images=n_subjects)
-    image_filenames = [os.path.join(images_dir, 'mwc1' + filename) for filename in data.Images]
+    image_filenames = [os.path.join(images_dir, 'smwc1' + filename) for filename in data.Images]
     masked_images = numpy.zeros((n_subjects, n_useful_voxels))
     for (index, filename) in enumerate(image_filenames):
         # Load (as numpy array)
