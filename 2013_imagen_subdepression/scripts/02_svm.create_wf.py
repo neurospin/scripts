@@ -69,7 +69,6 @@ OUT_DIR=os.path.join(DB_PATH, 'results', 'svm')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
 WORKFLOW_PATH= os.path.join(OUT_DIR, args.wf_name)
-OUT_IMAGE_FORMAT = 'C={C}_penalty={penalty}.CV.nii'
 
 ###############
 # access data #

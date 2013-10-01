@@ -9,13 +9,12 @@ This script reload a workflow and inspect the results and best parameters
 """
 
 # Standard library modules
-import os, sys, argparse
+import os, argparse
 
 import epac, epac.map_reduce.engine
 
 TEST_MODE     = False
 DEFAULT_WF_NAME    = "svm_wf"
-DEFAULT_IMAGES_NAME = "masked_images"
 
 parser = argparse.ArgumentParser(description='''Load a SVM classification workflow and display results.''')
 
