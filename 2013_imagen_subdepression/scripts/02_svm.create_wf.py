@@ -115,6 +115,6 @@ engine = epac.map_reduce.engine.SomaWorkflowEngine(svms_auto_cv,
                                                    remove_finished_wf=False)
 print "Creating workflow at {path}".format(path=WORKFLOW_PATH)
 engine.export_to_gui(WORKFLOW_PATH, X=X, y=y)
-print "Execute the workflow at {path} with SOMA Workflow GUI and re-run this script in analysis mode".format(path=WORKFLOW_PATH)
+print "Execute the workflow at {path} with SOMA Workflow GUI and run 02_svm.analyze_wf.py".format(path=WORKFLOW_PATH)
 
 h5file.close()
