@@ -144,6 +144,7 @@ if ANALYSIS_MODE:
     print "Workflow loaded"
     svms_auto_cv_results = svms_auto_cv.reduce()
     # Voir résultats (reduce) et les paramètres séléctionnés
+    print "Evauation results:", svms_auto_cv_results
 
     # Re-fit one of the best classifier on the whole datatset. Warning: biased !!!
     print "Refitting on the whole data set"
