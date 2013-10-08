@@ -30,7 +30,7 @@ try:
     sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
 except NameError:
     # When executed from spyder
-    sys.path.append(os.path.join(os.environ["HOME"] , "Code", "scripts", "2013_subdepression", "lib"))
+    sys.path.append(os.path.join(os.environ["HOME"] , "Code", "scripts", "2013_imagen_subdepression", "lib"))
 import data_api, utils
 
 parser = argparse.ArgumentParser(description='''Create a workflow for SVM classification.''')
