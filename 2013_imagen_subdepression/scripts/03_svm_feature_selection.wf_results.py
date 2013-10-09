@@ -4,7 +4,7 @@ Created on Tue Oct  1 12:19:17 2013
 
 @author: md238665
 
-This script reload a workflow and inspect the results and best parameters
+This script reload a workflow, reduce it and write results in a CSV file.
 
 """
 
@@ -40,6 +40,5 @@ svms_cv = epac.map_reduce.engine.SomaWorkflowEngine.load_from_gui(WORKFLOW_PATH)
 print "Workflow loaded"
 svms_cv_results = svms_cv.reduce()
 print "Reduce done"
-# Display CV results
-print "Evaluation results:", svms_cv_results
+# Write CV results in a CSV file
 epac.export_csv(svms_cv, svms_cv_results, os.path.join(WORKFLOW_PATH, "cv_results.csv"))
