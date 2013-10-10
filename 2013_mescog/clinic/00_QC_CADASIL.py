@@ -10,19 +10,18 @@ For each variable:
 2) Compare base_commun.csv vs france2012.csv
 3) Count missing in base_commun.csv
 
-4) Manuualy correct some mistakes (unit and values) => base_commun_20131009.csv
+4) Manuualy correct some mistakes (unit and values) => base_commun_20131011.csv
 
 INPUT
 -----
 
-base_commun_20131008.csv
+base_commun_20131011.csv
 france2012.csv
 
 OUTPUT
 ------
-base_commun_20131009.csv
-"QC/cadasil_qc.csv/html"
-
+base_commun_20131011.csv
+QC/cadasil_qc.csv/html
 """
 
 import os.path
@@ -31,10 +30,10 @@ import numpy as np
 
 ## I/O
 WD = "/neurospin/mescog"
-INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131009.csv")
+INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
 INPUT_cadasil_france2012_filepath = os.path.join(WD, "clinic", "france2012.csv")
 OUTPUT_cadasil_qc = os.path.join(WD, "clinic", "QC", "cadasil_qc")
-OUTPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131009.csv")
+OUTPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
 
 cadasil_base_commun = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=",").replace("-", np.nan)
 cadasil_france2012 = pd.read_table(INPUT_cadasil_france2012_filepath, header=0).replace("-", np.nan)
@@ -92,31 +91,41 @@ def set_nullunit_for_missing_value(d, val_col, unit_col):
     return d
 
 def stats(x):
-    return np.mean(x), np.std(x), np.min(x), np.max(x)
-    
+    return 'mean:%.2f, std:%.2f, min:%.2f, max:%.2f' % (np.mean(x), np.std(x), np.min(x), np.max(x))
+
 d = cadasil_base_commun
 
-# Check and fix unit and value
-print "Fix: GLYC17"
-## => MAIL ERIC
+# Check and fix unit and value ====================================================
+print "**GLYC17**"
 
+print """ID:1095
+    Problem: GLYC17C == '%': it is a mistake ?
+    Proposition: '%' => MMOL/L"""
+d.ID[d.GLYC17C == '%'].tolist()
+#1095
 if np.where(d.GLYC17C == '%')[0]==94:
     d.GLYC17C[94] = 'MMOL/L'
+
+print """ID:2101
+    Problem: GLYC17 == 13: Non realistic value
+    Proposition: suppression"""
 # Marco: in my base_commun the Glyc17c for 2101 is µMOL/L. Still, the value of 13 is also not plausible, even with µM. I suggest to delete this value.
+d.ID[d.GLYC17 == 13].tolist()
 if np.where(d.GLYC17 == 13)[0] == 349:
     d.GLYC17[349] = np.nan
 
-# Some Paris subject are in G/L, but values do seem not possible
-np.sum(d.GLYC17C == 'G/L')  # 8
+print """IDs:1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179
+    Problem: GLYC17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:100.37, std:15.33, min:78.99, max:130.99)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL."""
+
 d.ID[d.GLYC17C == 'G/L'].tolist()
-#[1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179]
-
+#'mean:100.37, std:15.34, min:79.00, max:131.00'
 stats(d.GLYC17[d.GLYC17C == 'G/L'] * 100)
-#Out[52]: (100.374960899353, 15.337335298418084, 78.999996185303004, 130.999946594238)
-
+#'mean:100.37, std:15.34, min:79.00, max:131.00'
 stats(d.GLYC17[d.GLYC17C == 'MG/DL'])
-#Out[53]: (111.09090909090909, 42.626186030856552, 78.0, 228.0)
-
+#'mean:111.09, std:42.63, min:78.00, max:228.00'
 # => Seems OK recode G/L => MG/L
 d.GLYC17[d.GLYC17C == 'G/L'] *= 100
 d.GLYC17C[d.GLYC17C == 'G/L'] = 'MG/DL'
@@ -126,46 +135,60 @@ d.GLYC17C[d.GLYC17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "GLYC17", "GLYC17C")
 print "GLYC17C units:", set(d.GLYC17C)
 # set([nan, 'MG/DL', 'MMOL/L'])
-print "All Paris unit:", set(d.GLYC17C[d.ID<2000])
-print "All Munich 'MG/DL'?", set(d.GLYC17C[d.ID>2000])
+print "Paris unit:", set(d.GLYC17C[d.ID<2000])
+print "Munich unit:", set(d.GLYC17C[d.ID>2000])
 
+print "**CHOLTOT17**"
 
-
-
-print "Fix: CHOLTOT17"
-## => MAIL ERIC
-
+print """For many patients:
+    Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L"""
+#IDs: [1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
 # Fix error in unit MMOL/ instead of MMOL/L
 d.CHOLTOT17C[d.CHOLTOT17C == 'MMOL/'] = 'MMOL/L'
-# 13 Paris subject are in G/L, but values do seem not possible
-d.ID[d.CHOLTOT17C == 'G/L'].tolist() # 13
-# [1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
 
+print """IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLTOT17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:201.0, std:31.307, min:155.0, max:254.0)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL."""
+
+d.ID[d.CHOLTOT17C == 'G/L'].tolist()
 stats(d.CHOLTOT17[d.CHOLTOT17C == 'G/L'] * 100)
-#(201.0, 31.307408806125206, 155.0, 254.0)
-
+#'mean:201.00, std:31.31, min:155.00, max:254.00'
 stats(d.CHOLTOT17[d.CHOLTOT17C == 'MG/DL'])
-#(210.78174603174602, 43.441919629297672, 0.5, 338.0)
+#'mean:210.78, std:43.44, min:0.50, max:338.00'
 # => Seems OK recode G/L => MG/L
 d.CHOLTOT17[d.CHOLTOT17C == 'G/L'] *= 100
 d.CHOLTOT17C[d.CHOLTOT17C == 'G/L'] = 'MG/DL'
-
-print "CHOLTOT17 units:", set(d.CHOLTOT17C)
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
+print "CHOLTOT17 units:", set(d.CHOLTOT17C)
 
-print "Fix: CHOLHDL17"
-d.CHOLHDL17
-set(d.CHOLHDL17C)
+print "**CHOLHDL17**"
+
+print """2004
+    Problem: CHOLHDL17C == 'MM1.STUNDE', value==53
+    Proposition: MM1.STUNDE => 'MG/DL'"""
+
+d.ID[d.CHOLHDL17C == 'MM1.STUNDE']
 d.CHOLHDL17[d.CHOLHDL17C == 'MM1.STUNDE'] # 53
 stats(d.CHOLHDL17[d.CHOLHDL17C == 'MG/DL'])
-#(57.119999999999997, 16.299496924752006, 24.0, 117.0)
+#'mean:57.12, std:16.30, min:24.00, max:117.00'
 # OK MM1.STUNDE => 'MG/DL'
 d.CHOLHDL17C[d.CHOLHDL17C == 'MM1.STUNDE'] = 'MG/DL'
 
+print """IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLHDL17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:55.15, std:13.71, min:37.00, max:82.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL."""
+
+d.ID[d.CHOLHDL17C == 'G/L'].tolist()
+#[1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
 stats(d.CHOLHDL17[d.CHOLHDL17C == 'G/L'] * 100)
-#(55.153824732853764, 13.710442273167219, 36.999988555907997, 81.999969482422003)
+#'mean:55.15, std:13.71, min:37.00, max:82.00'
 stats(d.CHOLHDL17[d.CHOLHDL17C == 'MG/DL'])
-#(57.087301587301589, 16.23880314675943, 24.0, 117.0)
+#'mean:57.09, std:16.24, min:24.00, max:117.00'
 # => Seems OK recode G/L => MG/L
 d.CHOLHDL17[d.CHOLHDL17C == 'G/L'] *= 100
 d.CHOLHDL17C[d.CHOLHDL17C == 'G/L'] = 'MG/DL'
@@ -173,13 +196,25 @@ d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
 print "CHOLHDL17 units:", set(d.CHOLHDL17C)
 
 
-print "Fix: CHOLLDL17"
-set(d.CHOLLDL17C)
+print "**CHOLLDL17**"
 
+print """For many patients:
+    Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L"""
+#IDs: [1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
+# Fix error in unit MMOL/ instead of MMOL/L
+d.CHOLLDL17C[d.CHOLLDL17C == 'MMOL/'] = 'MMOL/L'
+
+
+print """IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLLDL17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:124.92, std:26.07, min:81.00, max:166.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL."""
+d.ID[d.CHOLLDL17C == 'G/L'].tolist()
+#[1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
 stats(d.CHOLLDL17[d.CHOLLDL17C == 'G/L'] * 100)
-(124.92307692307692, 26.069320425657825, 81.0, 166.0)
 stats(d.CHOLLDL17[d.CHOLLDL17C == 'MG/DL'])
-(133.02936507936508, 35.152725892768423, 2.7000000000000002, 249.0)
 # => Seems OK recode G/L => MG/L
 d.CHOLLDL17[d.CHOLLDL17C == 'G/L'] *= 100
 d.CHOLLDL17C[d.CHOLLDL17C == 'G/L'] = 'MG/DL'
@@ -187,40 +222,87 @@ d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
 print "CHOLLDL17 units:", set(d.CHOLLDL17C)
 
 
-print "Fix: TRIGLY17"
-set(d.TRIGLY17C)
+print "**TRIGLY17**"
 
+print """For many patients:
+    Problem: TRIGLY17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L"""
+# Fix error in unit MMOL/ instead of MMOL/L
+d.TRIGLY17C[d.TRIGLY17C == 'MMOL/'] = 'MMOL/L'
+
+
+print """IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: TRIGLY17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values:'mean:103.92, std:46.09, min:44.00, max:202.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL."""
+d.ID[d.TRIGLY17C == 'G/L'].tolist()
+#[1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227]
 stats(d.TRIGLY17[d.TRIGLY17C == 'G/L'] * 100)
-(103.92302916600146, 46.094294818847324, 43.99998188018801, 201.99985504150399)
+#'mean:103.92, std:46.09, min:44.00, max:202.00'
 stats(d.TRIGLY17[d.TRIGLY17C == 'MG/DL'])
-(150.07936507936509, 95.732315551577031, 32.0, 685.0)
+#'mean:150.08, std:95.73, min:32.00, max:685.00'
 # => Seems OK recode G/L => MG/L
 d.TRIGLY17[d.TRIGLY17C == 'G/L'] *= 100
 d.TRIGLY17C[d.TRIGLY17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
 print "TRIGLY17 units:", set(d.TRIGLY17C)
 
-print "Fix: HEMO17C"
-#d.HEMO17C
+print "**HEMO17**"
+print """IDs:1002
+    Problem: HEMO17C == 'G/L'. However, the value: 15.3 seems to be in MG/DL
+    Proposition: Correct error G/L => MG/DL."""
+
 d.ID[d.HEMO17C == 'G/L'].tolist()
 #[1002]
 d.HEMO17[d.HEMO17C == 'G/L']
 #15.3
-np.mean(d.HEMO17[d.HEMO17C == 'G/DL'])
-#14.20109625668449
+stats(d.HEMO17[d.HEMO17C == 'G/DL'])
+#'mean:14.20, std:1.29, min:9.20, max:18.40'
 # just an error => recode 'G/L' => G/DL
 d.HEMO17C[d.HEMO17C == 'G/L'] = 'G/DL'
+print "HEMO17C units:", set(d.HEMO17C)
 
-print "Fix: LEUCO17"
+print "**LEUCO17**"
+"""ID:1083
+    Problem: unit is '%', value is 5.70 compatible with G/L (mean:7.00, std:1.99)
+    Proposition: Correct error % => G/L"""
 
-set(d.LEUCO17C)
+d.ID[d.LEUCO17C == '%']
+d.ID[d.LEUCO17C == '10E']
 
+#1083
 for v in set(d.LEUCO17C):
-    print v, stats(d.LEUCO17[d.LEUCO17C == v])nan (nan, nan, nan, nan)
-10
-#G/L (6.9952755905511843, 1.9874748854042865, 3.3999999999999999, 18.0)
-#% (5.7000000000000002, 0.0, 5.7000000000000002, 5.7000000000000002)
-#10E (6.510445344129554, 3.3216657514598942, 3.2000000000000002, 49.899999999999999)
+    print v, stats(d.LEUCO17[d.LEUCO17C == v])
+#nan mean:nan, std:nan, min:nan, max:nan
+#G/L mean:7.00, std:1.99, min:3.40, max:18.00
+#% mean:5.70, std:0.00, min:5.70, max:5.70
+#10E mean:6.51, std:3.32, min:3.20, max:49.90
+
 # % seems to be an error => recode 10E
-d.LEUCO17C[d.LEUCO17C == '%'] = '10E'
-# Seems to be G/L
+d.LEUCO17C[d.LEUCO17C == '%'] = 'G/L'
+
+"""ID:1001 ... 1250
+    Problem: unit is "10E". Values (mean:6.51, std:3.32, min:3.20, max:49.90)
+    seem to be compatible with G/L.
+    Proposition: Correct error 10E => G/L"""
+d.LEUCO17C[d.LEUCO17C == '10E'] = 'G/L'
+
+
+print "**FIBRINO17**"
+for v in set(d.FIBRINO17C):
+    print v, stats(d.FIBRINO17[d.FIBRINO17C == v])
+#    nan mean:nan, std:nan, min:nan, max:nan
+#G/L mean:3.42, std:0.74, min:1.98, max:6.37
+#MG/DL mean:337.00, std:75.65, min:20.60, max:547.00
+#NF mean:nan, std:nan, min:nan, max:nan
+# Some are in already "MG/DL", G/L ecpected convert
+d.FIBRINO17[d.FIBRINO17C == "MG/DL"] /= 100
+d.FIBRINO17C[d.FIBRINO17C == "MG/DL"] = 'G/L'
+d = set_nullunit_for_missing_value(d, "FIBRINO17", "FIBRINO17C")
+
+print "FIBRINO17C units:", set(d.FIBRINO17C)
+
+# SAVE
+print "Save cadasil\n%s" % OUTPUT_cadasil_base_commun_filepath
+d.to_csv(OUTPUT_cadasil_base_commun_filepath, sep=",", index=False)

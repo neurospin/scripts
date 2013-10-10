@@ -14,7 +14,7 @@ INPUT
 OUTPUT
 ------
 
-"base_commun_20131009.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+"base_commun_20131011.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
 
 """
 
@@ -35,7 +35,7 @@ WD = "/neurospin/mescog"
 INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun.csv")
 INPUT_cadasil_france2012_filepath = os.path.join(WD, "clinic", "france2012.csv")
 INPUT_cadasil_munich_date_filepath = os.path.join(WD, "clinic", "CAD_Munich_Dates.txt")
-OUTPUT = os.path.join(WD, "clinic", "base_commun_20131009.csv")
+OUTPUT = os.path.join(WD, "clinic", "base_commun_20131011.csv")
 
 cadasil_base_commun = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=",").replace("-", np.nan)
 cadasil_france2012 = pd.read_table(INPUT_cadasil_france2012_filepath, header=0, sep=",").replace("-", np.nan)
@@ -54,12 +54,12 @@ def format_date(dates, pref="20"):
     out = list()
     for l in dates:
         date = l.split()[0].split("/")
-        out.append('%s%s-%s-%s' % (pref, date[2], "{:0>2d}".format(int(date[0])), "{:0>2d}".format(int(date[1]))))
+        out.append('%s%s-%s-%s' % (pref, date[0], "{:0>2d}".format(int(date[1])), "{:0>2d}".format(int(date[2]))))
     return out
 
 cadasil_france2012.ID
-cadasil_france2012.DATEINCL = format_date(cadasil_france2012.DATEINCL, pref="20")
-cadasil_france2012.DATENAIS = format_date(cadasil_france2012.DATENAIS, pref="19")
+cadasil_france2012.DATEINCL = format_date(cadasil_france2012.DATEINCL, pref="")
+cadasil_france2012.DATENAIS = format_date(cadasil_france2012.DATENAIS, pref="")
 
 cadasil_france2012[["ID", "DATENAIS", "DATEINCL"]]
 # 2) reformat cadasil_munich_date.ID
