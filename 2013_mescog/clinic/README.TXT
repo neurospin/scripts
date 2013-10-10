@@ -1,8 +1,78 @@
-QC
-==
+FILES HISTORY
+=============
 
-CDADASIL
---------
+DB_Mapping.*
+------------
+
+DB_Mapping_Longit_Last_EJ_2013-05-08.xlx <=> DB_Mapping_Longit_Last_EJ_2013-05-08.csv
+DB_Mapping_Longit_Last_EJ_20131007
+    EMBOLICDESEASE => EMBOLICDISEASE
+
+CADASIL
+-------
+- base_commun.xlsx
+    => base_commun.csv
+    Add DATEINCL and DATENAIS in CADASIL
+    => base_commun_20131008.csv. See 00_MISSING_CADASIL.py
+
+- france2012.csv
+
+- CAD_Munich_Dates.txt
+  Date birth/inclusion for munich patients
+
+ASP(F)S_klinVariables_*
+---------------------
+ASP(F)S_klinVariables_*.sav received from Hofer Edith => ASP(F)S_klinVariables_*.csv
+
+COMON DATABASE
+--------------
+
+- db_clinic_cadasil-asps-common.*
+- db_clinic_cadasil-asps_mapping_summary_*
+
+
+MISSING DATA
+============
+
+Add DATEINCL and DATENAIS an compute AGE_AT_INCLUSION in CADASIL subjects
+
+SCRIPT
+------
+
+00_MISSING_CADASIL.py
+
+INPUT
+-----
+
+"base_commun.csv"
+"france2012.csv" => date DATEINCL and DATENAIS for french
+"CAD_Munich_Dates.txt" => date DATEINCL and DATENAIS for german
+
+OUTPUT
+------
+
+"base_commun_20131003.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+
+QC for CDADASIL
+===============
+Check if france2012 and base_commun_20131003.csv are simillar
+
+SCRIPT
+------
+
+00_QC_CADASIL.py
+
+INPUT
+-----
+france2012.csv
+base_commun_20131003.csv
+
+OUTPUT
+------
+/neurospin/mescog/clinic/QC/cadasil_qc.csv
+/neurospin/mescog/clinic/QC/cadasil_qc.html
+
+where:
 For each variable in base_commun.csv (378 samples):
 in_france2012   : is the variable in france2012.csv (249 samples)
 diff            : if numeric the maximum difference, if symbolic the number of diff
@@ -10,61 +80,111 @@ n_missing       : nb of missing values (in base_commun.csv)
 n_missing_base_commun_but_not_infr2012 : nb of missing values (in base_commun.csv) but not in france2012.csv
 
 
+
 MERGING BASES
 =============
-ADASIL
--------
 
-/neurospin/mescog/clinic
-- base_commun.csv from base_commun.xls : M0 18 and 36 for CADASIL both Munich & Paris
-- france2012.csv from france2012.xls: M0 18 and 36 54 for Paris
+SCRIPT
+------
 
-ASPS
-----
-Stefan R: I could not find the clinical data in the archive you gave us at Munich, could you send it to me please ?
+01_merge_CADASIL-ASPS.py
 
-COMON VRIABLES
---------------
 
-CADASIL
-~~~~~~~
-Marco: Does "AGE_AT_INCLUSION" correspond to "Ts" column in "base_commun.xlsx" ?
-Eric :  Should "DATEINCL" and "DATENAIS" be taken in "france2012.xls" ?
+INPUT
+------
 
-All of you: since we have few shared follow up variables (SYS_BP, DIA_BP, WEIGHT, BMI) I will suffix them by "__M36".
+1) base_commun_20131003.csv
+2) ASPS_klinVariables_20130806.csv
+3) DB_Mapping_Longit_Last_EJ_20131007.csv
 
-              NEW_NAME                CADASIL_NAME             ASPS_NAME  CADASIL_COL
-0     AGE_AT_INCLUSION  FORM = (DATEINCL-DATENAIS)                 ALTER           -1 => If Ts missing use DATEINCL-DATENAIS from france2012
-1               SYS_BP                         PAS               MEANSYS          325
-2          SYS_BP__M36                       PAS40              MEANSYS1          935
-3               DIA_BP                         PAD               MEANDIA          326
-4          DIA_BP__M36                       PAD40              MEANDIA1          936
-5                  SEX                        SEXE                   SEX            5
-6               HEIGHT                      TAILLE               GROESSE          324
-7               WEIGHT                       POIDS               GEWICHT          323
-8          WEIGHT__M36                     POIDS40              GEWICHT1          934
-9     MIGRAINE_WO_AURA                   MIGSSAURA               MIGOFNS           79
-10  MIGRAINE_WITH_AURA                    MIGAAURA               MIGMFNS           80
-11        MIGRAINE_AGE                AGEMIGRAINES             ANFALLVON           87
-12       MIGRAINE_FREQ               FREQMIGRAINES              FREQUMTH           88
-13        MIGRAINE_MED             SEE MEDICATIONS                 MEDTH           -1 => POIDS/TAILLE^2
-14                 BMI  TO DEFINE (POIDS/TAILLE^2)                   BMI           -1 => POIDS40/TAILLE^2
-15            BMI__M36            POIDS40/TAILLE^2                  BMI1           -1
-16             SMOKING                       TABAC                  NIKO           51
-17             ALCOHOL                     CALCOOL               ALCOHOL           55
-18        HYPERTENSION                         HTA          HYPERTENSION           56
-19            DIABETES                        DIAB              DIABETES           62
-20           HYPERCHOL                     HCHOLES  HYPERCHOLESTEROLEMIA           59
-21     PERIPH_VASC_DIS                  ARTERITEMI       VASCULARDISEASE           39
-22          VENOUS_DIS                PATHOTHROMBO        EMBOLICDESEASE           40
-23           FAST_GLUC                      GLYC17               BLZWERT          489
-24               HBA1C                   HBGLYCO17                 HBA1C          487
-25                CHOL                   CHOLTOT17                  CHOL          481
-26                 HDL                   CHOLHDL17                   HDL          477
-27                 LDL                   CHOLLDL17                   LDL          479
-28              TRIGLY                    TRIGLY17                   TRI          483
-29          HEMOGLOBIN                      HEMO17               HAEMOGL          469
-30         LEUKO_COUNT                     LEUCO17                 LEUKO          471
-31       THROMBO_COUNT                      PLAQ17               THROMBO          473
-32          FIBRINOGEN                   FIBRINO17                   FIB          493
-33             AF_HIST                FAURICULAIRE               VORHBEK           38
+OUTPUT
+------
+
+1) Summary of common DB
+    "db_clinic_cadasil-asps_mapping_summary.csv"
+    "db_clinic_cadasil-asps_mapping_summary.html"
+2) Common DB
+    "db_clinic_cadasil-asps-common.csv"
+
+================================================================================
+TO BE CHECKED
+
+See blue cells in db_clinic_cadasil-asps_mapping_summary_20130620.xls
+
+AGE_AT_INCLUSION
+    ASPS_min = 0
+=> One ASPS "AGE_AT_INCLUSION" is == 0.
+
+MIGRAINE_*:
+CADASIL, Every non missing are "yes" (1), no false found,
+=> is it normal ?
+
+FAST_GLUC:
+Very different MEAN and STD, I checked the conversion from  mmol/l to mg/dl, it seems ok.
+=> Check "RECODING" column
+
+Details:
+mmoll_to_mgdl(cadasil_base[cadasil_name], mm=180)
+Where mmoll_to_mgdl is the function:
+def mmoll_to_mgdl(mmolpl, mm):
+    return mmolpl * mm / 10.0
+
+CHOL, LDL*, HDL*:
+Again, MEAN and STD are different, I checked the conversion from  mmol/l to mg/dl, it seems ok.
+=> Check RECODING column, molar mass of CHOL=386.65
+
+PROBABLE ERRORS
+
+See the red cell in db_clinic_cadasil-asps_mapping_summary_20130620.xls
+
+LEUKO_COUNT
+The ASPS and CADASIL units are supposed to be the same. However, the means and std are **very** different:
+mean cadasil=6.67248, while mean ASPS=5991.7923115327
+
+MAil de Marco
+============
+     I think I might know the reason for some strange lab values. Within the CADASIL cohort, units between Paris and Munich can differ. E.g. glucose is recorded in mM at Paris, but mg/dl in Munich. An exception is subject 2101, which was also recorded in mM. 
+     It seems that Munich values have also been converted, this is why there are some sky high values (up to 4000) for Munich subjects.
+Yes, but Glyc17c indicates MG/DL what is the correct unit for this subject according to you ?
+
+=> I propose:
+1) To adapt the conversion according to the unit mentioned column "Glyc17c" in base_commun.xls file. This should fix most of the problem like Munich vs Paris unit, and some exceptions (Paris subjects 1117, 1119, 1155, 1156, 1157 and Munich 2101).
+2) Recompute the quality control scores to detect some outliers as the subject 2124 (the one with sky high value).
+3) Get a feedback from you, Stefan and Eric
+
+
+    The same seems to be true for cholesterol (Paris mM, Munich mg/dl).
+
+I propose the same procedure:
+1) Look <VARIABLE_NAME>c example CHOLTOT17c
+2) quality control => outliers
+3) feedback
+
+
+    Do you have the complete table with units? If not, I can send it to you.
+
+Yes I would like. However it seems that I can use <VARIABLE_NAME>c. Is it correct ?
+
+ 
+
+    P.S. Making some very fast plausibility checks, we found that there are more problems, i.e. errors in the CADASIL database. 
+
+
+    Look at glucose values for subjects 1155, 1156, 1157. The values make no sense (way too low). I looked in the original file "base_commun" Excel file.
+    Here for these subjects the unit is given as G/L, which does not make sense for glucose.
+
+=> This will be fixed by the procedure evoked previously
+
+    in my base_commun the Glyc17c for 2101 is µMOL/L. Still, the value of 13 is also not plausible, even with µM. I suggest to delete this value.
+=> OK
+
+For the rest, the procedure suggested by you is good.
+
+Still, I think glucose for 1155, 1156 and 1157 make no sense. This has to be checked by the Paris group.
+
+
+base_commun_20131008.tsv
+MMOL/L
+col:GLYC17C l:96 % => MMOL/L
+
+
