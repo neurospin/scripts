@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun 10 13:39:45 2013
+
+Create the CADASIL/ASPS common DB
+Is the variable present in the common DB?
+A variable is present in the common DB if it is in both DB at baseline
+and it is least present in one two DB for other time points.
+
 INPUT:
 
 1) base_commun_20131003.csv
@@ -10,17 +16,13 @@ INPUT:
 OUTPUT:
     
 1) Summary of common DB
-    "db_clinic_cadasil-asps_mapping_summary_20130811.csv"
-    "db_clinic_cadasil-asps_mapping_summary_20130811.html"
+    "commondb_clinic_cadasil-asps_mapping-summary_20130811.csv"
+    "commondb_clinic_cadasil-asps_mapping-summary_20130811.html"
     Fields:
 
       NEW_NAME: The new name in the merged DB
 
       CADASIL_NAME & ASPS_NAME: original names
-
-      IN_COMMON: Is the variable present in the common DB?
-      A variable is present in the common DB if it is in both DB at baseline
-      and it is least present in one two DB for other time points.
 
       IN_CAD: was the variable found in CADASIL?
 
@@ -48,7 +50,7 @@ OUTPUT:
       remark: 
 
 2) Common DB
-    "db_clinic_cadasil-asps-common.csv"
+    "commondb_clinic_cadasil-asps_20130811.csv"
 
 
 @author: edouard.duchesnay@cea.fr
@@ -70,8 +72,8 @@ INPUT_mapping_filepath = os.path.join(WD, "clinic",
 INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
 INPUT_asps_filepath = os.path.join(WD, "clinic", "ASPS_klinVariables_20130806.csv")
 
-OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps_mapping_summary") #.csv | .html
-OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "db_clinic_cadasil-asps-common") #.csv | .html
+OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps_mapping-summary_20130811") #.csv | .html
+OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps_20130811") #.csv | .html
 
 cadasil_base = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=',').replace("-", np.nan)
 asps_base = pd.read_table(INPUT_asps_filepath, header=0)
@@ -209,6 +211,9 @@ for i in xrange(mapping.shape[0]):
 
         if new_name.find("DIA_BP") == 0:
             remark_str = "ok"
+
+        if new_name == "AGE_AT_INCLUSION":
+            unit_str = "year"
 
         if new_name == "SEX":
             unit_str = "m, f"
@@ -422,49 +427,26 @@ var_asps = [asps_to_cad(v) for v in var_asps]
             var_cada = replace(var_cada, cada)
             #var_asps = replace(var_asps, asps)
         
-        stats = do_stat(var_cada, var_asps)
-        ## Add to common DB
-        common_db[new_name] = pd.Series(var_cada + var_asps)
-        variables.append([new_name, cadasil_name, asps_name, IN_COMMON, 
-                          in_cadasil_base, in_asps_base, unit_str] + stats + 
-                          [recode_srt, remark_str])
+        if IN_COMMON:  # could have been set to 0
+            stats = do_stat(var_cada, var_asps)
+            ## Add to common DB
+            common_db[new_name] = pd.Series(var_cada + var_asps)
+            variables.append([new_name, cadasil_name, asps_name,
+                              in_cadasil_base, in_asps_base, unit_str] + stats + 
+                              [recode_srt, remark_str])
 
-
-# recode ID
-common_db["ID"] = pd.Series(
-["CAD_%i" % v for v in cadasil_base["ID"]] + ["ASPS_%i" % v for v in asps_base["ID"]])
-
-#common_db["ID"] = pd.Series(cadasil_base["ID"].tolist() + asps_base["ID"].tolist())
-common_db["BASE"] = pd.Series(["CAD"]*len(cadasil_base["ID"]) + ["ASPS"]*len(asps_base["ID"]))
-
-
-## Mapping summary re-order IN_COMMON first
+## MAPPING    
 mapping_summary = pd.DataFrame(variables,
-                               columns=['NEW_NAME', 'CAD_NAME', 'ASPS_NAME', 'IN_COMMON',
+                               columns=['NEW_NAME', 'CAD_NAME', 'ASPS_NAME', 
                       'IN_CAD', 'IN_ASPS', 'UNIT'] + stat_colnames + ['RECODING', 'REMARKS'])
-
-
-mapping_summary = pd.concat([mapping_summary[mapping_summary['IN_COMMON'] == 1],
-mapping_summary[mapping_summary['IN_COMMON'] == 0]])
 mapping_summary.index = range(mapping_summary.shape[0])
-#print mapping_summary.to_string()
-#print mapping_summary[mapping_summary['IN_COMMON'] == 1].to_string()
-
-# SAVE
 print "Save summary\n%s\n%s" % (OUTPUT_MAPPING_SUMMARY_FILEPATH+".csv", OUTPUT_MAPPING_SUMMARY_FILEPATH+".html")
 mapping_summary.to_csv(OUTPUT_MAPPING_SUMMARY_FILEPATH+".csv", sep=",", index=False)
 mapping_summary.to_html(OUTPUT_MAPPING_SUMMARY_FILEPATH+".html")
 
 
 ## COMMON_DB
-db_columns = ["ID", "BASE"] + mapping_summary[mapping_summary.IN_COMMON==1]["NEW_NAME"].tolist()
-
+db_columns = ["ID", "BASE"] + mapping_summary["NEW_NAME"].tolist()
 common_db = pd.DataFrame(common_db, columns=db_columns)
 print "Save common DB\n%s" % OUTPUT_MERGE_CADASIL_ASPS_FILEPATH+".csv"
 common_db.to_csv(OUTPUT_MERGE_CADASIL_ASPS_FILEPATH+".csv", sep=",", index=False)
-
-#mapping_summary = pd.read_table(MAPPING_SUMMARY_FILEPATH+".csv", header=0)
-#s = mapping_summary.to_string()
-#f = open(MERGE_CADASIL_ASPS_FILEPATH+".txt", "w")
-#f.write(s)
-#f.close()

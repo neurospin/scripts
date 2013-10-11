@@ -267,7 +267,19 @@ print "**LEUCO17**"
 """ID:1083
     Problem: unit is '%', value is 5.70 compatible with G/L (mean:7.00, std:1.99)
     Proposition: Correct error % => G/L"""
+print """
+ID:Many subjects
+    Problem: Unit is "10E" seems to be compatible with G/L
+    Proposition: Correct error 10E => G/L ?
 
+ID: CADASIL vs ASPS
+    Problem: Unit are clearly not compatible.
+    DB_Mapping_Longit_Last_EJ_2013-05-08 indicates "same unit" ie.: leukocutes 
+    per microliter (mcL). However CADASIL seems to use G/L
+    mean CADASIL = 6.67 mean ASPS=5991.79. Clearly  ASPS reaaly use count per
+    per microliter. So do you have the leukocyte mass or any rule to convert
+    G/L to count per microliter ?
+"""
 d.ID[d.LEUCO17C == '%']
 d.ID[d.LEUCO17C == '10E']
 
@@ -279,14 +291,14 @@ for v in set(d.LEUCO17C):
 #% mean:5.70, std:0.00, min:5.70, max:5.70
 #10E mean:6.51, std:3.32, min:3.20, max:49.90
 
-# % seems to be an error => recode 10E
-d.LEUCO17C[d.LEUCO17C == '%'] = 'G/L'
-
-"""ID:1001 ... 1250
-    Problem: unit is "10E". Values (mean:6.51, std:3.32, min:3.20, max:49.90)
-    seem to be compatible with G/L.
-    Proposition: Correct error 10E => G/L"""
-d.LEUCO17C[d.LEUCO17C == '10E'] = 'G/L'
+## % seems to be an error => recode 10E
+#d.LEUCO17C[d.LEUCO17C == '%'] = 'G/L'
+#
+#"""ID:1001 ... 1250
+#    Problem: unit is "10E". Values (mean:6.51, std:3.32, min:3.20, max:49.90)
+#    seem to be compatible with G/L.
+#    Proposition: Correct error 10E => G/L"""
+#d.LEUCO17C[d.LEUCO17C == '10E'] = 'G/L'
 
 
 print "**FIBRINO17**"

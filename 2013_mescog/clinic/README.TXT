@@ -204,6 +204,7 @@ IDs:1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179
 GLYC17C units: set([nan, 'MG/DL', 'MMOL/L'])
 Paris unit: set([nan, 'MG/DL', 'MMOL/L'])
 Munich unit: set([nan, 'MG/DL'])
+
 **CHOLTOT17**
 For many patients:
     Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
@@ -224,6 +225,7 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 CHOLHDL17 units: set([nan, 'MG/DL', 'MMOL/L'])
+
 **CHOLLDL17**
 For many patients:
     Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
@@ -234,6 +236,7 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 CHOLLDL17 units: set([nan, 'MG/DL', 'MMOL/L'])
+
 **TRIGLY17**
 For many patients:
     Problem: TRIGLY17C == 'MMOL/', "L" is missing.
@@ -249,7 +252,22 @@ IDs:1002
     Problem: HEMO17C == 'G/L'. However, the value: 15.3 seems to be in MG/DL
     Proposition: Correct error G/L => MG/DL.
 HEMO17C units: set([nan, 'G/DL'])
+
 **LEUCO17**
+
+ID:Many subjects
+    Problem: Unit is "10E" seems to be compatible with G/L
+    Proposition: Correct error 10E => G/L ?
+
+ID: CADASIL vs ASPS
+    Problem: Unit are clearly not compatible.
+    DB_Mapping_Longit_Last_EJ_2013-05-08 indicates "same unit" ie.: leukocutes 
+    per microliter (mcL). However CADASIL seems to use G/L
+    mean CADASIL = 6.67 mean ASPS=5991.79. Clearly  ASPS reaaly use count per
+    per microliter. So do you have the leukocyte mass or any rule to convert
+    G/L to count per microliter ?
+
+
 nan mean:nan, std:nan, min:nan, max:nan
 G/L mean:7.00, std:1.99, min:3.40, max:18.00
 % mean:5.70, std:0.00, min:5.70, max:5.70
