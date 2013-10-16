@@ -138,6 +138,33 @@ def make_image_from_array(array, babel_mask):
     outimg = nibabel.Nifti1Image(img, babel_mask.get_affine())
     return outimg
 
+def range_log2(*arguments, **keywords):
+    """Return log2 range with start and stop"""
+    start = None
+    stop = None
+    add_n = True
+    if keywords is not None:
+        start = keywords.get('start', 1)
+        stop = keywords.get('stop', None)
+        add_n = keywords.get('add_n', True)
+    if len(arguments)==1:
+        start = 1
+        stop = arguments[0]
+    if len(arguments)==2:
+        start = arguments[0]
+        stop = arguments[1]
+    # At least stop must be set
+    if stop == None:
+        raise Exception
+    # Start & stop
+    arange_start = int(numpy.ceil(numpy.log2(start)))
+    arange_stop = int(numpy.floor(numpy.log2(stop))) + 1
+    rang = (2**numpy.arange(arange_start, arange_stop)).tolist()
+    if add_n:
+        if rang[-1]!= stop:
+            rang.append(stop)
+    return rang
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()

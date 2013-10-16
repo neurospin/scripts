@@ -54,33 +54,6 @@ parser.add_argument('--images_name',
 
 args = parser.parse_args()
 
-def range_log2(*arguments, **keywords):
-    """Return log2 range with start and stop"""
-    start = None
-    stop = None
-    add_n = True
-    if keywords is not None:
-        start = keywords.get('start', 1)
-        stop = keywords.get('stop', None)
-        add_n = keywords.get('add_n', True)
-    if len(arguments)==1:
-        start = 1
-        stop = arguments[0]
-    if len(arguments)==2:
-        start = arguments[0]
-        stop = arguments[1]
-    # At least stop must be set
-    if stop == None:
-        raise Exception
-    # Start & stop
-    arange_start = int(numpy.ceil(numpy.log2(start)))
-    arange_stop = int(numpy.floor(numpy.log2(stop))) + 1
-    rang = (2**numpy.arange(arange_start, arange_stop)).tolist()
-    if add_n:
-        if rang[-1]!= stop:
-            rang.append(stop)
-    return rang
-
 if TEST_MODE:
     C_VALUES = [0.1, 1, 10]
 else:
@@ -91,7 +64,7 @@ REGULARIZATION_METHODS = ['l1', 'l2']
 if TEST_MODE:
     K_VALUES = [32, MAX_N_FEATURES]
 else:
-    K_VALUES = range_log2(32, MAX_N_FEATURES)
+    K_VALUES = utils.range_log2(32, MAX_N_FEATURES)
 
 if TEST_MODE:
     N_FOLDS_EVAL    = 3
@@ -115,7 +88,7 @@ mask = babel_mask.get_data()
 binary_mask = mask != 0
 
 h5file = tables.openFile(LOCAL_PATH)
-masked_images = data_api.get_images(h5file)
+masked_images = data_api.get_images(h5file, name=args.images_name)
 
 ###########################################
 # 1st step: SVM with feature selection    #
