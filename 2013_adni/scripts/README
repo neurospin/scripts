@@ -1,0 +1,5 @@
+# generate quantitative qc measures
+python 01qc_tissues-volumes_spm-segmentation.py qc_input-adni_spm_segmentation.txt > qc_output-adni_spm_segmentation.csv
+
+# generate boxplots (PDF) from quantitative qc measures
+R -f 01qc_tissues-volumes_spm-segmentation.R --no-save --args qc_output-adni_spm_segmentation.csv qc_output-adni_spm_segmentation.pdf
