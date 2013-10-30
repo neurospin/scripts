@@ -22,7 +22,12 @@ CADASIL
 
 ASP(F)S_klinVariables_*
 ---------------------
-ASP(F)S_klinVariables_*.sav received from Hofer Edith => ASP(F)S_klinVariables_*.csv
+ASPS_klinVariables_20130806.sav received from Hofer Edith => ASPS_klinVariables_20130806.csv
+    Individual 1607 is actually 53 (not 0).
+    Individual 1911 is 54 (and not 34 as in the file I sent you). =>
+ASPS_klinVariables_20131015.csv
+
+ASPFS_klinVariables_20130711.sav received from Hofer Edith => ASPFS_klinVariables_20130711.csv
 
 COMON DATABASE
 --------------
@@ -60,7 +65,7 @@ Check if france2012 and base_commun_20131003.csv are simillar
 SCRIPT
 ------
 
-00_QC_CADASIL.py
+01_QC_CADASIL.py
 
 INPUT
 -----
@@ -87,7 +92,7 @@ MERGING BASES
 SCRIPT
 ------
 
-01_merge_CADASIL-ASPS.py
+02_merge_CADASIL-ASPS.py
 
 
 INPUT
@@ -267,6 +272,8 @@ ID: CADASIL vs ASPS
     per microliter. So do you have the leukocyte mass or any rule to convert
     G/L to count per microliter ?
 
+concerning the LEUKO_COUNT variable:
+the unit in ASPS is cells per microlitre(µl).
 
 nan mean:nan, std:nan, min:nan, max:nan
 G/L mean:7.00, std:1.99, min:3.40, max:18.00

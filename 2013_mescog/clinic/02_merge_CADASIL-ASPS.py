@@ -70,15 +70,15 @@ WD = "/neurospin/mescog"
 INPUT_mapping_filepath = os.path.join(WD, "clinic",
                                 "DB_Mapping_Longit_Last_EJ_20131007.csv")
 INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
-INPUT_asps_filepath = os.path.join(WD, "clinic", "ASPS_klinVariables_20130806.csv")
+INPUT_asps_filepath = os.path.join(WD, "clinic", "ASPS_klinVariables_20131015.csv")
 INPUT_aspfs_filepath = os.path.join(WD, "clinic", "ASPFS_klinVariables_20130711.csv")
 
 
-OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20130811") #.csv | .html
+OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015") #.csv | .html
 OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_20130811") #.csv | .html
 
 cadasil_base = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=',').replace("-", np.nan)
-asps_base = pd.read_table(INPUT_asps_filepath, header=0)
+asps_base = pd.read_table(INPUT_asps_filepath, header=0, sep=',')
 aspfs_base = pd.read_table(INPUT_aspfs_filepath, header=0)
 mapping = pd.read_table(INPUT_mapping_filepath, header=0).replace("-", np.nan)
 
@@ -208,7 +208,7 @@ for i in xrange(mapping.shape[0]):
     if cadasil_name and asps_name and aspfs_name:
         IN_COMMON = 1
     if IN_COMMON and (in_cadasil_base or in_asps_base or in_aspfs_base):
-        print i, "new_name", new_name, "cada:", cadasil_name, "asps:", asps_name, "aspfs:", aspfs_name, "time", l['time point']
+        print i, "new_name:", new_name, "cada:", cadasil_name, "asps:", asps_name, "aspfs:", aspfs_name, "time", l['time point']
         #in_cadasil_france2012 = int(cadasil_name in cadasil_france2012.columns)
         if in_cadasil_base:
             var_cada = cadasil_base[cadasil_name].tolist()
