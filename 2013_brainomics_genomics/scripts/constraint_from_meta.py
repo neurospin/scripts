@@ -6,6 +6,7 @@
 import pybedtools
 import json
 import numpy as np
+from os import stat
 
 
 def loadrefDB():
@@ -30,10 +31,14 @@ def tree_path_gene_snp(ontology, ref=None, snps=None, name = 'synaptic transmiss
             go_gene_snp[name][g] = np.unique([i.name for i in tmp]).tolist()
    return go_gene_snp
 
-def gene_snp(ref=None, name='UTS2'):
+def gene_snp(ref=None, snps=None, name='UTS2'):
    subset = pybedtools.BedTool(ref.filter(lambda b: b.name.endswith('|%s'%name)>0).saveas())
-   tmp = snps.intersect(subset)
-   return np.unique([i.name for i in tmp]).tolist()
+   if stat(subset.fn).st_size == 0L:
+       print "No snp for gene %s"%name
+       return []
+   else:
+       tmp = snps.intersect(subset)
+       return np.unique([i.name for i in tmp]).tolist()
 
 
 
@@ -48,4 +53,4 @@ if __name__=="__main__":
    tree = tree_path_gene_snp(go, ref=ref, snps=snps, name = 'synaptic transmission')
 
    # exmaple with a gene entry
-   snp_list = gene_snp(ref=ref, name='UTS2')
+   snp_list = gene_snp(ref=ref, snps=snps, name='UTS2')
