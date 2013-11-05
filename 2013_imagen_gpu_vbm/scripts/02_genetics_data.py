@@ -29,7 +29,7 @@ DATA_DIR=os.path.join(BASE_DIR, 'data')
 CLINIC_DIR=os.path.join(DATA_DIR, 'clinic')
 
 
-gfn = os.path.join(DATA_DIR, 'bmi_snp')
+gfn = os.path.join(DATA_DIR, 'qc_sub_qc_gen_all_snps_common_autosome')
 genotype = ig.Geno(gfn)
 data = genotype.snpGenotypeAll()
 
