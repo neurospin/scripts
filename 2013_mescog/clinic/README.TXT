@@ -22,7 +22,12 @@ CADASIL
 
 ASP(F)S_klinVariables_*
 ---------------------
-ASP(F)S_klinVariables_*.sav received from Hofer Edith => ASP(F)S_klinVariables_*.csv
+ASPS_klinVariables_20130806.sav received from Hofer Edith => ASPS_klinVariables_20130806.csv
+    Individual 1607 is actually 53 (not 0).
+    Individual 1911 is 54 (and not 34 as in the file I sent you). =>
+ASPS_klinVariables_20131015.csv
+
+ASPFS_klinVariables_20130711.sav received from Hofer Edith => ASPFS_klinVariables_20130711.csv
 
 COMON DATABASE
 --------------
@@ -60,7 +65,7 @@ Check if france2012 and base_commun_20131003.csv are simillar
 SCRIPT
 ------
 
-00_QC_CADASIL.py
+01_QC_CADASIL.py
 
 INPUT
 -----
@@ -87,7 +92,7 @@ MERGING BASES
 SCRIPT
 ------
 
-01_merge_CADASIL-ASPS.py
+02_merge_CADASIL-ASPS.py
 
 
 INPUT
@@ -188,3 +193,90 @@ MMOL/L
 col:GLYC17C l:96 % => MMOL/L
 
 
+================================================================================
+**GLYC17**
+ID:1095
+    Problem: GLYC17C == '%': it is a mistake ?
+    Proposition: '%' => MMOL/L
+ID:2101
+    Problem: GLYC17 == 13: Non realistic value
+    Proposition: suppression
+IDs:1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179
+    Problem: GLYC17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:100.37, std:15.33, min:78.99, max:130.99)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+GLYC17C units: set([nan, 'MG/DL', 'MMOL/L'])
+Paris unit: set([nan, 'MG/DL', 'MMOL/L'])
+Munich unit: set([nan, 'MG/DL'])
+
+**CHOLTOT17**
+For many patients:
+    Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLTOT17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:201.0, std:31.307, min:155.0, max:254.0)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+CHOLTOT17 units: set([nan, 'MG/DL', 'MMOL/L'])
+**CHOLHDL17**
+2004
+    Problem: CHOLHDL17C == 'MM1.STUNDE', value==53
+    Proposition: MM1.STUNDE => 'MG/DL'
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLHDL17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:55.15, std:13.71, min:37.00, max:82.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+CHOLHDL17 units: set([nan, 'MG/DL', 'MMOL/L'])
+
+**CHOLLDL17**
+For many patients:
+    Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLLDL17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:124.92, std:26.07, min:81.00, max:166.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+CHOLLDL17 units: set([nan, 'MG/DL', 'MMOL/L'])
+
+**TRIGLY17**
+For many patients:
+    Problem: TRIGLY17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: TRIGLY17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values:'mean:103.92, std:46.09, min:44.00, max:202.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+TRIGLY17 units: set([nan, 'MG/DL', 'MMOL/L'])
+**HEMO17**
+IDs:1002
+    Problem: HEMO17C == 'G/L'. However, the value: 15.3 seems to be in MG/DL
+    Proposition: Correct error G/L => MG/DL.
+HEMO17C units: set([nan, 'G/DL'])
+
+**LEUCO17**
+
+ID:Many subjects
+    Problem: Unit is "10E" seems to be compatible with G/L
+    Proposition: Correct error 10E => G/L ?
+
+ID: CADASIL vs ASPS
+    Problem: Unit are clearly not compatible.
+    DB_Mapping_Longit_Last_EJ_2013-05-08 indicates "same unit" ie.: leukocutes 
+    per microliter (mcL). However CADASIL seems to use G/L
+    mean CADASIL = 6.67 mean ASPS=5991.79. Clearly  ASPS reaaly use count per
+    per microliter. So do you have the leukocyte mass or any rule to convert
+    G/L to count per microliter ?
+
+concerning the LEUKO_COUNT variable:
+the unit in ASPS is cells per microlitre(µl).
+
+nan mean:nan, std:nan, min:nan, max:nan
+G/L mean:7.00, std:1.99, min:3.40, max:18.00
+% mean:5.70, std:0.00, min:5.70, max:5.70
+10E mean:6.51, std:3.32, min:3.20, max:49.90
+================================================================================
