@@ -5,11 +5,12 @@ Created on Wed Oct  2 15:52:24 2013
 @author: md238665
 
 This script performs a parameter selection of the SGCCA model.
-SGCCA is implemented using RGCCA + L1 regularization. 
+SGCCA is implemented using RGCCA + L1 regularization.
 
 TODO:
  - save the weights (at least of each outer fold)
- - allow to use different data 
+ - allow to use different data
+ - output path?
 
 """
 
@@ -66,7 +67,7 @@ def rgcca_fit_predict(fold):
     lm = mulm.MUOLS()
     T = rgcca.transform(X_test, Y_test, Z_test)
     design_mat = np.concatenate((T[0], T[1]), axis=1)
-    lm.fit(X=design_mat, Y=Z_test)
+    lm.fit(X=design_mat, Y=T[2])
     Zhat = lm.predict(X=design_mat)
     Z_test_bar = Z_test.mean()
     SS_tot =  Z_test.var()
@@ -79,12 +80,12 @@ if __name__ == '__main__':
     ##############
     # Parameters #
     ##############
-    DATA_PATH = '../data'
+    DATA_PATH = '/neurospin/brainomics/2013_imagen_bmi/data'
     #IMG_PATH='VBM/gaser_vbm8/'
     IMG_PATH='.'
     FULL_IMG_DIR = os.path.join(DATA_PATH, IMG_PATH)
     IMG_FILENAME_TEMPLATE = 'rsmwp1{subject_id:012}*.nii' # TODO: try full data
-    
+
     MASK_PATH   = os.path.join(DATA_PATH, 'rmask.nii')
     babel_mask  = nibabel.load(MASK_PATH)
     mask        = babel_mask.get_data()
@@ -105,8 +106,8 @@ if __name__ == '__main__':
     #############
 
     # Read clinic data & SNPs
-    SNPs   = pd.io.parsers.read_csv('../data/SNPs.csv', index_col=0)
-    clinic = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'Y.csv'), index_col=0)
+    SNPs   = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'SNPs.csv'), index_col=0)
+    clinic = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'), index_col=0)
     subject_indices = clinic.index
     n_subjects = subject_indices.shape[0]
 
@@ -131,7 +132,7 @@ if __name__ == '__main__':
 
     X = masked_images
     Y = SNPs.astype(np.float64).as_matrix()
-    Z = clinic.as_matrix()
+    Z = clinic['BMI'].as_matrix()
 
 #    N_SUB_SUBJECT = n_subjects
 #    X = masked_images[0:N_SUB_SUBJECT, 0:200]
@@ -157,7 +158,7 @@ if __name__ == '__main__':
     # Outer loop
     outer_folds = sklearn.cross_validation.KFold(len(X), n_folds=N_OUTER_FOLDS, indices=False)
     best_params = []
-    outer_tasks = []    
+    outer_tasks = []
     for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
         train_mask, test_mask = outer_fold_masks
         print "In outer fold %i" % outer_fold_index
@@ -175,7 +176,7 @@ if __name__ == '__main__':
             inner_tasks = []
             for l1_params in param_set:
                 inner_tasks.append((l1_params, X_inner_train, X_inner_test, Y_inner_train, Y_inner_test, Z_inner_train, Z_inner_test))
-                #print l1_params            
+                #print l1_params
             res = process_pool.map(rgcca_fit_predict, inner_tasks)
             # Put results of this inner fold in a dataframe
             for i, l1_params in enumerate(param_set):
