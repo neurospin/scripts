@@ -16,14 +16,22 @@ sys.path.append('~/gits/igutils')
 
 """
 import sys
+import getpass
 sys.path.append('/home/vf140245/gits/igutils')
 import os
 import igutils as ig
 import numpy as np
 
 
+def convert_path(path):
+    if getpass.getuser() == "jl237561":
+        path = '~' + path
+        path = os.path.expanduser(path)
+    return path
+
 # Input
 BASE_DIR='/neurospin/brainomics/2013_imagen_bmi/'
+BASE_DIR = convert_path(BASE_DIR)
 DATA_DIR=os.path.join(BASE_DIR, 'data')
 CLINIC_DIR=os.path.join(DATA_DIR, 'clinic')
 
@@ -43,8 +51,19 @@ gfn = os.path.join(DATA_DIR, 'qc_sub_qc_gen_all_snps_common_autosome')
 genotype = ig.Geno(gfn)
 geno_subj = genotype.assayIID()
 
-len(set(cov_subj).intersection(set(geno_subj)))
+nb_samples = len(set(cov_subj).intersection(set(geno_subj)))
 
+indices_cov_subj = np.in1d(np.asarray(cov_subj), np.asarray(geno_subj))
+indices_geno_subj = np.in1d(np.asarray(geno_subj), np.asarray(cov_subj))
+
+print "intersetion nb = ", len(set(cov_subj).intersection(set(geno_subj)))
+print "nb from indices_cov_subj =", np.sum(indices_cov_subj)
+print "nb from indices_geno_subj =", np.sum(indices_geno_subj)
+
+nb_cols = len(covdata[0].split(',')[1:-1])
+covdata_table = np.asarray([i.split(',')[1:-1] for i in covdata])
+covdata[indices_cov_subj]
+len(np.asarray(covdata)[indices_cov_subj])
 
 
 #
