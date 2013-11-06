@@ -47,6 +47,7 @@ gfn = os.path.join(DATA_DIR, 'qc_sub_qc_gen_all_snps_common_autosome')
 genotype = ig.Geno(gfn)
 data = genotype.snpGenotypeAll()
 
+
 #
 data.shape
 data.dtype
