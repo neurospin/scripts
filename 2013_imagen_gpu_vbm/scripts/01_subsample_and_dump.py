@@ -105,7 +105,8 @@ print "Mask without cerebellum reduced: {n} true voxels".format(n=n_useful_voxel
 images = numpy.zeros((n_images, n_useful_voxels))
 images_without_cerebellum = numpy.zeros((n_images, n_useful_voxels_without_cerebellum))
 images_dir_files = os.listdir(IMAGES_DIR)
-for (index, subject_index) in enumerate(subject_indices[:2]):
+# for (index, subject_index) in enumerate(subject_indices[:2]):
+for (index, subject_index) in enumerate(subject_indices):
     # Find filename
     pattern = INIMG_FILENAME_TEMPLATE.format(subject_id=subject_index)
     filename = fnmatch.filter(images_dir_files, pattern)
