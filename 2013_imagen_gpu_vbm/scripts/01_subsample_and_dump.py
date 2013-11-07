@@ -130,6 +130,9 @@ for (index, subject_index) in enumerate(subject_indices):
     masked_image_without_cerebellum = out_image.get_data()[binary_rmask_without_cerebellum]
     images_without_cerebellum[index, :] = masked_image_without_cerebellum
 
+# to check if it is sorted
+print all(subject_indices[i] <= subject_indices[i + 1] for i in xrange(len(subject_indices) - 1))
+
 check_array_NaN(images)
 check_array_NaN(images_without_cerebellum)
 
