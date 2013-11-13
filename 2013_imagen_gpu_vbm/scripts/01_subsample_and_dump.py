@@ -9,8 +9,8 @@ This script perform :
     (det of Jacobian)
     - mask (without cereb.)
     - subsample
-    
-The order of the csv file is considered for : 
+
+The order of the csv file is considered for :
     - the covariate
     - the images
     - the SNP data
@@ -20,41 +20,57 @@ The git repository can be cloned at https://github.com/nilearn/nilearn.git
 
 """
 
-import os, sys, fnmatch
-import getpass
-import numpy, pandas
+import os
+import sys
+import fnmatch
+import numpy
+import pandas
 import tables
 import nibabel
 sys.path.append('/home/vf140245/gits/nilearn')
 from nilearn.image.resampling import resample_img
 import numpy as np
 
-def convert_path(path):
-# this function can be removed after jinpeng get right to access data
-    if getpass.getuser() == "jl237561":
-        path = '~' + path
-        path = os.path.expanduser(path)
-    return path
 
 def check_array_NaN(nparray):
     if np.isnan(nparray).any():
         raise ValueError("np.array contain NaN")
 
+
+def check_array_zero(nparray):
+    '''
+    Example
+    -------
+    import numpy as np
+    nparray = np.asarray([1.0, 2.0, 3.0, 0.0])
+    check_array_zero(nparray)
+    '''
+    zero_mat = numpy.zeros(nparray.shape, nparray.dtype)
+    nsum = np.sum(nparray == zero_mat)
+    if nsum > 0:
+        raise ValueError("np.array contain zero")
+
+
+def check_image(image_array):
+    check_array_NaN(image_array)
+    check_array_zero(image_array)
+
+
 # Input
 BASE_DIR = '/neurospin/brainomics/2013_imagen_bmi/'
-BASE_DIR = convert_path(BASE_DIR)
-DATA_DIR=os.path.join(BASE_DIR, 'data')
-CLINIC_DIR=os.path.join(DATA_DIR, 'clinic');
-IMAGES_DIR=os.path.join(DATA_DIR, '../../2012_imagen_shfj/VBM', 'new_segment_spm8')
-INIMG_FILENAME_TEMPLATE='smwc1{subject_id:012}*.nii'
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
+IMAGES_DIR = os.path.join(DATA_DIR, 'VBM', 'new_segment_spm8')
+INIMG_FILENAME_TEMPLATE = 'smwc1{subject_id:012}*.nii'
 
 # Original mask and mask without cerebellum
-MASK_FILE=os.path.join(DATA_DIR, 'mask.nii')
-MASK_WITHOUT_CEREBELUM_FILE=os.path.join(DATA_DIR, 'mask_without_cerebellum', 'mask_without_cerebellum_7.nii')
+MASK_FILE = os.path.join(DATA_DIR, 'mask.nii')
+MASK_WITHOUT_CEREBELUM_FILE = os.path.join(DATA_DIR,
+                                           'mask_without_cerebellum',
+                                           'mask_without_cerebellum_7.nii')
 
 # Images will be shaped as this images
-TARGET_FILE='/neurospin/brainomics/neuroimaging_ressources/atlases/HarvardOxford/HarvardOxford-LR-cort-333mm.nii.gz'
-TARGET_FILE = convert_path(TARGET_FILE)
+TARGET_FILE = '/neurospin/brainomics/neuroimaging_ressources/atlases/HarvardOxford/HarvardOxford-LR-cort-333mm.nii.gz'
 
 # Output files
 OUT_DIR=os.path.join(DATA_DIR, 'dataset_pa_prace')
@@ -130,11 +146,14 @@ for (index, subject_index) in enumerate(subject_indices):
     masked_image_without_cerebellum = out_image.get_data()[binary_rmask_without_cerebellum]
     images_without_cerebellum[index, :] = masked_image_without_cerebellum
 
-# to check if it is sorted
-print all(subject_indices[i] <= subject_indices[i + 1] for i in xrange(len(subject_indices) - 1))
 
-check_array_NaN(images)
-check_array_NaN(images_without_cerebellum)
+# to check if it is sorted
+if not all(subject_indices[i] <= subject_indices[i + 1]
+           for i in xrange(len(subject_indices) - 1)):
+    raise ValueError("It is not sorted subjuects")
+
+check_image(images)
+check_image(images_without_cerebellum)
 
 # Open the HDF5 file
 h5file = tables.openFile(OUT_HDF5_FILE, mode = "w", title = 'dataset_pa_prace')

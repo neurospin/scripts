@@ -16,7 +16,6 @@ sys.path.append('~/gits/igutils')
 
 """
 import sys
-import getpass
 sys.path.append('/home/vf140245/gits/igutils')
 import os
 import igutils as ig
@@ -24,17 +23,10 @@ import numpy as np
 import tables
 
 
-def convert_path(path):
-    if getpass.getuser() == "jl237561":
-        path = '~' + path
-        path = os.path.expanduser(path)
-    return path
-
-
 def replace_array_value(nparray, value2replace=128):
     med = np.median(nparray, axis=0)
     if med.max() == value2replace:
-        raise ValueError('too many %d' , value2replace)
+        raise ValueError('too many %d', value2replace)
     nsamples = nparray.shape[0]
     med = np.tile(med, nsamples).reshape((nsamples, -1))
     mask = (nparray == value2replace)
@@ -46,15 +38,15 @@ def check_array_NaN(nparray):
         raise ValueError("np.array contain NaN")
 
 # Input
-BASE_DIR='/neurospin/brainomics/2013_imagen_bmi/'
-BASE_DIR = convert_path(BASE_DIR)
-DATA_DIR=os.path.join(BASE_DIR, 'data')
-CLINIC_DIR=os.path.join(DATA_DIR, 'clinic')
+BASE_DIR = '/neurospin/brainomics/2013_imagen_bmi/'
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 
 # Output files
 OUT_DIR = os.path.join(DATA_DIR, 'dataset_pa_prace')
 OUT_HDF5_FILE = os.path.join(OUT_DIR, 'cache.hdf5')
 OUT_SNP_NPZ = os.path.join(OUT_DIR, 'snp')
+OUT_SNP_LIST_NPZ = os.path.join(OUT_DIR, 'snp_list')
 OUT_COV_NPY = os.path.join(OUT_DIR, 'cov')
 OUT_IMAGE_NPZ = os.path.join(OUT_DIR, 'image')
 OUT_IMAGE_NO_CERE_NPZ = os.path.join(OUT_DIR, 'images_without_cerebellum')
@@ -69,7 +61,7 @@ cfn = os.path.join(OUT_DIR, '1534bmi-vincent2.csv')
 covdata = open(cfn).read().split('\n')[:-1]
 cov_header = covdata[0]
 covdata = covdata[1:]
-cov_subj = ["%012d"%int(i.split(',')[0]) for i in covdata]
+cov_subj = ["%012d" % int(i.split(',')[0]) for i in covdata]
 
 
 gfn = os.path.join(DATA_DIR, 'qc_sub_qc_gen_all_snps_common_autosome')
@@ -107,6 +99,7 @@ geno_data_table = np.asarray(geno_data)[indices_geno_subj][o2]
 
 np.savez(OUT_SNP_NPZ, geno_data_table)
 np.save(OUT_COV_NPY, covdata_table)
+np.savez(OUT_SNP_LIST_NPZ, genotype.snpList())
 
 # ==========================================================================
 # Load images and push into one HDF5 file
