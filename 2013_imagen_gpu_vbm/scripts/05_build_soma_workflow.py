@@ -18,10 +18,12 @@ if __name__ == "__main__":
     num_perms = 32
     # define paths
     cccworkdir = "/ccc/work/cont003/dsv/lijpeng"
+    scratchdir = "/ccc/scratch/cont003/dsv/lijpeng"
     data_path = os.path.join(cccworkdir, "data")
     filename_python = "%s/brainomics/git/brainomics/ml/mulm_gpu"\
                       "/mulm/bench/example_data.py" % cccworkdir
     filename_cov_chunk = "%s/cov.npy" % data_path
+    outdatadir = "%s/outdata" % scratchdir
     # define jobs
     jobs = []
     for i_snp_chunk_index in xrange(NUM_CHUNK_SNP):
@@ -32,13 +34,17 @@ if __name__ == "__main__":
                                    (data_path, i_img_chunk_index)
             # create the workflow:
             job = Job(command=["python",
-                                 filename_python,
-                                 filename_snp_chunk,
-                                 filename_image_chunk,
-                                 filename_cov_chunk,
-                                 "32"
-                                 ], name="snp=%d, img=%d" % \
-                                 (i_snp_chunk_index, i_img_chunk_index))
+                             filename_python,
+                             filename_snp_chunk,
+                             filename_image_chunk,
+                             filename_cov_chunk,
+                             "32",
+                             "%s/res_snp_%d_img_%d.pkl" % \
+                             (outdatadir,
+                              i_snp_chunk_index,
+                              i_img_chunk_index)
+                             ], name="snp=%d, img=%d" % \
+                             (i_snp_chunk_index, i_img_chunk_index))
             jobs.append(job)
     dependencies = []
     workflow = Workflow(jobs=jobs,
