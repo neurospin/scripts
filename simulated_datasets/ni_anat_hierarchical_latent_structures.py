@@ -3,21 +3,10 @@
 Created on Tue Sep 24 18:49:36 2013
 
 Neuroimaging anatomical simulated datasets based on hierarchical latent variable
-model. We define a hierarchical brain model based on lobes (l) and structures (s)
-and voxels (j).
+model.
 
-Each voxel x_lkj is defined as:
-x_lkj = b_l * y_l + b_s * z_s + b_e * e_j + GM_j
-Where:
-y_l ~ N(0, 1) is the latent random variable associated to lobe l.
-z_s ~ N(0, 1) is the latent random variable associated to structure s.
-e_j ~ N(0, 1) is the random noize associated to voxel j.
-GM_j is a fixed value of grey matter at voxel j
+We simulated a realistic neuroimaging dataset of 500 anatomical (three dimensional $91 \times 109 \times 91$ voxels) images. Each image was sampled according to a hierarchical latent variables model where latent variables correspond to brain regions at difference scale. The hierarchical brain model is based on 12 large regions (lobes $l$) defined by the TD\_lobe atlas \cite{Maldjian2003}, and 116  smaller regions (structures $s$) defined by the aal atlas \cite{Tzourio-Mazoyer2002}. Each voxel $j$ within lobe $l$ and structure $s$ is defined by: $ x_{jls} = \text{lobe}_l + \text{struct}_s + e_j + \text{gm}_j $ Where: $\text{lobe}_l$ and $\text{struct}_s \sim \mathcal{N}(0, 1)$ are  latent random variables associated to lobe $l$ and structure $s$, creating large scale and smaller scale covariance structure between voxels. $e_i \sim \mathcal{N}(0, 1)$ is the random variable associated to voxel $i$ and $\text{gm}_i$ is the grey matter mean of voxel $i$ defined from \cite{Mazziotta2001}. Then each image was smoothed with an isotropic Gaussian filter with one  standard-deviation inducing a local covariance structure mimicking realigned structural brain images. $X$ was obtained by masking the images using $p=???$ voxels corresponding to grey matter. The causal model from $X$ to the target variable $y$ was obtained  using a $p$-dimensional $\beta$ vector with null values except for $???$ voxels within bilateral Hippocampi ($\beta_i=1$) and Amygdalas ($\beta_i=0.2$). Then the image of $\beta$ was smoothed using the same Gaussian filter. Finally, the target variable was obtained adding some noise $e$ to the linear combination of voxels: $y = X \beta + e, e_i \sim \mathcal{N}(0, \sigma)$ where $\sigma$ ensure a signal to noise ratio equal to 2.
 
-b_l, b_s and b_e are the mixing coreficients.
-
-Lobes are defined by TD_lobe atlas.
-Structures  are defined by aal_MNI_V4 atlas.
 """
 import os
 import nibabel as nib
