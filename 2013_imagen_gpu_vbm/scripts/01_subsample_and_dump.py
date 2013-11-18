@@ -45,7 +45,7 @@ def check_array_zero(nparray):
     nparray = np.asarray([1.0, 2.0, 3.0, 0.0])
     check_array_zero(nparray)
     '''
-    zero_mat = numpy.zeros(nparray.shape, nparray.dtype)
+    zero_mat = numpy.zeros(nparray.shape, dtype=numpy.uint8)
     nsum = np.sum(nparray == zero_mat)
     if nsum > 0:
         raise ValueError("np.array contain zero")
@@ -62,6 +62,7 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 IMAGES_DIR = os.path.join(DATA_DIR, 'VBM', 'new_segment_spm8')
 INIMG_FILENAME_TEMPLATE = 'smwc1{subject_id:012}*.nii'
+is_resample = True
 
 # Original mask and mask without cerebellum
 MASK_FILE = os.path.join(DATA_DIR, 'mask.nii')
@@ -78,6 +79,7 @@ OUTIMG_FILENAME_TEMPLATE='rsmwc1{subject_id:012}*.nii'
 RMASK_FILE=os.path.join(OUT_DIR, 'rmask.nii')
 RMASK_WITHOUT_CEREBELUM_FILE=os.path.join(OUT_DIR, 'rmask_without_cerebellum_7.nii')
 OUT_HDF5_FILE=os.path.join(OUT_DIR, 'cache.hdf5')
+OUT_HDF5_FILE_FULRES=os.path.join(OUT_DIR, 'cache_full_res.hdf5')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
 
@@ -100,7 +102,8 @@ target_affine = target.get_affine()
 
 # Resize masks & save them
 babel_mask  = nibabel.load(MASK_FILE)
-babel_rmask = resample(babel_mask, target_affine, target_shape, interpolation='continuous')
+# babel_rmask = resample(babel_mask, target_affine, target_shape, interpolation='continuous')
+babel_rmask = babel_mask
 nibabel.save(babel_rmask, RMASK_FILE)
 rmask        = babel_rmask.get_data()
 binary_rmask = rmask!=0
@@ -109,7 +112,8 @@ n_useful_voxels = len(useful_voxels)
 print "Mask reduced: {n} true voxels".format(n=n_useful_voxels)
 
 babel_mask_without_cerebellum  = nibabel.load(MASK_WITHOUT_CEREBELUM_FILE)
-babel_rmask_without_cerebellum = resample(babel_mask_without_cerebellum, target_affine, target_shape, interpolation='continuous')
+# babel_rmask_without_cerebellum = resample(babel_mask_without_cerebellum, target_affine, target_shape, interpolation='continuous')
+babel_rmask_without_cerebellum = babel_mask_without_cerebellum
 nibabel.save(babel_rmask_without_cerebellum, RMASK_WITHOUT_CEREBELUM_FILE)
 rmask_without_cerebellum        = babel_rmask_without_cerebellum.get_data()
 binary_rmask_without_cerebellum = rmask_without_cerebellum!=0
@@ -137,8 +141,9 @@ for (index, subject_index) in enumerate(subject_indices):
     print "Reducing {in_} to {out}".format(in_=full_infilename, out=full_outfilename)
     # Resample and save
     input_image = nibabel.load(full_infilename)
-    out_image = resample(input_image, target_affine, target_shape)
-    nibabel.save(out_image, full_outfilename)
+    # out_image = resample(input_image, target_affine, target_shape)
+    out_image = input_image
+    # nibabel.save(out_image, full_outfilename)
     # Apply mask & store in array
     masked_image = out_image.get_data()[binary_rmask]
     images[index, :] = masked_image
@@ -156,7 +161,8 @@ check_image(images)
 check_image(images_without_cerebellum)
 
 # Open the HDF5 file
-h5file = tables.openFile(OUT_HDF5_FILE, mode = "w", title = 'dataset_pa_prace')
+# h5file = tables.openFile(OUT_HDF5_FILE, mode = "w", title = 'dataset_pa_prace')
+h5file = tables.openFile(OUT_HDF5_FILE_FULRES, mode = "w", title = 'dataset_pa_prace')
 atom = tables.Atom.from_dtype(images.dtype)
 filters = tables.Filters(complib='zlib', complevel=5)
 ds = h5file.createCArray(h5file.root, 'images', atom, images.shape, filters=filters)
