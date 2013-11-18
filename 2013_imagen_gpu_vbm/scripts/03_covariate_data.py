@@ -45,6 +45,8 @@ CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 # Output files
 OUT_DIR = os.path.join(DATA_DIR, 'dataset_pa_prace')
 OUT_HDF5_FILE = os.path.join(OUT_DIR, 'cache.hdf5')
+OUT_HDF5_FILE_FULRES=os.path.join(OUT_DIR, 'cache_full_res.hdf5')
+OUT_HDF5_FILE_FULRES_INTER=os.path.join(OUT_DIR, 'cache_full_res_inter.hdf5')
 OUT_SNP_NPZ = os.path.join(OUT_DIR, 'snp')
 OUT_SNP_LIST_NPZ = os.path.join(OUT_DIR, 'snp_list')
 OUT_COV_NPY = os.path.join(OUT_DIR, 'cov')
@@ -115,16 +117,26 @@ np.savez(OUT_SNP_LIST_NPZ, genotype.snpList())
 # ds[:] = images_without_cerebellum
 # h5file.close()
 
-h5file = tables.openFile(OUT_HDF5_FILE, mode = "r")
+h5file = tables.openFile(OUT_HDF5_FILE_FULRES, mode = "r")
 images = h5file.getNode(h5file.root, 'images')
 images = np.asarray(images)[indices_cov_subj, :][o1]
 images_without_cerebellum = h5file.getNode(h5file.root, "images_without_cerebellum")
 images_without_cerebellum = np.asarray(images_without_cerebellum)[indices_cov_subj, :][o1]
 h5file.close()
 
-np.savez(OUT_IMAGE_NPZ, images)
-np.savez(OUT_TR_IMAGE_NPZ, np.transpose(images))
-np.savez(OUT_IMAGE_NO_CERE_NPZ, images_without_cerebellum)
-np.savez(OUT_TR_IMAGE_NO_CERE_NPZ, np.transpose(images_without_cerebellum))
+
+h5file = tables.openFile(OUT_HDF5_FILE_FULRES_INTER, mode = "w", title = 'dataset_pa_prace')
+atom = tables.Atom.from_dtype(images.dtype)
+ds = h5file.createCArray(h5file.root, 'images', atom, images.shape)
+ds[:] = images
+ds = h5file.createCArray(h5file.root, 'images_without_cerebellum', atom, images_without_cerebellum.shape)
+ds[:] = images_without_cerebellum
+h5file.close()
+
+
+#np.savez(OUT_IMAGE_NPZ, images)
+#np.savez(OUT_TR_IMAGE_NPZ, np.transpose(images))
+#np.savez(OUT_IMAGE_NO_CERE_NPZ, images_without_cerebellum)
+#np.savez(OUT_TR_IMAGE_NO_CERE_NPZ, np.transpose(images_without_cerebellum))
 
 print "Images reduced and dumped"
