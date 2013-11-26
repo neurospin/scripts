@@ -33,6 +33,17 @@ import mulm
 
 import bmi_utils
 
+def scale_datasets(train, test):
+    # Center and scale training and testing data
+    # Don't use in place transformation because it would modify the datasets
+    # in the calling environment
+    scaler = sklearn.preprocessing.StandardScaler()
+    scaler.fit(train)
+    scaled_train = scaler.transform(train)
+    scaled_test  = scaler.transform(test)
+
+    return (scaled_train, scaled_test)
+
 def rgcca_fit_predict(fold):
     '''This function will be called several times'''
     params = fold[0]
@@ -48,48 +59,6 @@ def rgcca_fit_predict(fold):
     rgcca.set_adjacency_matrix([[0, 0, 1],
                                 [0, 0, 1],
                                 [1, 1, 0]])
-
-    # Center and scale training data
-    # Don't use in place transformation because it would modify the datasets
-    # in the calling environment
-    X_scaler = sklearn.preprocessing.StandardScaler()
-    X_train = X_scaler.fit_transform(X_train)
-    X_test  = X_scaler.transform(X_test)
-
-    if np.isnan(X_train).any():
-        print "nan in X_train"
-    if np.isnan(X_test).any():
-        print "nan in X_test"
-    if np.isinf(X_train).any():
-        print "inf in X_train"
-    if np.isinf(X_test).any():
-        print "inf in X_test"
-
-    Y_scaler = sklearn.preprocessing.StandardScaler()
-    Y_train = Y_scaler.fit_transform(Y_train)
-    Y_test  = Y_scaler.transform(Y_test)
-
-    if np.isnan(Y_train).any():
-        print "nan in Y_train"
-    if np.isnan(Y_test).any():
-        print "nan in Y_test"
-    if np.isinf(Y_train).any():
-        print "inf in Y_train"
-    if np.isinf(Y_test).any():
-        print "inf in Y_test"
-
-    Z_scaler = sklearn.preprocessing.StandardScaler()
-    Z_train = Z_scaler.fit_transform(Z_train)
-    Z_test  = Z_scaler.transform(Z_test)
-
-    if np.isnan(Z_train).any():
-        print "nan in Z_train"
-    if np.isnan(Z_test).any():
-        print "nan in Z_test"
-    if np.isinf(Z_train).any():
-        print "inf in Z_train"
-    if np.isinf(Z_test).any():
-        print "inf in Z_test"
 
     # Fitting
     rgcca.fit(X_train, Y_train, Z_train)
@@ -147,8 +116,11 @@ if __name__ == '__main__':
     ##############
     # Parameters #
     ##############
-    DATA_PATH = '/neurospin/brainomics/2013_imagen_bmi/data'
+    BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+    DATA_PATH = os.path.join(BASE_PATH, 'data')
     DATASET_FILE = os.path.join(DATA_PATH, 'dataset.hdf5')
+
+    OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis')
 
     # TODO: change values
     N_OUTER_FOLDS = 5
@@ -219,12 +191,34 @@ if __name__ == '__main__':
             X_inner_train, X_inner_test = X_train[inner_train_mask], X_train[inner_test_mask]
             Y_inner_train, Y_inner_test = Y_train[inner_train_mask], Y_train[inner_test_mask]
             Z_inner_train, Z_inner_test = Z_train[inner_train_mask], Z_train[inner_test_mask]
+            X_inner_train_std, X_inner_test_std = scale_datasets(X_inner_train, X_inner_test)
+            Y_inner_train_std, Y_inner_test_std = scale_datasets(Y_inner_train, Y_inner_test)
+            Z_inner_train_std, Z_inner_test_std = scale_datasets(Z_inner_train, Z_inner_test)
+            # Store data
+            inner_fold_dir = os.path.join(OUT_DIR, "{outer}/{inner}".format(outer=outer_fold_index, inner=inner_fold_index))
+            if not os.path.exists(inner_fold_dir):
+                os.makedirs(inner_fold_dir)
+            # Raw data
+            X_inner_train.tofile(os.path.join(inner_fold_dir, 'X_inner_train.bin'))
+            X_inner_test.tofile(os.path.join(inner_fold_dir, 'X_inner_test.bin'))
+            Y_inner_train.tofile(os.path.join(inner_fold_dir, 'Y_inner_train.bin'))
+            Y_inner_test.tofile(os.path.join(inner_fold_dir, 'Y_inner_test.bin'))
+            Z_inner_train.tofile(os.path.join(inner_fold_dir, 'Z_inner_train.bin'))
+            Z_inner_test.tofile(os.path.join(inner_fold_dir, 'Z_inner_test.bin'))
+            # Normalized data
+            X_inner_train_std.tofile(os.path.join(inner_fold_dir, 'X_inner_train_std.bin'))
+            X_inner_test_std.tofile(os.path.join(inner_fold_dir, 'X_inner_test_std.bin'))
+            Y_inner_train_std.tofile(os.path.join(inner_fold_dir, 'Y_inner_train_std.bin'))
+            Y_inner_test_std.tofile(os.path.join(inner_fold_dir, 'Y_inner_test_std.bin'))
+            Z_inner_train_std.tofile(os.path.join(inner_fold_dir, 'Z_inner_train_std.bin'))
+            Z_inner_test_std.tofile(os.path.join(inner_fold_dir, 'Z_inner_test_std.bin'))
+            # Put tasks in list
             inner_tasks = []
             inner_res = []
             for l1_params in param_set:
-                inner_tasks.append((l1_params, X_inner_train, X_inner_test, Y_inner_train, Y_inner_test, Z_inner_train, Z_inner_test))
+                inner_tasks.append((l1_params, X_inner_train_std, X_inner_test_std, Y_inner_train_std, Y_inner_test_std, Z_inner_train_std, Z_inner_test_std))
                 print '\t\t', l1_params
-                inner_res.append(rgcca_fit_predict((l1_params, X_inner_train, X_inner_test, Y_inner_train, Y_inner_test, Z_inner_train, Z_inner_test)))
+                inner_res.append(rgcca_fit_predict((l1_params, X_inner_train_std, X_inner_test_std, Y_inner_train_std, Y_inner_test_std, Z_inner_train_std, Z_inner_test_std)))
             # TODO: reactivate multiprocessing
             #inner_res = process_pool.map(rgcca_fit_predict, inner_tasks)
             # Put results of this inner fold in a dataframe
@@ -245,5 +239,5 @@ if __name__ == '__main__':
     for i in range(N_OUTER_FOLDS):
         outer_results['Best_params'][i] = best_params[i]
         outer_results['Outer_Rsquared'][i] = outer_res[i][3]
-    inner_results.to_csv('inner_results.csv', header=True)
-    outer_results.to_csv('outer_results.csv', header=True)
+    inner_results.to_csv(os.path.join(OUT_DIR, 'inner_results.csv'), header=True)
+    outer_results.to_csv(os.path.join(OUT_DIR, 'outer_results.csv'), header=True)
