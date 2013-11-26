@@ -16,7 +16,8 @@ def find_images(subjects_id, pattern, directory):
     img_dir_files = os.listdir(directory)
     for (index, subject_index) in enumerate(subjects_id):
         # Find filename
-        file_pattern = pattern.format(subject_id=subject_index)
+        # Warning: format consider numpy.int32 as a string so I convert it to int
+        file_pattern = pattern.format(subject_id=int(subject_index))
         filename = fnmatch.filter(img_dir_files, file_pattern)
         if len(filename) != 1:
             raise Exception
