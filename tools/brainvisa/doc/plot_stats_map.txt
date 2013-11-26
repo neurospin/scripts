@@ -63,7 +63,7 @@ Check value 0 at center
 3.1 Extract clusters meshs
 --------------------------
 
-brainvisa/bin/map_clusters_analysis.py --input neuroimaging_ressources/examples_images/weights_map_mixte.nii
+${HOME}/git/brainvisa/bin/map_clusters_analysis.py --input neuroimaging_ressources/examples_images/weights_map_mixte.nii
 
 Output
 weights_map_mixte_info_clusters.csv: csv file with cluster info

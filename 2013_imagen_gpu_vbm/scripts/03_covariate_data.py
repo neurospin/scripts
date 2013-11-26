@@ -16,7 +16,6 @@ sys.path.append('~/gits/igutils')
 
 """
 import sys
-import getpass
 sys.path.append('/home/vf140245/gits/igutils')
 import os
 import igutils as ig
@@ -24,17 +23,10 @@ import numpy as np
 import tables
 
 
-def convert_path(path):
-    if getpass.getuser() == "jl237561":
-        path = '~' + path
-        path = os.path.expanduser(path)
-    return path
-
-
 def replace_array_value(nparray, value2replace=128):
     med = np.median(nparray, axis=0)
     if med.max() == value2replace:
-        raise ValueError('too many %d' , value2replace)
+        raise ValueError('too many %d', value2replace)
     nsamples = nparray.shape[0]
     med = np.tile(med, nsamples).reshape((nsamples, -1))
     mask = (nparray == value2replace)
@@ -46,15 +38,17 @@ def check_array_NaN(nparray):
         raise ValueError("np.array contain NaN")
 
 # Input
-BASE_DIR='/neurospin/brainomics/2013_imagen_bmi/'
-BASE_DIR = convert_path(BASE_DIR)
-DATA_DIR=os.path.join(BASE_DIR, 'data')
-CLINIC_DIR=os.path.join(DATA_DIR, 'clinic')
+BASE_DIR = '/neurospin/brainomics/2013_imagen_bmi/'
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 
 # Output files
 OUT_DIR = os.path.join(DATA_DIR, 'dataset_pa_prace')
 OUT_HDF5_FILE = os.path.join(OUT_DIR, 'cache.hdf5')
+OUT_HDF5_FILE_FULRES=os.path.join(OUT_DIR, 'cache_full_res.hdf5')
+OUT_HDF5_FILE_FULRES_INTER=os.path.join(OUT_DIR, 'cache_full_res_inter.hdf5')
 OUT_SNP_NPZ = os.path.join(OUT_DIR, 'snp')
+OUT_SNP_LIST_NPZ = os.path.join(OUT_DIR, 'snp_list')
 OUT_COV_NPY = os.path.join(OUT_DIR, 'cov')
 OUT_IMAGE_NPZ = os.path.join(OUT_DIR, 'image')
 OUT_IMAGE_NO_CERE_NPZ = os.path.join(OUT_DIR, 'images_without_cerebellum')
@@ -69,7 +63,7 @@ cfn = os.path.join(OUT_DIR, '1534bmi-vincent2.csv')
 covdata = open(cfn).read().split('\n')[:-1]
 cov_header = covdata[0]
 covdata = covdata[1:]
-cov_subj = ["%012d"%int(i.split(',')[0]) for i in covdata]
+cov_subj = ["%012d" % int(i.split(',')[0]) for i in covdata]
 
 
 gfn = os.path.join(DATA_DIR, 'qc_sub_qc_gen_all_snps_common_autosome')
@@ -107,6 +101,7 @@ geno_data_table = np.asarray(geno_data)[indices_geno_subj][o2]
 
 np.savez(OUT_SNP_NPZ, geno_data_table)
 np.save(OUT_COV_NPY, covdata_table)
+np.savez(OUT_SNP_LIST_NPZ, genotype.snpList())
 
 # ==========================================================================
 # Load images and push into one HDF5 file
@@ -122,16 +117,26 @@ np.save(OUT_COV_NPY, covdata_table)
 # ds[:] = images_without_cerebellum
 # h5file.close()
 
-h5file = tables.openFile(OUT_HDF5_FILE, mode = "r")
+h5file = tables.openFile(OUT_HDF5_FILE_FULRES, mode = "r")
 images = h5file.getNode(h5file.root, 'images')
 images = np.asarray(images)[indices_cov_subj, :][o1]
 images_without_cerebellum = h5file.getNode(h5file.root, "images_without_cerebellum")
 images_without_cerebellum = np.asarray(images_without_cerebellum)[indices_cov_subj, :][o1]
 h5file.close()
 
-np.savez(OUT_IMAGE_NPZ, images)
-np.savez(OUT_TR_IMAGE_NPZ, np.transpose(images))
-np.savez(OUT_IMAGE_NO_CERE_NPZ, images_without_cerebellum)
-np.savez(OUT_TR_IMAGE_NO_CERE_NPZ, np.transpose(images_without_cerebellum))
+
+h5file = tables.openFile(OUT_HDF5_FILE_FULRES_INTER, mode = "w", title = 'dataset_pa_prace')
+atom = tables.Atom.from_dtype(images.dtype)
+ds = h5file.createCArray(h5file.root, 'images', atom, images.shape)
+ds[:] = images
+ds = h5file.createCArray(h5file.root, 'images_without_cerebellum', atom, images_without_cerebellum.shape)
+ds[:] = images_without_cerebellum
+h5file.close()
+
+
+#np.savez(OUT_IMAGE_NPZ, images)
+#np.savez(OUT_TR_IMAGE_NPZ, np.transpose(images))
+#np.savez(OUT_IMAGE_NO_CERE_NPZ, images_without_cerebellum)
+#np.savez(OUT_TR_IMAGE_NO_CERE_NPZ, np.transpose(images_without_cerebellum))
 
 print "Images reduced and dumped"

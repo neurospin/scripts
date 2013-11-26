@@ -120,10 +120,12 @@ def mesh_big_clusters(arr, clust_labeled, clust_sizes, labels,
             big_clust_meshs = v['aims_Tmtktri']
         else:
             aims.SurfaceManip.meshMerge(big_clust_meshs, v['aims_Tmtktri'])
-    big_clust_meshs.header()['referentials'] = vol.header()['referentials']
-    big_clust_meshs.header()['transformations'] = vol.header()['transformations']
-    writer.write(big_clust_meshs, output_mesh_large_cluster_filename)
-
+    if big_clust_meshs is not None:
+        big_clust_meshs.header()['referentials'] = vol.header()['referentials']
+        big_clust_meshs.header()['transformations'] = vol.header()['transformations']
+        writer.write(big_clust_meshs, output_mesh_large_cluster_filename)
+    else:
+        print "No big cluster generated"
 if __name__ == "__main__":
     # Set default values to parameters
     thresh_size = 10
@@ -156,6 +158,7 @@ if __name__ == "__main__":
         exit(-1)
 
 #    map_filename = "/neurospin/brainomics/neuroimaging_ressources/examples_images/weights_map_mixte.nii"
+#    map_filename = "/neurospin/brainomics/2013_imagen_subdepression/results/svm_feature_selection/betas.nii"
     map_filename = options.input
     thresh_size = options.thresh_size
     thresh_neg_low = options.thresh_neg_low
