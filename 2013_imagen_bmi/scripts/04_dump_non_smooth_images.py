@@ -7,8 +7,8 @@ Created on Mon Nov  4 15:57:03 2013
 Create an HDF5 used for fast access.
 Here we store:
  - the subject ID, the SNPs and the BMI data
- - the non-subsampled smoothed images (standard mask)
- - the non-subsampled smoothed images (mask without cerebellum)
+ - the non-subsampled non-smoothed images (standard mask)
+ - the non-subsampled non-smoothed images (mask without cerebellum)
 
 The order is read from the file subject_id.csv.
 
@@ -40,7 +40,7 @@ subjects_id_index = pandas.Index(subjects_id, name='subject_id')
 INPUT_SNP_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
 INPUT_BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
-OUTPUT_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
+OUTPUT_FILE = os.path.join(DATA_PATH, 'non_smoothed_images.hdf5')
 if os.path.exists(OUTPUT_FILE):
     print "Warning: continuing will erase %s" % OUTPUT_FILE
     a = raw_input("Are you sure [Y/n]?")
@@ -63,9 +63,9 @@ print "Subject ID, SNPs and BMI data dumped"
 # Find images
 #
 IMG_PATH  = os.path.join(DATA_PATH, 'VBM/gaser_vbm8/')
-IMG_FILENAME_TEMPLATE = 'smwp1{subject_id:012}*.nii'
-smoothed_files = bmi_utils.find_images(subjects_id, IMG_FILENAME_TEMPLATE, IMG_PATH)
-print "Found", len(smoothed_files), "images"
+IMG_FILENAME_TEMPLATE = 'mwp1{subject_id:012}*.nii'
+non_smoothed_files = bmi_utils.find_images(subjects_id, IMG_FILENAME_TEMPLATE, IMG_PATH)
+print "Found", len(non_smoothed_files), "images"
 
 #
 # Read & store smoothed data with standard mask
@@ -73,10 +73,10 @@ print "Found", len(smoothed_files), "images"
 MASK_PATH = os.path.join(DATA_PATH, 'mask', 'mask.nii')
 babel_mask  = nibabel.load(MASK_PATH)
 
-smoothed_images = bmi_utils.read_images_with_mask(smoothed_files, babel_mask)
-bmi_utils.store_images_and_mask(h5file, smoothed_images, babel_mask, group_name="smoothed_images")
-print "Smoothed images dumped"
-del smoothed_images
+non_smoothed_images = bmi_utils.read_images_with_mask(non_smoothed_files, babel_mask)
+bmi_utils.store_images_and_mask(h5file, non_smoothed_images, babel_mask, group_name="non_smoothed_images")
+print "Non-smoothed images dumped"
+del non_smoothed_images
 
 #
 # Read & store smoothed data without cerebellum mask
@@ -84,9 +84,9 @@ del smoothed_images
 MASK_PATH = os.path.join(DATA_PATH, 'mask_without_cerebellum', 'mask_without_cerebellum_7.nii')
 babel_mask_without_cerebellum  = nibabel.load(MASK_PATH)
 
-smoothed_images_without_cerebellum = bmi_utils.read_images_with_mask(smoothed_files, babel_mask_without_cerebellum)
-bmi_utils.store_images_and_mask(h5file, smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="smoothed_images_without_cerebellum")
-print "Smoothed images without cerebellum dumped"
-del smoothed_images_without_cerebellum
+non_smoothed_images_without_cerebellum = bmi_utils.read_images_with_mask(non_smoothed_files, babel_mask_without_cerebellum)
+bmi_utils.store_images_and_mask(h5file, non_smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="non_smoothed_images_without_cerebellum")
+print "Non-smoothed images without cerebellum dumped"
+del non_smoothed_images_without_cerebellum
 
 h5file.close()
