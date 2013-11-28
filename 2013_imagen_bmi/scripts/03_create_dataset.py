@@ -41,7 +41,7 @@ subjects_id_index = pandas.Index(subjects_id, name='subject_id')
 INPUT_SNP_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
 INPUT_BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
-OUTPUT_FILE = os.path.join(DATA_PATH, 'dataset.hdf5')
+OUTPUT_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
 if os.path.exists(OUTPUT_FILE):
     print "Warning: continuing will erase %s" % OUTPUT_FILE
     a = raw_input("Are you sure [Y/n]?")
@@ -81,7 +81,7 @@ MASK_PATH = os.path.join(DATA_PATH, 'mask_without_cerebellum', 'mask_without_cer
 babel_mask_without_cerebellum  = nibabel.load(MASK_PATH)
 
 smoothed_images_without_cerebellum = bmi_utils.read_images_with_mask(smoothed_files, babel_mask_without_cerebellum)
-bmi_utils.store_images_and_mask(h5file, smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="smoothed_images_without_cerebellum_7")
+bmi_utils.store_images_and_mask(h5file, smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="smoothed_images_without_cerebellum")
 print "Smoothed images without cerebellum dumped"
 del smoothed_images_without_cerebellum
 
