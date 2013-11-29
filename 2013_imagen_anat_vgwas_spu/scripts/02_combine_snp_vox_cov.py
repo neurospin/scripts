@@ -34,16 +34,14 @@ def check_array_NaN(nparray):
 BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
 
 # Input
-BASE_INPUT_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi')
-DATA_DIR = os.path.join(BASE_INPUT_DIR, 'data')
+DATA_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi', 'data')
 
 
 # Output files
-BASE_INPUT_DIR = os.path.join(BASE_DIR, 'data')
-OUT_DIR = BASE_INPUT_DIR
+OUT_DIR = os.path.join(BASE_DIR, 'data')
 OUT_HDF5_FILE = os.path.join(OUT_DIR, 'cache.hdf5')
-OUT_HDF5_FILE_FULRES=os.path.join(OUT_DIR, 'cache_full_res.hdf5')
-OUT_HDF5_FILE_FULRES_INTER=os.path.join(OUT_DIR, 'cache_full_res_inter.hdf5')
+OUT_HDF5_FILE_FULRES = os.path.join(OUT_DIR, 'cache_full_res.hdf5')
+OUT_HDF5_FILE_FULRES_INTER = os.path.join(OUT_DIR, 'cache_full_res_inter.hdf5')
 OUT_SNP_NPZ = os.path.join(OUT_DIR, 'snp')
 OUT_SNP_LIST_NPZ = os.path.join(OUT_DIR, 'snp_list')
 OUT_COV_NPY = os.path.join(OUT_DIR, 'cov')
@@ -66,7 +64,9 @@ covdata = covdata[1:]
 cov_subj = ["%012d" % int(i.split(',')[0]) for i in covdata]
 
 # TODO: verify where is qc_sub_qc_gen_all_snps_common_autosome
-gfn = os.path.join(DATA_DIR, 'genetics', 'qc_sub_qc_gen_all_snps_common_autosome')
+gfn = os.path.join(DATA_DIR,
+                   'genetics',
+                   'qc_sub_qc_gen_all_snps_common_autosome')
 genotype = ig.Geno(gfn)
 geno_subj = genotype.assayIID()
 geno_data = genotype.snpGenotypeAll()

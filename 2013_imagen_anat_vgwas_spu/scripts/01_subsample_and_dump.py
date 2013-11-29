@@ -63,8 +63,7 @@ def resample(input_image,
 BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
 
 # Input
-BASE_INPUT_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi')
-DATA_DIR = os.path.join(BASE_INPUT_DIR, 'data')
+DATA_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi', 'data')
 CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 IMAGES_DIR = os.path.join(DATA_DIR, 'VBM', 'new_segment_spm8')
 INIMG_FILENAME_TEMPLATE = 'smwc1{subject_id:012}*.nii'
