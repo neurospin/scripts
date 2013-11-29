@@ -71,17 +71,6 @@ def split_into_chunks(data,
     print one_chunk_data.shape
     print np.all(one_chunk_data == data[:, 49*10:])
 
-    split_into_chunks(data, filename_prefix, 10, is_npz=False)
-    one_chunk_data_filename = filename_prefix + "_chunk_4.npy"
-    one_chunk_data = np.load(one_chunk_data_filename)
-    print one_chunk_data.shape
-    print np.all(one_chunk_data == data[:, 200:250])
-
-    split_into_chunks(data, filename_prefix, 10, is_npz=False, is_col=False)
-    one_chunk_data_filename = filename_prefix + "_chunk_4.npy"
-    one_chunk_data = np.load(one_chunk_data_filename)
-    print one_chunk_data.shape
-    print np.all(one_chunk_data == data[8:10, :])
     """
     if not fixed_size:
         data_chunk_offsets = np.linspace(0,
@@ -117,8 +106,6 @@ def split_into_chunks(data,
 if __name__ == "__main__":
     # Input
     BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
-    DATA_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi', 'data')
-    CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 
     NUM_CHUNK_SNP = 40
     NUM_CHUNK_IMG = 876
