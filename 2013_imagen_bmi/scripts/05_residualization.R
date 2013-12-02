@@ -10,7 +10,7 @@ require(oro.nifti)
 
 DATA_PATH = '/neurospin/brainomics/2013_imagen_bmi/data'
 DATASET_FILE = file.path(DATA_PATH, "subsampled_non_smoothed_images.hdf5")
-OUTPUT_NAME="images_residualized_gender_center_TIV_pds"
+OUTPUT_NAME="residualized_images_gender_center_TIV_pds"
 setwd(DATA_PATH)
 
 # Read subjects ID
