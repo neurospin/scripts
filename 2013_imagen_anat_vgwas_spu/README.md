@@ -114,13 +114,12 @@ And a piece of codes for soma-workflow:
 ...
 ```
 
-For instance, all the results have been saved on the cluster for temporary
+Once you run through all the bash jobs, all the results have been saved on the cluster for temporary
 
 ```
 /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big
 ```
-
-and stored for one year in:
+We have made a backup and stored for one year in:
 ```
 /ccc/store/cont003/dsv/lijpeng/brainomics/pa_prace/big/pa_prace_big
 ```
