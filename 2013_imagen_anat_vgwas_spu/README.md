@@ -127,5 +127,11 @@ We have made a backup and stored for one year in:
 Reduce Processing on Cluster
 ----------------------------
 
-After a long-time map process of preparation, you need to 
+After a long-time map process of preparation, you need to first submit two mpi bash jobs red_wf1.sh and red_wf2.sh in :
+
+```
+https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_spu/scripts/03_reduce_process_on_cluster
+```
+
+
 
