@@ -107,11 +107,21 @@ ccc_mprun python -m soma_workflow.MPI_workflow_runner Curie_MPI --workflow /ccc/
 ...
 ```
 
-For instance, all the results have been saved on the cluster
+For instance, all the results have been saved on the cluster for temporary
 
 ```
-./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
+/ccc/scratch/cont003/dsv/lijpeng/pa_prace_big
 ```
+
+and for one year:
+```
+/ccc/store/cont003/dsv/lijpeng/brainomics/pa_prace/big/pa_prace_big
+```
+
+Reduce step
+-----------
+
+After a long map process of preparation
 
 
 
