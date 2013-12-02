@@ -57,7 +57,7 @@ and then workflows will be produced for map process. All the bash job workflows 
 * Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_spu/workflows/swf_jobs.tar.gz
 
 
-For example, here is a submission bash script:
+For example, here is a submission bash script example:
 
 ```
 #!/bin/bash
@@ -78,6 +78,7 @@ export OMP_NUM_THREADS=1
 ccc_mprun python -m soma_workflow.MPI_workflow_runner Curie_MPI --workflow /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/wf_1/mu_corr_cuda_0_39_0_49.json
 ```
 
+And a piece of codes for soma-workflow:
 ```
 ...
         1993,
