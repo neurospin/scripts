@@ -124,6 +124,7 @@ We have made a backup and stored for one year in:
 /ccc/store/cont003/dsv/lijpeng/brainomics/pa_prace/big/pa_prace_big
 ```
 
+
 Reduce Processing on Cluster
 ----------------------------
 
@@ -141,4 +142,4 @@ https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_spu/scri
 
 This script can obtain h0 and h1. h0 contains all the max scores of each permutation. h1 contains all the scores for all the permutations.
 
-
+You can read presentation on [presentation.pptx](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_spu/scripts/02_map_process_on_cluster/bash_jobs) 
