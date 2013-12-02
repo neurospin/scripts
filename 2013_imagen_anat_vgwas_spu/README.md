@@ -1,5 +1,5 @@
-Data preparation
-----------------
+Data preparation on PC
+----------------------
 
 Three scripts depends on two directories which are linked with symbolic link:
 
@@ -147,5 +147,16 @@ You can read presentation for h0 and h1 on [presentation.pptx](https://github.co
 
 Post Processing on PC
 ---------------------
+We found two interesting snps in the data sequenses according to presentation.pptx.
+
+```
+snp_of_interest = [122664, 379105]
+```
+
+[create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_spu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores.
+
+The file of /neurospin/brainomics/2013_imagen_anat_vgwas_spu/inputdata/wmmprage000000001274.nii.gz is used for reference brain image.
+
+
 
 
