@@ -17,7 +17,7 @@ Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our script
     * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/cov.npy' (covariates, (1292, 10))
     * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/cache_full_res_inter.hdf5' (images, (1292, 336188))
 
-"./scripts/03_split_into_data_chunks.py" is used to split image data and snp data into data chunks.
+* "./scripts/03_split_into_data_chunks.py" is used to split image data and snp data into data chunks.
 
 We split snp data into 40 chunks. The shape of snp trunk is rougly (1292, 11653).
 We split image data into vox trunk with a fix size 384. The shape of vox chunk is (384, 1292) which is saved in Fortran format
