@@ -4,24 +4,34 @@ Created on Mon Jun 10 13:39:45 2013
 
 @author: ed203246
 
-## Quality control CADASIL
-For each variable:
-1) Check presence in france2012.csv
-2) Compare base_commun.csv vs france2012.csv
-3) Count missing in base_commun.csv
+QC for CDADASIL
+===============
+Check if france2012 and base_commun_20131003.csv are simillar
+Manualy correct some mistakes (unit and values)
 
-4) Manuualy correct some mistakes (unit and values) => base_commun_20131011.csv
+SCRIPT
+------
+
+01_QC_CADASIL.py
 
 INPUT
 -----
-
-base_commun_20131011.csv
 france2012.csv
+base_commun_20131011.csv
 
 OUTPUT
 ------
+QC/cadasil_qc.csv
+QC/cadasil_qc.html
 base_commun_20131011.csv
-QC/cadasil_qc.csv/html
+
+where:
+For each variable in base_commun.csv (378 samples):
+in_france2012   : is the variable in france2012.csv (249 samples)
+diff            : if numeric the maximum difference, if symbolic the number of diff
+n_missing       : nb of missing values (in base_commun.csv)
+n_missing_base_commun_but_not_infr2012 : nb of missing values (in base_commun.csv) but not in france2012.csv
+
 """
 
 import os.path

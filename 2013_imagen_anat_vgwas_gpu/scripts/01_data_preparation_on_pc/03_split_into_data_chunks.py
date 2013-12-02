@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 5th 2013
 
+@author: jl237561
+
+This script perform :
+    - split data into trunks
+
+"""
 import sys
 sys.path.append('/home/vf140245/gits/igutils')
 import os
@@ -63,17 +71,6 @@ def split_into_chunks(data,
     print one_chunk_data.shape
     print np.all(one_chunk_data == data[:, 49*10:])
 
-    split_into_chunks(data, filename_prefix, 10, is_npz=False)
-    one_chunk_data_filename = filename_prefix + "_chunk_4.npy"
-    one_chunk_data = np.load(one_chunk_data_filename)
-    print one_chunk_data.shape
-    print np.all(one_chunk_data == data[:, 200:250])
-
-    split_into_chunks(data, filename_prefix, 10, is_npz=False, is_col=False)
-    one_chunk_data_filename = filename_prefix + "_chunk_4.npy"
-    one_chunk_data = np.load(one_chunk_data_filename)
-    print one_chunk_data.shape
-    print np.all(one_chunk_data == data[8:10, :])
     """
     if not fixed_size:
         data_chunk_offsets = np.linspace(0,
@@ -108,31 +105,32 @@ def split_into_chunks(data,
 
 if __name__ == "__main__":
     # Input
-    BASE_DIR = '/neurospin/brainomics/2013_imagen_bmi/'
-    DATA_DIR = os.path.join(BASE_DIR, 'data')
-    CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
+    BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
+
     NUM_CHUNK_SNP = 40
     NUM_CHUNK_IMG = 876
     CHUNK_SIZE_IMG = 384
 
     # Output files
-    OUT_DIR = os.path.join(DATA_DIR, 'dataset_pa_prace')
+    OUT_DIR = os.path.join(BASE_DIR, 'data')
     OUT_SNP_NPZ = os.path.join(OUT_DIR, 'snp')
     OUT_SNP_LIST_NPZ = os.path.join(OUT_DIR, 'snp_list')
     OUT_TR_IMAGE_NPZ = os.path.join(OUT_DIR, 'tr_image')
     OUT_TR_IMAGE_VOX = os.path.join(OUT_DIR, 'vox')
     OUT_TR_IMAGE_NO_CERE_NPZ = os.path.join(OUT_DIR,
                                             'tr_images_without_cerebellum')
-    OUT_HDF5_FILE_FULRES_INTER=os.path.join(OUT_DIR,
+    OUT_HDF5_FILE_FULRES_INTER = os.path.join(OUT_DIR,
                                             'cache_full_res_inter.hdf5')
+    # Load geno data
     geno_data = np.load(OUT_SNP_NPZ + ".npz")
     geno_data = geno_data[geno_data.files[0]]
 
-
-    h5file = tables.openFile(OUT_HDF5_FILE_FULRES_INTER, mode = "r")
+    # Load image data
+    h5file = tables.openFile(OUT_HDF5_FILE_FULRES_INTER, mode="r")
     images = h5file.getNode(h5file.root, 'images')
-    images_without_cerebellum = h5file.getNode(h5file.root, "images_without_cerebellum")
-
+    images_without_cerebellum = h5file.getNode(h5file.root,
+                                               "images_without_cerebellum")
+    # Split data into data chunks
     split_into_chunks(data=geno_data,
                       filename_prefix=OUT_SNP_NPZ,
                       num_chunks=NUM_CHUNK_SNP)
@@ -141,9 +139,9 @@ if __name__ == "__main__":
                       num_chunks=NUM_CHUNK_IMG,
                       is_col=False,
                       fixed_size=CHUNK_SIZE_IMG)
-    split_into_chunks(data=images_without_cerebellum,
-                      filename_prefix=OUT_TR_IMAGE_NO_CERE_NPZ,
-                      num_chunks=NUM_CHUNK_IMG,
-                      is_col=False)
+#    split_into_chunks(data=images_without_cerebellum,
+#                      filename_prefix=OUT_TR_IMAGE_NO_CERE_NPZ,
+#                      num_chunks=NUM_CHUNK_IMG,
+#                      is_col=False)
     h5file.close()
     print "Finish"

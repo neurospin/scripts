@@ -2,20 +2,26 @@
 """
 Created on Mon Jun 10 13:39:45 2013
 
-Create the CADASIL/ASPS common DB
-Is the variable present in the common DB?
+Create the CADASIL/ASP(F)S common DB
 A variable is present in the common DB if it is in both DB at baseline
 and it is least present in one two DB for other time points.
 
 INPUT:
+------
 
-1) base_commun_20131003.csv
-2) ASPS_klinVariables_20130811.csv
-3) DB_Mapping_Longit_Last_EJ_20131007.csv
+base_commun_20131011.csv
+ASPS_klinVariables_20131015.csv
+ASPFS_klinVariables_20130711.csv
+DB_Mapping_Longit_Last_EJ_20131007.csv
 
 OUTPUT:
+-------
     
 1) Summary of common DB
+~~~~~~~~~~~~~~~~~~~~~~~
+
+commondb_clinic_cadasil-asps-aspfs_20130811
+
     "commondb_clinic_cadasil-asps_mapping-summary_20130811.csv"
     "commondb_clinic_cadasil-asps_mapping-summary_20130811.html"
     Fields:
@@ -50,6 +56,8 @@ OUTPUT:
       remark: 
 
 2) Common DB
+~~~~~~~~~~~~
+
     "commondb_clinic_cadasil-asps_20130811.csv"
 
 
@@ -75,7 +83,7 @@ INPUT_aspfs_filepath = os.path.join(WD, "clinic", "ASPFS_klinVariables_20130711.
 
 
 OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015") #.csv | .html
-OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_20130811") #.csv | .html
+OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_20131015") #.csv | .html
 
 cadasil_base = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=',').replace("-", np.nan)
 asps_base = pd.read_table(INPUT_asps_filepath, header=0, sep=',')
