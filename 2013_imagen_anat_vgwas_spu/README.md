@@ -72,7 +72,40 @@ export OMP_NUM_THREADS=1
 ccc_mprun python -m soma_workflow.MPI_workflow_runner Curie_MPI --workflow /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/wf_1/mu_corr_cuda_0_39_0_49.json
 ```
 
-
+```
+...
+        1993,
+        1994,
+        1995,
+        1996,
+        1997,
+        1998,
+        1999
+    ],
+    "name": null,
+    "serialized_jobs": {
+        "344": {
+            "name": "mu_corr_mapper_cuda.py x:6 y:44",
+            "parallel_job_info": null,
+            "native_specification": null,
+            "priority": 0,
+            "join_stderrout": false,
+            "command": [
+                "python",
+                "/ccc/work/cont003/dsv/lijpeng/brainomics/git/brainomics/ml/mulm_gpu/mulm/mu_corr_mapper_cuda.py",
+                "1292",
+                "0",
+                "10000",
+                "/ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/cov.npy",
+                "/ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/vox_chunk_44.npz",
+                "/ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/snp_chunk_6.npz",
+                "/ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/wf_1/result_6_44.joblib",
+                "0.0001"
+            ],
+            "disposal_timeout": 168
+        },
+...
+```
 
 For instance, all the results have been saved on the cluster
 
