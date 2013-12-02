@@ -20,8 +20,8 @@ Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our script
 * "./scripts/03_split_into_data_chunks.py" is used to split image data and snp data into data chunks.
 
     * We split snp data into 40 chunks. The shape of snp trunk is rougly (1292, 11653).
-    * We split image data into vox trunk with a fix size 384. The shape of vox chunk is (384, 1292) which is saved in Fortran format
-    * We use the whole covariate matrix. 
+    * We split image data into vox trunk with a fix size 384. The shape of vox chunk is (384, 1292) which is saved in Fortran format.
+    * We use the whole covariate matrix.
     * All the data chunks will be saved in "/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data".
 
 On Cluster
@@ -35,5 +35,8 @@ On Cluster
     * joblib
     * dill
 
+Copy all data chunks into your cluster. In addition to those libaries, we need to copy the libary below into your cluster for GPU computing:
+
+* /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics
 
 
