@@ -127,8 +127,5 @@ We have made a backup and stored for one year in:
 Reduce Processing on Cluster
 ----------------------------
 
-After a long map process of preparation
-
-
-
+After a long-time map process of preparation, you need to 
 
