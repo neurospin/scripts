@@ -51,12 +51,10 @@ You need to modify auto_wf.sh and run the script to produce workflows:
 ./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
 ```
 
-and then workflows will be produced for map process. All the bash job workflows have been saved in the 
+and then workflows will be produced for map process. All the bash job workflows have been saved in :
 
-
-```
-
-```
+* [Map Processing Bash Jobs on github](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_spu/scripts/02_map_process_on_cluster/bash_jobs) 
+* Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_spu/workflows/swf_jobs.tar.gz
 
 
 For example, here is a submission bash script:
