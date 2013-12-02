@@ -39,7 +39,19 @@ Copy all data chunks into your cluster. In addition to those libaries, we need t
 
 * /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics
 
-Remember you need to make the libary.
+Remember that you need to $ make the libary.
+
+```
+$ cd /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics/ml/mulm_gpu/mulm
+$ make
+```
+
+You need to modify auto_wf.sh and run the script to produce workflows: 
+```
+./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
+```
+
+and then workflows will be produced for map process.
 
 
 
