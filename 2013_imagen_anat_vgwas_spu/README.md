@@ -39,4 +39,7 @@ Copy all data chunks into your cluster. In addition to those libaries, we need t
 
 * /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics
 
+Remember you need to make the libary.
+
+
 
