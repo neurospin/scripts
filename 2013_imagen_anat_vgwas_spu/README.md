@@ -2,9 +2,8 @@
 
 Three scripts depends on two directories which are linked with symbolic link:
 
-    + 2012_imagen_shfj
-
-    + 2013_imagen_bmi
+    + /neurospin/brainomics/2012_imagen_shfj
+    + /neurospin/brainomics/2013_imagen_bmi
 
 Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our scripts in data prepartion.
 
