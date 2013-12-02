@@ -9,20 +9,20 @@ Three scripts depends on two directories which are linked with symbolic link:
 Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our scripts in data prepartion.
 
 * "./scripts/01_subsample_and_dump.py" is used to dump all images into a HDF5 file with mask. (include verifying if images contain zeros or NaN). All the images will be saved in 
-    * "/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/cache_full_res.hdf5"
+    * "/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data/cache_full_res.hdf5"
 
 * "./scripts/02_combine_snp_vox_cov.py" is used to load image data, snp data, covariate data into memory. We find the interset between those data in terms of the same subjects. Those are the output of files:
-    * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/snp.npz' (snp data, matrix (1292, 466125))
-    * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/snp_list.npy' (snp names, 466125)
-    * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/cov.npy' (covariates, (1292, 10))
-    * '/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data/cache_full_res_inter.hdf5' (images, (1292, 336188))
+    * '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data/snp.npz' (snp data, matrix (1292, 466125))
+    * '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data/snp_list.npy' (snp names, 466125)
+    * '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data/cov.npy' (covariates, (1292, 10))
+    * '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data/cache_full_res_inter.hdf5' (images, (1292, 336188))
 
 * "./scripts/03_split_into_data_chunks.py" is used to split image data and snp data into data chunks.
 
     * We split snp data into 40 chunks. The shape of snp trunk is rougly (1292, 11653).
     * We split image data into vox trunk with a fix size 384. The shape of vox chunk is (384, 1292) which is saved in Fortran format.
     * We use the whole covariate matrix.
-    * All the data chunks will be saved in "/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data".
+    * All the data chunks will be saved in "/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/data".
 
 Map Processing on Cluster
 -------------------------
@@ -37,12 +37,12 @@ Map Processing on Cluster
 
 Copy all data chunks into your cluster. In addition to those libaries, we need to copy the libary below into your cluster for GPU computing:
 
-* /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics
+* /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/lib/brainomics
 
 Remember that you need to $ make the libary.
 
 ```
-$ cd /neurospin/brainomics/2013_imagen_anat_vgwas_spu/lib/brainomics/ml/mulm_gpu/mulm
+$ cd /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/lib/brainomics/ml/mulm_gpu/mulm
 $ make
 ```
 
@@ -53,8 +53,8 @@ You need to modify auto_wf.sh and run the script to produce workflows:
 
 and then workflows will be produced for map process. All the bash job workflows have been saved in :
 
-* [Map Processing Bash Jobs on github](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_spu/scripts/02_map_process_on_cluster/bash_jobs) 
-* Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_spu/workflows/swf_jobs.tar.gz
+* [Map Processing Bash Jobs on github](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_gpu/scripts/02_map_process_on_cluster/bash_jobs) 
+* Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/workflows/swf_jobs.tar.gz
 
 
 For example, here is a submission bash script example:
@@ -131,18 +131,18 @@ Reduce Processing on Cluster
 After a long-time map process of preparation, you need to first submit two mpi bash jobs red_wf1.sh and red_wf2.sh for reduce processing in:
 
 ```
-https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_spu/scripts/03_reduce_process_on_cluster
+https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_gpu/scripts/03_reduce_process_on_cluster
 ```
 
 The second reduce step can be called by:
 
 ```
-https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_spu/scripts/03_reduce_process_on_cluster/post_process_2.py
+https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/03_reduce_process_on_cluster/post_process_2.py
 ```
 
 This script can obtain h0 and h1. h0 contains all the max scores of each permutation. h1 contains all the scores for all the permutations.
 
-You can read presentation for h0 and h1 on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_spu/presentation.pptx). 
+You can read presentation for h0 and h1 on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
 
 
 Post Processing on PC
@@ -153,10 +153,7 @@ We found two interesting snps in the data sequenses according to presentation.pp
 snp_of_interest = [122664, 379105]
 ```
 
-[create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_spu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores.
+[create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores.
 
-The file of /neurospin/brainomics/2013_imagen_anat_vgwas_spu/inputdata/wmmprage000000001274.nii.gz is used for reference brain image.
-
-
-
+The file of /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/inputdata/wmmprage000000001274.nii.gz is used for reference brain image.
 
