@@ -1,5 +1,5 @@
-Data preparation:
------------------
+Data preparation
+----------------
 
 Three scripts depends on two directories which are linked with symbolic link:
 
@@ -24,8 +24,16 @@ Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our script
     * We use the whole covariate matrix. 
     * All the data chunks will be saved in "/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data".
 
-
-
+On Cluster
+----------
+* Required libaries:
+    * python 2.7.x
+    * cuda
+    * soma-workflow
+    * mpi4py
+    * sklearn
+    * joblib
+    * dill
 
 
 
