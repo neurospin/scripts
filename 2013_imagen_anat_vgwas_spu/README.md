@@ -24,8 +24,8 @@ Any file movement in 2012_imagen_shfj and 2013_imagen_bmi could break our script
     * We use the whole covariate matrix.
     * All the data chunks will be saved in "/neurospin/brainomics/2013_imagen_anat_vgwas_spu/data".
 
-On Cluster
-----------
+Map Processing on Cluster
+-------------------------
 * Required libaries:
     * python 2.7.x
     * cuda
@@ -51,7 +51,15 @@ You need to modify auto_wf.sh and run the script to produce workflows:
 ./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
 ```
 
-and then workflows will be produced for map process. For example, here is a submission bash script:
+and then workflows will be produced for map process. All the bash job workflows have been saved in the 
+
+
+```
+
+```
+
+
+For example, here is a submission bash script:
 
 ```
 #!/bin/bash
@@ -113,13 +121,13 @@ For instance, all the results have been saved on the cluster for temporary
 /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big
 ```
 
-and for one year:
+and stored for one year in:
 ```
 /ccc/store/cont003/dsv/lijpeng/brainomics/pa_prace/big/pa_prace_big
 ```
 
-Reduce step
------------
+Reduce Processing on Cluster
+----------------------------
 
 After a long map process of preparation
 
