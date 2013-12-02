@@ -1,0 +1,184 @@
+FILES HISTORY
+=============
+
+DB_Mapping.*
+------------
+
+DB_Mapping_Longit_Last_EJ_2013-05-08.xlx <=> DB_Mapping_Longit_Last_EJ_2013-05-08.csv
+DB_Mapping_Longit_Last_EJ_20131007
+    EMBOLICDESEASE => EMBOLICDISEASE
+
+CADASIL
+-------
+- base_commun.xlsx
+    => base_commun.csv
+    Add DATEINCL and DATENAIS in CADASIL
+    => base_commun_20131008.csv. See 00_MISSING_CADASIL.py
+
+- france2012.csv
+
+- CAD_Munich_Dates.txt
+  Date birth/inclusion for munich patients
+
+ASP(F)S_klinVariables_*
+---------------------
+ASPS_klinVariables_20130806.sav received from Hofer Edith => ASPS_klinVariables_20130806.csv
+    Individual 1607 is actually 53 (not 0).
+    Individual 1911 is 54 (and not 34 as in the file I sent you). =>
+ASPS_klinVariables_20131015.csv
+
+ASPFS_klinVariables_20130711.sav received from Hofer Edith => ASPFS_klinVariables_20130711.csv
+
+COMON DATABASE
+--------------
+
+- db_clinic_cadasil-asps-common.*
+- db_clinic_cadasil-asps_mapping_summary_*
+
+
+MISSING DATA
+============
+
+Add DATEINCL and DATENAIS an compute AGE_AT_INCLUSION in CADASIL subjects
+
+INPUT
+-----
+
+"base_commun.csv"
+"france2012.csv" => date DATEINCL and DATENAIS for french
+"CAD_Munich_Dates.txt" => date DATEINCL and DATENAIS for german
+
+OUTPUT
+------
+
+"base_commun_20131011.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+
+
+QC for CDADASIL
+===============
+Check if france2012 and base_commun_20131003.csv are simillar
+Manualy correct some mistakes (unit and values)
+
+SCRIPT
+------
+
+01_QC_CADASIL.py
+
+INPUT
+-----
+france2012.csv
+base_commun_20131011.csv
+
+OUTPUT
+------
+QC/cadasil_qc.csv
+QC/cadasil_qc.html
+base_commun_20131011.csv
+
+where:
+For each variable in base_commun.csv (378 samples):
+in_france2012   : is the variable in france2012.csv (249 samples)
+diff            : if numeric the maximum difference, if symbolic the number of diff
+n_missing       : nb of missing values (in base_commun.csv)
+n_missing_base_commun_but_not_infr2012 : nb of missing values (in base_commun.csv) but not in france2012.csv
+
+
+MERGE BASES
+===========
+
+SCRIPT
+------
+
+02_merge_CADASIL-ASPS.py
+
+
+INPUT
+------
+
+1) base_commun_20131003.csv
+2) ASPS_klinVariables_20130806.csv
+3) DB_Mapping_Longit_Last_EJ_20131007.csv
+
+OUTPUT
+------
+
+1) Summary of common DB
+    "db_clinic_cadasil-asps_mapping_summary.csv"
+    "db_clinic_cadasil-asps_mapping_summary.html"
+2) Common DB
+    "db_clinic_cadasil-asps-common.csv"
+
+================================================================================
+CADASIL UNIT PROBLEM :
+
+LEUKO_COUNT,, LEUCO17
+Problem: Unit are clearly not compatible.
+ASPS/ASPFS seem to be in cells per cubic millimeter of blood (mean ASPS=5991.79).
+CADASIL seems to be be in 109 cells per litre PLEASE CONFIRM (mean=6.67248)
+Proposition if confirmed convert CADSASIL into
+
+
+CADASIL ONLY TO BE CHECKED :
+
+**GLYC17**
+ID:1095
+    Problem: GLYC17C == '%': it is a mistake ?
+    Proposition: '%' => MMOL/L
+ID:2101
+    Problem: GLYC17 == 13: Non realistic value
+    Proposition: suppression
+IDs:1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179
+    Problem: GLYC17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:100.37, std:15.33, min:78.99, max:130.99)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+
+
+**CHOLTOT17**
+For many patients:
+    Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLTOT17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: (mean:201.0, std:31.307, min:155.0, max:254.0)
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+
+**CHOLHDL17**
+ID: 2004
+    Problem: CHOLHDL17C == 'MM1.STUNDE', value==53
+    Proposition: MM1.STUNDE => 'MG/DL'
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLHDL17C == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:55.15, std:13.71, min:37.00, max:82.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+
+
+**CHOLLDL17**
+For many patients:
+    Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: CHOLLDL17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values: 'mean:124.92, std:26.07, min:81.00, max:166.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+
+
+**TRIGLY17**
+For many patients:
+    Problem: TRIGLY17C == 'MMOL/', "L" is missing.
+    Proposition: MMOL/ => MMOL/L
+IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
+    Problem: TRIGLY17C  == 'G/L'. Convertion to MG/DL (* 100)
+    lead to realistic values:'mean:103.92, std:46.09, min:44.00, max:202.00'
+    => values are really in G/L.
+    Proposition: Simply convert into MG/DL.
+
+
+**HEMO17**
+IDs:1002
+    Problem: HEMO17C == 'G/L'. However, the value: 15.3 seems to be in MG/DL
+    Proposition: Correct error G/L => MG/DL.
+
