@@ -51,7 +51,35 @@ You need to modify auto_wf.sh and run the script to produce workflows:
 ./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
 ```
 
-and then workflows will be produced for map process.
+and then workflows will be produced for map process. For example, here is a submission bash script:
+
+```
+#!/bin/bash
+#MSUB -r prace_1
+#MSUB -T 18200
+#MSUB -q hybrid
+#MSUB -n 201
+#MSUB -c 4
+#MSUB -x
+#MSUB -A pa1753
+
+module load cuda
+module load python/2.7.3
+
+export PYTHONPATH=/ccc/work/cont003/dsv/lijpeng/brainomics/git/brainomics/ml/mulm_gpu/:/ccc/work/cont003/dsv/lijpeng/brainomics/local/lib/python2.7/site-packages:$PYTHONPATH
+export OMP_NUM_THREADS=1
+
+ccc_mprun python -m soma_workflow.MPI_workflow_runner Curie_MPI --workflow /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big/wf_1/mu_corr_cuda_0_39_0_49.json
+```
+
+
+
+For instance, all the results have been saved on the cluster
+
+```
+./brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
+```
+
 
 
 
