@@ -87,12 +87,14 @@ def mesh_small_clusters(arr, clust_labeled, clust_sizes, labels,
             small_cluster_meshs = mesh
         else:
             aims.SurfaceManip.meshMerge(small_cluster_meshs, mesh)
-    writer = aims.Writer()
-    # Save mesh of small clusters
-    small_cluster_meshs.header()['referentials'] = vol.header()['referentials']
-    small_cluster_meshs.header()['transformations'] = vol.header()['transformations']
-    writer.write(small_cluster_meshs, output_mesh_small_cluster_filename)
-
+    if small_cluster_meshs is not None:
+        writer = aims.Writer()
+        # Save mesh of small clusters
+        small_cluster_meshs.header()['referentials'] = vol.header()['referentials']
+        small_cluster_meshs.header()['transformations'] = vol.header()['transformations']
+        writer.write(small_cluster_meshs, output_mesh_small_cluster_filename)
+    else:
+        print "No small cluster generated"
 
 ##############################################################################
 # Mesh big clusters using AimsClusterArg
@@ -126,6 +128,7 @@ def mesh_big_clusters(arr, clust_labeled, clust_sizes, labels,
         writer.write(big_clust_meshs, output_mesh_large_cluster_filename)
     else:
         print "No big cluster generated"
+
 if __name__ == "__main__":
     # Set default values to parameters
     thresh_size = 10
