@@ -59,7 +59,7 @@ You need to modify auto_wf.sh and run the script to produce map workflows:
 and then workflows will be produced for map process. All the bash job workflows have been saved in as example; you need to reproduce them when you change account :
 
 * [Map Processing Bash Jobs on github](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_gpu/scripts/02_map_process_on_cluster/bash_jobs) 
-* Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/workflows/swf_jobs.tar.gz
+* Map Processing soma workflow Job Examples have saved in: /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/workflows/swf_jobs.tar.gz
 
 
 For example, here is a submission bash script example:
