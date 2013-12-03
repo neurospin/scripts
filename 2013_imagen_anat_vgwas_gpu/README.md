@@ -147,7 +147,7 @@ https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scri
 
 This script can obtain `h0` and `h1`. `h0` contains all the max scores of each permutation. `h1` contains all the scores for all the permutations.
 
-You can read signification for `h0` and `h1` on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
+You can read meaning for `h0` and `h1` on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
 
 
 Post Processing on PC
@@ -160,5 +160,10 @@ snp_of_interest = [122664, 379105]
 
 [create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores.
 
-The file of /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/inputdata/wmmprage000000001274.nii.gz is used for reference brain image.
+All the brain image files have saved in 
+
+- /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/interesting_snp_brain_img/snp_379105.nii.gz
+- /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/interesting_snp_brain_img/snp_122664.nii.gz
+- /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/interesting_snp_brain_img/wmmprage000000001274.nii.gz is used for reference brain image.
+
 
