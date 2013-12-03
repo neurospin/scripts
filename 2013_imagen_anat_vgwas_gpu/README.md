@@ -147,12 +147,12 @@ https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scri
 
 This script can obtain `h0` and `h1`. `h0` contains all the max scores of each permutation. `h1` contains all the scores for all the permutations.
 
-You can read presentation for `h0` and `h1` on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
+You can read signification for `h0` and `h1` on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
 
 
 Post Processing on PC
 ---------------------
-We found two interesting snps in the data sequenses according to presentation.pptx.
+We found two interesting snps in the data sequenses according to [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx).
 
 ```
 snp_of_interest = [122664, 379105]
