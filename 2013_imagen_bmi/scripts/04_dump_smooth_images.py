@@ -74,7 +74,7 @@ MASK_PATH = os.path.join(DATA_PATH, 'mask', 'mask.nii')
 babel_mask  = nibabel.load(MASK_PATH)
 
 smoothed_images = bmi_utils.read_images_with_mask(smoothed_files, babel_mask)
-bmi_utils.store_images_and_mask(h5file, smoothed_images, babel_mask, group_name="smoothed_images")
+bmi_utils.store_images_and_mask(h5file, smoothed_images, babel_mask, group_name="standard_mask")
 print "Smoothed images dumped"
 del smoothed_images
 
@@ -85,7 +85,7 @@ MASK_PATH = os.path.join(DATA_PATH, 'mask_without_cerebellum', 'mask_without_cer
 babel_mask_without_cerebellum  = nibabel.load(MASK_PATH)
 
 smoothed_images_without_cerebellum = bmi_utils.read_images_with_mask(smoothed_files, babel_mask_without_cerebellum)
-bmi_utils.store_images_and_mask(h5file, smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="smoothed_images_without_cerebellum")
+bmi_utils.store_images_and_mask(h5file, smoothed_images_without_cerebellum, babel_mask_without_cerebellum, group_name="mask_without_cerebellum")
 print "Smoothed images without cerebellum dumped"
 del smoothed_images_without_cerebellum
 
