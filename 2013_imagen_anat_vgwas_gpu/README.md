@@ -133,7 +133,7 @@ We have made a backup and stored in (until Oct. 2014):
 Reduce Processing on Cluster
 ----------------------------
 
-After a long-time map process of preparation, you need to first submit two mpi bash jobs red_wf1.sh and red_wf2.sh for reduce processing in:
+After a long-time map processing, you can submit two mpi bash jobs `red_wf1.sh` and `red_wf2.sh` for reduce processing in:
 
 ```
 https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_gpu/scripts/03_reduce_process_on_cluster
