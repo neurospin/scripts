@@ -51,12 +51,12 @@ $ cd /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/lib/brainomics/ml/mulm_gpu
 $ make
 ```
 
-You need to modify auto_wf.sh and run the script to produce workflows: 
+You need to modify auto_wf.sh and run the script to produce map workflows: 
 ```
 /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/lib/brainomics/ml/mulm_gpu/mulm/extra/auto_wf.sh
 ```
 
-and then workflows will be produced for map process. All the bash job workflows have been saved in :
+and then workflows will be produced for map process. All the bash job workflows have been saved in as example; you need to reproduce them when you change account :
 
 * [Map Processing Bash Jobs on github](https://github.com/neurospin/scripts/tree/master/2013_imagen_anat_vgwas_gpu/scripts/02_map_process_on_cluster/bash_jobs) 
 * Map Processing soma workflow Jobs on nfs: /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/workflows/swf_jobs.tar.gz
@@ -124,7 +124,7 @@ Once you run through all the bash jobs, all the results have been saved on the c
 ```
 /ccc/scratch/cont003/dsv/lijpeng/pa_prace_big
 ```
-We have made a backup and stored for one year in:
+We have made a backup and stored in (until Oct. 2014):
 ```
 /ccc/store/cont003/dsv/lijpeng/brainomics/pa_prace/big/pa_prace_big
 ```
