@@ -145,9 +145,9 @@ The second reduce step can be called by:
 https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/03_reduce_process_on_cluster/post_process_2.py
 ```
 
-This script can obtain h0 and h1. h0 contains all the max scores of each permutation. h1 contains all the scores for all the permutations.
+This script can obtain `h0` and `h1`. `h0` contains all the max scores of each permutation. `h1` contains all the scores for all the permutations.
 
-You can read presentation for h0 and h1 on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
+You can read presentation for `h0` and `h1` on [presentation.pptx](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/presentation.pptx). 
 
 
 Post Processing on PC
