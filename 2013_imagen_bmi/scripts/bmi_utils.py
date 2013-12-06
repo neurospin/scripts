@@ -85,3 +85,14 @@ def read_array(h5file, name):
     array = numpy.empty(hdf_array.shape, hdf_array.dtype)
     array = hdf_array[:]
     return array
+
+def make_image_from_array(array, babel_mask):
+    mask = babel_mask.get_data()
+    binary_mask = mask!=0
+    img = numpy.zeros(binary_mask.shape)
+    if array.ndim == 1:
+        img[binary_mask] = array
+    else:
+        img[binary_mask] = array.flatten()
+    outimg = nibabel.Nifti1Image(img, babel_mask.get_affine())
+    return outimg
