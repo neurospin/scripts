@@ -4,8 +4,7 @@ Created on Wed Oct  2 15:52:24 2013
 
 @author: md238665
 
-This script performs a parameter selection of the SGCCA model.
-SGCCA is implemented using RGCCA + L1 regularization.
+This script create a workflow for parameter selection of the SGCCA model.
 
 TODO:
  - save the weights (at least of each outer fold)
@@ -106,7 +105,7 @@ def rgcca_fit_predict(fold):
         Y_bar = Y.mean()
         SS_tot =  Y.var()
         SS_reg = ((Yhat - Y_bar)**2).mean()
-        R_squared = 1 - SS_reg / SS_tot
+        R_squared = SS_reg / SS_tot
     except:
         print "Ça n'a pas marché."
     return (rgcca, Z_W, Yhat, R_squared)
