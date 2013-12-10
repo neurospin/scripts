@@ -61,13 +61,20 @@ if __name__ == '__main__':
     # TODO: change values
     N_OUTER_FOLDS = 5
     N_INNER_FOLDS = 3
-    #PARAM = np.arange(start=0.1, stop=1.0, step=0.1)
-    PARAM = [0.3, 0.7]
-    param_set = list(itertools.product(PARAM, PARAM, [1]))
+
+    #L1_PARAM = np.arange(start=0.1, stop=1.0, step=0.1)
+    L1_PARAM = [0.3, 0.7]
+    L1_PARAM_SET = list(itertools.product(L1_PARAM, L1_PARAM, [1]))
+
+    C_hier = [[0, 0, 1], [0, 0, 1], [1, 1, 0]]
+    C_complete = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+    C_DICT = {"hierarchical": C_hier,
+              "complete": C_complete}
+    C_PARAM_SET = ["hierarchical", "complete"]
+
+    PARAM_SET = list(itertools.product(C_PARAM_SET, L1_PARAM_SET))
 
     N_PROCESSES = 5
-
-    C = [[0, 0, 1], [0, 0, 1], [1, 1, 0]]
 
     global BASE_SGCCA_CMD, BASE_PREDICT_CMD
     SGCCA_PATH = "/home/md238665/Code/brainomics-team/SGCCA_py"
@@ -185,9 +192,16 @@ if __name__ == '__main__':
 
             # Put tasks in WF
             inner_fold_jobs = []
-            for l1_params in param_set:
+            for C_name, l1_params in PARAM_SET:
+                C =  C_DICT[C_name]
                 param_dir = os.path.join(inner_fold_dir,
-                                         "{c[0]}_{c[1]}".format(c=l1_params))
+                                         "{name}_{c[0]}_{c[1]}".format(name=C_name,
+                                                                       c=l1_params))
+                common_job_name = "{out}/{inn}/{name}/{c}".format(
+                                   out=outer_fold_index,
+                                   inn=inner_fold_index,
+                                   name=C_name,
+                                   c=l1_params)
 #                if not os.path.exists(param_dir):
 #                    os.makedirs(param_dir)
                 model_filename = os.path.join(param_dir, "model.pkl")
@@ -198,10 +212,7 @@ if __name__ == '__main__':
                 fit_cmd = fit_command(inner_fold_training_files,
                                       3, C, l1_params, "centroid",
                                       model_filename)
-                job_name = "{out}/{inn}/{c}/fit".format(
-                            out=outer_fold_index,
-                            inn=inner_fold_index,
-                            c=l1_params)
+                job_name = common_job_name+"/fit"
                 fit = Job(command=fit_cmd, name=job_name)
                 jobs.append(fit)
                 # TODO: ajouter dépendance à transferts
@@ -211,10 +222,7 @@ if __name__ == '__main__':
                 transform_cmd = transform_command(model_filename,
                                                   inner_fold_testing_files,
                                                   param_transform_files)
-                job_name = "{out}/{inn}/{c}/transform".format(
-                            out=outer_fold_index,
-                            inn=inner_fold_index,
-                            c=l1_params)
+                job_name = common_job_name+"/transform"
                 transform = Job(command=transform_cmd, name=job_name)
                 jobs.append(transform)
                 dependencies.append((fit, transform))
@@ -222,10 +230,7 @@ if __name__ == '__main__':
                 # Predict task
                 predict_cmd = predict_command(param_transform_files,
                                               param_prediction_file)
-                job_name = "{out}/{inn}/{c}/predict".format(
-                            out=outer_fold_index,
-                            inn=inner_fold_index,
-                            c=l1_params)
+                job_name = common_job_name+"/predict"
                 predict = Job(command=predict_cmd, name=job_name)
                 jobs.append(predict)
                 dependencies.append((transform, predict))
