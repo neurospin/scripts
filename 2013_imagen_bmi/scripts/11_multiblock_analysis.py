@@ -11,9 +11,10 @@ the gabriel cluster.
 The excutable are from the python SGCCA implementation (see brainomics-team repository).
 
 TODO:
- - save the weights (at least of each outer fold)
- - allow to use different data
- - output path?
+ - file transfert?
+ - find a way to store less data (for instance store only indices and generate
+   dataset on nodes - requires a python script to do that)
+  -compute SVD on nodes?
 
 """
 
@@ -25,6 +26,8 @@ import pandas as pd
 import sklearn, sklearn.preprocessing, sklearn.cross_validation
 
 from soma_workflow.client import Job, Workflow, Group, Helper
+
+import tables
 
 import bmi_utils
 
@@ -46,7 +49,7 @@ def scale_datasets(train, test):
 # Input data
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
 DATA_PATH = os.path.join(BASE_PATH, 'data')
-IMAGES_FILE = os.path.join(DATA_PATH, 'Archives', 'subsampled_smoothed_images.hdf5')
+IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
 SNPS_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
 BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
@@ -60,6 +63,7 @@ if not os.path.exists(SHARED_DIR):
 OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
+WF_NAME = "SGCCA_hyperparameter_selection_wf"
 
 # CV parameters
 # TODO: change values
@@ -116,7 +120,6 @@ def predict_command(transformed_filenames, predict_output):
     cmd = BASE_PREDICT_CMD
     cmd = cmd + ["--input_files"] + transformed_filenames
     # Output
-    # TODO: change that
     cmd = cmd + ["--output_file", predict_output]
     #print cmd
     return cmd
@@ -124,18 +127,18 @@ def predict_command(transformed_filenames, predict_output):
 #############
 # Read data #
 #############
-#    # SNPs and BMI
-#    SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
-#    BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
-#
-#    # Images
-#    h5file = tables.openFile(IMAGES_FILE)
-#    masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
-#    print "Data loaded"
+# SNPs and BMI
+SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
+BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
 
-X = np.random.random((100, 1000))
-Y = np.random.random((100, 100))
-Z = np.random.random((100, 1))
+# Images
+h5file = tables.openFile(IMAGES_FILE)
+masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
+print "Data loaded"
+
+X = masked_images
+Y = SNPs
+Z = BMI
 
 ####################################
 # Create cross-validation workflow #
@@ -148,6 +151,7 @@ group_elements = []
 # Outer loop
 outer_folds = sklearn.cross_validation.KFold(len(X), n_folds=N_OUTER_FOLDS, indices=False)
 for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
+    print "In outer fold %i" % outer_fold_index
     train_mask, test_mask = outer_fold_masks
     outer_fold_dir = os.path.join(SHARED_DIR, str(outer_fold_index))
     if not os.path.exists(outer_fold_dir):
@@ -204,17 +208,17 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
         del X_inner_test_std, Y_inner_test_std, Z_inner_test_std
 
         # Compute & save SVD of scaled training data
-        (u, s, v) = np.linalg.svd(X_inner_train_std)
+        (u, s, v) = np.linalg.svd(X_inner_train_std, full_matrices=False)
         X_inner_init = v[0]
         full_X_inner_init = os.path.join(inner_fold_dir, 'X_inner_init.npy')
         np.save(full_X_inner_init, X_inner_init)
         del u, s, v, X_inner_init, X_inner_train_std
-        (u, s, v) = np.linalg.svd(Y_inner_train_std)
+        (u, s, v) = np.linalg.svd(Y_inner_train_std, full_matrices=False)
         Y_inner_init = v[0]
         full_Y_inner_init = os.path.join(inner_fold_dir, 'Y_inner_init.npy')
         np.save(full_Y_inner_init, Y_inner_init)
         del u, s, v, Y_inner_init, Y_inner_train_std
-        (u, s, v) = np.linalg.svd(Z_inner_train_std)
+        (u, s, v) = np.linalg.svd(Z_inner_train_std, full_matrices=False)
         Z_inner_init = v[0]
         full_Z_inner_init = os.path.join(inner_fold_dir, 'Z_inner_init.npy')
         np.save(full_Z_inner_init, Z_inner_init)
@@ -279,7 +283,8 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
 
 workflow = Workflow(jobs=jobs,
                     dependencies=dependencies,
-                    root_group=group_elements)
+                    root_group=group_elements,
+                    name=WF_NAME)
 
 # save the workflow into a file
-Helper.serialize("/tmp/workflow_example", workflow)
+Helper.serialize(os.path.join(OUT_DIR, WF_NAME), workflow)
