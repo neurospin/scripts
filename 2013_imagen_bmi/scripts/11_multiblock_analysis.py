@@ -83,10 +83,20 @@ PARAM_SET = list(itertools.product(C_PARAM_SET, L1_PARAM_SET))
 
 #N_PROCESSES = 5
 
-global BASE_SGCCA_CMD, BASE_PREDICT_CMD
+global BASE_SGCCA_CMD, BASE_PREDICT_CMD, BASE_SVD_CMD
 SGCCA_PATH = "/home/md238665/Code/brainomics-team/SGCCA_py"
 BASE_SGCCA_CMD = ["python", os.path.join(SGCCA_PATH, "SGCCA.py")]
 BASE_PREDICT_CMD = ["python", os.path.join(SGCCA_PATH, "simple_predict.py")]
+BASE_SVD_CMD = [os.path.join(SGCCA_PATH, "compute_first_SVD.py")]
+
+# Return a command to compute the first SVD
+def svd_command(scaled_block_file, init_file):
+    cmd = BASE_SVD_CMD
+    # Input
+    cmd = cmd + ["--input_file", scaled_block_file]
+    # Output
+    cmd = cmd + ["--output_file", init_file]
+    return cmd
 
 # Return a fit command
 def fit_command(block_files, J, C, c, scheme, init_files, model_filename):
@@ -130,12 +140,16 @@ BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as
 
 # Images
 h5file = tables.openFile(IMAGES_FILE)
-masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
+#masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
 print "Data loaded"
 
-X = masked_images
-Y = SNPs
-Z = BMI
+#X = masked_images
+#Y = SNPs
+#Z = BMI
+
+X = np.random.random((100, 1000))
+Y = np.random.random((100, 100))
+Z = np.random.random((100, 1))
 
 ####################################
 # Create cross-validation workflow #
@@ -213,28 +227,43 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
         # Don't need scaled test data anymore
         del X_inner_test_std, Y_inner_test_std, Z_inner_test_std
 
-        # Compute & save SVD of scaled training data
-        (u, s, v) = np.linalg.svd(X_inner_train_std, full_matrices=False)
-        X_inner_init = v[0]
+        # Put tasks in WF
+        inner_fold_jobs = []
+
+        # Computation of init vectors
+        common_job_name = "{out}/{inn}/init".format(
+                               out=outer_fold_index,
+                               inn=inner_fold_index)
+
         full_X_inner_init = os.path.join(inner_fold_dir, 'X_inner_init.npy')
-        np.save(full_X_inner_init, X_inner_init)
-        del u, s, v, X_inner_init, X_inner_train_std
-        (u, s, v) = np.linalg.svd(Y_inner_train_std, full_matrices=False)
-        Y_inner_init = v[0]
+        X_init_cmd = svd_command(full_X_inner_train,
+                                 full_X_inner_init)
+        job_name = common_job_name+"/X"
+        X_init = Job(command=X_init_cmd, name=job_name)
+        jobs.append(X_init)
+        inner_fold_jobs.append(X_init)
+
         full_Y_inner_init = os.path.join(inner_fold_dir, 'Y_inner_init.npy')
-        np.save(full_Y_inner_init, Y_inner_init)
-        del u, s, v, Y_inner_init, Y_inner_train_std
-        (u, s, v) = np.linalg.svd(Z_inner_train_std, full_matrices=False)
-        Z_inner_init = v[0]
+        Y_init_cmd = svd_command(full_Y_inner_train,
+                                 full_Y_inner_init)
+        job_name = common_job_name+"/Y"
+        Y_init = Job(command=Y_init_cmd, name=job_name)
+        jobs.append(Y_init)
+        inner_fold_jobs.append(Y_init)
+        
         full_Z_inner_init = os.path.join(inner_fold_dir, 'Z_inner_init.npy')
-        np.save(full_Z_inner_init, Z_inner_init)
-        del u, s, v, Z_inner_init, Z_inner_train_std
+        Z_init_cmd = svd_command(full_Z_inner_train,
+                                 full_Z_inner_init)
+        job_name = common_job_name+"/Z"
+        Z_init = Job(command=Z_init_cmd, name=job_name)
+        jobs.append(Z_init)
+        inner_fold_jobs.append(Z_init)
+
         inner_fold_init = [full_X_inner_init,
                            full_Y_inner_init,
                            full_Z_inner_init]
 
-        # Put tasks in WF
-        inner_fold_jobs = []
+        # Fit, transform and predict tasks
         for C_name, l1_params in PARAM_SET:
             C =  C_DICT[C_name]
             param_dir = os.path.join(inner_fold_dir,
@@ -259,8 +288,11 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
             job_name = common_job_name+"/fit"
             fit = Job(command=fit_cmd, name=job_name)
             jobs.append(fit)
-            # TODO: ajouter dépendance à transferts
             inner_fold_jobs.append(fit)  # Just for grouping
+            dependencies.append((X_init, fit))
+            dependencies.append((Y_init, fit))
+            dependencies.append((Z_init, fit))
+            # TODO: ajouter dépendance à transferts
 
             # Transform task
             transform_cmd = transform_command(model_filename,
