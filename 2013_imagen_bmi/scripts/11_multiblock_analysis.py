@@ -12,9 +12,6 @@ The excutable are from the python SGCCA implementation (see brainomics-team repo
 
 TODO:
  - file transfert?
- - find a way to store less data (for instance store only indices and generate
-   dataset on nodes - requires a python script to do that)
-  -compute SVD on nodes?
 
 """
 
@@ -31,18 +28,6 @@ import tables
 
 import bmi_utils
 
-def scale_datasets(train, test):
-    # Center and scale training and testing data
-    # Don't use in place transformation because it would modify the datasets
-    # in the calling environment
-    scaler = sklearn.preprocessing.StandardScaler()
-    scaler.fit(train)
-    scaled_train = scaler.transform(train)
-    scaled_test  = scaler.transform(test)
-
-    return (scaler, scaled_train, scaled_test)
-
-
 ##############
 # Parameters #
 ##############
@@ -55,12 +40,12 @@ BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 # Shared data
 BASE_SHARED_DIR = "/neurospin/tmp/brainomics/md238665"
-SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'multiblock_analysis')
+SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'multiblock_analysis_tmp2')
 if not os.path.exists(SHARED_DIR):
     os.makedirs(SHARED_DIR)
 
 # Results
-OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis')
+OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis_tmp2')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
 WF_NAME = "SGCCA_hyperparameter_selection_wf"
@@ -88,6 +73,20 @@ SGCCA_PATH = "/home/md238665/Code/brainomics-team/SGCCA_py"
 BASE_SGCCA_CMD = ["python", os.path.join(SGCCA_PATH, "SGCCA.py")]
 BASE_PREDICT_CMD = ["python", os.path.join(SGCCA_PATH, "simple_predict.py")]
 BASE_SVD_CMD = [os.path.join(SGCCA_PATH, "compute_first_SVD.py")]
+BASE_SUBSAMPLE_CMD = [os.path.join(SGCCA_PATH, "subsample_scale.py")]
+
+# Return a subsample command
+def subsample_command(testing, block_file, index_files, sub_block_file, scaler_file):
+    cmd = BASE_SUBSAMPLE_CMD
+    # Input
+    if testing:
+        cmd = cmd + ["--use_scaler"]
+    cmd = cmd + ["--input_file", block_file]
+    cmd = cmd + ["--index_files"] + index_files
+    cmd = cmd + ["--scaler", scaler_file]
+    # Output
+    cmd = cmd + ["--output_file", sub_block_file]
+    return cmd
 
 # Return a command to compute the first SVD
 def svd_command(scaled_block_file, init_file):
@@ -140,16 +139,16 @@ BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as
 
 # Images
 h5file = tables.openFile(IMAGES_FILE)
-#masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
+masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")
 print "Data loaded"
 
-#X = masked_images
-#Y = SNPs
-#Z = BMI
+X = masked_images
+Y = SNPs
+Z = BMI
 
-X = np.random.random((100, 1000))
-Y = np.random.random((100, 100))
-Z = np.random.random((100, 1))
+np.save(os.path.join(SHARED_DIR, "X.npy"), X)
+np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
+np.save(os.path.join(SHARED_DIR, "Z.npy"), Z)
 
 ####################################
 # Create cross-validation workflow #
@@ -160,75 +159,122 @@ dependencies = []
 group_elements = []
 
 # Outer loop
-outer_folds = sklearn.cross_validation.KFold(len(X), n_folds=N_OUTER_FOLDS, indices=False)
-for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
+outer_folds = sklearn.cross_validation.KFold(len(X), n_folds=N_OUTER_FOLDS)
+for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
     print "In outer fold %i" % outer_fold_index
-    train_mask, test_mask = outer_fold_masks
+    train_index, test_index = outer_fold_indices
     outer_fold_dir = os.path.join(SHARED_DIR, str(outer_fold_index))
     if not os.path.exists(outer_fold_dir):
         os.makedirs(outer_fold_dir)
-    X_train, X_test = X[train_mask], X[test_mask]
-    Y_train, Y_test = Y[train_mask], Y[test_mask]
-    Z_train, Z_test = Z[train_mask], Z[test_mask]
+    # Write outer indices
+    full_outer_train_index = os.path.join(outer_fold_dir, "outer_train_index.npy")
+    np.save(full_outer_train_index, train_index)
+    full_outer_test_index = os.path.join(outer_fold_dir, "outer_test_index.npy")
+    np.save(full_outer_test_index, test_index)
+
     # Inner loop
-    inner_folds = sklearn.cross_validation.KFold(len(X_train), n_folds=N_INNER_FOLDS, indices=False, shuffle=False)
-    for inner_fold_index, inner_fold_masks in enumerate(inner_folds):
+    inner_folds = sklearn.cross_validation.KFold(len(train_index), n_folds=N_INNER_FOLDS)
+    for inner_fold_index, inner_fold_indices in enumerate(inner_folds):
         print "\tIn inner fold %i" % inner_fold_index
-        inner_train_mask, inner_test_mask = inner_fold_masks
+        inner_train_index, inner_test_index = inner_fold_indices
         inner_fold_dir = os.path.join(outer_fold_dir, str(inner_fold_index))
         if not os.path.exists(inner_fold_dir):
             os.makedirs(inner_fold_dir)
-        X_inner_train, X_inner_test = X_train[inner_train_mask], X_train[inner_test_mask]
-        Y_inner_train, Y_inner_test = Y_train[inner_train_mask], Y_train[inner_test_mask]
-        Z_inner_train, Z_inner_test = Z_train[inner_train_mask], Z_train[inner_test_mask]
+        # Write inner indices
+        full_inner_train_index = os.path.join(inner_fold_dir, "inner_train_index.npy")
+        np.save(full_inner_train_index, inner_train_index)
+        full_inner_test_index = os.path.join(inner_fold_dir, "inner_test_index.npy")
+        np.save(full_inner_test_index, inner_test_index)
+        train_indices = [full_outer_train_index, full_inner_train_index]
+        test_indices  = [full_outer_train_index, full_inner_test_index]
 
-        # Scale data
-        X_scaler, X_inner_train_std, X_inner_test_std = scale_datasets(X_inner_train,
-                                                                       X_inner_test)
-        del X_inner_train, X_inner_test
-        Y_scaler, Y_inner_train_std, Y_inner_test_std = scale_datasets(Y_inner_train,
-                                                                       Y_inner_test)
-        del Y_inner_train, Y_inner_test
-        Z_scaler, Z_inner_train_std, Z_inner_test_std = scale_datasets(Z_inner_train,
-                                                                       Z_inner_test)
-        del Z_inner_train, Z_inner_test
+        # Put tasks in WF
+        inner_fold_jobs = []
 
-        # Store normalized data & scaling parameters
+        # Dataset creation (subsample and scale)
+        common_job_name = "{out}/{inn}/create".format(
+                               out=outer_fold_index,
+                               inn=inner_fold_index)
+
         full_X_inner_train = os.path.join(inner_fold_dir, 'X_inner_train_std.npy')
-        np.save(full_X_inner_train, X_inner_train_std)
-        full_X_inner_test = os.path.join(inner_fold_dir, 'X_inner_test_std.npy')
-        np.save(full_X_inner_test, X_inner_test_std)
-        np.savez(os.path.join(inner_fold_dir, 'X_inner_train_scaling.npz'),
-                              mean_=X_scaler.mean_, std_=X_scaler.std_)
-        del X_scaler
+        full_X_inner_scaler = os.path.join(inner_fold_dir, 'X_inner_train_scaling.pkl')
+        X_train_create_cmd = subsample_command(False,
+                                               os.path.join(SHARED_DIR, "X.npy"),
+                                               train_indices,
+                                               full_X_inner_train,
+                                               full_X_inner_scaler)
+        job_name = common_job_name+"/X_train"
+        X_train_create = Job(command=X_train_create_cmd, name=job_name)
+        jobs.append(X_train_create)
+        inner_fold_jobs.append(X_train_create)
 
         full_Y_inner_train = os.path.join(inner_fold_dir, 'Y_inner_train_std.npy')
-        np.save(full_Y_inner_train, Y_inner_train_std)
-        full_Y_inner_test = os.path.join(inner_fold_dir, 'Y_inner_test_std.npy')
-        np.save(full_Y_inner_test, Y_inner_test_std)
-        np.savez(os.path.join(inner_fold_dir, 'Y_inner_train_scaling.npz'),
-                              mean_=Y_scaler.mean_, std_=Y_scaler.std_)
-        del Y_scaler
+        full_Y_inner_scaler = os.path.join(inner_fold_dir, 'Y_inner_train_scaling.pkl')
+        Y_train_create_cmd = subsample_command(False,
+                                               os.path.join(SHARED_DIR, "Y.npy"),
+                                               train_indices,
+                                               full_Y_inner_train,
+                                               full_Y_inner_scaler)
+        job_name = common_job_name+"/Y_train"
+        Y_train_create = Job(command=Y_train_create_cmd, name=job_name)
+        jobs.append(Y_train_create)
+        inner_fold_jobs.append(Y_train_create)
 
         full_Z_inner_train = os.path.join(inner_fold_dir, 'Z_inner_train_std.npy')
-        np.save(full_Z_inner_train, Z_inner_train_std)
-        full_Z_inner_test = os.path.join(inner_fold_dir, 'Z_inner_test_std.npy')
-        np.save(full_Z_inner_test, Z_inner_test_std)
-        np.savez(os.path.join(inner_fold_dir, 'Z_inner_train_scaling.npz'),
-                              mean_=Z_scaler.mean_, std_=Z_scaler.std_)
-        del Z_scaler
+        full_Z_inner_scaler = os.path.join(inner_fold_dir, 'Z_inner_train_scaling.pkl')
+        Z_train_create_cmd = subsample_command(False,
+                                               os.path.join(SHARED_DIR, "Z.npy"),
+                                               train_indices,
+                                               full_Z_inner_train,
+                                               full_Z_inner_scaler)
+        job_name = common_job_name+"/Z_train"
+        Z_train_create = Job(command=Z_train_create_cmd, name=job_name)
+        jobs.append(Z_train_create)
+        inner_fold_jobs.append(Z_train_create)
 
         inner_fold_training_files = [full_X_inner_train,
                                      full_Y_inner_train,
                                      full_Z_inner_train]
+
+        full_X_inner_test = os.path.join(inner_fold_dir, 'X_inner_test_std.npy')
+        X_test_create_cmd = subsample_command(True,
+                                              os.path.join(SHARED_DIR, "X.npy"),
+                                              test_indices,
+                                              full_X_inner_test,
+                                              full_X_inner_scaler)
+        job_name = common_job_name+"/X_test"
+        X_test_create = Job(command=X_test_create_cmd, name=job_name)
+        jobs.append(X_test_create)
+        inner_fold_jobs.append(X_test_create)
+
+        full_Y_inner_test = os.path.join(inner_fold_dir, 'Y_inner_test_std.npy')
+        Y_test_create_cmd = subsample_command(True,
+                                              os.path.join(SHARED_DIR, "Y.npy"),
+                                              test_indices,
+                                              full_Y_inner_test,
+                                              full_Y_inner_scaler)
+        job_name = common_job_name+"/Y_test"
+        Y_test_create = Job(command=Y_test_create_cmd, name=job_name)
+        jobs.append(Y_test_create)
+        inner_fold_jobs.append(Y_test_create)
+
+        full_Z_inner_test = os.path.join(inner_fold_dir, 'Z_inner_test_std.npy')
+        Z_test_create_cmd = subsample_command(True,
+                                              os.path.join(SHARED_DIR, "Z.npy"),
+                                              test_indices,
+                                              full_Z_inner_test,
+                                              full_Z_inner_scaler)
+        job_name = common_job_name+"/Z_test"
+        Z_test_create = Job(command=Z_test_create_cmd, name=job_name)
+        jobs.append(Z_test_create)
+        inner_fold_jobs.append(Z_test_create)
+
         inner_fold_testing_files = [full_X_inner_test,
                                     full_Y_inner_test,
                                     full_Z_inner_test]
-        # Don't need scaled test data anymore
-        del X_inner_test_std, Y_inner_test_std, Z_inner_test_std
-
-        # Put tasks in WF
-        inner_fold_jobs = []
+        dependencies.append((X_train_create, X_test_create))
+        dependencies.append((Y_train_create, Y_test_create))
+        dependencies.append((Z_train_create, Z_test_create))
 
         # Computation of init vectors
         common_job_name = "{out}/{inn}/init".format(
@@ -250,7 +296,7 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
         Y_init = Job(command=Y_init_cmd, name=job_name)
         jobs.append(Y_init)
         inner_fold_jobs.append(Y_init)
-        
+
         full_Z_inner_init = os.path.join(inner_fold_dir, 'Z_inner_init.npy')
         Z_init_cmd = svd_command(full_Z_inner_train,
                                  full_Z_inner_init)
@@ -262,6 +308,9 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
         inner_fold_init = [full_X_inner_init,
                            full_Y_inner_init,
                            full_Z_inner_init]
+        dependencies.append((X_train_create, X_init))
+        dependencies.append((Y_train_create, Y_init))
+        dependencies.append((Z_train_create, Z_init))
 
         # Fit, transform and predict tasks
         for C_name, l1_params in PARAM_SET:
@@ -312,6 +361,7 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
             dependencies.append((transform, predict))
             inner_fold_jobs.append(predict)  # Just for grouping
         # End loop on params
+        # Group all jobs of this fold in a group
         group_elements.append(Group(elements=inner_fold_jobs,
                                     name="Outer fold {out}/Inner fold {inn}".format(
                                     out=outer_fold_index,
