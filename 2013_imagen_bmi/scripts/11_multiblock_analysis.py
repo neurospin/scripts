@@ -66,14 +66,11 @@ if not os.path.exists(OUT_DIR):
 WF_NAME = "SGCCA_hyperparameter_selection_wf"
 
 # CV parameters
-# TODO: change values
-N_OUTER_FOLDS = 5
-N_INNER_FOLDS = 3
+N_OUTER_FOLDS = 10
+N_INNER_FOLDS = 5
 
 # Model parameters
-# TODO: change values
-#L1_PARAM = np.arange(start=0.1, stop=1.0, step=0.1)
-L1_PARAM = [0.3, 0.7]
+L1_PARAM = np.arange(start=0.1, stop=1.0, step=0.1)
 L1_PARAM_SET = list(itertools.product(L1_PARAM, L1_PARAM, [1]))
 
 C_hier = [[0, 0, 1], [0, 0, 1], [1, 1, 0]]
@@ -182,22 +179,31 @@ for outer_fold_index, outer_fold_masks in enumerate(outer_folds):
                                                                        Z_inner_test)
         del Z_inner_train, Z_inner_test
 
-        # Store normalized data
+        # Store normalized data & scaling parameters
         full_X_inner_train = os.path.join(inner_fold_dir, 'X_inner_train_std.npy')
         np.save(full_X_inner_train, X_inner_train_std)
         full_X_inner_test = os.path.join(inner_fold_dir, 'X_inner_test_std.npy')
         np.save(full_X_inner_test, X_inner_test_std)
+        np.savez(os.path.join(inner_fold_dir, 'X_inner_train_scaling.npz'),
+                              mean_=X_scaler.mean_, std_=X_scaler.std_)
+        del X_scaler
 
         full_Y_inner_train = os.path.join(inner_fold_dir, 'Y_inner_train_std.npy')
         np.save(full_Y_inner_train, Y_inner_train_std)
         full_Y_inner_test = os.path.join(inner_fold_dir, 'Y_inner_test_std.npy')
         np.save(full_Y_inner_test, Y_inner_test_std)
+        np.savez(os.path.join(inner_fold_dir, 'Y_inner_train_scaling.npz'),
+                              mean_=Y_scaler.mean_, std_=Y_scaler.std_)
+        del Y_scaler
 
         full_Z_inner_train = os.path.join(inner_fold_dir, 'Z_inner_train_std.npy')
         np.save(full_Z_inner_train, Z_inner_train_std)
         full_Z_inner_test = os.path.join(inner_fold_dir, 'Z_inner_test_std.npy')
         np.save(full_Z_inner_test, Z_inner_test_std)
-        # TODO: save scaling parameters
+        np.savez(os.path.join(inner_fold_dir, 'Z_inner_train_scaling.npz'),
+                              mean_=Z_scaler.mean_, std_=Z_scaler.std_)
+        del Z_scaler
+
         inner_fold_training_files = [full_X_inner_train,
                                      full_Y_inner_train,
                                      full_Z_inner_train]
