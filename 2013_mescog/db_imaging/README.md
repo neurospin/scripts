@@ -6,7 +6,7 @@ CAD_bioclinical_nifti/subject<ID>-M<month>-<modality>
 month : 0 | 18 | 36
 
 modality:
-- T1: native not registred
+- T1: native not registred (native)
 - rT1: rT1 biolinical space "rT1"
 - LL: lacune map in "rT1"
 - rFLAIR: FLAIR biolinical space "rFLAIR"
@@ -38,7 +38,7 @@ Normalization
 
 CAD/subject<ID>/
 ~~~~~~~~~~~~~~~
-rFLAIR_to_rT1.mat : Rgigid boby transfor (FSL flirt 4.1.6)
+rFLAIR_to_rT1.mat : Rigid boby transfor (FSL flirt 4.1.6)
 rT1_to_MNI_warp.nii.gz: non linear tranfo
 rT1_to_MNI.mat: Affine transfo (useless)
 
