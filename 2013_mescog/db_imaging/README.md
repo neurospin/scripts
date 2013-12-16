@@ -1,7 +1,11 @@
-CADASIL COHORT
-==============
+/neurospin/mescog/neurospin/mescog/neuroimaging
+apsp
+cadasil
 
-CAD_bioclinical_nifti/subject<ID>-M<month>-<modality>
+cadasil
+=======
+
+CAD_bioclinical_nifti/<subject_id>/<subject_id>-M<month>-<modality>
 -----------------------------------------------------
 month : 0 | 18 | 36
 
@@ -16,9 +20,7 @@ modality:
     * bvec direction (div par 3)
 No transformation to MNI
 
-
-For Paris variable
-Fro Munich if GH absent if PAS 2 x 20 direction
+?? For Munich if GH absent if PAS 2 x 20 direction
 
 Meta-information
 ----------------
@@ -36,7 +38,7 @@ With FSL 4.1.8 (rT1_to_MNI_wrap or rFLAIR_to_rT1 + rT1_to_MNI_warp)
 Normalization
 -------------
 
-CAD/subject<ID>/
+CAD/<subject_id>/
 ~~~~~~~~~~~~~~~
 rFLAIR_to_rT1.mat : Rigid boby transfor (FSL flirt 4.1.6)
 rT1_to_MNI_warp.nii.gz: non linear tranfo

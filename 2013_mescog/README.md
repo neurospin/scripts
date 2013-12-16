@@ -1,7 +1,7 @@
 CLINICAL VARIABLES
 ==================
 
-clinic/README.md
+db_clinic/README.md
 
 IMAGING DB
 ==========
