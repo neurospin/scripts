@@ -5,13 +5,22 @@ Created on Wed Oct  2 15:52:24 2013
 @author: md238665
 
 This script create a workflow for parameter selection of the SGCCA model.
+Strictly speaking we just run the inner folds.
+The selection of the best parameters (and the fit of optimal models) is done
+in a separate script.
 
-Data are written to /neurospin/tmp which is accesible from clients and from
-the gabriel cluster.
-The excutable are from the python SGCCA implementation (see brainomics-team repository).
+Data are written to /neurospin/tmp which is accesible from desktop computers.
+They must be manually transfered to the gabriel cluster.
+The excutables are from the python SGCCA implementation (see brainomics-team repository).
+
+Note that the generated workflow is very large (several thousands jobs).
+This may cause problem to submit it with soma_workflow_gui (we are working on
+this issue).
 
 TODO:
  - file transfert?
+ - move some functions and conventions (job names, etc.) to bmi_utils
+ - replace some constants by explicit parameters (J, scheme, etc.)
 
 """
 
@@ -40,18 +49,18 @@ BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 # Shared data
 BASE_SHARED_DIR = "/neurospin/tmp/brainomics/md238665"
-SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'multiblock_analysis_tmp2')
+SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'multiblock_analysis')
 if not os.path.exists(SHARED_DIR):
     os.makedirs(SHARED_DIR)
 
 # Results
-OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis_tmp2')
+OUT_DIR = os.path.join(BASE_PATH, 'results', 'multiblock_analysis')
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR)
 WF_NAME = "SGCCA_hyperparameter_selection_wf"
 
 # CV parameters
-N_OUTER_FOLDS = 10
+N_OUTER_FOLDS = 5
 N_INNER_FOLDS = 5
 
 # Model parameters
@@ -196,6 +205,8 @@ for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
                                out=outer_fold_index,
                                inn=inner_fold_index)
 
+        # As X is a large matrix, this step needs a lot of memory
+        # so I use the native specification
         full_X_inner_train = os.path.join(inner_fold_dir, 'X_inner_train_std.npy')
         full_X_inner_scaler = os.path.join(inner_fold_dir, 'X_inner_train_scaling.pkl')
         X_train_create_cmd = subsample_command(False,
@@ -204,7 +215,8 @@ for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
                                                full_X_inner_train,
                                                full_X_inner_scaler)
         job_name = common_job_name+"/X_train"
-        X_train_create = Job(command=X_train_create_cmd, name=job_name)
+        X_train_create = Job(command=X_train_create_cmd, name=job_name,
+                             native_specification="-l walltime=10:00:00,pmem=16gb")
         jobs.append(X_train_create)
         inner_fold_jobs.append(X_train_create)
 
@@ -312,6 +324,17 @@ for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
         dependencies.append((Y_train_create, Y_init))
         dependencies.append((Z_train_create, Z_init))
 
+        # Clean datasets and init (it's in models)
+        # This job depends on the (many) predict tasks
+        # so we set the dependencies later
+        cmd = ["rm"]
+        cmd = cmd + inner_fold_training_files + inner_fold_testing_files + inner_fold_init
+        clean_job = Job(command=cmd, name="{out}/{inn}/clean".format(
+                               out=outer_fold_index,
+                               inn=inner_fold_index))
+        jobs.append(clean_job)
+        inner_fold_jobs.append(clean_job)
+
         # Fit, transform and predict tasks
         for C_name, l1_params in PARAM_SET:
             C =  C_DICT[C_name]
@@ -352,6 +375,7 @@ for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
             jobs.append(transform)
             dependencies.append((fit, transform))
             inner_fold_jobs.append(transform)  # Just for grouping
+
             # Predict task
             predict_cmd = predict_command(param_transform_files,
                                           param_prediction_file)
@@ -360,6 +384,9 @@ for outer_fold_index, outer_fold_indices in enumerate(outer_folds):
             jobs.append(predict)
             dependencies.append((transform, predict))
             inner_fold_jobs.append(predict)  # Just for grouping
+
+            # Set dependencies of cleaning job
+            dependencies.append((predict, clean_job))
         # End loop on params
         # Group all jobs of this fold in a group
         group_elements.append(Group(elements=inner_fold_jobs,
