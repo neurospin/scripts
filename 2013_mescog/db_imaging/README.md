@@ -1,9 +1,12 @@
-/neurospin/mescog/neurospin/mescog/neuroimaging
-apsp
-cadasil
+/neurospin/mescog/neuroimaging
+==============================
 
-cadasil
-=======
+- original: data received in March 2013 in Munich meeting
+- processed: processed data
+- ressources: other ressources: atlas etc.
+
+/neurospin/mescog/neuroimaging/original/munich
+==============================================
 
 CAD_bioclinical_nifti/<subject_id>/<subject_id>-M<month>-<modality>
 -----------------------------------------------------
@@ -75,4 +78,12 @@ LLV Volume, LL_count, MB_count / ICC Ictra cranial cavity
 Sienax
 ~~~~~~
 Uncorrected volume given FSL sienax / ICC = BPF
+
+
+
+/neurospin/mescog/neuroimaging/ressources
+=========================================
+rsync /i2bm/local/fsl-5.0.6/data/standard/MNI152lin_T1_2mm.nii.gz /neurospin/mescog/neuroimaging/ressources/
+
+
 
