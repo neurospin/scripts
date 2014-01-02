@@ -2,7 +2,7 @@
 """
 Created on Sun Nov 17 22:23:25 2013
 
-@author: edouard
+@author: edouard.duchesnay@cea.fr
 """
 
 import os.path
@@ -10,8 +10,8 @@ import sys
 import numpy as np
 from sklearn.svm import LinearSVC as SVM
 from sklearn.linear_model import LogisticRegression
-from sklearn import preprocessing
-from sklearn.feature_selection import SelectKBest
+#from sklearn import preprocessing
+#from sklearn.feature_selection import SelectKBest
 import epac
 from epac import CV, Methods, Pipe, CVBestSearchRefit
 
@@ -38,7 +38,7 @@ C_values = [0.01, 0.05, .1, .5, 1, 5, 10]
 # ======
 
 svms = Methods(*[SVM(dual=False, class_weight='auto', penalty="l1", C=C)  for C in C_values])
-       
+
 #
 #anova_svms = Methods(*[Pipe(SelectKBest(k=k),       #preprocessing.StandardScaler(),
 #                            Methods(*[SVM(C=C, penalty=penalty, class_weight='auto', dual=False) for C in C_values for penalty in  ['l1', 'l2']])) for k in k_values])
@@ -49,7 +49,7 @@ cv.run(X=X, y=y)
 cv_results = cv.reduce()
 #print cv_results
 
-epac.export_csv(cv, cv_results, os.path.join(WD, "cv10_svmsl1.csv"))
+epac.export_csv(cv, cv_results, os.path.join(WD, "results", "cv10_svmsl1.csv"))
 
 # SVM L1 with CVBestSearchRefit
 # =============================
