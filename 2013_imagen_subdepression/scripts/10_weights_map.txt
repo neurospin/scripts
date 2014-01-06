@@ -1,0 +1,5 @@
+cd  /neurospin/brainomics/2013_imagen_subdepression/results/svm_feature_selection
+
+${HOME}/git/scripts/tools/brainvisa/bin/map_clusters_analysis.py --input /neurospin/brainomics/2013_imagen_subdepression/results/svm_feature_selection/betas.nii
+
+

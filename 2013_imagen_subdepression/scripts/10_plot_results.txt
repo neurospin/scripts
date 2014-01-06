@@ -1,0 +1,2 @@
+anatomist /neurospin/brainomics/2012_imagen_subdepression/results/svm_weight_map/* /neurospin/brainomics/2012_imagen_subdepression/data_normalized_segmented/sub_vs_ctl_article/mask.img 
+/neurospin/brainomics/ressources/icbm200T/anatomy/nobias_icbm200T.nii /neurospin/brainomics/ressources/icbm200T/tri/
