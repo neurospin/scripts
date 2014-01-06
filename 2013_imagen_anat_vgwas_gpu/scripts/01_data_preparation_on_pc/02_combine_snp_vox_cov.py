@@ -31,7 +31,7 @@ def check_array_NaN(nparray):
         raise ValueError("np.array contain NaN")
 
 # Input
-BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
+BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu'
 
 # Output files
 OUT_DIR = os.path.join(BASE_DIR, 'data')

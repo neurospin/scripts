@@ -8,7 +8,18 @@ Scripts
 =======
 
 IO.py
-01_classif.py
+01_predict_svms.py
+
+Design
+======
+
+2 algos:
+- Filtre univarié P<0.05 + SVM
+- sparse SVM
+
+Dataset:
+- CAARMS
+- CAARMS + PAS + Canabis
 
 Results
 =======
@@ -30,5 +41,5 @@ Voici les items de la CAARMS qui interviennnent:
  ['@7.7', 0.011629021906204358]]
 Le chiffre à coté donne le poids (plus il est grand EN VALEUR ABSOLUE) plus l'item participe à la prédiction
 
-J'ai essayé de normaliser le Pre-Morbid Adjustment scale (PAS2gr) et l'exposition au canabis (CB_EXPO). Cela dégrade considérablement les résultats. Je ne sais pas encore pourquoi et la j'ai envie de te rejoindre dans le lit...
+la normalisation de Pre-Morbid Adjustment scale (PAS2gr) et de l'exposition au canabis (CB_EXPO) dégrade considérablement les résultats.
 
