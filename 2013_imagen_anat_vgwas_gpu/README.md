@@ -158,7 +158,7 @@ We found two interesting snps in the data sequenses according to [presentation.p
 snp_of_interest = [122664, 379105]
 ```
 
-[create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores.
+[create_brain.py](https://github.com/neurospin/scripts/blob/master/2013_imagen_anat_vgwas_gpu/scripts/04_post_process_on_pc/create_brain.py) performs the creation of brain images according to scores. It corresponds to 'rs13107325' and 'rs7182018' respectively.
 
 All the brain image files have saved in 
 
