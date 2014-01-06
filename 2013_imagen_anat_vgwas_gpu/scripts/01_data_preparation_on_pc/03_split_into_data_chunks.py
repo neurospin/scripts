@@ -105,7 +105,7 @@ def split_into_chunks(data,
 
 if __name__ == "__main__":
     # Input
-    BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_spu'
+    BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu'
 
     NUM_CHUNK_SNP = 40
     NUM_CHUNK_IMG = 876
