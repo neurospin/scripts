@@ -4,7 +4,7 @@ Created on Wed Dec 18 13:42:39 2013
 
 @author: md238665
 
-Use K-means clustering to
+Use K-means clustering to identify patterns.
 
 """
 
