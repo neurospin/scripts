@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 17 17:08:06 2013
+Create WMH dataset images are normalized into the MNI
 
-@author: ed203246
+INPUT_DIR = "/neurospin/mescog/neuroimaging/processed"
+OUTPUT_DIR = "/neurospin/mescog/datasets"
+CAD-WMH-MNI.npy
+
 """
 import os
 import os.path
