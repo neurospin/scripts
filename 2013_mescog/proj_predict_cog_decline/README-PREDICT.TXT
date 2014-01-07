@@ -1,14 +1,17 @@
 ================================================================================
-== 2014                                                                       ==
+== 2014                                                                       =
 ================================================================================
 
 Clinical variables to predict
 -----------------------------
 
-mRS: Modified Rankin Score  (global disability)
-MDRS_total:  Mattis dementia rating scale (global cognitive status)
-Barthel Index (functional independency)
-TMTB (frontal function)
+TMTB (frontal function)                             : TMTBT42
+MDRS_total:  Mattis dementia rating scale           : SCORETOT41
+     (global cognitive status)
+mRS: Modified Rankin Score  (global disability)     : ???    
+Barthel Index (functional independency)             : ???
+
+
 
 Baseline data as potential input predictors
 -------------------------------------------
@@ -24,44 +27,48 @@ Education level                                     : NCULTUREL14
 Vascular risk factors at baseline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Systolic blood pressure at baseline                 :
-Diastolic blood pressure at baseline                :
-Mean blood pressure at baseline                     :
-∆ blood pressure at baseline (systolic – diastolic) :
-Diagnosis of hypertension at baseline               :
-Diagnosis of hypercholesterolemia at baseline       :
-Smoking                                             :
-HDL cholesterol                                     :
-LDL cholesterol                                     :
-Triglycerides                                       :
-Homocysteine                                        :
-HbA1c                                               :
-CRP (C reactive protein)                            :
-Glycemia at baseline                                :
-Alcohol consumption (>2 drinks)                     :
+Systolic blood pressure at baseline                 : PAS
+Diastolic blood pressure at baseline                : PAD
+Mean blood pressure at baseline                     : ???
+∆ blood pressure at baseline (systolic – diastolic) : PAS - PAD
+Diagnosis of hypertension at baseline               : HTA
+Diagnosis of hypercholesterolemia at baseline       : HCHOLES
+Smoking                                             : TABAC
+HDL cholesterol                                     : CHOLHDL17
+LDL cholesterol                                     : CHOLLDL17
+Triglycerides                                       : TRIGLY17
+Homocysteine                                        : HOMOCY17
+HbA1c                                               : HBGLYCO17
+CRP (C reactive protein)                            : CRP17
+Glycemia at baseline                                : GLYC17
+Alcohol consumption (>2 drinks)                     : CALCOOL
 
 Clinical variables at baseline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Any history of migraine with aura                   :
-Any history of stroke                               :
-Presence of gait disturbances                       :
-Presence/absence of balance troubles                :
-Presence/absence  of dementia                       :
-mRS at baseline                                     :
-TMTB at baseline                                    :
-MMSE at baseline                                    :
-MDRS at baseline (mattis dementia rating scale)     :
-NIH stroke scale at baseline                        :
-Barthel Index at baseline                           :
+Any history of migraine with aura                   : MIGAAURA
+Any history of stroke                               : ???
+Presence of gait disturbances                       : ???
+Presence/absence of balance troubles                : ???
+Presence/absence  of dementia                       : ???
+mRS at baseline                                     : ???
+TMTB at baseline                                    : TMTBT15
+MMSE at baseline                                    : INDEXMMS
+MDRS at baseline (mattis dementia rating scale)     : SCORETOT14
+NIH stroke scale at baseline                        : ???
+Barthel Index at baseline                           : ???
 
 Global MRI data at baseline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-– lacune_vol: lacune total volume and/or lacune number (more reliable for clinical use)
-– lesion_vol: lesion total volume lesions SB
-– mb_num: micro hemorrhage number
-– BPF: Brain Parenchymal Fraction (GM+WM/(GM+WM+CSF))
+CAD_database_soures/global_imaging_variables/CAD_M0_Bioclinica.txt
+
+lacune_vol: lacune total volume and/or lacune number : M0_LLV
+  (more reliable for clinical use)
+lesion_vol: lesion total volume lesions SB           : LLcount * voxel size ???
+mb_num: micro hemorrhage number                      : M0_MBcount
+BPF: Brain Parenchymal Fraction (GM+WM/(GM+WM+CSF))  : The CAD_M0_Bioclinica.txt
+  provide only the ICC.
 
 
 Other data may be included in future research such as 

@@ -1,43 +1,91 @@
-## Response variables
-## ==================
+#Clinical variables to predict
+#-----------------------------
 
-# response at t3, t2, t1
-# --------------
-scores.m36 = c("RANKIN_3", "TMTBT_3", "SCORETOT_3")
-scores.m18 = c("RANKIN_2", "TMTBT_2", "SCORETOT_2")
-scores.m0 = c("RANKIN_1", "TMTBT_1", "TOTAL_1")
+#TMTB (frontal function)                             : TMTBT42
+#MDRS_total:  Mattis dementia rating scale           : SCORETOT41
+#     (global cognitive status)
+#mRS: Modified Rankin Score  (global disability)     : ???    
+#Barthel Index (functional independency)             : ???
+target=c(
+"TMTBT42",
+"SCORETOT41")
 
-# clinical cte
-# ------------
-#clinic.cte  = c("NCULTUREL_1", "SEXE.x", "TABAC", "CHOLHDL", "CHOLTOT",
-#    "TRIGLY", "HOMOCY", "HBGLYCO","CRP", "CALCOOL")
+#Baseline data as potential input predictors
+#-------------------------------------------
 
-#rm.var = c("CHOLHDL", "CHOLTOT", "TRIGLY")
-# remove "CHOLHDL", "CHOLTOT", "TRIGLY" that have a strong center effect
+#Demographic data	
+#~~~~~~~~~~~~~~~~
 
-demographic = c("NCULTUREL_1", "SEXE.x", "AGEIRM_1")
-clinic.cte  = c("NCULTUREL_1", "SEXE.x", "TABAC", "HOMOCY", "HBGLYCO","CRP", "CALCOOL")
+#Age                                                 : AGE_AT_INCLUSION
+#Gender (F/M)                                        : SEXE
+#Education level                                     : NCULTUREL14
+demographic=c(
+"AGE_AT_INCLUSION",
+"SEXE",
+"NCULTUREL14")
 
-# clinic at t1
-# ------------ 
-clinic.m0   = c("AGEIRM_1", "PAS_1", "PAD_1")
-clinic.m18   = c("AGEIRM_2", "PAS_2", "PAD_2")
+#Vascular risk factors at baseline
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# imagery global
-#  -------------
-## (time point, num == 1 || 2 || 3)
-image.glob  = c("lacune_vol", "lesion_vol", "mb_num", "DWI_Peak","BPF")
+#Systolic blood pressure at baseline                 : PAS
+#Diastolic blood pressure at baseline                : PAD
+#Mean blood pressure at baseline                     : ???
+#∆ blood pressure at baseline (systolic – diastolic) : PAS - PAD
+#Diagnosis of hypertension at baseline               : HTA
+#Diagnosis of hypercholesterolemia at baseline       : HCHOLES
+#Smoking                                             : TABAC
+#HDL cholesterol                                     : CHOLHDL17
+#LDL cholesterol                                     : CHOLLDL17
+#Triglycerides                                       : TRIGLY17
+#Homocysteine                                        : HOMOCY17
+#HbA1c                                               : HBGLYCO17
+#CRP (C reactive protein)                            : CRP17
+#Glycemia at baseline                                : GLYC17
+#Alcohol consumption (>2 drinks)                     : CALCOOL
 
+vascular=c(
+"PAS",
+"PAD",
+"???",
+"PAS - PAD",
+"HTA",
+"HCHOLES",
+"TABAC",
+"CHOLHDL17",
+"CHOLLDL17",
+"TRIGLY17",
+"HOMOCY17",
+"HBGLYCO17",
+"CRP17",
+"GLYC17",
+"CALCOOL")
 
-# imagery sulci 
-#  ------------
+#Clinical variables at baseline
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# (time point, num ==1 || 2 || 3 et par sillon)
-image.sulci = c("geodesicDepthMean", "geodesicDepthMax", 
-    "GM_thickness","fold_opening","surface.x")
+#Any history of migraine with aura                   : MIGAAURA
+#Any history of stroke                               : ???
+#Presence of gait disturbances                       : ???
+#Presence/absence of balance troubles                : ???
+#Presence/absence  of dementia                       : ???
+#mRS at baseline                                     : ???
+#TMTB at baseline                                    : TMTBT15
+#MMSE at baseline                                    : INDEXMMS
+#MDRS at baseline (mattis dementia rating scale)     : SCORETOT14
+#NIH stroke scale at baseline                        : ???
+#Barthel Index at baseline                           : ???
+clinical=c(
+"MIGAAURA",
+"???",
+"???",
+"???",
+"???",
+"???",
+"TMTBT15",
+"INDEXMMS",
+"SCORETOT14",
+"???",
+"???")
 
-
-var.m0 = c(scores.m0, clinic.cte, clinic.m0, 
-    image.glob, image.sulci)
-
-
+#Global MRI data at baseline
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~
