@@ -45,7 +45,7 @@ import nibabel
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/volatile/"
+INPUT_BASE_DIR = "/neurospin/"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "mescog", "datasets")
 INPUT_DATASET = os.path.join(INPUT_DIR,
@@ -55,12 +55,13 @@ INPUT_SUBJECTS = os.path.join(INPUT_DIR,
 INPUT_MASK = os.path.join(INPUT_DIR,
                           "MNI152_T1_2mm_brain_mask.nii.gz")
 
-OUTPUT_BASE_DIR = "/volatile/"
+OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "results")
+                          "mescog", "results", "wmh_patterns")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
+OUTPUT_FEATURES_MASK = os.path.join(OUTPUT_DIR, "features_mask.nii")
 OUTPUT_MASK = os.path.join(OUTPUT_DIR, "wmh_mask.nii")
 OUTPUT_SUBJECTS = [os.path.join(OUTPUT_DIR, f) for f in ["train_subjects.txt",
                                                          "test_subjects.txt"]]
@@ -98,15 +99,16 @@ n_voxels_in_mask = np.count_nonzero(mni_mask)
 print "MNI mask: {n} voxels".format(n=n_voxels_in_mask)
 
 # Extract features
-NEW_SHAPE = (n_subjects, ) + IM_SHAPE
-X.shape = NEW_SHAPE  # Reshape without copy (or raise exception)
-features_mask = np.any(X, axis=0)
+features_mask = np.any(X != 0, axis=0)
 n_features = np.count_nonzero(features_mask)
 print "Found {n} features".format(n=n_features)
-X.shape = ORIG_SHAPE  # Restore shape
+features_mask.shape = IM_SHAPE
+features_mask_babel = nibabel.Nifti1Image(features_mask.astype(np.uint8),
+                                          babel_mni_mask.get_affine())
+nibabel.save(features_mask_babel, OUTPUT_FEATURES_MASK)
 
 # Create mask & save it
-mask = mni_mask & features_mask
+mask = np.logical_and(mni_mask, features_mask)
 mask_lin = mask.ravel()
 n_extracted_voxels = np.count_nonzero(mask)
 print "Gonna extract {n} voxels".format(n=n_extracted_voxels)
