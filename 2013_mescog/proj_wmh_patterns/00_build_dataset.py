@@ -4,7 +4,8 @@ Created on Tue Dec 17 17:08:06 2013
 
 @author: ed203246
 """
-import os, os.path
+import os
+import os.path
 import glob
 import nibabel as nib
 import numpy as np
@@ -15,7 +16,12 @@ OUTPUT_DIR = "/neurospin/mescog/datasets"
 OUTPUT_X = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI.npy")
 OUTPUT_subjects = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI-subjects.txt")
 
-subject_paths = glob.glob(os.path.join(INPUT_DIR, "CAD_bioclinica_nifti", "*", "*M0-WMH-MNI.nii.gz"))
+subject_paths = glob.glob(os.path.join(INPUT_DIR,
+                                       "CAD_bioclinica_nifti",
+                                       "*",
+                                       "*M0-WMH-MNI.nii.gz"))
+print "Found %i subjects" % len(subject_paths)
+
 arr_list = list()
 trm = None
 subject_list = list()
@@ -32,6 +38,7 @@ for file_path in subject_paths:
 
 X = np.vstack(arr_list)
 np.save(OUTPUT_X, X)
-fo = open(OUTPUT_subjects, "wb")
-fo.write("\n".join(subject_list))
+fo = open(OUTPUT_subjects, "w")
+subject_list_newline = [subject + "\n" for subject in subject_list]
+fo.writelines(subject_list_newline)
 fo.close()
