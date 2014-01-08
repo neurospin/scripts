@@ -26,9 +26,9 @@ import nibabel
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/volatile/"
+INPUT_BASE_DIR = "/neurospin/"
 INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
-                                 "mescog", "results")
+                                 "mescog", "results", "wmh_patterns")
 INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
                              "train.std.npy")
 INPUT_SUBJECTS_DIR = os.path.join(INPUT_BASE_DIR,
@@ -37,9 +37,9 @@ INPUT_SUBJECTS = os.path.join(INPUT_SUBJECTS_DIR,
                               "CAD-WMH-MNI-subjects.txt")
 INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
 
-OUTPUT_BASE_DIR = "/volatile/"
+OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "results", "PCA")
+                          "mescog", "results", "wmh_patterns", "PCA")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
@@ -85,6 +85,7 @@ for i in range(N_COMP):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     comp_data = np.zeros(binary_mask.shape)
+    comp_data[:] = np.NaN
     comp_data[binary_mask] = PCA.components_[i, :]
     comp_im = nibabel.Nifti1Image(comp_data, babel_mask.get_affine())
     name = os.path.join(output_dir, "component.nii")

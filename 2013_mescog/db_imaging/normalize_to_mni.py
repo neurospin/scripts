@@ -16,7 +16,7 @@ import shutil
 INPUT_DIR = "/neurospin/mescog/neuroimaging/original/munich"
 OUTPUT_DIR = "/neurospin/mescog/neuroimaging/processed"
 TIMEPOINT = "M0"
-fsl_mni_filepath = "/neurospin/mescog/neuroimaging/ressources/MNI152lin_T1_2mm.nii.gz"
+fsl_mni_filepath = "/neurospin/mescog/neuroimaging/ressources/MNI152_T1_2mm.nii.gz"
 fsl_warp_cmd = 'fsl5.0-applywarp'
 
 subject_paths = glob.glob(os.path.join(INPUT_DIR, "CAD_bioclinica_nifti", "*"))

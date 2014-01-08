@@ -2,6 +2,7 @@ import joblib
 import numpy as np
 from glob import glob
 import os.path as path
+import sys
 
 if __name__ == "__main__":
     workdir = sys.argv[1]
