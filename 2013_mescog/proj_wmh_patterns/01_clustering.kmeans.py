@@ -20,9 +20,9 @@ import sklearn.cluster
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/volatile/"
+INPUT_BASE_DIR = "/neurospin/"
 INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
-                                 "mescog", "results")
+                                 "mescog", "results", "wmh_patterns")
 INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
                              "train.std.npy")
 INPUT_SUBJECTS_DIR = os.path.join(INPUT_BASE_DIR,
@@ -30,9 +30,10 @@ INPUT_SUBJECTS_DIR = os.path.join(INPUT_BASE_DIR,
 INPUT_SUBJECTS = os.path.join(INPUT_SUBJECTS_DIR,
                               "CAD-WMH-MNI-subjects.txt")
 
-OUTPUT_BASE_DIR = "/volatile/"
+OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "results", "clustering", "kmeans")
+                          "mescog", "results", "wmh_patterns",
+                          "clustering", "kmeans")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
