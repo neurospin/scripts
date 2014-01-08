@@ -16,6 +16,8 @@ import numpy as np
 import sklearn
 import sklearn.cluster
 
+import nibabel
+
 ##################
 # Input & output #
 ##################
@@ -29,6 +31,7 @@ INPUT_SUBJECTS_DIR = os.path.join(INPUT_BASE_DIR,
                                   "mescog", "datasets")
 INPUT_SUBJECTS = os.path.join(INPUT_SUBJECTS_DIR,
                               "CAD-WMH-MNI-subjects.txt")
+INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
 
 OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
@@ -37,6 +40,9 @@ OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
+OUTPUT_DIR_FMT = os.path.join(OUTPUT_DIR, "{k}")
+OUTPUT_CENTER_FMT = os.path.join(OUTPUT_DIR_FMT,
+                                 "{i}.nii")
 ##############
 # Parameters #
 ##############
@@ -52,8 +58,12 @@ X = np.load(INPUT_DATASET)
 n, p = s = X.shape
 print "Data loaded {s}".format(s=s)
 
+# Read mask
+babel_mask = nibabel.load(INPUT_MASK)
+mask = babel_mask.get_data()
+binary_mask = mask != 0
+
 MODELS=[]
-MODEL_FILENAMES=[]
 for k in K:
     print "Trying k={k}".format(k=k)
     model = sklearn.cluster.KMeans(n_clusters=k,
@@ -61,18 +71,29 @@ for k in K:
                                    n_init=10,
                                    n_jobs=1)
     model.fit(X)
-    filename = os.path.join(OUTPUT_DIR, str(k)+".pkl")
-    MODEL_FILENAMES.append(filename)
     MODELS.append(model)
-    with open(filename, "wb") as f:
+    # Store models
+    output_dir = OUTPUT_DIR_FMT.format(k=k)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    model_filename = os.path.join(output_dir,
+                                 "model.pkl")
+    with open(model_filename, "wb") as f:
         pickle.dump(model, f)
+    # Store centers as images
+    for i in range(k):
+        im_data = np.zeros(mask.shape)
+        im_data[binary_mask] = model.cluster_centers_[i, :]
+        im = nibabel.Nifti1Image(im_data, babel_mask.get_affine())
+        name = OUTPUT_CENTER_FMT.format(k=k,
+                                        i=i)
+        nibabel.save(im, name)
+
 
 # Post-processing
 INERTIA=np.zeros((len(K), 2))
 BIC=np.zeros((len(K), 2))
-for i, (k, filename) in enumerate(zip(K, MODEL_FILENAMES)):
-    with open(filename) as f:
-        model = pickle.load(f)
+for i, (k, model) in enumerate(zip(K, MODELS)):
     INERTIA[i, 0] = k
     INERTIA[i, 1] = model.inertia_
     # Compute the BIC (http://stackoverflow.com/questions/15839774/how-to-calculate-bic-for-k-means-clustering-in-r)
