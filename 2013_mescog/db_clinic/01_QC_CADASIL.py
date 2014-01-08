@@ -93,7 +93,27 @@ qc_cada_common_var.to_html(OUTPUT_cadasil_qc+".html")
 
 
 ## ================================================================================
-# 4) Manuualy correct some mistakes (unit and values) => base_commun_20131009.csv
+# 4) Mannualy correct some mistakes (unit and values) => base_commun_20131009.csv
+
+def to_mgdl(x, unit, mm):
+    out = list()
+    for i in xrange(len(unit)):
+        #unit[i], x[i]
+        if pd.isnull(x[i]):
+            mgdl = np.nan
+        elif unit[i] == 'G/L':
+            mgdl = x[i] * 100.
+        elif unit[i] == 'MG/DL':
+            mgdl = x[i]
+        elif unit[i] == '\xc2\xb5MOL/L':  #µMOL/L
+            mgdl = x[i] * mm / 100.0
+        elif unit[i] == 'MMOL/L':
+            mgdl = x[i] * mm / 10.0
+        else:
+            raise ValueError("??%s %i" % (unit[i], i))
+        out.append(mgdl)
+    return out
+
 def set_nullunit_for_missing_value(d, val_col, unit_col):
     for i in xrange(d.shape[0]):
         if pd.isnull(d[val_col][i]):
@@ -106,7 +126,7 @@ def stats(x):
 d = cadasil_base_commun
 
 # Check and fix unit and value ====================================================
-print "**GLYC17**"
+print "*** GLYC17 ***"
 
 print """ID:1095
     Problem: GLYC17C == '%': it is a mistake ?
@@ -137,18 +157,21 @@ stats(d.GLYC17[d.GLYC17C == 'G/L'] * 100)
 stats(d.GLYC17[d.GLYC17C == 'MG/DL'])
 #'mean:111.09, std:42.63, min:78.00, max:228.00'
 # => Seems OK recode G/L => MG/L
+
 d.GLYC17[d.GLYC17C == 'G/L'] *= 100
 d.GLYC17C[d.GLYC17C == 'G/L'] = 'MG/DL'
 
 # Marco Still, I think glucose for 1155, 1156 and 1157 make no sense. This has to be checked by the Paris group.
 
 d = set_nullunit_for_missing_value(d, "GLYC17", "GLYC17C")
-print "GLYC17C units:", set(d.GLYC17C)
-# set([nan, 'MG/DL', 'MMOL/L'])
-print "Paris unit:", set(d.GLYC17C[d.ID<2000])
-print "Munich unit:", set(d.GLYC17C[d.ID>2000])
+# conv all to MG/DL
+d.GLYC17 = to_mgdl(x=d.GLYC17, unit=d.GLYC17C, mm=180)
+d.GLYC17C[d.GLYC17C == 'MMOL/L'] = 'MG/DL'
 
-print "**CHOLTOT17**"
+print "GLYC17C units:", set(d.GLYC17C)
+
+
+print "*** CHOLTOT17 ***"
 
 print """For many patients:
     Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
@@ -172,9 +195,12 @@ stats(d.CHOLTOT17[d.CHOLTOT17C == 'MG/DL'])
 d.CHOLTOT17[d.CHOLTOT17C == 'G/L'] *= 100
 d.CHOLTOT17C[d.CHOLTOT17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
+# conv all to MG/DL
+d.CHOLTOT17 = to_mgdl(x=d.CHOLTOT17, unit=d.CHOLTOT17C, mm=386.65)
+d.CHOLTOT17C[d.CHOLTOT17C == 'MMOL/L'] = 'MG/DL'
 print "CHOLTOT17 units:", set(d.CHOLTOT17C)
 
-print "**CHOLHDL17**"
+print "*** CHOLHDL17 ***"
 
 print """2004
     Problem: CHOLHDL17C == 'MM1.STUNDE', value==53
@@ -203,10 +229,13 @@ stats(d.CHOLHDL17[d.CHOLHDL17C == 'MG/DL'])
 d.CHOLHDL17[d.CHOLHDL17C == 'G/L'] *= 100
 d.CHOLHDL17C[d.CHOLHDL17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
+# conv all to MG/DL
+d.CHOLHDL17 = to_mgdl(x=d.CHOLHDL17, unit=d.CHOLHDL17C, mm=386.65)
+d.CHOLHDL17C[d.CHOLHDL17C == 'MMOL/L'] = 'MG/DL'
 print "CHOLHDL17 units:", set(d.CHOLHDL17C)
 
 
-print "**CHOLLDL17**"
+print "*** CHOLLDL17 ***"
 
 print """For many patients:
     Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
@@ -229,10 +258,13 @@ stats(d.CHOLLDL17[d.CHOLLDL17C == 'MG/DL'])
 d.CHOLLDL17[d.CHOLLDL17C == 'G/L'] *= 100
 d.CHOLLDL17C[d.CHOLLDL17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
+# conv all to MG/DL
+d.CHOLLDL17 = to_mgdl(x=d.CHOLLDL17, unit=d.CHOLLDL17C, mm=386.65)
+d.CHOLLDL17C[d.CHOLLDL17C == 'MMOL/L'] = 'MG/DL'
 print "CHOLLDL17 units:", set(d.CHOLLDL17C)
 
 
-print "**TRIGLY17**"
+print "*** TRIGLY17 ***"
 
 print """For many patients:
     Problem: TRIGLY17C == 'MMOL/', "L" is missing.
@@ -256,6 +288,9 @@ stats(d.TRIGLY17[d.TRIGLY17C == 'MG/DL'])
 d.TRIGLY17[d.TRIGLY17C == 'G/L'] *= 100
 d.TRIGLY17C[d.TRIGLY17C == 'G/L'] = 'MG/DL'
 d = set_nullunit_for_missing_value(d, "CHOLTOT17", "CHOLTOT17C")
+# conv all to MG/DL
+d.TRIGLY17 = to_mgdl(x=d.TRIGLY17, unit=d.TRIGLY17C, mm=875.)
+d.TRIGLY17C[d.TRIGLY17C == 'MMOL/L'] = 'MG/DL'
 print "TRIGLY17 units:", set(d.TRIGLY17C)
 
 print "**HEMO17**"
@@ -272,6 +307,16 @@ stats(d.HEMO17[d.HEMO17C == 'G/DL'])
 # just an error => recode 'G/L' => G/DL
 d.HEMO17C[d.HEMO17C == 'G/L'] = 'G/DL'
 print "HEMO17C units:", set(d.HEMO17C)
+
+print "*** CRP17 ***"
+d.CRP17[d.CRP17C == 'MG/L'] /= 10 
+d.CRP17C[d.CRP17C == 'MG/L'] = 'MG/DL'
+
+print "*** MIGAAURA ***"
+print "Missing mean 0"
+d.MIGAAURA[pd.isnull(d.MIGAAURA)] = 0
+d.MIGAAURA26[pd.isnull(d.MIGAAURA26)] = 0
+d.MIGAAURA39[pd.isnull(d.MIGAAURA39)] = 0
 
 print "**LEUCO17**"
 """ID:1083
