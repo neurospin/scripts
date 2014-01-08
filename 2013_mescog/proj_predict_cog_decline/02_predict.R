@@ -1,10 +1,9 @@
 install.packages("glmnet")
 
 
-
 WD  = paste(Sys.getenv("HOME"),"data/2014_mescog_predict_cog_decline",sep="/")
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-DATASET_PATH = paste(WD, "data", "base_commun_20131011.csv", sep="/")
+
 ## Load dataset
 ## ============
 D = read.csv(DATASET_PATH)

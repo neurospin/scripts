@@ -1,65 +1,70 @@
 ================================================================================
 == 2014                                                                       =
 ================================================================================
+DESCRIPTION                                  : CAD_NAME		     : NEW_NAME
 
-Clinical variables to predict
------------------------------
+# #################################################################### #
+# Clinical variables to predict
+# #################################################################### #
 
-TMTB (frontal function)                             : TMTBT42
-MDRS_total:  Mattis dementia rating scale           : SCORETOT41
-     (global cognitive status)
-mRS: Modified Rankin Score  (global disability)     : ???    
-Barthel Index (functional independency)             : ???
+TMTB (frontal function)                      : TMTBT42		     : TMTB_TIME@M36
+MDRS_total  (Mattis dementia rating scale)   : SCORETOT41		 : MDRS_TOTAL@M36
+#     (global cognitive status)
+mRS Modified Rankin Score                    : INDEXSCRANKIN40   : MRS@M36
+#(global disability)
+Barthel Index (functional independency)      : INDEXSCBARTHEL40	 : BARTHEL@M36
+MMS                                          : INDEXMMS40        : MMSE@M36
+# Check the it is INDEXMMS40 and not "SCMMS40"
 
-
-
-Baseline data as potential input predictors
--------------------------------------------
-
-Demographic data	
-~~~~~~~~~~~~~~~~
-
-Age                                                 : AGE_AT_INCLUSION
-Gender (F/M)                                        : SEXE
-Education level                                     : NCULTUREL14
+# #################################################################### #
+# Baseline data as potential input predictors
+# #################################################################### #
 
 
-Vascular risk factors at baseline
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Demographic data --------------------------------------------------- #
 
-Systolic blood pressure at baseline                 : PAS
-Diastolic blood pressure at baseline                : PAD
-Mean blood pressure at baseline                     : ???
-∆ blood pressure at baseline (systolic – diastolic) : PAS - PAD
-Diagnosis of hypertension at baseline               : HTA
-Diagnosis of hypercholesterolemia at baseline       : HCHOLES
-Smoking                                             : TABAC
-HDL cholesterol                                     : CHOLHDL17
-LDL cholesterol                                     : CHOLLDL17
-Triglycerides                                       : TRIGLY17
-Homocysteine                                        : HOMOCY17
-HbA1c                                               : HBGLYCO17
-CRP (C reactive protein)                            : CRP17
-Glycemia at baseline                                : GLYC17
-Alcohol consumption (>2 drinks)                     : CALCOOL
+Age                                          : AGE_AT_INCLUSION : AGE_AT_INCLUSION
+Gender (F/M)                                 : SEXE				: SEX
+Education level                              : NCULTUREL14		: EDUCATION
 
-Clinical variables at baseline
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Any history of migraine with aura                   : MIGAAURA
-Any history of stroke                               : ???
-Presence of gait disturbances                       : ???
-Presence/absence of balance troubles                : ???
-Presence/absence  of dementia                       : ???
-mRS at baseline                                     : ???
-TMTB at baseline                                    : TMTBT15
-MMSE at baseline                                    : INDEXMMS
-MDRS at baseline (mattis dementia rating scale)     : SCORETOT14
-NIH stroke scale at baseline                        : ???
-Barthel Index at baseline                           : ???
+# Vascular risk factors at baseline -------------------------------- #
 
-Global MRI data at baseline
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Systolic blood pressure at baseline          : PAS		        : SYS_BP
+Diastolic blood pressure at baseline         : PAD		        : DIA_BP
+Mean blood pressure at baseline              : NA		        : NA
+∆ blood pressure at baseline                 : DELTA_BP  		: DELTA_BP
+#(systolic – diastolic)
+Diagnosis of hypertension at baseline        : HTA		        : HYPERTENSION
+Diagnosis of hypercholesterolemia at baseline: HCHOLES		    : HYPERCHOL
+Smoking                                      : TABAC		    : SMOKING
+HDL cholesterol                              : CHOLHDL17        : HDL
+LDL cholesterol                              : CHOLLDL17	    : LDL
+Triglycerides                                : TRIGLY17		    : TRIGLY
+Homocysteine                                 : HOMOCY17		    : HOMOCYSTEIN
+HbA1c                                        : HBGLYCO17		: HBA1C
+CRP (C reactive protein)                     : CRP17		    : CRP17
+Glycemia at baseline                         : GLYC17		    : FAST_GLUC
+Alcohol consumption (>2 drinks)              : CALCOOL		    : ALCOHOL
+
+
+# Clinical variables at baseline ----------------------------------- #
+
+Any history of migraine with aura            : MIGAAURA		    : MIGRAINE_WITH_AURA
+Any history of stroke                        : AVC9		        : AVC
+Presence of gait disturbances                : TRBEQUILIBRE		: TRBEQUILIBRE
+Presence/absence of balance troubles         : TRBMARCHE		: TRBMARCHE
+Presence/absence  of dementia                : DEMENCE		    : DEMENTIA
+mRS at baseline                              : INDEXSCRANKIN    : MRS
+TMTB at baseline                             : TMTBT15		    : TMTB_TIME
+MMSE at baseline                             : INDEXMMS		    : MMSE
+MDRS at baseline                             : SCORETOT14       : MDRS_total
+#(mattis dementia rating scale)
+NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
+Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
+
+
+# Global MRI data at baseline ---------------------------------------- #
 
 CAD_database_soures/global_imaging_variables/CAD_M0_Bioclinica.txt
 
@@ -71,7 +76,7 @@ BPF: Brain Parenchymal Fraction (GM+WM/(GM+WM+CSF))  : The CAD_M0_Bioclinica.txt
   provide only the ICC.
 
 
-Other data may be included in future research such as 
+Other data may be included in future research such as
 Subscales of MDRS (initiation/perseveration subscale)
 MRI data including global sulcal informations or local sulcal informations
 Location of WM hyperintensities using appropriate maps
@@ -85,11 +90,11 @@ Use of data also obtained at M18 to consolidate the model and refine the traject
 ================================================================================
 
 Sillon:
-  [1] "id"                           "label"                       
-  [3] "side"                         
-  
+  [1] "id"                           "label"
+  [3] "side"
+
 N=274
-  "num" : time point (1,2,3,4) on ne travaiille que sur 1,2,3                         
+  "num" : time point (1,2,3,4) on ne travaiille que sur 1,2,3
 Pour chaque sujet 60 (sillons) * 2 (side) * 3 (timepoint) mesure de chaque param
 
 Clinic:
@@ -102,7 +107,7 @@ scores clinic non normaux
     lacune_vol lesion_vol mb_num DWI_Peak BPF
 
 - Imagerie pour chaque sillon (time point = num)
-geodesicDepthMean     geodesicDepthMax (colinéarité ?) 
+geodesicDepthMean     geodesicDepthMax (colinéarité ?)
 GM_thickness fold_opening surface.x
 
 
@@ -128,13 +133,13 @@ predict.t3
 ----------
 RANKIN_3 ~ scores.t2          + clinical.t2 + imagery global at t2       + imagery sulci at t2 +
            scores.delta.t2.t1 +             + imagery global.delta.t2.t1 + imagery sulci delta +
-           
-rem 
+
+rem
 imagery global.delta.t2.t1 : delat classic sauf pour BPF où on prend Annual.PBVC
 
 mesure.delta.t2.t1 : beta tel que;
     temps = ageirm1 et ageimr2
-    mesure ~ temps * beta 
+    mesure ~ temps * beta
 
 TMTBT_3
 SCORETOT_3
@@ -151,7 +156,7 @@ Strategie 1
 - Sur les FR une CV M36~M0 => oui/non je peux frabriquer une prédicteur de M36
 - On applique au ALL M36~M0
 - On applique à FR M54~M18 & ALL M54~M18
-=> need scores 54 ALL et FR 
+=> need scores 54 ALL et FR
 
 RANKIN_3   ~ scores.t1 + clinical.t1 + imagery global at t1 + imagery sulci at t1
 TMTBT_3    ~ scores.t1 + clinical.t1 + imagery global at t1 + imagery sulci at t1
@@ -170,7 +175,7 @@ Virer
 
 "CHOLHDL", "CHOLTOT",
     "TRIGLY"
-    
+
 label sillons virer ventricule
 
 ================================================================================
@@ -207,10 +212,10 @@ SEXE.x  sex
 
 PAS_1   SYS_BP  Systolic blood pressure
 PAD_1   DIA_BP  Diastolic blood pressure
-TABAC   
+TABAC
 CHOLHDL HDL
 CHOLTOT CHOL
-TRIGLY  
+TRIGLY
 HOMOCY  HOMOCYSTEIN (marqueur biol sanguin)
 HBGLYCO HBA1C (HbA1c in mg/dl)
 CRP     C-reactive Proteins (marqueur sanguin de l'inflamation)
