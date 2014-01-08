@@ -99,3 +99,40 @@ for i in range(N_COMP):
         data[binary_mask] = X[index, :]
         im = nibabel.Nifti1Image(data, babel_mask.get_affine())
         nibabel.save(im, name)
+
+# Plot percentage of explained variance
+explained_variance = PCA.explained_variance_ratio_
+explained_variance_cumsum = explained_variance.cumsum()
+
+import matplotlib.pyplot as plt
+explained_variance_fig = plt.figure()
+plt.plot(explained_variance)
+explained_variance_fig.suptitle('Ratio of explained variance')
+plt.xlabel('Rank')
+plt.ylabel('Explained variance ratio')
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.png")
+plt.savefig(filename)
+# Zoom in [0, N_COMP]
+axes = explained_variance_fig.axes
+axes[0].set_xlim([0, N_COMP])
+axes[0].set_ylim([explained_variance[N_COMP], explained_variance[0]])
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.zoom.png")
+plt.savefig(filename)
+
+explained_variance_cumsum_fig = plt.figure()
+plt.plot(explained_variance_cumsum)
+explained_variance_cumsum_fig.suptitle('Ratio of explained variance (cumsum)')
+plt.xlabel('Rank')
+plt.ylabel('Explained variance ratio')
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance_cumsum.png")
+plt.savefig(filename)
+# Zoom in [0, N_COMP]
+axes = explained_variance_cumsum_fig.axes
+axes[0].set_xlim([0, N_COMP])
+axes[0].set_ylim([explained_variance_cumsum[0], explained_variance_cumsum[N_COMP]])
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance_cumsum.zoom.png")
+plt.savefig(filename)
