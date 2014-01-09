@@ -1,10 +1,11 @@
 # install.packages("reshape")
 # install.packages("ggplot2")
+# install.packages("gdata")
 
 WD  = paste(Sys.getenv("HOME"),"data/2014_mescog_predict_cog_decline",sep="/")
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 INPUT_PATH = "/neurospin/mescog/clinic"
-DATA_CADA_PATH = paste(INPUT_PATH, "base_commun_20131011.csv", sep="/")
+DATA_CADA_PATH = paste(INPUT_PATH, "base_commun_20140109.csv", sep="/")
 MAPPING_PATH = paste(INPUT_PATH, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
 VARIABLES_PATH = paste(SRC,"variables.csv",sep="/")
 
@@ -70,9 +71,8 @@ for(i in 1:nrow(vars)){
 }
 options(width=200)
 print(stat)
-write.csv(stat, paste(WD, "data", "qc_dataset.csv", sep="/"), row.names=FALSE)
+library(gdata)
+write.fwf(stat, paste(WD, "data", "qc_dataset.csv", sep="/"), rownames=FALSE)
 
-PB:
-CAD_NAME               NAME count_fr count_gr       mu_fr       mu_gr       sd_fr       sd_gr   min_fr min_gr   max_fr max_gr
-18         HOMOCY17        HOMOCYSTEIN      226      123  11.8454425  14.8065041   4.2199696  34.9019604  5.09000    5.2  26.5900  396.0  outlier replace per mean
-32       INDEXNIHSS              NIHSS      248      129   1.6693548   0.8527132   3.6122190   1.6445971  0.00000    0.0  25.0000    7.0
+18         HOMOCY17        HOMOCYSTEIN      226      123  11.8454425  14.8065041   4.2199696  34.9019604  5.09000    5.2  26.5900  396.0
+D$HOMOCY17[D$HOMOCY17>100]
