@@ -87,14 +87,14 @@ for snp in snp_of_interest:
     ax.set_title('%s (a point denotes a subject)' % snp_list_name[snp])
     ax.set_xlabel('snp value')
     ax.set_ylabel('average voxel value')
-    ax.plot(plot_x, plot_y_avg, "o")
+    ax.scatter(plot_x, plot_y_avg, s=30, facecolors='none', edgecolors='r', alpha=0.3)
     ax.plot(regression_line_x, regression_line_x * avg_weights[0] + avg_weights[1])
     # Plot second subplot
     ax = fig.add_subplot(212)
     ax.set_title('%s (a point denotes a subject)' % snp_list_name[snp])
     ax.set_xlabel('snp value')
     ax.set_ylabel('max voxel value')
-    ax.plot(plot_x, plot_y_max, "o")
+    ax.scatter(plot_x, plot_y_max, s=30, facecolors='none', edgecolors='r', alpha=0.3)
     ax.plot(regression_line_x, regression_line_x * max_weights[0] + max_weights[1])
 
 plt.show()
