@@ -44,7 +44,11 @@ if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 OUTPUT_PCA = os.path.join(OUTPUT_DIR, "PCA.pkl")
-OUTPUT_COMP_IMAGE_FMT = os.path.join(OUTPUT_DIR, "{i:03}.nii")
+OUTPUT_COMP_DIR_FMT = os.path.join(OUTPUT_DIR, "{i:03}")
+OUTPUT_MIN_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
+                                      "min.{ind:03}.nii")
+OUTPUT_MAX_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
+                                      "max.{ind:03}.nii")
 
 ##############
 # Parameters #
@@ -66,14 +70,69 @@ PCA.fit(X)
 with open(OUTPUT_PCA, "wb") as f:
     pickle.dump(PCA, f)
 
+# Project subjects onto dimensions
+# scikit-learn projects on min(n_samples, n_features)
+X_proj = PCA.transform(X)
+
 # Save the components into brain-like images
+# We also save the extremum subjects
 babel_mask = nibabel.load(INPUT_MASK)
 mask = babel_mask.get_data()
 binary_mask = mask != 0
 for i in range(N_COMP):
+    # Create dir
+    output_dir = OUTPUT_COMP_DIR_FMT.format(i=i)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     comp_data = np.zeros(binary_mask.shape)
     comp_data[:] = np.NaN
     comp_data[binary_mask] = PCA.components_[i, :]
     comp_im = nibabel.Nifti1Image(comp_data, babel_mask.get_affine())
-    name = OUTPUT_COMP_IMAGE_FMT.format(i=i)
+    name = os.path.join(output_dir, "component.nii")
     nibabel.save(comp_im, name)
+    # Save image of extremum subjects for this component
+    extremum_sub = (min_sub, max_sub) = (X_proj[:, i].argmin(), X_proj[:, i].argmax())
+    names = (OUTPUT_MIN_SUBJECT_FMT.format(i=i, ind=min_sub),
+             OUTPUT_MAX_SUBJECT_FMT.format(i=i, ind=max_sub))
+    for (index, name) in zip(extremum_sub, names):
+        data = np.zeros(binary_mask.shape)
+        data[binary_mask] = X[index, :]
+        im = nibabel.Nifti1Image(data, babel_mask.get_affine())
+        nibabel.save(im, name)
+
+# Plot percentage of explained variance
+explained_variance = PCA.explained_variance_ratio_
+explained_variance_cumsum = explained_variance.cumsum()
+
+import matplotlib.pyplot as plt
+explained_variance_fig = plt.figure()
+plt.plot(explained_variance)
+explained_variance_fig.suptitle('Ratio of explained variance')
+plt.xlabel('Rank')
+plt.ylabel('Explained variance ratio')
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.png")
+plt.savefig(filename)
+# Zoom in [0, N_COMP]
+axes = explained_variance_fig.axes
+axes[0].set_xlim([0, N_COMP])
+axes[0].set_ylim([explained_variance[N_COMP], explained_variance[0]])
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.zoom.png")
+plt.savefig(filename)
+
+explained_variance_cumsum_fig = plt.figure()
+plt.plot(explained_variance_cumsum)
+explained_variance_cumsum_fig.suptitle('Ratio of explained variance (cumsum)')
+plt.xlabel('Rank')
+plt.ylabel('Explained variance ratio')
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance_cumsum.png")
+plt.savefig(filename)
+# Zoom in [0, N_COMP]
+axes = explained_variance_cumsum_fig.axes
+axes[0].set_xlim([0, N_COMP])
+axes[0].set_ylim([explained_variance_cumsum[0], explained_variance_cumsum[N_COMP]])
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance_cumsum.zoom.png")
+plt.savefig(filename)
