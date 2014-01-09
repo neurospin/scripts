@@ -17,13 +17,13 @@ SCRIPT
 INPUT
 -----
 france2012.csv
-base_commun_20131011.csv
+base_commun_20140109.csv
 
 OUTPUT
 ------
 QC/cadasil_qc.csv
 QC/cadasil_qc.html
-base_commun_20131011.csv
+base_commun_20140109.csv
 
 where:
 For each variable in base_commun.csv (378 samples):
@@ -40,10 +40,10 @@ import numpy as np
 
 ## I/O
 WD = "/neurospin/mescog"
-INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
+INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20140109.csv")
 INPUT_cadasil_france2012_filepath = os.path.join(WD, "clinic", "france2012.csv")
 OUTPUT_cadasil_qc = os.path.join(WD, "clinic", "QC", "cadasil_qc")
-OUTPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
+OUTPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20140109.csv")
 
 cadasil_base_commun = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=",").replace("-", np.nan)
 cadasil_france2012 = pd.read_table(INPUT_cadasil_france2012_filepath, header=0).replace("-", np.nan)
@@ -314,11 +314,7 @@ d.CRP17[d.CRP17C == 'MG/L'] /= 10
 d.CRP17C[d.CRP17C == 'MG/L'] = 'MG/DL'
 
 print """*** MIGSSAURA
-MIGSSAURA26
-MIGSSAURA39
 MIGAAURA
-MIGAAURA26
-MIGAAURA39
 """
 
 print """
@@ -327,8 +323,8 @@ Using base_commun, please do the following:
 - When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as “2"
 - When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”
 - When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
-
 """
+
 print "  QC: No CEPHALEES and MIGSSAURA:", np.sum((d.CEPHALEES == 2) & (d.MIGSSAURA == 1))
 print "  QC: No CEPHALEES and MIGAAURA:", np.sum((d.CEPHALEES == 2) & (d.MIGAAURA == 1))
 print "  QC: No CEPHALEES and CEPHALETE:", np.sum((d.CEPHALEES == 2) & (d.CEPHALETE == 1))
@@ -361,13 +357,97 @@ d.CEPHALETE[cephalees_and_any_other    & pd.isnull(d.CEPHALETE)]    = 2
 d.CEPHALETC[cephalees_and_any_other    & pd.isnull(d.CEPHALETC)]    = 2
 d.CEPHALEAUTRE[cephalees_and_any_other & pd.isnull(d.CEPHALEAUTRE)] = 2
 
-
 print "MIGSSAURA values:", set(d.MIGSSAURA)
 print "MIGAAURA values:", set(d.MIGAAURA)
 print "CEPHALETE values:", set(d.CEPHALETE)
 print "CEPHALETC values:", set(d.CEPHALETC)
 print "CEPHALEAUTRE values:", set(d.CEPHALEAUTRE)
 
+print """***
+MIGSSAURA26
+MIGAAURA26
+"""
+print "  QC: No CEPHALEES26 and MIGSSAURA26:", np.sum((d.CEPHALEES26 == 2) & (d.MIGSSAURA26 == 1))
+print "  QC: No CEPHALEES26 and MIGAAURA26:", np.sum((d.CEPHALEES26 == 2) & (d.MIGAAURA26 == 1))
+print "  QC: No CEPHALEES26 and CEPHALETE26:", np.sum((d.CEPHALEES26 == 2) & (d.CEPHALETE26 == 1))
+print "  QC: No CEPHALEES26 and CEPHALETC26:", np.sum((d.CEPHALEES26 == 2) & (d.CEPHALETC26 == 1))
+print "  QC: No CEPHALEES26 and CEPHALEAUTRE26:", np.sum((d.CEPHALEES26 == 2) & (d.CEPHALEAUTRE26 == 1))
+
+print """When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2"."""
+print "Nb time this case occure:", np.sum(d.CEPHALEES26 == 2)
+d.MIGSSAURA26[(d.CEPHALEES26 == 2)]    = 2
+d.MIGAAURA26[(d.CEPHALEES26 == 2)]     = 2
+d.CEPHALETE26[(d.CEPHALEES26 == 2)]    = 2
+d.CEPHALETC26[(d.CEPHALEES26 == 2)]    = 2
+d.CEPHALEAUTRE26[(d.CEPHALEES26 == 2)] = 2
+
+print """When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”."""
+cephalees_but_nothing_else = (d.CEPHALEES26 == 1) & (d.MIGSSAURA26 != 1) & (d.MIGAAURA26 != 1) & (d.CEPHALETE26 !=1) & (d.CEPHALETC26 !=1)  & (d.CEPHALEAUTRE26 !=1)
+print "Nb time this case occure:", np.sum(cephalees_but_nothing_else)
+d.MIGSSAURA26[cephalees_but_nothing_else]    = np.nan
+d.MIGAAURA26[cephalees_but_nothing_else]     = np.nan
+d.CEPHALETE26[cephalees_but_nothing_else]    = np.nan
+d.CEPHALETC26[cephalees_but_nothing_else]    = np.nan
+d.CEPHALEAUTRE26[cephalees_but_nothing_else] = np.nan
+
+print """When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2"."""
+
+cephalees_and_any_other = (d.CEPHALEES26 == 1) & ((d.MIGSSAURA26 == 1) | (d.MIGAAURA26 == 1) | (d.CEPHALETE26 ==1) | (d.CEPHALETC26 ==1) | (d.CEPHALEAUTRE26 ==1))
+print "Nb time this case occure:", np.sum(cephalees_and_any_other)
+d.MIGSSAURA26[cephalees_and_any_other    & pd.isnull(d.MIGSSAURA26)]    = 2
+d.MIGAAURA26[cephalees_and_any_other     & pd.isnull(d.MIGAAURA26)]     = 2
+d.CEPHALETE26[cephalees_and_any_other    & pd.isnull(d.CEPHALETE26)]    = 2
+d.CEPHALETC26[cephalees_and_any_other    & pd.isnull(d.CEPHALETC26)]    = 2
+d.CEPHALEAUTRE26[cephalees_and_any_other & pd.isnull(d.CEPHALEAUTRE26)] = 2
+
+print "MIGSSAURA26 values:", set(d.MIGSSAURA26)
+print "MIGAAURA26 values:", set(d.MIGAAURA26)
+print "CEPHALETE26 values:", set(d.CEPHALETE26)
+print "CEPHALETC26 values:", set(d.CEPHALETC26)
+print "CEPHALEAUTRE26 values:", set(d.CEPHALEAUTRE26)
+
+print """***
+MIGSSAURA39
+MIGAAURA39
+"""
+print "  QC: No CEPHALEES39 and MIGSSAURA39:", np.sum((d.CEPHALEES39 == 2) & (d.MIGSSAURA39 == 1))
+print "  QC: No CEPHALEES39 and MIGAAURA39:", np.sum((d.CEPHALEES39 == 2) & (d.MIGAAURA39 == 1))
+print "  QC: No CEPHALEES39 and CEPHALETE39:", np.sum((d.CEPHALEES39 == 2) & (d.CEPHALETE39 == 1))
+print "  QC: No CEPHALEES39 and CEPHALETC39:", np.sum((d.CEPHALEES39 == 2) & (d.CEPHALETC39 == 1))
+print "  QC: No CEPHALEES39 and CEPHALEAUTRE39:", np.sum((d.CEPHALEES39 == 2) & (d.CEPHALEAUTRE39 == 1))
+
+print """When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2"."""
+print "Nb time this case occure:", np.sum(d.CEPHALEES39 == 2)
+d.MIGSSAURA39[(d.CEPHALEES39 == 2)]    = 2
+d.MIGAAURA39[(d.CEPHALEES39 == 2)]     = 2
+d.CEPHALETE39[(d.CEPHALEES39 == 2)]    = 2
+d.CEPHALETC39[(d.CEPHALEES39 == 2)]    = 2
+d.CEPHALEAUTRE39[(d.CEPHALEES39 == 2)] = 2
+
+print """When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”."""
+cephalees_but_nothing_else = (d.CEPHALEES39 == 1) & (d.MIGSSAURA39 != 1) & (d.MIGAAURA39 != 1) & (d.CEPHALETE39 !=1) & (d.CEPHALETC39 !=1)  & (d.CEPHALEAUTRE39 !=1)
+print "Nb time this case occure:", np.sum(cephalees_but_nothing_else) 
+d.MIGSSAURA39[cephalees_but_nothing_else]    = np.nan
+d.MIGAAURA39[cephalees_but_nothing_else]     = np.nan
+d.CEPHALETE39[cephalees_but_nothing_else]    = np.nan
+d.CEPHALETC39[cephalees_but_nothing_else]    = np.nan
+d.CEPHALEAUTRE39[cephalees_but_nothing_else] = np.nan
+
+print """When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2"."""
+
+cephalees_and_any_other = (d.CEPHALEES39 == 1) & ((d.MIGSSAURA39 == 1) | (d.MIGAAURA39 == 1) | (d.CEPHALETE39 ==1) | (d.CEPHALETC39 ==1) | (d.CEPHALEAUTRE39 ==1))
+print "Nb time this case occure:", np.sum(cephalees_and_any_other) 
+d.MIGSSAURA39[cephalees_and_any_other    & pd.isnull(d.MIGSSAURA39)]    = 2
+d.MIGAAURA39[cephalees_and_any_other     & pd.isnull(d.MIGAAURA39)]     = 2
+d.CEPHALETE39[cephalees_and_any_other    & pd.isnull(d.CEPHALETE39)]    = 2
+d.CEPHALETC39[cephalees_and_any_other    & pd.isnull(d.CEPHALETC39)]    = 2
+d.CEPHALEAUTRE39[cephalees_and_any_other & pd.isnull(d.CEPHALEAUTRE39)] = 2
+
+print "MIGSSAURA39 values:", set(d.MIGSSAURA39)
+print "MIGAAURA39 values:", set(d.MIGAAURA39)
+print "CEPHALETE39 values:", set(d.CEPHALETE39)
+print "CEPHALETC39 values:", set(d.CEPHALETC39)
+print "CEPHALEAUTRE39 values:", set(d.CEPHALEAUTRE39)
 
 
 print "**LEUCO17**"

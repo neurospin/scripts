@@ -51,7 +51,7 @@ INPUT
 OUTPUT
 ------
 
-"base_commun_20131011.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+"base_commun_20140109.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
 
 
 QC for CDADASIL
@@ -67,13 +67,13 @@ SCRIPT
 INPUT
 -----
 france2012.csv
-base_commun_20131011.csv
+base_commun_20140109.csv
 
 OUTPUT
 ------
 QC/cadasil_qc.csv
 QC/cadasil_qc.html
-base_commun_20131011.csv
+base_commun_20140109.csv
 
 where:
 For each variable in base_commun.csv (378 samples):
@@ -92,15 +92,16 @@ SCRIPT
 02_merge_CADASIL-ASPS.py
 
 
-INPUT
+INPUT:
 ------
 
-1) base_commun_20131003.csv
-2) ASPS_klinVariables_20130806.csv
-3) DB_Mapping_Longit_Last_EJ_20131007.csv
+base_commun_20140109.csv
+ASPS_klinVariables_20131015.csv
+ASPFS_klinVariables_20130711.csv
+DB_Mapping_Longit_Last_EJ_20131007.csv
 
-OUTPUT
-------
+OUTPUT:
+-------
 
 1) Summary of common DB
     "db_clinic_cadasil-asps_mapping_summary.csv"
@@ -180,8 +181,71 @@ IDs:1002
 HEMO17C units: set([nan, 'G/DL'])
 *** CRP17 ***
 all in MG/DL
-*** MIGAAURA ***
-Missing mean 0
+*** MIGSSAURA
+MIGAAURA
+
+
+Marco algo to update:
+Using base_commun, please do the following:
+- When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as “2"
+- When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”
+- When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
+
+  QC: No CEPHALEES and MIGSSAURA: 0
+  QC: No CEPHALEES and MIGAAURA: 0
+  QC: No CEPHALEES and CEPHALETE: 0
+  QC: No CEPHALEES and CEPHALETC: 0
+  QC: No CEPHALEES and CEPHALEAUTRE: 0
+When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2".
+When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”.
+Nb time this case occure: 0
+When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
+Nb time this case occure: 266
+MIGSSAURA values: set([1.0, 2.0])
+MIGAAURA values: set([1.0, 2.0])
+CEPHALETE values: set([1.0, 2.0])
+CEPHALETC values: set([1.0, 2.0])
+CEPHALEAUTRE values: set([1.0, 2.0])
+***
+MIGSSAURA26
+MIGAAURA26
+
+  QC: No CEPHALEES26 and MIGSSAURA26: 0
+  QC: No CEPHALEES26 and MIGAAURA26: 0
+  QC: No CEPHALEES26 and CEPHALETE26: 0
+  QC: No CEPHALEES26 and CEPHALETC26: 0
+  QC: No CEPHALEES26 and CEPHALEAUTRE26: 0
+When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2".
+Nb time this case occure: 152
+When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”.
+Nb time this case occure: 1
+When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
+Nb time this case occure: 138
+MIGSSAURA26 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+MIGAAURA26 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALETE26 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALETC26 values: set([nan, nan, 2.0, nan, 1.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALEAUTRE26 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+***
+MIGSSAURA39
+MIGAAURA39
+
+  QC: No CEPHALEES39 and MIGSSAURA39: 0
+  QC: No CEPHALEES39 and MIGAAURA39: 0
+  QC: No CEPHALEES39 and CEPHALETE39: 0
+  QC: No CEPHALEES39 and CEPHALETC39: 0
+  QC: No CEPHALEES39 and CEPHALEAUTRE39: 0
+When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2".
+Nb time this case occure: 134
+When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”.
+Nb time this case occure: 0
+When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
+Nb time this case occure: 102
+MIGSSAURA39 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+MIGAAURA39 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALETE39 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALETC39 values: set([nan, 1.0, 2.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+CEPHALEAUTRE39 values: set([nan, nan, 2.0, nan, 1.0, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
 **LEUCO17**
 
 ID:Many subjects
@@ -207,5 +271,4 @@ MG/DL mean:337.00, std:75.65, min:20.60, max:547.00
 NF mean:nan, std:nan, min:nan, max:nan
 FIBRINO17C units: set([nan, 'G/L'])
 Save cadasil
-/neurospin/mescog/clinic/base_commun_20131011.csv
-
+/neurospin/mescog/clinic/base_commun_20140109.csv

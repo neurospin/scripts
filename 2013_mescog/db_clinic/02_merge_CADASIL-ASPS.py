@@ -9,21 +9,19 @@ and it is least present in one two DB for other time points.
 INPUT:
 ------
 
-base_commun_20131011.csv
+base_commun_20140109.csv
 ASPS_klinVariables_20131015.csv
 ASPFS_klinVariables_20130711.csv
 DB_Mapping_Longit_Last_EJ_20131007.csv
 
 OUTPUT:
 -------
-    
+
 1) Summary of common DB
 ~~~~~~~~~~~~~~~~~~~~~~~
+"commondb_clinic_cadasil-asps-aspfs_mapping-summary_20140109 #.csv | .html
+"commondb_clinic_cadasil-asps-aspfs_20140109" #.csv | .html
 
-commondb_clinic_cadasil-asps-aspfs_20130811
-
-    "commondb_clinic_cadasil-asps_mapping-summary_20130811.csv"
-    "commondb_clinic_cadasil-asps_mapping-summary_20130811.html"
     Fields:
 
       NEW_NAME: The new name in the merged DB
@@ -77,13 +75,13 @@ WD = "/neurospin/mescog"
 # INPUTS
 INPUT_mapping_filepath = os.path.join(WD, "clinic",
                                 "DB_Mapping_Longit_Last_EJ_20131007.csv")
-INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20131011.csv")
+INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun_20140109.csv")
 INPUT_asps_filepath = os.path.join(WD, "clinic", "ASPS_klinVariables_20131015.csv")
 INPUT_aspfs_filepath = os.path.join(WD, "clinic", "ASPFS_klinVariables_20130711.csv")
 
 
-OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015") #.csv | .html
-OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_20131015") #.csv | .html
+OUTPUT_MAPPING_SUMMARY_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20140109") #.csv | .html
+OUTPUT_MERGE_CADASIL_ASPS_FILEPATH = os.path.join(WD, "clinic", "commondb_clinic_cadasil-asps-aspfs_20140109") #.csv | .html
 
 cadasil_base = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=',').replace("-", np.nan)
 asps_base = pd.read_table(INPUT_asps_filepath, header=0, sep=',')

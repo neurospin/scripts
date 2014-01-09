@@ -14,7 +14,7 @@ INPUT
 OUTPUT
 ------
 
-"base_commun_20131011.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+"base_commun_20140109.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
 
 """
 
@@ -35,7 +35,7 @@ WD = "/neurospin/mescog"
 INPUT_cadasil_base_commun_filepath = os.path.join(WD, "clinic", "base_commun.csv")
 INPUT_cadasil_france2012_filepath = os.path.join(WD, "clinic", "france2012.csv")
 INPUT_cadasil_munich_date_filepath = os.path.join(WD, "clinic", "CAD_Munich_Dates.txt")
-OUTPUT = os.path.join(WD, "clinic", "base_commun_20131011.csv")
+OUTPUT = os.path.join(WD, "clinic", "base_commun_20140109.csv")
 
 cadasil_base_commun = pd.read_table(INPUT_cadasil_base_commun_filepath, header=0, sep=",").replace("-", np.nan)
 cadasil_france2012 = pd.read_table(INPUT_cadasil_france2012_filepath, header=0, sep=",").replace("-", np.nan)
