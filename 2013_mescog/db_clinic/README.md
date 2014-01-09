@@ -133,7 +133,6 @@ IDs:1117, 1119, 1151, 1155, 1156, 1157, 1172, 1179
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 GLYC17C units: set([nan, 'MG/DL'])
-
 *** CHOLTOT17 ***
 For many patients:
     Problem: CHOLTOT17C == 'MMOL/', "L" is missing.
@@ -144,7 +143,6 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 CHOLTOT17 units: set([nan, 'MG/DL'])
-
 *** CHOLHDL17 ***
 2004
     Problem: CHOLHDL17C == 'MM1.STUNDE', value==53
@@ -155,7 +153,6 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 CHOLHDL17 units: set([nan, 'MG/DL'])
-
 *** CHOLLDL17 ***
 For many patients:
     Problem: CHOLLDL17C == 'MMOL/', "L" is missing.
@@ -166,7 +163,6 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 CHOLLDL17 units: set([nan, 'MG/DL'])
-
 *** TRIGLY17 ***
 For many patients:
     Problem: TRIGLY17C == 'MMOL/', "L" is missing.
@@ -177,19 +173,15 @@ IDs:1117, 1119, 1145, 1150, 1151, 1152, 1153, 1155, 1156, 1157, 1159, 1179, 1227
     => values are really in G/L.
     Proposition: Simply convert into MG/DL.
 TRIGLY17 units: set([nan, 'MG/DL'])
-
 **HEMO17**
 IDs:1002
     Problem: HEMO17C == 'G/L'. However, the value: 15.3 seems to be in MG/DL
     Proposition: Correct error G/L => MG/DL.
 HEMO17C units: set([nan, 'G/DL'])
-
 *** CRP17 ***
 all in MG/DL
-
 *** MIGAAURA ***
 Missing mean 0
-
 **LEUCO17**
 
 ID:Many subjects
@@ -214,4 +206,6 @@ G/L mean:3.42, std:0.74, min:1.98, max:6.37
 MG/DL mean:337.00, std:75.65, min:20.60, max:547.00
 NF mean:nan, std:nan, min:nan, max:nan
 FIBRINO17C units: set([nan, 'G/L'])
+Save cadasil
+/neurospin/mescog/clinic/base_commun_20131011.csv
 

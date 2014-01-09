@@ -309,14 +309,66 @@ d.HEMO17C[d.HEMO17C == 'G/L'] = 'G/DL'
 print "HEMO17C units:", set(d.HEMO17C)
 
 print "*** CRP17 ***"
+print "all in MG/DL"
 d.CRP17[d.CRP17C == 'MG/L'] /= 10 
 d.CRP17C[d.CRP17C == 'MG/L'] = 'MG/DL'
 
-print "*** MIGAAURA ***"
-print "Missing mean 0"
-d.MIGAAURA[pd.isnull(d.MIGAAURA)] = 0
-d.MIGAAURA26[pd.isnull(d.MIGAAURA26)] = 0
-d.MIGAAURA39[pd.isnull(d.MIGAAURA39)] = 0
+print """*** MIGSSAURA
+MIGSSAURA26
+MIGSSAURA39
+MIGAAURA
+MIGAAURA26
+MIGAAURA39
+"""
+
+print """
+Marco algo to update:
+Using base_commun, please do the following:
+- When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as “2"
+- When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”
+- When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2".
+
+"""
+print "  QC: No CEPHALEES and MIGSSAURA:", np.sum((d.CEPHALEES == 2) & (d.MIGSSAURA == 1))
+print "  QC: No CEPHALEES and MIGAAURA:", np.sum((d.CEPHALEES == 2) & (d.MIGAAURA == 1))
+print "  QC: No CEPHALEES and CEPHALETE:", np.sum((d.CEPHALEES == 2) & (d.CEPHALETE == 1))
+print "  QC: No CEPHALEES and CEPHALETC:", np.sum((d.CEPHALEES == 2) & (d.CEPHALETC == 1))
+print "  QC: No CEPHALEES and CEPHALEAUTRE:", np.sum((d.CEPHALEES == 2) & (d.CEPHALEAUTRE == 1))
+
+print """When Cephalees == “2" (NO), then set also Migssaura, Migaura, Cephalete, Cephaletc, Cephalautre as "2"."""
+d.MIGSSAURA[(d.CEPHALEES == 2)]    = 2
+d.MIGAAURA[(d.CEPHALEES == 2)]     = 2
+d.CEPHALETE[(d.CEPHALEES == 2)]    = 2
+d.CEPHALETC[(d.CEPHALEES == 2)]    = 2
+d.CEPHALEAUTRE[(d.CEPHALEES == 2)] = 2
+
+print """When Cephalees == “1" and none of the 5 abovementioned variables is “1", then set all variables to “NA”."""
+cephalees_but_nothing_else = (d.CEPHALEES == 1) & (d.MIGSSAURA != 1) & (d.MIGAAURA != 1) & (d.CEPHALETE !=1) & (d.CEPHALETC !=1)  & (d.CEPHALEAUTRE !=1)
+print "Nb time this case occure:", np.sum(cephalees_but_nothing_else) 
+d.MIGSSAURA[cephalees_but_nothing_else]    = np.nan
+d.MIGAAURA[cephalees_but_nothing_else]     = np.nan
+d.CEPHALETE[cephalees_but_nothing_else]    = np.nan
+d.CEPHALETC[cephalees_but_nothing_else]    = np.nan
+d.CEPHALEAUTRE[cephalees_but_nothing_else] = np.nan
+
+print """When Cehpalees == “1" and at least one of the 5 is “1", then set all empty variables to “2"."""
+
+cephalees_and_any_other = (d.CEPHALEES == 1) & ((d.MIGSSAURA == 1) | (d.MIGAAURA == 1) | (d.CEPHALETE ==1) | (d.CEPHALETC ==1) | (d.CEPHALEAUTRE ==1))
+print "Nb time this case occure:", np.sum(cephalees_and_any_other) 
+d.MIGSSAURA[cephalees_and_any_other    & pd.isnull(d.MIGSSAURA)]    = 2
+d.MIGAAURA[cephalees_and_any_other     & pd.isnull(d.MIGAAURA)]     = 2
+d.CEPHALETE[cephalees_and_any_other    & pd.isnull(d.CEPHALETE)]    = 2
+d.CEPHALETC[cephalees_and_any_other    & pd.isnull(d.CEPHALETC)]    = 2
+d.CEPHALEAUTRE[cephalees_and_any_other & pd.isnull(d.CEPHALEAUTRE)] = 2
+
+
+print "MIGSSAURA values:", set(d.MIGSSAURA)
+print "MIGAAURA values:", set(d.MIGAAURA)
+print "CEPHALETE values:", set(d.CEPHALETE)
+print "CEPHALETC values:", set(d.CEPHALETC)
+print "CEPHALEAUTRE values:", set(d.CEPHALEAUTRE)
+
+
 
 print "**LEUCO17**"
 """ID:1083

@@ -73,11 +73,6 @@ print(stat)
 write.csv(stat, paste(WD, "data", "qc_dataset.csv", sep="/"), row.names=FALSE)
 
 PB:
-           CAD_NAME               NAME count_fr count_gr      mu_fr       mu_gr     min_fr min_gr    max_fr max_gr
-15        CHOLHDL17                HDL      247      126   4.275181  57.0873016  0.7399998   24.0  81.99997  117.0
-17         TRIGLY17             TRIGLY      248      126   6.622711 150.0793651  0.3399999   32.0 201.99986  685.0
-18         HOMOCY17        HOMOCYSTEIN      226      123  11.845442  14.8065041  5.0900000    5.2  26.59000  396.0 outlier replace per mean
-20            CRP17              CRP17      234      125   5.542735   0.3296000  1.0000000    0.1  66.00000    6.1
-21           GLYC17          FAST_GLUC      245       11   8.407344 111.0909091  3.6999989   78.0 130.99995  228.0
-23         MIGAAURA MIGRAINE_WITH_AURA       90       49   1.000000   1.0000000  1.0000000    1.0   1.00000    1.0
-32       INDEXNIHSS              NIHSS      248      129   1.669355   0.8527132  0.0000000    0.0  25.00000    7.0
+CAD_NAME               NAME count_fr count_gr       mu_fr       mu_gr       sd_fr       sd_gr   min_fr min_gr   max_fr max_gr
+18         HOMOCY17        HOMOCYSTEIN      226      123  11.8454425  14.8065041   4.2199696  34.9019604  5.09000    5.2  26.5900  396.0  outlier replace per mean
+32       INDEXNIHSS              NIHSS      248      129   1.6693548   0.8527132   3.6122190   1.6445971  0.00000    0.0  25.0000    7.0
