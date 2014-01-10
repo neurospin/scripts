@@ -4,15 +4,19 @@
 
 WD  = paste(Sys.getenv("HOME"),"data/2014_mescog_predict_cog_decline",sep="/")
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-INPUT_PATH = "/neurospin/mescog/clinic"
-DATA_CADA_PATH = paste(INPUT_PATH, "base_commun_20140109.csv", sep="/")
-MAPPING_PATH = paste(INPUT_PATH, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
+
+INPUT_PATH = "/neurospin/mescog"
+CLINIC_PATH = paste(INPUT_PATH, "clinic", "base_commun_20140109.csv", sep="/")
+CLINIC_MAPPING_PATH = paste(INPUT_PATH, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
+NIGLOB_PATH = paste(INPUT_PATH, "neuroimaging/original", "baseCADASIL_imagerie.csv", sep="/")
+
+
 VARIABLES_PATH = paste(SRC,"variables.csv",sep="/")
 
 ################################################################################################
 ## Names mapping
 ################################################################################################
-mapping = read.csv(MAPPING_PATH, header=TRUE, strip.white=TRUE, as.is=TRUE)[, c("NEW_NAME", "CAD_NAME")]
+mapping = read.csv(CLINIC_MAPPING_PATH, header=TRUE, strip.white=TRUE, as.is=TRUE)[, c("NEW_NAME", "CAD_NAME")]
 vars = read.table(VARIABLES_PATH, sep =":", header=TRUE, strip.white=TRUE, as.is=TRUE)
 
 ## Find NEW_NAME using mapping
@@ -23,11 +27,20 @@ vars = read.table(VARIABLES_PATH, sep =":", header=TRUE, strip.white=TRUE, as.is
 # vars$NEW_NAME = new_name
 # => Manual modification of "variables.csv"
 
+
 ################################################################################################
 ## QC FR vs GR
 ################################################################################################
 vars = read.table(VARIABLES_PATH, sep =":", header=TRUE, strip.white=TRUE, as.is=TRUE)
-D = read.csv(DATA_CADA_PATH)
+D = read.csv(CLINIC_PATH)
+
+################################################################################################
+## Remove outliers 
+################################################################################################
+#18         HOMOCY17        HOMOCYSTEIN      226      123  11.8454425  14.8065041   4.2199696  34.9019604  5.09000    5.2  26.5900  396.0
+D$HOMOCY17[D$HOMOCY17 > 100] = NA
+#D$HOMOCY17[D$HOMOCY17 > 100]
+
 D$DELTA_BP =  D$PAS - D$PAD
 D = D[, c("ID", vars$CAD_NAME)]
 D$SITE=NA
@@ -74,5 +87,21 @@ print(stat)
 library(gdata)
 write.fwf(stat, paste(WD, "data", "qc_dataset.csv", sep="/"), rownames=FALSE)
 
-18         HOMOCY17        HOMOCYSTEIN      226      123  11.8454425  14.8065041   4.2199696  34.9019604  5.09000    5.2  26.5900  396.0
-D$HOMOCY17[D$HOMOCY17>100]
+################################################################################################
+## Impute missing data by mean
+################################################################################################
+stat$CAD_NAME = as.character(stat$CAD_NAME)
+stat$NAME = as.character(stat$NAME)
+
+targets = stat$CAD_NAME[grep("@M36", stat$NAME)]
+predictors = colnames(D)[!(colnames(D) %in% c("ID", "SITE", targets))]
+
+for(v in predictors){
+  D[is.na(D[,v]), v] = mean(D[,v], na.rm=T)
+}
+
+################################################################################################
+## Impute missing data by mean
+################################################################################################
+IM = read.csv(NIGLOB_PATH, header=TRUE)[, c("Patient.Identifier" , "Time.Point", "Lesion.Volume..mm3.", "Lacunes.Volume..mm3.", "MB.Number")]
+colnames(read.csv(NIGLOB_PATH, header=TRUE))

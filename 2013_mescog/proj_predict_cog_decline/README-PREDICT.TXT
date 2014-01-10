@@ -66,7 +66,7 @@ Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
 
 # Global MRI data at baseline ---------------------------------------- #
 
-CAD_database_soures/global_imaging_variables/CAD_M0_Bioclinica.txt
+/neurospin/mescog/neuroimaging/original/baseCADASIL_imagerie.csv
 
 lacune_vol: lacune total volume and/or lacune number : M0_LLV
   (more reliable for clinical use)

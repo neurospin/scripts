@@ -50,22 +50,22 @@ for subject_path in subject_paths:
     
     # rT1 to MNI
     cmd_rt1_to_mni = (fsl_warp_cmd, "-i", rt1_intput_filepath, "-o", rt1_output_filepath,
-                      "-r", fsl_mni_filepath, "-w", trm_rT1_to_MNI_filepath)
+                      "-r", fsl_mni_filepath, "-w", trm_rT1_to_MNI_filepath, "--interp=nn")
     ret1 = subprocess.call(cmd_rt1_to_mni)
     
     # ll to MNI
     cmd_ll_to_mni = (fsl_warp_cmd, "-i", ll_intput_filepath, "-o", ll_output_filepath,
-                     "-r", fsl_mni_filepath, "-w", trm_rT1_to_MNI_filepath)
+                     "-r", fsl_mni_filepath, "-w", trm_rT1_to_MNI_filepath, "--interp=nn")
     ret2 = subprocess.call(cmd_ll_to_mni)
     
     # rFLAIR to MNI
     cmd_rflair_to_mni = (fsl_warp_cmd, "-i", rflair_intput_filepath, "-o", rflair_output_filepath,
-                         "-r", fsl_mni_filepath, "--premat="+trm_rFLAIR_to_rT1_filepath, "-w", trm_rT1_to_MNI_filepath)
+                         "-r", fsl_mni_filepath, "--premat="+trm_rFLAIR_to_rT1_filepath, "-w", trm_rT1_to_MNI_filepath, "--interp=nn")
     ret3 = subprocess.call(cmd_rflair_to_mni)
     
     # WMH to MNI
     cmd_wmh_to_mni = (fsl_warp_cmd, "-i", wmh_intput_filepath, "-o", wmh_output_filepath,
-                      "-r", fsl_mni_filepath, "--premat="+trm_rFLAIR_to_rT1_filepath, "-w", trm_rT1_to_MNI_filepath)
+                      "-r", fsl_mni_filepath, "--premat="+trm_rFLAIR_to_rT1_filepath, "-w", trm_rT1_to_MNI_filepath, "--interp=nn")
     ret4 = subprocess.call(cmd_wmh_to_mni)
     if ret1 or ret2 or ret3 or ret4:
         shutil.rmtree(subject_OUTPUT_DIR)
