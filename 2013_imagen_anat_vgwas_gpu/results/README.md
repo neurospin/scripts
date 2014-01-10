@@ -1,6 +1,9 @@
 GENETIC FINDINGS
 ================
 
+- snp_list[122664]= rs13107325 (Putamen)
+- snp_list[379105]= rs7182018 (Post-central)
+
 Fichiers utilisés pour les SNPs
 BASE_DIR,
     '2012_imagen_shfj',
@@ -20,8 +23,8 @@ AB : 203
 BB : 12 
 
 
-rs13107325
-----------
+rs13107325 (Putamen)
+--------------------
 
 point sur rs13107325 : Gene : SLC39A8 (reverse) zone intronique : misense
 Régions mise en avant : la partie interieure du putamen et mediane. La somatotopie du putamen est étudier pour le la douleur (Ch Büchel) : http://www.ncbi.nlm.nih.gov/pubmed/15217895
