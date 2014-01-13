@@ -1,4 +1,105 @@
+################################################################################################
+## READ INPUT
+################################################################################################
+read_db=function(infile){
+  DB = read.csv(infile, header=TRUE, as.is=TRUE)
+  col_info = c("ID", "SITE")
+  col_targets = colnames(DB)[grep("36", colnames(DB))]
+  col_predictors = colnames(DB)[!(colnames(DB) %in% c(col_info, col_targets))]
+  col_niglob = col_predictors[grep("LLV|LLcount|WMHV|MBcount|BPF", col_predictors)]
+  col_clinic = col_predictors[!(col_predictors %in% col_niglob)]
+  
+  if(!all(sort(colnames(DB)) == sort(c(col_info, col_targets, col_clinic, col_niglob)))){
+    print("ERROR COLNAMES DO NOT MATCH")
+    sys.on.exit()
+  }
+  return(list(DB_FR=DB[DB$SITE == "FR", ], DB_GR = DB[DB$SITE == "GR", ], col_info=col_info,
+              col_targets=col_targets, col_clinic=col_clinic, col_niglob=col_niglob))
+}
+################################################################################################
+## ML
+################################################################################################
 
+##' Sampling for cross-validation procedures
+##' 
+##' This function gives a list of traning and testing IDs to be used
+##' for cross-validation.
+##' 
+##' @param x a vector of \code{row.names} or a number indicating the
+##'        sample size
+##' @param type leave-one-out or K-fold (default, loo)
+##' @param K number of folds for K-fold (default K=10)
+##' @param random should the IDs be randomized
+##' @param  a seed to fix random generation
+##' @return a \code{list} test indexes
+##' @author ed, chl
+##' @seealso \code{cv.glm {boot}}
+##' @examples
+##' cross_val(50,type="k-fold")
+##' cross_val(26,type="k-fold",k=5)
+##' cross_val(26,type="k-fold",k=5,random=T)
+##' cross_val(100,"k",random=T,seed=101)
+##' n <- 100
+##' x1 <- rnorm(n,mean=5);x2 <- rnorm(n,mean=5);X=cbind(x1,x2)
+##' rownames(X)=1:n
+##' y <- x1+2*x2 + rnorm(n)
+##' d=data.frame(X,y)
+##' rownames(d)=1:n
+##' 
+##' y.hat.test <- c()
+##' loo.cv <- cross_val(n)
+##' for (test_idx in loo.cv) {
+##'     d.train=d[-test_idx,]
+##'     d.test =d[test_idx,]
+##'     lm.fit=lm(y~x1+x2,data=d.train)
+##'     y.hat.test=append(y.hat.test,predict(lm.fit, newdata =d.test))
+##' }
+##' loss.test.loo=y.hat.test-d$y
+##' cat("CV LOO MSE",sqrt(1/n*sum((loss.test.loo)^2)),"\n")
+##' 
+##' y.hat.test <- c()
+##' kfold.cv <- cross_val(n,type="k-fold")
+##' for (test_idx in kfold.cv) {
+##'     d.train=d[-test_idx,]
+##'     d.test =d[test_idx,]
+##'     lm.fit=lm(y~x1+x2,data=d.train)
+##'     y.hat.test=append(y.hat.test,predict(lm.fit, newdata =d.test))
+##' }
+##' loss.test.kfold=y.hat.test-d$y
+##' cat("CV K-FOLD MSE",sqrt(1/n*sum((loss.test.kfold)^2)),"\n")
+##' 
+##' lm.fit.all=lm(y~x1+x2,data=d)
+##' y.hat.all=predict(lm.fit.all,newdata =d)
+##' loss.all=y.hat.all-d$y
+##' cat("ALL MSE",sqrt(1/n*sum((loss.all)^2)),"\n")
+cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
+  type <- match.arg(type)
+  if (is.numeric(x) & (length(x) == 1)) { len <- x }
+  else if (length(x) > 1) { len <- length(x)}
+  else stop("Cannot determine sample size")
+  idx <- seq(1,len)
+  folds_test_idx=list()
+  if (random && (type != "loo")) {
+    if(!missing(seed)){
+      set.seed(seed)
+      attr(folds_test_idx,'seed')=seed
+    }
+    idx <- sample(len,rep=FALSE)
+  }
+  if (type == "k-fold"){
+    test_ranges_seq=round(seq(0,len,length.out=k+1))
+    # list of (randomized) index of test samples
+    for(i in 2:length(test_ranges_seq))
+      folds_test_idx[[i-1]]=idx[ (test_ranges_seq[i-1]+1):(test_ranges_seq[i]) ]
+    attr(folds_test_idx,'type')=type
+  }
+  if (type == "loo") {
+    for(i in 1:len)
+      folds_test_idx[[i]]=i
+    attr(folds_test_idx,'type')=type
+  }
+  return(folds_test_idx)
+}
 
 ## ========================================================================== ##
 ## glmnet with lambda selection with internal CV + refil.lm
@@ -111,7 +212,7 @@ set.paths<-function(WD, PREFIX, RESP.NAME){
 }
 
 do.a.lot.of.things.glmnet<-function(X, y, log_file, FORCE.ALPHA, MOD.SEL.CV){
-    X=Xy.FR$X; y=Xy.FR$y; log_file=paths$log_file;
+    #X=Xfr; y=yfr; log_file=paths$log_file;
     #cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=107)
     cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
     dump("cv",file="cv.schema.R")
