@@ -24,7 +24,7 @@ subject_paths = glob.glob(os.path.join(INPUT_DIR,
                                        "*",
                                        "*M0-WMH-MNI.nii.gz"))
 print "Found %i subjects" % len(subject_paths)
-
+#Found 342 subjects
 arr_list = list()
 trm = None
 subject_list = list()
@@ -40,8 +40,16 @@ for file_path in subject_paths:
     subject_list.append(os.path.basename(os.path.dirname(file_path)))
 
 X = np.vstack(arr_list)
+
+# binnarize everybody
+X[X != 0] = 1.
 np.save(OUTPUT_X, X)
 fo = open(OUTPUT_subjects, "w")
 subject_list_newline = [subject + "\n" for subject in subject_list]
 fo.writelines(subject_list_newline)
 fo.close()
+
+## QC on first image
+image = nib.load(OUTPUT_DIR+"/MNI152_T1_2mm_brain_mask.nii.gz")
+out_im = nib.Nifti1Image(np.reshape(X[0,:], image.get_data().shape), affine=image.get_affine())
+out_im.to_filename(OUTPUT_DIR+"/QC_CAD-WMH-MNI_%s-M0-WMH-MNI.nii.gz" % subject_list_newline[0].strip())

@@ -58,7 +58,7 @@ Presence/absence  of dementia                : DEMENCE		    : DEMENTIA
 mRS at baseline                              : INDEXSCRANKIN    : MRS
 TMTB at baseline                             : TMTBT15		    : TMTB_TIME
 MMSE at baseline                             : INDEXMMS		    : MMSE
-MDRS at baseline                             : SCORETOT14       : MDRS_total
+MDRS at baseline                             : SCORETOT14       : MDRS_TOTAL
 #(mattis dementia rating scale)
 NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
 Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
@@ -66,7 +66,7 @@ Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
 
 # Global MRI data at baseline ---------------------------------------- #
 
-CAD_database_soures/global_imaging_variables/CAD_M0_Bioclinica.txt
+/neurospin/mescog/neuroimaging/original/baseCADASIL_imagerie.csv
 
 lacune_vol: lacune total volume and/or lacune number : M0_LLV
   (more reliable for clinical use)

@@ -55,7 +55,7 @@ Presence/absence  of dementia                : DEMENCE		    : DEMENTIA
 mRS at baseline                              : INDEXSCRANKIN    : MRS
 TMTB at baseline                             : TMTBT15		    : TMTB_TIME
 MMSE at baseline                             : INDEXMMS		    : MMSE
-MDRS at baseline                             : SCORETOT14       : MDRS_total
+MDRS at baseline                             : SCORETOT14       : MDRS_TOTAL
 #(mattis dementia rating scale)
 NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
 Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
