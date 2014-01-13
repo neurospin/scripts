@@ -4,13 +4,18 @@ Created on Tue Jan  7 13:41:58 2014
 
 @author: lh239456
 
-Compute the average image of all the dataset.
+Compute some statistics on data:
+ - compute the average image (average accross subjects)
+ - describe dataset and average image (main statistics)
+ - histogram of average image (inside the MNI mask)
 
 """
 
 import os
 
 import numpy as np
+
+import pandas as pd
 
 import nibabel
 
@@ -36,11 +41,23 @@ if not os.path.exists(OUTPUT_DIR):
 
 OUTPUT_AVERAGE_BRAIN = os.path.join(OUTPUT_DIR, "average_brain.nii")
 
+OUTPUT_X_MASK_STATISTICS = os.path.join(OUTPUT_DIR,
+                                        "X_mask.statistics.csv")
+OUTPUT_X_AVERAGE_MASK_STATISTICS = os.path.join(OUTPUT_DIR,
+                                                "X_average_mask.statistics.csv")
+
+OUTPUT_HIST_AVERAGE_ZERO = os.path.join(OUTPUT_DIR,
+                                        "X_average_mask.hist.png")
+OUTPUT_HIST_AVERAGE_NON_ZERO = os.path.join(OUTPUT_DIR,
+                                            "X_average_mask.non_zero.hist.png")
+
 ##############
 # Parameters #
 ##############
 
 IM_SHAPE = (91, 109, 91)
+HISTO_N_BINS = 10
+HIST_THRESHOLD = 0.02
 
 #################
 # Actual script #
@@ -51,6 +68,13 @@ X = np.load(INPUT_DATASET)
 ORIG_SHAPE = X.shape
 print "Loaded images dataset {s}".format(s=ORIG_SHAPE)
 
+# Read mask
+babel_mask = nibabel.load(INPUT_MASK)
+mask = babel_mask.get_data()
+binary_mask = mask != 0
+mask_lin = mask.ravel()
+mask_index = np.where(mask_lin)[0]
+
 # Create average brain
 X_average = np.mean(X, axis=0)
 print "X_average shape : {s}".format(s=X_average.shape)
@@ -60,50 +84,38 @@ X_average.shape = IM_SHAPE
 print "Reshaped X_average shape : {s}".format(s=X_average.shape)
 
 # Save the mean into brain-like images
-babel_mask = nibabel.load(INPUT_MASK)
 average_brain = nibabel.Nifti1Image(X_average, babel_mask.get_affine())
 nibabel.save(average_brain, OUTPUT_AVERAGE_BRAIN)
 print "Average brain saved"
 
-# Compute some statistics on data
+# Mask data
+X_mask = X[:, mask_index]
+X_average_mask = X_average[binary_mask]
+
+# Compute some statistics on masked data
+X_mask_desc = pd.DataFrame(X_mask.ravel()).describe()
+X_mask_desc.to_csv(OUTPUT_X_MASK_STATISTICS, header=False, sep=':')
+
+X_average_mask_desc = pd.DataFrame(X_average_mask).describe()
+X_average_mask_desc.to_csv(OUTPUT_X_AVERAGE_MASK_STATISTICS, header=False, sep=':')
+
+# Plot some histograms
 import matplotlib.pyplot as plt
 
-step = 0.2
-
-x_zero_hist = plt.figure()
-range_zero = np.arange(0, X.max() + step, step)
-plt.hist(X.flatten(), bins=range_zero)
-x_zero_hist.suptitle("histogram of all subjects including zero")
-plt.xlabel('value')
-plt.ylabel('nb of occurences')
-filename = os.path.join(OUTPUT_DIR, "x_zero_hist.png")
-plt.savefig(filename)
-
-x_non_zero_hist = plt.figure()
-range_non_zero = np.arange(step, X.max() + step, step)
-plt.hist(X.flatten(), bins=range_non_zero)
-x_non_zero_hist.suptitle("histogram of all subjects excluding zero")
-plt.xlabel('value')
-plt.ylabel('nb of occurences')
-filename = os.path.join(OUTPUT_DIR, "x_non_zero_hist.png")
-plt.savefig(filename)
-
+# Histogram of masked average subject, including 0
 x_average_hist = plt.figure()
-range_zero = np.arange(0, X_average.max() + step, step)
-plt.hist(X_average.flatten(), bins=range_zero)
-x_average_hist.suptitle("histogram of average subject including zero")
-plt.xlabel('value')
-plt.ylabel('nb of occurences')
-filename = os.path.join(OUTPUT_DIR, "x_average_zero_hist.png")
-plt.savefig(filename)
+(count, bins, _) = plt.hist(X_average_mask.ravel(), bins=HISTO_N_BINS)
+x_average_hist.suptitle("Histogram of average subject")
+plt.xlabel('Value')
+plt.ylabel('# of occurences')
+plt.savefig(OUTPUT_HIST_AVERAGE_ZERO)
 
+# Histogram of masked average subject, excluding below HIST_THRESHOLD
 x_average_non_zero_hist = plt.figure()
-range_non_zero = np.arange(step, X_average.max() + step, step)
-plt.hist(X_average.flatten(), bins=range_non_zero)
-x_average_non_zero_hist.suptitle("histogram of average subject excluding zero")
-plt.xlabel('value')
-plt.ylabel('nb of occurences')
-filename = os.path.join(OUTPUT_DIR, "x_average_non_zero_hist.png")
-plt.savefig(filename)
-
-print "Histograms saved"
+data = X_average_mask[X_average_mask >= HIST_THRESHOLD]
+plt.hist(data, bins=bins)
+x_average_non_zero_hist.suptitle("Histogram of average subject (>{thresh})"
+                                 .format(thresh=HIST_THRESHOLD))
+plt.xlabel('Value')
+plt.ylabel('# of occurences')
+plt.savefig(OUTPUT_HIST_AVERAGE_NON_ZERO)
