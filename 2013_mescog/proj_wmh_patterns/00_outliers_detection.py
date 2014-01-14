@@ -64,8 +64,10 @@ OUTPUT_LASTP_DENDROGRAM = os.path.join(OUTPUT_DIR, "dendrogram.lastp.svg")
 OUTPUT_LEVEL_DENDROGRAM = os.path.join(OUTPUT_DIR, "dendrogram.level.svg")
 
 OUTPUT_MEAN_DISTANCE_BOXPLOT = os.path.join(OUTPUT_DIR, "mean_euclidean_distance.boxplot.png")
+OUTPUT_ABOVE_WHISKER_ID = os.path.join(OUTPUT_DIR, "above_upper_whisker.txt")
 OUTPUT_OUTLIERS_ID = os.path.join(OUTPUT_DIR, "outliers.txt")
 OUTPUT_X = os.path.join(OUTPUT_DIR, "X.npy")
+OUTPUT_X_OUTSIDE = os.path.join(OUTPUT_DIR, "outliers.npy")
 
 ##############
 # Parameters #
@@ -107,7 +109,7 @@ plt.colorbar()
 distance_matrix_fig.suptitle('Euclidean distance matrix')
 distance_matrix_fig.savefig(OUTPUT_EUCL_DISTANCE_MATRIX_IMG)
 
-# Euclidean distance matrix
+# Hamming distance matrix
 y_hamm = scipy.spatial.distance.pdist(X_mask, metric='hamming')
 Y_hamm = scipy.spatial.distance.squareform(y_hamm)
 np.save(OUTPUT_HAMM_DISTANCE_MATRIX, Y_hamm)
@@ -151,19 +153,55 @@ distance_matrix_boxplot.suptitle('Average euclidean distance to other points')
 distance_matrix_boxplot.savefig(OUTPUT_MEAN_DISTANCE_BOXPLOT)
 
 # Find ID of subjects that are > 3rd quartile + 1.5*IQR
+# Store it in a file for later examination
 av_eucl_dst_describe = av_eucl_dst.describe()
 third_quartile = av_eucl_dst_describe.loc['75%']
 first_quartile = av_eucl_dst_describe.loc['25%']
 IQR = third_quartile - first_quartile
 max_val = third_quartile + 1.5 * IQR
-outliers_index = np.where(av_eucl_dst > max_val)[0]
-outliers_id = SUBJECTS_ID[outliers_index]
+above_upper_whisker_index = np.where(av_eucl_dst > max_val)[0]
+above_upper_whisker_id = SUBJECTS_ID[above_upper_whisker_index]
 
-with open(OUTPUT_OUTLIERS_ID, "w") as f:
-    subject_list_newline = [str(subject) + "\n" for subject in outliers_id]
+with open(OUTPUT_ABOVE_WHISKER_ID, "w") as f:
+    subject_list_newline = [str(subject) + "\n" for subject in above_upper_whisker_id]
     f.writelines(subject_list_newline)
 
-# Store data without outliers
-insider_index = np.setdiff1d(range(n), outliers_index)
-X_inside = X[insider_index]
-np.save(OUTPUT_X, X_inside)
+# Store data without outliers & outliers
+#insider_index = np.setdiff1d(range(n), outliers_index)
+#X_inside = X[insider_index]
+#np.save(OUTPUT_X, X_inside)
+#
+#X_outside = X[outliers_index]
+#np.save(OUTPUT_X_OUTSIDE, X_outside)
+
+# Compute & plot number of non-null voxel per subject
+n_vox = X_mask.sum(axis=1)
+n_vox_fig = plt.figure()
+plt.plot(n_vox)
+
+n_vox_av_eucl_dst_fig = plt.figure()
+plt.scatter(n_vox, av_eucl_dst)
+NAME = os.path.join(OUTPUT_DIR, "average_dst_n_vox.svg")
+n_vox_av_eucl_dst_fig.savefig(NAME)
+NAME = os.path.join(OUTPUT_DIR, "average_dst_n_vox.annot.svg")
+for i in range(n):
+    plt.annotate(str(SUBJECTS_ID[i]), xy=(n_vox[i], av_eucl_dst.iloc[i]))
+n_vox_av_eucl_dst_fig.savefig(NAME)
+    
+# visible outliers
+2001, 2002, 2009, 2017, 1075
+# typical samples
+1167, 2086, 2024, 1022
+
+"""
+anatomist \
+2001/*rFLAIR-MNI.nii.gz 2001/*rT1-MNI.nii.gz  2001/*-M0-WMH-MNI.nii.gz \
+2002/*rFLAIR-MNI.nii.gz 2002/*rT1-MNI.nii.gz  2002/*-M0-WMH-MNI.nii.gz \
+2009/*rFLAIR-MNI.nii.gz 2009/*rT1-MNI.nii.gz  2009/*-M0-WMH-MNI.nii.gz \
+2017/*rFLAIR-MNI.nii.gz 2017/*rT1-MNI.nii.gz  2017/*-M0-WMH-MNI.nii.gz \
+1075/*rFLAIR-MNI.nii.gz 1075/*rT1-MNI.nii.gz  1075/*-M0-WMH-MNI.nii.gz \
+1167/*rFLAIR-MNI.nii.gz 1167/*rT1-MNI.nii.gz  1167/*-M0-WMH-MNI.nii.gz \
+2086/*rFLAIR-MNI.nii.gz 2086/*rT1-MNI.nii.gz  2086/*-M0-WMH-MNI.nii.gz \
+2024/*rFLAIR-MNI.nii.gz 2024/*rT1-MNI.nii.gz  2024/*-M0-WMH-MNI.nii.gz \
+1022/*rFLAIR-MNI.nii.gz 1022/*rT1-MNI.nii.gz  1022/*-M0-WMH-MNI.nii.gz
+"""
