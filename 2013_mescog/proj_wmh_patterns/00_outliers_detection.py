@@ -9,6 +9,8 @@ Try to detect outliers:
  - cluster data with hierarchical clustering
  - find outliers as points far to other point (on average) with the Euclidean distance
    (because it is the one used by k-means)
+ - perform some coarse-grained visual inspection
+ - write filtered datasets
 
 This is inspired by some work on hierarchical clustering in which we realized
 that some points are very far from all other.
@@ -65,9 +67,20 @@ OUTPUT_LEVEL_DENDROGRAM = os.path.join(OUTPUT_DIR, "dendrogram.level.svg")
 
 OUTPUT_MEAN_DISTANCE_BOXPLOT = os.path.join(OUTPUT_DIR, "mean_euclidean_distance.boxplot.png")
 OUTPUT_ABOVE_WHISKER_ID = os.path.join(OUTPUT_DIR, "above_upper_whisker.txt")
-OUTPUT_OUTLIERS_ID = os.path.join(OUTPUT_DIR, "outliers.txt")
-OUTPUT_X = os.path.join(OUTPUT_DIR, "X.npy")
-OUTPUT_X_OUTSIDE = os.path.join(OUTPUT_DIR, "outliers.npy")
+
+# We write the dataset with & without outliers in the dataset directory
+OUTPUT_DATASET_DIR = os.path.join(OUTPUT_BASE_DIR,
+                          "mescog", "datasets")
+
+OUTPUT_OUTLIERS_ID = os.path.join(OUTPUT_DATASET_DIR,
+                                  "CAD-WMH-MNI-subjects.outliers.txt")
+OUTPUT_OUTLIERS = os.path.join(OUTPUT_DATASET_DIR,
+                               "CAD-WMH-MNI.outliers.npy")
+
+OUTPUT_SUBJECTS_ID = os.path.join(OUTPUT_DATASET_DIR,
+                                  "CAD-WMH-MNI-subjects.without_outliers.txt")
+OUTPUT_DATASET = os.path.join(OUTPUT_DATASET_DIR,
+                              "CAD-WMH-MNI.without_outliers.npy")
 
 ##############
 # Parameters #
@@ -166,14 +179,6 @@ with open(OUTPUT_ABOVE_WHISKER_ID, "w") as f:
     subject_list_newline = [str(subject) + "\n" for subject in above_upper_whisker_id]
     f.writelines(subject_list_newline)
 
-# Store data without outliers & outliers
-#insider_index = np.setdiff1d(range(n), outliers_index)
-#X_inside = X[insider_index]
-#np.save(OUTPUT_X, X_inside)
-#
-#X_outside = X[outliers_index]
-#np.save(OUTPUT_X_OUTSIDE, X_outside)
-
 # Compute & plot number of non-null voxel per subject
 n_vox = X_mask.sum(axis=1)
 n_vox_fig = plt.figure()
@@ -187,21 +192,88 @@ NAME = os.path.join(OUTPUT_DIR, "average_dst_n_vox.annot.svg")
 for i in range(n):
     plt.annotate(str(SUBJECTS_ID[i]), xy=(n_vox[i], av_eucl_dst.iloc[i]))
 n_vox_av_eucl_dst_fig.savefig(NAME)
-    
-# visible outliers
-2001, 2002, 2009, 2017, 1075
+
+# visible outliers on average dst/nb of voxels:
+# 1075, 1195, 1197, 2001, 2002, 2009, 2017, 2020, 2042
+
+# visible outliers above upper whisker:
+# 1017, 1020, 1022, 1075, 1092, 1109, 1173, 2001, 2002, 2009, 2052, 2070, 2085,
+# 2112, 2115
+
 # typical samples
-1167, 2086, 2024, 1022
+# 1167, 2086, 2024, 1022
 
 """
 anatomist \
+1075/*rFLAIR-MNI.nii.gz 1075/*rT1-MNI.nii.gz  1075/*-M0-WMH-MNI.nii.gz \
+1195/*rFLAIR-MNI.nii.gz 1195/*rT1-MNI.nii.gz  1195/*-M0-WMH-MNI.nii.gz \
+1197/*rFLAIR-MNI.nii.gz 1197/*rT1-MNI.nii.gz  1197/*-M0-WMH-MNI.nii.gz \
 2001/*rFLAIR-MNI.nii.gz 2001/*rT1-MNI.nii.gz  2001/*-M0-WMH-MNI.nii.gz \
 2002/*rFLAIR-MNI.nii.gz 2002/*rT1-MNI.nii.gz  2002/*-M0-WMH-MNI.nii.gz \
 2009/*rFLAIR-MNI.nii.gz 2009/*rT1-MNI.nii.gz  2009/*-M0-WMH-MNI.nii.gz \
 2017/*rFLAIR-MNI.nii.gz 2017/*rT1-MNI.nii.gz  2017/*-M0-WMH-MNI.nii.gz \
-1075/*rFLAIR-MNI.nii.gz 1075/*rT1-MNI.nii.gz  1075/*-M0-WMH-MNI.nii.gz \
+2020/*rFLAIR-MNI.nii.gz 2020/*rT1-MNI.nii.gz  2020/*-M0-WMH-MNI.nii.gz \
+2042/*rFLAIR-MNI.nii.gz 2042/*rT1-MNI.nii.gz  2042/*-M0-WMH-MNI.nii.gz \
+\
+1017/*rFLAIR-MNI.nii.gz 1017/*rT1-MNI.nii.gz  1017/*-M0-WMH-MNI.nii.gz \
+1020/*rFLAIR-MNI.nii.gz 1020/*rT1-MNI.nii.gz  1020/*-M0-WMH-MNI.nii.gz \
+1092/*rFLAIR-MNI.nii.gz 1092/*rT1-MNI.nii.gz  1092/*-M0-WMH-MNI.nii.gz \
+1109/*rFLAIR-MNI.nii.gz 1109/*rT1-MNI.nii.gz  1109/*-M0-WMH-MNI.nii.gz \
+1173/*rFLAIR-MNI.nii.gz 1173/*rT1-MNI.nii.gz  1173/*-M0-WMH-MNI.nii.gz \
+2052/*rFLAIR-MNI.nii.gz 2052/*rT1-MNI.nii.gz  2052/*-M0-WMH-MNI.nii.gz \
+2070/*rFLAIR-MNI.nii.gz 2070/*rT1-MNI.nii.gz  2070/*-M0-WMH-MNI.nii.gz \
+2085/*rFLAIR-MNI.nii.gz 2085/*rT1-MNI.nii.gz  2085/*-M0-WMH-MNI.nii.gz \
+2112/*rFLAIR-MNI.nii.gz 2112/*rT1-MNI.nii.gz  2112/*-M0-WMH-MNI.nii.gz \
+2115/*rFLAIR-MNI.nii.gz 2115/*rT1-MNI.nii.gz  2115/*-M0-WMH-MNI.nii.gz \
+\
 1167/*rFLAIR-MNI.nii.gz 1167/*rT1-MNI.nii.gz  1167/*-M0-WMH-MNI.nii.gz \
 2086/*rFLAIR-MNI.nii.gz 2086/*rT1-MNI.nii.gz  2086/*-M0-WMH-MNI.nii.gz \
 2024/*rFLAIR-MNI.nii.gz 2024/*rT1-MNI.nii.gz  2024/*-M0-WMH-MNI.nii.gz \
 1022/*rFLAIR-MNI.nii.gz 1022/*rT1-MNI.nii.gz  1022/*-M0-WMH-MNI.nii.gz
+
+Sample | WMH Flair | Decision
+ 1075  |           |
+ 1195  |           |
+ 1197  |           |
+ 2001  |     1     |   OUT
+ 2002  |     1     |   OUT
+ 2009  |   1-2     |   OUT
+ 2017  |     2     |   OUT
+ 2020  |           |
+ 2042  |           |
+ 1017  |           |
+ 1020  |           |
+ 1092  |           |
+ 1109  |           |
+ 1173  |           |
+ 2052  |           |
+ 2070  |           |
+ 2085  |           |
+ 2112  |           |
+ 2115  |           |
+
+1: top-down inversion
+2: bad registration
+
+=> Reject: 2001, 2002, 2009, 2017
 """
+
+OUTLIERS_ID = [2001, 2002, 2009, 2017]
+OUTLIERS_INDEX = [np.where(SUBJECTS_ID == outlier_id)[0][0]
+                  for outlier_id in OUTLIERS_ID]
+
+INSIDER_INDEX = np.setdiff1d(range(n), OUTLIERS_INDEX)
+INSIDER_ID = np.setdiff1d(SUBJECTS_ID, OUTLIERS_ID)
+
+# Store data without outliers & outliers
+X_inside = X[INSIDER_INDEX]
+np.save(OUTPUT_DATASET, X_inside)
+with open(OUTPUT_SUBJECTS_ID, "w") as f:
+    subject_list_newline = [str(subject) + "\n" for subject in INSIDER_ID]
+    f.writelines(subject_list_newline)
+
+X_outliers = X[OUTLIERS_INDEX]
+np.save(OUTPUT_OUTLIERS, X_outliers)
+with open(OUTPUT_OUTLIERS_ID, "w") as f:
+    subject_list_newline = [str(subject) + "\n" for subject in OUTLIERS_ID]
+    f.writelines(subject_list_newline)
