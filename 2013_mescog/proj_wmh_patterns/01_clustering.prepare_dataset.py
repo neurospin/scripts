@@ -49,15 +49,15 @@ INPUT_BASE_DIR = "/neurospin/"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "mescog", "datasets")
 INPUT_DATASET = os.path.join(INPUT_DIR,
-                             "CAD-WMH-MNI.npy")
+                             "CAD-WMH-MNI.without_outliers.npy")
 INPUT_SUBJECTS = os.path.join(INPUT_DIR,
-                              "CAD-WMH-MNI-subjects.txt")
+                              "CAD-WMH-MNI-subjects.without_outliers.txt")
 INPUT_MASK = os.path.join(INPUT_DIR,
                           "MNI152_T1_2mm_brain_mask.nii.gz")
 
 OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "results", "wmh_patterns")
+                          "mescog", "proj_wmh_patterns")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 

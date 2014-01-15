@@ -49,7 +49,7 @@ INPUT_MNI_MASK = os.path.join(INPUT_DATASET_DIR, "MNI152_T1_2mm_brain_mask.nii.g
 
 OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "results", "wmh_patterns",
+                          "mescog", "proj_wmh_patterns",
                           "outliers_detection")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
