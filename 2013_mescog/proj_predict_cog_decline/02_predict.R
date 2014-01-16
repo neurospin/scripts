@@ -10,7 +10,7 @@ source(paste(SRC,"utils.R",sep="/"))
 OUTPUT = paste(BASE_DIR, "results_201401", sep="/")
 LOG_FILE = "log.txt"
 
-OUTPUT_SUMMARY = paste(OUTPUT, "results_summary_with-norm-niglob.csv")
+OUTPUT_SUMMARY = paste(OUTPUT, "results_summary.csv")
 
 ################################################################################################
 ## READ INPUT
@@ -18,6 +18,8 @@ OUTPUT_SUMMARY = paste(OUTPUT, "results_summary_with-norm-niglob.csv")
 db = read_db(INPUT_DATA)
 dim(db$DB_FR)# 239  42
 dim(db$DB_GR)# 126  42
+# remove normalized niglob variables
+db$col_niglob = db$col_niglob[!(db$col_niglob %in% c("LLVn", "WMHVn"))]
 
 #lgenim()
 #FORCE.ALPHA=1 #lasso
@@ -31,20 +33,31 @@ MOD.SEL.CV = "manual.cv.lambda.min"
 #MOD.SEL.CV = "auto.min.mse"
 
 BOOTSTRAP.NB=10; PERMUTATION.NB=10
-DATA_STR = "FR"
-DBLEARN = db$DB_FR
-DBTEST = db$DB_GR
-RESULTS = NULL
+#DATA_STR = "FR"
+DATA_STR = "GR"
+#RESULTS = NULL
+
+
+if(DATA_STR == "FR"){
+  DBLEARN = db$DB_FR
+  DBTEST = db$DB_GR
+}
+if(DATA_STR == "GR"){
+  DBLEARN = db$DB_GR
+  DBTEST = db$DB_FR
+}
+
 
 
 ################################################################################################
 ## M36~M0
 ################################################################################################
 
-PREDICTORS_STR = "SIMPLE"
+PREDICTORS_STR = "BASELINE"
 
 for(TARGET in db$col_targets){
     #TARGET = "TMTB_TIME.M36"
+    #TARGET = "MDRS_TOTAL.M36"
     PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
     PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
     if (!file.exists(PREFIX)) dir.create(PREFIX)
@@ -105,7 +118,7 @@ for(TARGET in db$col_targets){
         main=paste(TARGET," - true vs. pred - no CV - [R2=", loss.all[["R2"]],"]",sep=""))
     print(p); dev.off()
 
-    cat("\nGeneralize on German dataset:\n",file=LOG_FILE,append=TRUE)
+    cat("\nGeneralize on Test dataset:\n",file=LOG_FILE,append=TRUE)
     cat("-------------------------------\n",file=LOG_FILE,append=TRUE)
     y.preD_LEARN = predict(modlm.fr, D_LEARN)
     y.preD_TEST  = predict(modlm.fr, D_TEST)
@@ -116,14 +129,14 @@ for(TARGET in db$col_targets){
     pdf("all_glm_true-vs-pred_test.pdf")
     y.preD_TEST = as.vector(y.preD_TEST)
     p = qplot(D_TEST[,TARGET], y.preD_TEST, geom = c("smooth","point"), method="lm",
-        main=paste(TARGET," - true vs. pred - D - [R2=", loss.d[["R2"]] ,"]",sep=""))
+        main=paste(TARGET," - true vs. pred - TEST - [R2=", loss.d[["R2"]] ,"]",sep=""))
     print(p);dev.off()    
     
     sink(LOG_FILE, append = TRUE)
     print(rbind(c(center=1,loss.fr),c(center=2,loss.d)))
     sink()
     
-    res = data.frame(data=DATA_STR, target=TARGET, predictors="SIMPLE", dim=paste(dim(D_LEARN)[1], dim(D_LEARN)[2]-1, sep="x"),
+    res = data.frame(data=DATA_STR, target=TARGET, predictors="BASELINE", dim=paste(dim(D_LEARN)[1], dim(D_LEARN)[2]-1, sep="x"),
       r2_cv=loss.cv["R2"], cor_cv=loss.cv["cor"], fstat_cv=loss.cv["fstat"],
       r2_all=loss.all["R2"], cor_all=loss.all["R2"], r2_test=loss.d["R2"], cor_test=loss.d["cor"], fstat_test=loss.d["fstat"])
     if(is.null(RESULTS)) RESULTS = res else RESULTS = rbind(RESULTS, res)
@@ -133,7 +146,7 @@ for(TARGET in db$col_targets){
 ################################################################################################
 ## M36~clin
 ################################################################################################
-PREDICTORS_STR = "CLINIC"
+PREDICTORS_STR = "BASELINE+CLINIC"
 
 for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
@@ -193,9 +206,39 @@ for(TARGET in db$col_targets){
 }
 
 ################################################################################################
+## M36~BASELINE+NIGLOB
+################################################################################################
+PREDICTORS_STR = "BASELINE+NIGLOB"
+
+for(TARGET in db$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  baseline = strsplit(TARGET, "[.]")[[1]][1]
+  PREDICTORS = c(baseline, db$col_niglob)
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
+  if (!file.exists(PREFIX)) dir.create(PREFIX)
+  setwd(PREFIX)
+  D_LEARN = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
+  D_TEST = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
+  ## FR CV
+  y = D_LEARN[,TARGET]
+  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
+  dump("cv",file="cv.schema.R")
+  
+  Xtr = as.matrix(D_LEARN[, PREDICTORS])
+  ytr = D_LEARN[, TARGET]
+  Xte = as.matrix(D_TEST[, PREDICTORS])
+  yte = D_TEST[, TARGET]
+  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, LOG_FILE, FORCE.ALPHA, MOD.SEL.CV,
+                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
+  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET, log_file=LOG_FILE,
+                                    permutation.nb=PERMUTATION.NB)
+  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
+}
+
+################################################################################################
 ## M36~CLINIC+NIGLOB
 ################################################################################################
-PREDICTORS_STR = "CLINIC+NIGLOB"
+PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
 
 for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
