@@ -51,7 +51,7 @@ OUTPUT_LASTP_DENDROGRAM = os.path.join(OUTPUT_DIR, "dendrogram.lastp.svg")
 OUTPUT_DIR_FMT = os.path.join(OUTPUT_DIR, "{k:02}")
 OUTPUT_CENTER_FMT = os.path.join(OUTPUT_DIR_FMT, "{i:02}.mean.nii")
 OUTPUT_CLOSEST_SUBJECT_FMT = os.path.join(OUTPUT_DIR_FMT,
-                                          "{i:02}.nearest.{ID:03}.nii")
+                                          "{i:02}.nearest.{ID:04}.nii")
 
 ##############
 # Parameters #
