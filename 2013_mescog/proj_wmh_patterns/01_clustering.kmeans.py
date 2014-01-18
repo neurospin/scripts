@@ -67,7 +67,7 @@ binary_mask = mask != 0
 with open(INPUT_TRAIN_SUBJECTS) as f:
     TRAIN_SUBJECTS_ID = np.array([int(l) for l in f.readlines()])
 
-# Fitting
+# Fit each model (this is long)
 # We use fit_transform to return the distance to all centers
 # and then predict
 MODELS=[]
@@ -76,18 +76,29 @@ for k in K:
     model = sklearn.cluster.KMeans(n_clusters=k,
                                    init='k-means++',
                                    n_init=10,
-                                   n_jobs=1)
-    # Fit and return distance to each center
-    dst_to_centers = model.fit_transform(X)
+                                   n_jobs=1,
+                                   random_state=13031981)
+    # Fit
+    model.fit(X)
     MODELS.append(model)
+
+# Post-processing: reload model and compute some metrics
+#  - centers as images, closest-to-center subject
+#  - number of members in each cluster
+#  - inertia & BIC
+# This is fast (and can be re-run without fitting)
+INERTIA=np.zeros((len(K), 2))
+BIC=np.zeros((len(K), 2))
+for i, (k, model) in enumerate(zip(K, MODELS)):
+    # Return distance to each center
+    dst_to_centers = model.transform(X)
     # Assignement
     assign = model.predict(X)
     # Store model, distance to center & assignment
     output_dir = OUTPUT_DIR_FMT.format(k=k)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    model_filename = os.path.join(output_dir,
-                                 "model.pkl")
+    model_filename = os.path.join(output_dir, "model.pkl")
     with open(model_filename, "wb") as f:
         pickle.dump(model, f)
     dst_to_centers_filename = os.path.join(output_dir, "dst_to_centers.npy")
@@ -95,7 +106,7 @@ for k in K:
     assign_filename = os.path.join(output_dir, "assign.npy")
     np.save(assign_filename, assign)
     # Store centers as images, closest-to-center subject
-    # and umber of members in each cluster.
+    # and number of members in each cluster.
     n_points_per_cluster_filename = os.path.join(output_dir, "n_points_per_cluster.txt")
     f = open(n_points_per_cluster_filename, "w+")
     for i in range(k):
@@ -120,11 +131,6 @@ for k in K:
         name = OUTPUT_CENTER_FMT.format(k=k, i=i)
         nibabel.save(im, name)
     f.close()
-
-# Post-processing
-INERTIA=np.zeros((len(K), 2))
-BIC=np.zeros((len(K), 2))
-for i, (k, model) in enumerate(zip(K, MODELS)):
     INERTIA[i, 0] = k
     INERTIA[i, 1] = model.inertia_
     # Compute the BIC (http://stackoverflow.com/questions/15839774/how-to-calculate-bic-for-k-means-clustering-in-r)
