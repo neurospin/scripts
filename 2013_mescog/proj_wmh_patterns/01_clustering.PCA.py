@@ -6,6 +6,8 @@ Created on Wed Dec 18 13:42:39 2013
 
 Use PCA to find the most important axes in data.
 
+Use centered but not scaled data.
+
 TODO:
  - kernel PCA?
  - interpretation?
@@ -29,12 +31,10 @@ import nibabel
 INPUT_BASE_DIR = "/neurospin/"
 INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
                                  "mescog", "proj_wmh_patterns")
-INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
-                             "train.std.npy")
-INPUT_SUBJECTS_DIR = os.path.join(INPUT_BASE_DIR,
-                                  "mescog", "datasets")
-INPUT_SUBJECTS = os.path.join(INPUT_SUBJECTS_DIR,
-                              "CAD-WMH-MNI-subjects.without_outliers.txt")
+INPUT_TRAIN_DATASET = os.path.join(INPUT_DATASET_DIR,
+                                   "french.center.npy")
+INPUT_TRAIN_SUBJECTS = os.path.join(INPUT_DATASET_DIR,
+                                    "french-subjects.txt")
 INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
 
 OUTPUT_BASE_DIR = "/neurospin/"
@@ -46,9 +46,9 @@ if not os.path.exists(OUTPUT_DIR):
 OUTPUT_PCA = os.path.join(OUTPUT_DIR, "PCA.pkl")
 OUTPUT_COMP_DIR_FMT = os.path.join(OUTPUT_DIR, "{i:03}")
 OUTPUT_MIN_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
-                                      "min.{ind:03}.nii")
+                                      "min.{ID:04}.nii")
 OUTPUT_MAX_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
-                                      "max.{ind:03}.nii")
+                                      "max.{ID:04}.nii")
 
 ##############
 # Parameters #
@@ -61,8 +61,17 @@ N_COMP = 10
 #################
 
 # Read input data
-X = np.load(INPUT_DATASET)
+X = np.load(INPUT_TRAIN_DATASET)
 print "Data loaded: {s[0]}x{s[1]}".format(s=X.shape)
+
+# Read mask
+babel_mask = nibabel.load(INPUT_MASK)
+mask = babel_mask.get_data()
+binary_mask = mask != 0
+
+# Read subjects ID
+with open(INPUT_TRAIN_SUBJECTS) as f:
+    TRAIN_SUBJECTS_ID = np.array([int(l) for l in f.readlines()])
 
 # Compute decomposition
 PCA = sklearn.decomposition.PCA()
@@ -76,9 +85,6 @@ X_proj = PCA.transform(X)
 
 # Save the components into brain-like images
 # We also save the extremum subjects
-babel_mask = nibabel.load(INPUT_MASK)
-mask = babel_mask.get_data()
-binary_mask = mask != 0
 for i in range(N_COMP):
     # Create dir
     output_dir = OUTPUT_COMP_DIR_FMT.format(i=i)
@@ -92,8 +98,8 @@ for i in range(N_COMP):
     nibabel.save(comp_im, name)
     # Save image of extremum subjects for this component
     extremum_sub = (min_sub, max_sub) = (X_proj[:, i].argmin(), X_proj[:, i].argmax())
-    names = (OUTPUT_MIN_SUBJECT_FMT.format(i=i, ind=min_sub),
-             OUTPUT_MAX_SUBJECT_FMT.format(i=i, ind=max_sub))
+    names = (OUTPUT_MIN_SUBJECT_FMT.format(i=i, ID=TRAIN_SUBJECTS_ID[min_sub]),
+             OUTPUT_MAX_SUBJECT_FMT.format(i=i, ID=TRAIN_SUBJECTS_ID[max_sub]))
     for (index, name) in zip(extremum_sub, names):
         data = np.zeros(binary_mask.shape)
         data[binary_mask] = X[index, :]
