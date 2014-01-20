@@ -255,7 +255,7 @@ cv.regression.data.frame<-function(df, target, predictors, intercept, cv=NULL){
 do.a.lot.of.things.glmnet<-function(X, y, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
                                     bootstrap.nb=100, permutation.nb=100){
     log_file = paste("log_enet_",TARGET,"_", PREDICTORS_STR,".txt",sep="" )
-    RESULT = list(data=DATA_STR, , method="enet", target=TARGET, predictors=PREDICTORS_STR, dim=paste(dim(X), collapse="x"))
+    RESULT = list(data=DATA_STR, method="enet", target=TARGET, predictors=PREDICTORS_STR, dim=paste(dim(X), collapse="x"))
     #X=Xfr; y=yfr; log_file=paths$log_file;
     #cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=107)
     cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
@@ -811,54 +811,120 @@ do.a.lot.of.things.glm<-function(DBtr, DBte, TARGET, INTERCEPT, PREDICTORS, DATA
 ## ================
 ## MODEL COMPARISON
 ## ================
-compare.models<-function(f1, f2, cols1, cols2, D.FR, D.D, TARGET){
-
-    Xytr1    = get.X.y(D.FR[,cols1], TARGET, RM.FROM.PREDICTORS)
-    Xyte1     = get.X.y(D.D[,cols1],  TARGET, RM.FROM.PREDICTORS)
-    Xytr2    = get.X.y(D.FR[,cols2], TARGET, RM.FROM.PREDICTORS)
-    Xyte2     = get.X.y(D.D[,cols2],  TARGET, RM.FROM.PREDICTORS)
-    # mod1
-    load(f1)
-    all_enet1 = all_enet
-    rm(all_enet)
-    mod1.fr = all_enet1$mod.glmnet
-    y.pred1.fr = predict(mod1.fr, Xytr1$X)
-    y.pred1.d  = predict(mod1.fr, Xyte1$X)
-    loss1.fr = round(loss.reg(Xytr1$y, y.pred1.fr, df2=sum(all_enet1$coefs!=0)), digit=2)
-    loss1.d  = round(loss.reg(Xyte1$y,  y.pred1.d,  df2=sum(all_enet1$coefs!=0)), digit=2)
-    # mod2
-    load(f2)
-    all_enet2 = all_enet
-    rm(all_enet)
-    mod2.fr = all_enet2$mod.glmnet
-    y.pred2.fr = predict(mod2.fr, Xytr2$X)
-    y.pred2.d  = predict(mod2.fr, Xyte2$X)
-    loss2.fr = round(loss.reg(Xytr2$y, y.pred2.fr, df2=sum(all_enet2$coefs!=0)), digit=2)
-    loss2.d  = round(loss.reg(Xyte2$y,  y.pred2.d,  df2=sum(all_enet2$coefs!=0)), digit=2)
-
-    # predictors
-    w1 = as.matrix(all_enet1$mod.glmnet$beta)
-    w1.col = rownames(w1)
-    w1.col.nonnull = rownames(w1)[w1!=0]
-    w2 = as.matrix(all_enet2$mod.glmnet$beta)
-    w2.col = rownames(w2)
-    w2.col.nonnull = rownames(w2)[w2!=0]
-    # QC intersect(w1.col, w2.col) == w1.col
-    inter =intersect(w1.col.nonnull, w2.col.nonnull)
-    in1.not.in2 = setdiff(w1.col.nonnull, w2.col.nonnull)
-    in2.not.in1 = setdiff(w2.col.nonnull, w1.col.nonnull)
-    super2.nonnull = c(w1.col.nonnull, in2.not.in1) # 2 such 1 is nested in 2
-    
-    df1 = length(w1.col.nonnull) + 1
-    df2 = length(super2.nonnull) + 1
-    # QC all(Xyte1$y == Xyte2$y)
-
-    rss1.d = sum((y.pred1.d - Xyte1$y)^2)
-    rss2.d = sum((y.pred2.d - Xyte2$y)^2)
-
-    n = length(y.pred1.d)
-    fstat = ((rss1.d - rss2.d) / (df2 - df1)) / (rss2.d / (n - df1))
-
-    return(data.frame(var=TARGET, fstat=fstat, p.pval=1-pf(fstat, df2 - df1, n - df2), df1, df2, n.pred1=length(w1.col.nonnull), n.pred2=length(w2.col.nonnull), n.in1.not.in2=length(in1.not.in2), n.in2.not.in1=length(in2.not.in1), in2.not.in1=paste(in2.not.in1, collapse=","), R2.1.d=loss1.d["R2"], R2.2.d=loss2.d["R2"]))
+compare.models<-function(mod1_path, mod2_path, dbtr, dbte, target){
+  
+  dbtr = dbtr[!is.na(dbtr[, target]), ]
+  dbte = dbte[!is.na(dbte[, target]), ]
+  
+  mod_path = mod1_path
+  
+  if(exists("all_glm")) rm(all_glm)
+  if(exists("all_enet")) rm(all_enet)  
+  load(mod_path)
+  if(exists("all_glm")){
+    rm(all_glm)
+  }
+  if(exists("all_enet")){
+    modall_enet1$mod.glmnet
+  }
+  
+  all_enet1 = all_enet
+  if(exists("all_glm")) rm(all_glm)
+  if(exists("all_enet")) rm(all_enet)
+  load(mod2_path)
+  all_enet2 = all_enet
+  w1 = as.matrix(all_enet1$mod.glmnet$beta)
+  w1.col = rownames(w1)
+  w1.col.nonnull = rownames(w1)[w1!=0]
+  w2 = as.matrix(all_enet2$mod.glmnet$beta)
+  w2.col = rownames(w2)
+  w2.col.nonnull = rownames(w2)[w2!=0]
+  
+  Xtr1 = as.matrix(dbtr[, rownames(w1)])
+  Xte1 = as.matrix(dbte[, rownames(w1)])
+  Xtr2 = as.matrix(dbtr[, rownames(w2)])
+  Xte2 = as.matrix(dbte[, rownames(w2)])
+  ytr1 = dbtr[, target]
+  yte1 = dbte[, target]
+  ytr2 = dbtr[, target]
+  yte2 = dbte[, target]
+  
+  all((predict(all_enet1$mod.glmnet, Xtr1) - all_enet1$preds) == 0)
+  all((predict(all_enet2$mod.glmnet, Xtr2) - all_enet2$preds) == 0)
+  
+  ypred1 = predict(all_enet1$mod.glmnet, Xte1)
+  ypred2 = predict(all_enet2$mod.glmnet, Xte2)
+  
+  loss1 = round(loss.reg(yte1, ypred1, df2=sum(all_enet1$coefs!=0)), digit=2)
+  loss2 = round(loss.reg(yte2, ypred2, df2=sum(all_enet2$coefs!=0)), digit=2)
+  
+  inter =intersect(w1.col.nonnull, w2.col.nonnull)
+  in1.not.in2 = setdiff(w1.col.nonnull, w2.col.nonnull)
+  in2.not.in1 = setdiff(w2.col.nonnull, w1.col.nonnull)
+  super2.nonnull = c(w1.col.nonnull, in2.not.in1) # 2 such 1 is nested in 2
+  
+  df1 = length(w1.col.nonnull) + 1
+  df2 = length(super2.nonnull) + 1
+  # QC all(Xyte1$y == Xyte2$y)
+  
+  rsste1 = sum((yte1 - ypred1)^2)
+  rsste2 = sum((yte2 - ypred2)^2)
+  
+  n = length(yte1)
+  fstat = ((rsste1 - rsste2) / (df2 - df1)) / (rsste2 / (n - df1))
+  
+  pval=1-pf(fstat, df2 - df1, n - df2)
+  return(data.frame(var=target, fstat=fstat, pval=pval, df1, df2, p1=length(w1.col.nonnull), p2=length(w2.col.nonnull), n.in1.not.in2=length(in1.not.in2), n.in2.not.in1=length(in2.not.in1), in2.not.in1=paste(in2.not.in1, collapse=","), R2.test.1=loss1["R2"], R2.test.2=loss2["R2"]))
 }
+
+# compare.models<-function(f1, f2, cols1, cols2, D.FR, D.D, TARGET){
+# 
+#     Xytr1    = get.X.y(D.FR[,cols1], TARGET, RM.FROM.PREDICTORS)
+#     Xyte1     = get.X.y(D.D[,cols1],  TARGET, RM.FROM.PREDICTORS)
+#     Xytr2    = get.X.y(D.FR[,cols2], TARGET, RM.FROM.PREDICTORS)
+#     Xyte2     = get.X.y(D.D[,cols2],  TARGET, RM.FROM.PREDICTORS)
+#     # mod1
+#     load(f1)
+#     all_enet1 = all_enet
+#     rm(all_enet)
+#     mod1.fr = all_enet1$mod.glmnet
+#     y.pred1.fr = predict(mod1.fr, Xytr1$X)
+#     y.pred1.d  = predict(mod1.fr, Xyte1$X)
+#     loss1.fr = round(loss.reg(Xytr1$y, y.pred1.fr, df2=sum(all_enet1$coefs!=0)), digit=2)
+#     loss1.d  = round(loss.reg(Xyte1$y,  y.pred1.d,  df2=sum(all_enet1$coefs!=0)), digit=2)
+#     # mod2
+#     load(f2)
+#     all_enet2 = all_enet
+#     rm(all_enet)
+#     mod2.fr = all_enet2$mod.glmnet
+#     y.pred2.fr = predict(mod2.fr, Xytr2$X)
+#     y.pred2.d  = predict(mod2.fr, Xyte2$X)
+#     loss2.fr = round(loss.reg(Xytr2$y, y.pred2.fr, df2=sum(all_enet2$coefs!=0)), digit=2)
+#     loss2.d  = round(loss.reg(Xyte2$y,  y.pred2.d,  df2=sum(all_enet2$coefs!=0)), digit=2)
+# 
+#     # predictors
+#     w1 = as.matrix(all_enet1$mod.glmnet$beta)
+#     w1.col = rownames(w1)
+#     w1.col.nonnull = rownames(w1)[w1!=0]
+#     w2 = as.matrix(all_enet2$mod.glmnet$beta)
+#     w2.col = rownames(w2)
+#     w2.col.nonnull = rownames(w2)[w2!=0]
+#     # QC intersect(w1.col, w2.col) == w1.col
+#     inter =intersect(w1.col.nonnull, w2.col.nonnull)
+#     in1.not.in2 = setdiff(w1.col.nonnull, w2.col.nonnull)
+#     in2.not.in1 = setdiff(w2.col.nonnull, w1.col.nonnull)
+#     super2.nonnull = c(w1.col.nonnull, in2.not.in1) # 2 such 1 is nested in 2
+#     
+#     df1 = length(w1.col.nonnull) + 1
+#     df2 = length(super2.nonnull) + 1
+#     # QC all(Xyte1$y == Xyte2$y)
+# 
+#     rss1.d = sum((y.pred1.d - Xyte1$y)^2)
+#     rss2.d = sum((y.pred2.d - Xyte2$y)^2)
+# 
+#     n = length(y.pred1.d)
+#     fstat = ((rss1.d - rss2.d) / (df2 - df1)) / (rss2.d / (n - df1))
+# 
+#     return(data.frame(var=TARGET, fstat=fstat, p.pval=1-pf(fstat, df2 - df1, n - df2), df1, df2, n.pred1=length(w1.col.nonnull), n.pred2=length(w2.col.nonnull), n.in1.not.in2=length(in1.not.in2), n.in2.not.in1=length(in2.not.in1), in2.not.in1=paste(in2.not.in1, collapse=","), R2.1.d=loss1.d["R2"], R2.2.d=loss2.d["R2"]))
+# }
 

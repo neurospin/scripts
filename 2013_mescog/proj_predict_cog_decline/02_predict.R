@@ -3,13 +3,31 @@ require(glmnet)
 require(ggplot2)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-BASE_DIR = "/neurospin/mescog/2014_mescog_predict_cog_decline"
+BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 #setwd(WD)
 INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140110.csv", sep="/")
 source(paste(SRC,"utils.R",sep="/"))
-OUTPUT = paste(BASE_DIR, "results_201401", sep="/")
+TO_REMOVE = c("LLVn", "WMHVn")
 
-OUTPUT_SUMMARY = paste(OUTPUT, "results_summary.csv")
+################################################################################################
+##OUTPUT = paste(BASE_DIR, "20140115_all-predictors", sep="/")
+
+################################################################################################
+#OUTPUT = paste(BASE_DIR, "20140120_remove-predictors", sep="/")
+#TO_REMOVE= c(TO_REMOVE, "DELTA_BP", "TRIGLY", "MIGRAINE_WITH_AURA", "AVC", "TRBEQUILIBRE", "TRBMARCHE", "DEMENTIA",
+#"HYPERTENSION", "HYPERCHOL", "HDL", "FAST_GLUC", "NIHSS", "LLcount")
+
+################################################################################################
+OUTPUT = paste(BASE_DIR, "20140120_remove-predictors_butnotLLcount", sep="/")
+TO_REMOVE= c(TO_REMOVE, "DELTA_BP", "TRIGLY", "MIGRAINE_WITH_AURA", "AVC", "TRBEQUILIBRE", "TRBMARCHE", "DEMENTIA",
+             "HYPERTENSION", "HYPERCHOL", "HDL", "FAST_GLUC", "NIHSS")
+
+
+if (!file.exists(OUTPUT)) dir.create(OUTPUT)
+OUTPUT_SUMMARY = paste(OUTPUT, "results_summary.csv", sep="/")
+
+# rsync -azvun --delete /neurospin/mescog/proj_predict_cog_decline ~/data/
+# rsync -azvun --delete  ~/data/proj_predict_cog_decline /neurospin/mescog/
 
 ################################################################################################
 ## READ INPUT
@@ -18,7 +36,9 @@ db = read_db(INPUT_DATA)
 dim(db$DB_FR)# 239  42
 dim(db$DB_GR)# 126  42
 # remove normalized niglob variables
-db$col_niglob = db$col_niglob[!(db$col_niglob %in% c("LLVn", "WMHVn"))]
+
+db$col_niglob = db$col_niglob[!(db$col_niglob %in% TO_REMOVE)]
+db$col_clinic = db$col_clinic[!(db$col_clinic %in% TO_REMOVE)]
 
 #lgenim()
 #FORCE.ALPHA=1 #lasso
@@ -31,7 +51,7 @@ MOD.SEL.CV = "manual.cv.lambda.min"
 #MOD.SEL.CV = "auto.max.cor"
 #MOD.SEL.CV = "auto.min.mse"
 
-BOOTSTRAP.NB=10; PERMUTATION.NB=10
+BOOTSTRAP.NB=100; PERMUTATION.NB=100
 #DATA_STR = "FR"
 DATA_STR = "GR"
 RESULTS = NULL
@@ -46,10 +66,8 @@ if(DATA_STR == "GR"){
   DBTEST = db$DB_FR
 }
 
-
-
 ################################################################################################
-## M36~BASELINE
+## GLM: M36~BASELINE
 ################################################################################################
 
 PREDICTORS_STR = "BASELINE_NOINTER"
@@ -57,7 +75,7 @@ for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   #TARGET = "MDRS_TOTAL.M36"
   PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM_", TARGET, "~", PREDICTORS_STR, sep="")
   if (!file.exists(PREFIX)) dir.create(PREFIX)
   setwd(PREFIX)
   DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
@@ -66,12 +84,12 @@ for(TARGET in db$col_targets){
                          BOOTSTRAP.NB, PERMUTATION.NB)
   if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
 }
-PREDICTORS_STR = "BASELINE_INTER"
+PREDICTORS_STR = "BASELINE"
 for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   #TARGET = "MDRS_TOTAL.M36"
   PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM_", TARGET, "~", PREDICTORS_STR, sep="")
   if (!file.exists(PREFIX)) dir.create(PREFIX)
   setwd(PREFIX)
   DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
@@ -82,14 +100,97 @@ for(TARGET in db$col_targets){
 }
 
 ################################################################################################
-## M36~clin
+## GLM: M36~NIGLOB
+################################################################################################
+PREDICTORS_STR = "NIGLOB"
+for(TARGET in db$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  #TARGET = "MDRS_TOTAL.M36"
+  PREDICTORS = db$col_niglob
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM_", TARGET, "~", PREDICTORS_STR, sep="")
+  if (!file.exists(PREFIX)) dir.create(PREFIX)
+  setwd(PREFIX)
+  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
+  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
+  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, TRUE, PREDICTORS, DATA_STR, PREDICTORS_STR,
+                               BOOTSTRAP.NB, PERMUTATION.NB)
+  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
+}
+
+################################################################################################
+## ENET: M36~NIGLOB
+################################################################################################
+PREDICTORS_STR = "NIGLOB"
+
+for(TARGET in db$col_targets){
+  #TARGET =  "MMSE.M36"
+  #TARGET = "TMTB_TIME.M36"
+  #TARGET = "MMSE.M36"
+  PREDICTORS = db$col_niglob
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET_", TARGET, "~", PREDICTORS_STR, sep="")
+  if (!file.exists(PREFIX)) dir.create(PREFIX)
+  setwd(PREFIX)
+  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
+  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
+  ## FR CV
+  y = DBtr[,TARGET]
+  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
+  dump("cv",file="cv.schema.R")
+  
+  Xtr = as.matrix(DBtr[, PREDICTORS])
+  ytr = DBtr[, TARGET]
+  Xte = as.matrix(DBte[, PREDICTORS])
+  yte = DBte[, TARGET]
+  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
+                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
+  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
+                                    permutation.nb=PERMUTATION.NB)
+  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
+}
+
+################################################################################################
+## GLM: M36~BASELINE+NIGLOB
+################################################################################################
+PREDICTORS_STR = "BASELINE+NIGLOB_NOINTER"
+for(TARGET in db$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  #TARGET = "MDRS_TOTAL.M36"
+  baseline = strsplit(TARGET, "[.]")[[1]][1]
+  PREDICTORS = c(baseline, db$col_niglob)
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM_", TARGET, "~", PREDICTORS_STR, sep="")
+  if (!file.exists(PREFIX)) dir.create(PREFIX)
+  setwd(PREFIX)
+  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
+  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
+  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, FALSE, PREDICTORS, DATA_STR, PREDICTORS_STR,
+                               BOOTSTRAP.NB, PERMUTATION.NB)
+  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
+}
+PREDICTORS_STR = "BASELINE+NIGLOB_INTER"
+for(TARGET in db$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  #TARGET = "MDRS_TOTAL.M36"
+  baseline = strsplit(TARGET, "[.]")[[1]][1]
+  PREDICTORS = c(baseline, db$col_niglob)
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM_", TARGET, "~", PREDICTORS_STR, sep="")
+  if (!file.exists(PREFIX)) dir.create(PREFIX)
+  setwd(PREFIX)
+  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
+  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
+  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, TRUE, PREDICTORS, DATA_STR, PREDICTORS_STR,
+                               BOOTSTRAP.NB, PERMUTATION.NB)
+  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
+}
+
+################################################################################################
+## ENET: M36~BASELINE+CLINIC
 ################################################################################################
 PREDICTORS_STR = "BASELINE+CLINIC"
 
 for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   PREDICTORS = db$col_clinic
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET", TARGET, "~", PREDICTORS_STR, sep="")
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET_", TARGET, "~", PREDICTORS_STR, sep="")
   if (!file.exists(PREFIX)) dir.create(PREFIX)
   setwd(PREFIX)
   DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
@@ -112,39 +213,9 @@ for(TARGET in db$col_targets){
   if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
 }
 
-################################################################################################
-## M36~NIGLOB
-################################################################################################
-PREDICTORS_STR = "NIGLOB"
-
-for(TARGET in db$col_targets){
-  #TARGET =  "MMSE.M36"
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MMSE.M36"
-  PREDICTORS = db$col_niglob
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  ## FR CV
-  y = DBtr[,TARGET]
-  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
-  dump("cv",file="cv.schema.R")
-  
-  Xtr = as.matrix(DBtr[, PREDICTORS])
-  ytr = DBtr[, TARGET]
-  Xte = as.matrix(DBte[, PREDICTORS])
-  yte = DBte[, TARGET]
-  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
-                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
-  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
-                                    permutation.nb=PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
-}
 
 ################################################################################################
-## M36~BASELINE+NIGLOB
+## ENET: M36~BASELINE+NIGLOB
 ################################################################################################
 PREDICTORS_STR = "BASELINE+NIGLOB"
 
@@ -152,7 +223,7 @@ for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   baseline = strsplit(TARGET, "[.]")[[1]][1]
   PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET_", TARGET, "~", PREDICTORS_STR, sep="")
   if (!file.exists(PREFIX)) dir.create(PREFIX)
   setwd(PREFIX)
   DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
@@ -173,46 +244,16 @@ for(TARGET in db$col_targets){
   if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
 }
 
-PREDICTORS_STR = "BASELINE+NIGLOB_NOINTER"
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  baseline = strsplit(TARGET, "[.]")[[1]][1]
-  PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, FALSE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                               BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
-PREDICTORS_STR = "BASELINE+NIGLOB_INTER"
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  baseline = strsplit(TARGET, "[.]")[[1]][1]
-  PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, TRUE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                               BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
 
 ################################################################################################
-## M36~CLINIC+NIGLOB
+## ENET: M36~CLINIC+NIGLOB
 ################################################################################################
 PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
 
 for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   PREDICTORS = c(db$col_clinic, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
+  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET_", TARGET, "~", PREDICTORS_STR, sep="")
   if (!file.exists(PREFIX)) dir.create(PREFIX)
   setwd(PREFIX)
   DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
