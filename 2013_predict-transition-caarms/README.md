@@ -78,7 +78,9 @@ Voici les items de la CAARMS qui interviennnent:
  0.063421  @7.6 trouble obsessionel et compulsif (t=-2.25, p=0.033332)
  0.011630  @7.7 symptomes dissociatifs (t=-1.53, p=0.136)
 
-Le chiffre à coté donne le poids (plus il est grand EN VALEUR ABSOLUE) plus l'item participe à la prédiction
+Signe positif + on est X moins on transite
+
+4.3 et 7.2 très corrélés
 
 la normalisation de Pre-Morbid Adjustment scale (PAS2gr) et de l'exposition au canabis (CB_EXPO) dégrade considérablement les résultats.
 

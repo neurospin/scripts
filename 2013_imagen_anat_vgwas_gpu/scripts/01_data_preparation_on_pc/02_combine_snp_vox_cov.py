@@ -46,7 +46,7 @@ OUT_IMAGE_NO_CERE_NPZ = os.path.join(OUT_DIR, 'images_without_cerebellum')
 OUT_TR_IMAGE_NPZ = os.path.join(OUT_DIR, 'tr_image')
 OUT_TR_IMAGE_NO_CERE_NPZ = os.path.join(OUT_DIR, 'tr_images_without_cerebellum')
 COVARIATE_CSV = os.path.join(BASE_DIR, 'inputdata', '1534bmi-vincent2.csv')
-
+OUT_SORTED_SUBJECT_LIST = os.path.join(OUT_DIR, 'sorted_subject_list.npy')
 
 cfn = COVARIATE_CSV
 # load this file to check that there are 1534 common subjects accros
@@ -76,6 +76,9 @@ indices_geno_subj = np.in1d(np.asarray(geno_subj), np.asarray(cov_subj))
 
 o1 = np.argsort(np.asarray(cov_subj)[indices_cov_subj])
 o2 = np.argsort(np.asarray(geno_subj)[indices_geno_subj])
+
+np.save(OUT_SORTED_SUBJECT_LIST,
+        np.asarray(cov_subj)[indices_cov_subj][o1])
 
 print "intersetion nb = ", nb_samples
 print "nb from indices_cov_subj = ", np.sum(indices_cov_subj)
