@@ -8,6 +8,7 @@ Compute some statistics on data:
  - compute the average image (average accross subjects)
  - describe dataset and average image (main statistics)
  - histogram of average image (inside the MNI mask)
+ - histogram of number of voxel showing WMH
 
 """
 
@@ -49,6 +50,8 @@ OUTPUT_HIST_AVERAGE_ZERO = os.path.join(OUTPUT_DIR,
                                         "X_average_mask.hist.png")
 OUTPUT_HIST_AVERAGE_NON_ZERO = os.path.join(OUTPUT_DIR,
                                             "X_average_mask.non_zero.hist.png")
+OUTPUT_HIST_N_VOX_NON_ZERO = os.path.join(OUTPUT_DIR,
+                                          "n_non_zero.hist.png")
 
 ##############
 # Parameters #
@@ -98,6 +101,8 @@ X_mask_desc.to_csv(OUTPUT_X_MASK_STATISTICS, header=False, sep=':')
 X_average_mask_desc = pd.DataFrame(X_average_mask).describe()
 X_average_mask_desc.to_csv(OUTPUT_X_AVERAGE_MASK_STATISTICS, header=False, sep=':')
 
+n_vox_non_zero = X_mask.sum(axis=1)
+
 # Plot some histograms
 import matplotlib.pyplot as plt
 
@@ -118,3 +123,11 @@ x_average_non_zero_hist.suptitle("Histogram of average subject (>{thresh})"
 plt.xlabel('Value')
 plt.ylabel('# of occurences')
 plt.savefig(OUTPUT_HIST_AVERAGE_NON_ZERO)
+
+# Histogram number of voxels
+n_vox_non_zero_hist = plt.figure()
+plt.hist(n_vox_non_zero, bins=10)
+n_vox_non_zero_hist.suptitle("Histogram of the number of non-zero voxels per-subject")
+plt.xlabel('Value')
+plt.ylabel('# of occurences')
+plt.savefig(OUTPUT_HIST_N_VOX_NON_ZERO)

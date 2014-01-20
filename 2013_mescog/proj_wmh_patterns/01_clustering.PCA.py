@@ -33,6 +33,9 @@ INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
                                  "mescog", "proj_wmh_patterns")
 INPUT_TRAIN_DATASET = os.path.join(INPUT_DATASET_DIR,
                                    "french.center.npy")
+# We need the original dataset for display
+INPUT_ORIG_DATASET = os.path.join(INPUT_DATASET_DIR,
+                                  "french.npy")
 INPUT_TRAIN_SUBJECTS = os.path.join(INPUT_DATASET_DIR,
                                     "french-subjects.txt")
 INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
@@ -63,6 +66,7 @@ N_COMP = 10
 # Read input data
 X = np.load(INPUT_TRAIN_DATASET)
 print "Data loaded: {s[0]}x{s[1]}".format(s=X.shape)
+X_orig = np.load(INPUT_ORIG_DATASET)
 
 # Read mask
 babel_mask = nibabel.load(INPUT_MASK)
@@ -102,43 +106,52 @@ for i in range(N_COMP):
              OUTPUT_MAX_SUBJECT_FMT.format(i=i, ID=TRAIN_SUBJECTS_ID[max_sub]))
     for (index, name) in zip(extremum_sub, names):
         data = np.zeros(binary_mask.shape)
-        data[binary_mask] = X[index, :]
+        data[binary_mask] = X_orig[index, :]
         im = nibabel.Nifti1Image(data, babel_mask.get_affine())
         nibabel.save(im, name)
 
-# Plot percentage of explained variance
+# Store and plot percentage of explained variance
 explained_variance = PCA.explained_variance_ratio_
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.txt")
+np.savetxt(filename, explained_variance)
 explained_variance_cumsum = explained_variance.cumsum()
+filename=os.path.join(OUTPUT_DIR,
+                      "explained_variance.cumsum.txt")
+np.savetxt(filename, explained_variance_cumsum)
+x_max = explained_variance.shape[0] + 1
 
 import matplotlib.pyplot as plt
 explained_variance_fig = plt.figure()
-plt.plot(explained_variance)
+plt.plot(range(1, x_max), explained_variance)
 explained_variance_fig.suptitle('Ratio of explained variance')
 plt.xlabel('Rank')
 plt.ylabel('Explained variance ratio')
 filename=os.path.join(OUTPUT_DIR,
                       "explained_variance.png")
 plt.savefig(filename)
-# Zoom in [0, N_COMP]
+# Zoom in [1, N_COMP+1]
 axes = explained_variance_fig.axes
-axes[0].set_xlim([0, N_COMP])
-axes[0].set_ylim([explained_variance[N_COMP], explained_variance[0]])
+axes[0].set_xlim([1, N_COMP+1])
+axes[0].set_ylim([explained_variance[N_COMP], explained_variance[0]+0.05])
+plt.xticks(np.arange(1, N_COMP+1, 1.0))
 filename=os.path.join(OUTPUT_DIR,
                       "explained_variance.zoom.png")
 plt.savefig(filename)
 
 explained_variance_cumsum_fig = plt.figure()
-plt.plot(explained_variance_cumsum)
+plt.plot(range(1, x_max), explained_variance_cumsum)
 explained_variance_cumsum_fig.suptitle('Ratio of explained variance (cumsum)')
 plt.xlabel('Rank')
 plt.ylabel('Explained variance ratio')
 filename=os.path.join(OUTPUT_DIR,
                       "explained_variance_cumsum.png")
 plt.savefig(filename)
-# Zoom in [0, N_COMP]
+# Zoom in [1, N_COMP+1]
 axes = explained_variance_cumsum_fig.axes
-axes[0].set_xlim([0, N_COMP])
-axes[0].set_ylim([explained_variance_cumsum[0], explained_variance_cumsum[N_COMP]])
+axes[0].set_xlim([1, N_COMP+1])
+axes[0].set_ylim([explained_variance_cumsum[0], explained_variance_cumsum[N_COMP]+0.05])
+plt.xticks(np.arange(1, N_COMP+1, 1.0))
 filename=os.path.join(OUTPUT_DIR,
                       "explained_variance_cumsum.zoom.png")
 plt.savefig(filename)

@@ -118,7 +118,7 @@ for nb in n_clusters:
     T = scipy.cluster.hierarchy.fcluster(Z,
                                          criterion='maxclust',
                                          t=nb)
-    # The fcluster function numbers cluster for 1 to nb.
+    # The fcluster function numbers cluster from 1 to nb.
     # For consistency with other scripts we number them from 0 to nb-1.
     T = T - 1
     TS.append(T)
@@ -130,19 +130,22 @@ for nb in n_clusters:
     assign_filename = os.path.join(output_dir, "assign.npy")
     np.save(assign_filename, T)
     # Find cluster centers
-    centers = []
+    centers = np.zeros((nb, p))
     for i in range(nb):
         index = np.where(T == i)[0]
         # Compute center
         all_data = X[index]
         mean_data = all_data.mean(axis=0)
-        centers.append(mean_data)
+        centers[i] = mean_data
         # Create image of center and save it
         im_data = np.zeros(mask.shape)
         im_data[binary_mask] = mean_data
         im = nibabel.Nifti1Image(im_data, babel_mask.get_affine())
         filename = OUTPUT_CENTER_FMT.format(k=nb, i=i)
         nibabel.save(im, filename)
+    # Save the centers
+    centers_filename = os.path.join(output_dir, "centers.npy")
+    np.save(centers_filename, centers)
     # Compute distance to all center (as in kmeans)
     dst_to_centers = scipy.spatial.distance.cdist(X, centers)
     dst_to_centers_filename = os.path.join(output_dir, "dst_to_centers.npy")
