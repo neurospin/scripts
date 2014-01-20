@@ -33,6 +33,9 @@ INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
                                  "mescog", "proj_wmh_patterns")
 INPUT_TRAIN_DATASET = os.path.join(INPUT_DATASET_DIR,
                                    "french.center.npy")
+# We need the original dataset for display
+INPUT_ORIG_DATASET = os.path.join(INPUT_DATASET_DIR,
+                                  "french.npy")
 INPUT_TRAIN_SUBJECTS = os.path.join(INPUT_DATASET_DIR,
                                     "french-subjects.txt")
 INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
@@ -63,6 +66,7 @@ N_COMP = 10
 # Read input data
 X = np.load(INPUT_TRAIN_DATASET)
 print "Data loaded: {s[0]}x{s[1]}".format(s=X.shape)
+X_orig = np.load(INPUT_ORIG_DATASET)
 
 # Read mask
 babel_mask = nibabel.load(INPUT_MASK)
@@ -102,7 +106,7 @@ for i in range(N_COMP):
              OUTPUT_MAX_SUBJECT_FMT.format(i=i, ID=TRAIN_SUBJECTS_ID[max_sub]))
     for (index, name) in zip(extremum_sub, names):
         data = np.zeros(binary_mask.shape)
-        data[binary_mask] = X[index, :]
+        data[binary_mask] = X_orig[index, :]
         im = nibabel.Nifti1Image(data, babel_mask.get_affine())
         nibabel.save(im, name)
 
