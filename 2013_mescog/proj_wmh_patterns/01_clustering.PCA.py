@@ -46,7 +46,8 @@ OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-OUTPUT_PCA = os.path.join(OUTPUT_DIR, "PCA.pkl")
+OUTPUT_PCA_COMP = os.path.join(OUTPUT_DIR, "PCA.npy")
+OUTPUT_PCA_PROJ = os.path.join(OUTPUT_DIR, "proj.npy")
 OUTPUT_COMP_DIR_FMT = os.path.join(OUTPUT_DIR, "{i:03}")
 OUTPUT_MIN_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
                                       "min.{ID:04}.nii")
@@ -80,12 +81,15 @@ with open(INPUT_TRAIN_SUBJECTS) as f:
 # Compute decomposition
 PCA = sklearn.decomposition.PCA()
 PCA.fit(X)
-with open(OUTPUT_PCA, "wb") as f:
-    pickle.dump(PCA, f)
 
-# Project subjects onto dimensions
+# Store components
+np.save(OUTPUT_PCA_COMP, PCA.components_)
+
+# Project subjects onto PC & save it
 # scikit-learn projects on min(n_samples, n_features)
 X_proj = PCA.transform(X)
+
+np.save(OUTPUT_PCA_PROJ, X_proj)
 
 # Save the components into brain-like images
 # We also save the extremum subjects
