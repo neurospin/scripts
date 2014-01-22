@@ -7,8 +7,8 @@ Created on Wed Dec 18 13:45:32 2013
 Create a mask from all the data and then split dataset for clustering.
 We separate French subjects (id < 2000) from German ones (id >= 2000).
 It should work even if the subject ID file is not sorted.
-The mask is any voxel which has a WMH on a subject (+ intersection
-with MNI mask).
+The mask is any voxel which has a WMH on a subject (by construction,
+it is a subset of MNI mask).
 Optionnaly center data.
 
 INPUT:
@@ -48,11 +48,14 @@ INPUT_BASE_DIR = "/neurospin/"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "mescog", "datasets")
 INPUT_DATASET = os.path.join(INPUT_DIR,
-                             "CAD-WMH-MNI.without_outliers.npy")
+                             "CAD-WMH-MNI.npy")
 INPUT_SUBJECTS = os.path.join(INPUT_DIR,
-                              "CAD-WMH-MNI-subjects.without_outliers.txt")
-INPUT_MASK = os.path.join(INPUT_DIR,
-                          "MNI152_T1_2mm_brain_mask.nii.gz")
+                              "CAD-WMH-MNI-subjects.txt")
+
+INPUT_RESOURCES_DIR = os.path.join(INPUT_BASE_DIR,
+                                   "mescog", "neuroimaging", "ressources")
+INPUT_MASK = os.path.join(INPUT_RESOURCES_DIR,
+                          "MNI152_T1_1mm_brain_mask.nii.gz")
 
 OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
@@ -75,18 +78,19 @@ OUTPUT_SCALER = os.path.join(OUTPUT_DIR, "scaler.pkl")
 ##############
 
 MAX_TRAIN_ID = 2000
-IM_SHAPE = (91, 109, 91)
+IM_SHAPE = (182, 218, 182)
 
 #################
 # Actual script #
 #################
 
-# Read data
+# Read subjects
 with open(INPUT_SUBJECTS) as f:
     subjects_id = np.asarray([int(line.rstrip()) for line in f.readlines()])
 n_subjects = len(subjects_id)
 print "Found", n_subjects, "subjects"
 
+# Read masked images
 X = np.load(INPUT_DATASET)
 ORIG_SHAPE = X.shape
 print "Loaded images dataset {s}".format(s=ORIG_SHAPE)
@@ -97,21 +101,15 @@ mni_mask = babel_mni_mask.get_data() != 0
 n_voxels_in_mask = np.count_nonzero(mni_mask)
 print "MNI mask: {n} voxels".format(n=n_voxels_in_mask)
 
-# Extract features
+# Extract features (it is a subset of MNI mask)
 features_mask = np.any(X != 0, axis=0)
-n_features = np.count_nonzero(features_mask)
+mask_index = np.where(features_mask)[0]
+n_features = mask_index.shape[0]
 print "Found {n} features".format(n=n_features)
-features_mask.shape = IM_SHAPE
-features_mask_babel = nibabel.Nifti1Image(features_mask.astype(np.uint8),
-                                          babel_mni_mask.get_affine())
-nibabel.save(features_mask_babel, OUTPUT_FEATURES_MASK)
 
 # Create mask & save it
-mask = np.logical_and(mni_mask, features_mask)
-mask_lin = mask.ravel()
-n_extracted_voxels = np.count_nonzero(mask)
-print "Gonna extract {n} voxels".format(n=n_extracted_voxels)
-mask_index = np.where(mask_lin)[0]
+mask = np.zeros(mni_mask.shape, dtype=bool)
+mask[mni_mask] = features_mask
 mask_babel = nibabel.Nifti1Image(mask.astype(np.uint8),
                                  babel_mni_mask.get_affine())
 nibabel.save(mask_babel, OUTPUT_MASK)
