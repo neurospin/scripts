@@ -52,7 +52,7 @@ if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 OUTPUT_PCA_COMP = os.path.join(OUTPUT_DIR, "PCA.npy")
-OUTPUT_PCA_PROJ = os.path.join(OUTPUT_DIR, "proj.npy")
+OUTPUT_PCA_PROJ = os.path.join(OUTPUT_DIR, "X_proj.npy")
 OUTPUT_COMP_DIR_FMT = os.path.join(OUTPUT_DIR, "{i:03}")
 OUTPUT_MIN_SUBJECT_FMT = os.path.join(OUTPUT_COMP_DIR_FMT,
                                       "min.{ID:04}.nii")
@@ -194,11 +194,12 @@ for i in range(N_COMP):
     pca_age_fig.suptitle("Distribution of age along the"
                          " {n_comp}th component".format(n_comp=i+1))
     ax = plt.gca()
-    ax.spines['left'].set_position('zero')
-    ax.spines['right'].set_color('none')
+    #    ax.spines['left'].set_position('zero')
+    #    ax.spines['right'].set_color('none')
     plt.xlabel('PCA_{n_comp}'.format(n_comp=i+1))
-    plt.text(x=0, y=92, s='age', horizontalalignment='left',
-             verticalalignment='bottom')
+    plt.ylabel("Age")
+    #    plt.text(x=0, y=92, s='age', horizontalalignment='left',
+    #             verticalalignment='bottom')
     NAME = os.path.join(OUTPUT_PLOT_FMT.format(feature="age", n_comp=i))
     plt.savefig(NAME)
     # Brain volume distribution
@@ -207,11 +208,12 @@ for i in range(N_COMP):
     pca_volume_fig.suptitle("Distribution of brain volume along the"
                             " {n_comp}th component".format(n_comp=i+1))
     ax = plt.gca()
-    ax.spines['left'].set_position('zero')
-    ax.spines['right'].set_color('none')
+    #    ax.spines['left'].set_position('zero')
+    #    ax.spines['right'].set_color('none')
     plt.xlabel('PCA_{n_comp}'.format(n_comp=i+1))
-    plt.text(x=0, y=92, s='brain volume', horizontalalignment='left',
-             verticalalignment='bottom')
+    plt.ylabel('Brain volume')
+    #    plt.text(x=0, y=92, s='brain volume', horizontalalignment='left',
+    #             verticalalignment='bottom')
     NAME = OUTPUT_PLOT_FMT.format(feature="volume", n_comp=i)
     plt.savefig(NAME)
 print "age and brain volume graphs saved"
