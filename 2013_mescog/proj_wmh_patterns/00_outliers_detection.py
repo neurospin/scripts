@@ -45,7 +45,6 @@ INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
                              "CAD-WMH-MNI.npy")
 INPUT_SUBJECTS = os.path.join(INPUT_DATASET_DIR,
                               "CAD-WMH-MNI-subjects.txt")
-INPUT_MNI_MASK = os.path.join(INPUT_DATASET_DIR, "MNI152_T1_2mm_brain_mask.nii.gz")
 
 OUTPUT_BASE_DIR = "/neurospin/"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
@@ -99,20 +98,8 @@ print "Data loaded {s}".format(s=s)
 with open(INPUT_SUBJECTS) as f:
     SUBJECTS_ID = np.array([int(l) for l in f.readlines()])
 
-# Read mask
-babel_mask = nibabel.load(INPUT_MNI_MASK)
-mask = babel_mask.get_data()
-binary_mask = mask != 0
-mask_lin = mask.ravel()
-mask_index = np.where(mask_lin)[0]
-
-# Extract mask
-X_mask = X[:, mask_index]
-n, p = s = X_mask.shape
-print "Masked data {s}".format(s=s)
-
 # Euclidean distance matrix
-y_eucl = scipy.spatial.distance.pdist(X_mask, metric='euclidean')
+y_eucl = scipy.spatial.distance.pdist(X, metric='euclidean')
 Y_eucl = scipy.spatial.distance.squareform(y_eucl)
 np.save(OUTPUT_EUCL_DISTANCE_MATRIX, Y_eucl)
 
@@ -123,7 +110,7 @@ distance_matrix_fig.suptitle('Euclidean distance matrix')
 distance_matrix_fig.savefig(OUTPUT_EUCL_DISTANCE_MATRIX_IMG)
 
 # Hamming distance matrix
-y_hamm = scipy.spatial.distance.pdist(X_mask, metric='hamming')
+y_hamm = scipy.spatial.distance.pdist(X, metric='hamming')
 Y_hamm = scipy.spatial.distance.squareform(y_hamm)
 np.save(OUTPUT_HAMM_DISTANCE_MATRIX, Y_hamm)
 
@@ -134,7 +121,7 @@ distance_matrix_fig.suptitle('Hamming distance matrix')
 distance_matrix_fig.savefig(OUTPUT_HAMM_DISTANCE_MATRIX_IMG)
 
 # Hierarchical clustering with Ward criterion and euclidean distance
-Z = scipy.cluster.hierarchy.linkage(X_mask,
+Z = scipy.cluster.hierarchy.linkage(X,
                                     method='ward',
                                     metric='euclidean')
 np.save(OUTPUT_LINKAGE, Z)
@@ -180,7 +167,7 @@ with open(OUTPUT_ABOVE_WHISKER_ID, "w") as f:
     f.writelines(subject_list_newline)
 
 # Compute & plot number of non-null voxel per subject
-n_vox = X_mask.sum(axis=1)
+n_vox = X.sum(axis=1)
 n_vox_fig = plt.figure()
 plt.plot(n_vox)
 
@@ -193,87 +180,120 @@ for i in range(n):
     plt.annotate(str(SUBJECTS_ID[i]), xy=(n_vox[i], av_eucl_dst.iloc[i]))
 n_vox_av_eucl_dst_fig.savefig(NAME)
 
-# visible outliers on average dst/nb of voxels:
-# 1075, 1195, 1197, 2001, 2002, 2009, 2017, 2020, 2042
+# Marco's data don't show any obivous outlier.
 
-# visible outliers above upper whisker:
-# 1017, 1020, 1022, 1075, 1092, 1109, 1173, 2001, 2002, 2009, 2052, 2070, 2085,
-# 2112, 2115
+## Visual inspection
+#cmd = "anatomist"
+#suspect_list = ["2001", "2002", "2009", "2017"]
+#files=[]
+#for subject in suspect_list:
+#    print subject
+#    wmh_filename = os.path.join(INPUT_DIR,
+#                 "CAD_norm_M0", "WMH_norm",
+#                 subject + "-M0-WMH_norm.nii.gz")
+#    wmh_file = nib.load(wmh_filename)
+#    print wmh_file.get_affine()
+#    files.append(wmh_filename)
+#
+#    anat_filename = os.path.join(ANAT_DIR,
+#                     subject,
+#                     subject + "-M0-rFLAIR-MNI.nii.gz")
+#    files.append(anat_filename)
+#
+#    #    flair_filename = os.path.join(INPUT_DIR,
+#    #                 "CAD_bioclinica_nifti",
+#    #                 subject,
+#    #                 subject + "-M0-rFLAIR-MNI.nii.gz")
+#    #    flair_file = nib.load(flair_filename)
+#    #    print flair_file.get_affine()
+#
+#    #    os.system("fslview {wmh} {flair}".format(wmh=wmh_filename,
+#    #              flair=INPUT_MASK))
+#files.append(INPUT_MASK)
+#cmd=" ".join([cmd] + files)
+#os.system(cmd)
 
-# typical samples
-# 1167, 2086, 2024, 1022
-
-"""
-anatomist \
-1075/*rFLAIR-MNI.nii.gz 1075/*rT1-MNI.nii.gz  1075/*-M0-WMH-MNI.nii.gz \
-1195/*rFLAIR-MNI.nii.gz 1195/*rT1-MNI.nii.gz  1195/*-M0-WMH-MNI.nii.gz \
-1197/*rFLAIR-MNI.nii.gz 1197/*rT1-MNI.nii.gz  1197/*-M0-WMH-MNI.nii.gz \
-2001/*rFLAIR-MNI.nii.gz 2001/*rT1-MNI.nii.gz  2001/*-M0-WMH-MNI.nii.gz \
-2002/*rFLAIR-MNI.nii.gz 2002/*rT1-MNI.nii.gz  2002/*-M0-WMH-MNI.nii.gz \
-2009/*rFLAIR-MNI.nii.gz 2009/*rT1-MNI.nii.gz  2009/*-M0-WMH-MNI.nii.gz \
-2017/*rFLAIR-MNI.nii.gz 2017/*rT1-MNI.nii.gz  2017/*-M0-WMH-MNI.nii.gz \
-2020/*rFLAIR-MNI.nii.gz 2020/*rT1-MNI.nii.gz  2020/*-M0-WMH-MNI.nii.gz \
-2042/*rFLAIR-MNI.nii.gz 2042/*rT1-MNI.nii.gz  2042/*-M0-WMH-MNI.nii.gz \
-\
-1017/*rFLAIR-MNI.nii.gz 1017/*rT1-MNI.nii.gz  1017/*-M0-WMH-MNI.nii.gz \
-1020/*rFLAIR-MNI.nii.gz 1020/*rT1-MNI.nii.gz  1020/*-M0-WMH-MNI.nii.gz \
-1092/*rFLAIR-MNI.nii.gz 1092/*rT1-MNI.nii.gz  1092/*-M0-WMH-MNI.nii.gz \
-1109/*rFLAIR-MNI.nii.gz 1109/*rT1-MNI.nii.gz  1109/*-M0-WMH-MNI.nii.gz \
-1173/*rFLAIR-MNI.nii.gz 1173/*rT1-MNI.nii.gz  1173/*-M0-WMH-MNI.nii.gz \
-2052/*rFLAIR-MNI.nii.gz 2052/*rT1-MNI.nii.gz  2052/*-M0-WMH-MNI.nii.gz \
-2070/*rFLAIR-MNI.nii.gz 2070/*rT1-MNI.nii.gz  2070/*-M0-WMH-MNI.nii.gz \
-2085/*rFLAIR-MNI.nii.gz 2085/*rT1-MNI.nii.gz  2085/*-M0-WMH-MNI.nii.gz \
-2112/*rFLAIR-MNI.nii.gz 2112/*rT1-MNI.nii.gz  2112/*-M0-WMH-MNI.nii.gz \
-2115/*rFLAIR-MNI.nii.gz 2115/*rT1-MNI.nii.gz  2115/*-M0-WMH-MNI.nii.gz \
-\
-1167/*rFLAIR-MNI.nii.gz 1167/*rT1-MNI.nii.gz  1167/*-M0-WMH-MNI.nii.gz \
-2086/*rFLAIR-MNI.nii.gz 2086/*rT1-MNI.nii.gz  2086/*-M0-WMH-MNI.nii.gz \
-2024/*rFLAIR-MNI.nii.gz 2024/*rT1-MNI.nii.gz  2024/*-M0-WMH-MNI.nii.gz \
-1022/*rFLAIR-MNI.nii.gz 1022/*rT1-MNI.nii.gz  1022/*-M0-WMH-MNI.nii.gz
-
-Sample | WMH Flair | Decision
- 1075  |           |
- 1195  |           |
- 1197  |           |
- 2001  |     1     |   OUT
- 2002  |     1     |   OUT
- 2009  |   1-2     |   OUT
- 2017  |     2     |   OUT
- 2020  |           |
- 2042  |           |
- 1017  |           |
- 1020  |           |
- 1092  |           |
- 1109  |           |
- 1173  |           |
- 2052  |           |
- 2070  |           |
- 2085  |           |
- 2112  |           |
- 2115  |           |
-
-1: top-down inversion
-2: bad registration
-
-=> Reject: 2001, 2002, 2009, 2017
-"""
-
-OUTLIERS_ID = [2001, 2002, 2009, 2017]
-OUTLIERS_INDEX = [np.where(SUBJECTS_ID == outlier_id)[0][0]
-                  for outlier_id in OUTLIERS_ID]
-
-INSIDER_INDEX = np.setdiff1d(range(n), OUTLIERS_INDEX)
-INSIDER_ID = np.setdiff1d(SUBJECTS_ID, OUTLIERS_ID)
-
-# Store data without outliers & outliers
-X_inside = X[INSIDER_INDEX]
-np.save(OUTPUT_DATASET, X_inside)
-with open(OUTPUT_SUBJECTS_ID, "w") as f:
-    subject_list_newline = [str(subject) + "\n" for subject in INSIDER_ID]
-    f.writelines(subject_list_newline)
-
-X_outliers = X[OUTLIERS_INDEX]
-np.save(OUTPUT_OUTLIERS, X_outliers)
-with open(OUTPUT_OUTLIERS_ID, "w") as f:
-    subject_list_newline = [str(subject) + "\n" for subject in OUTLIERS_ID]
-    f.writelines(subject_list_newline)
+## visible outliers on average dst/nb of voxels:
+## 1075, 1195, 1197, 2001, 2002, 2009, 2017, 2020, 2042
+#
+## visible outliers above upper whisker:
+## 1017, 1020, 1022, 1075, 1092, 1109, 1173, 2001, 2002, 2009, 2052, 2070, 2085,
+## 2112, 2115
+#
+## typical samples
+## 1167, 2086, 2024, 1022
+#
+#"""
+#anatomist \
+#1075/*rFLAIR-MNI.nii.gz 1075/*rT1-MNI.nii.gz  1075/*-M0-WMH-MNI.nii.gz \
+#1195/*rFLAIR-MNI.nii.gz 1195/*rT1-MNI.nii.gz  1195/*-M0-WMH-MNI.nii.gz \
+#1197/*rFLAIR-MNI.nii.gz 1197/*rT1-MNI.nii.gz  1197/*-M0-WMH-MNI.nii.gz \
+#2001/*rFLAIR-MNI.nii.gz 2001/*rT1-MNI.nii.gz  2001/*-M0-WMH-MNI.nii.gz \
+#2002/*rFLAIR-MNI.nii.gz 2002/*rT1-MNI.nii.gz  2002/*-M0-WMH-MNI.nii.gz \
+#2009/*rFLAIR-MNI.nii.gz 2009/*rT1-MNI.nii.gz  2009/*-M0-WMH-MNI.nii.gz \
+#2017/*rFLAIR-MNI.nii.gz 2017/*rT1-MNI.nii.gz  2017/*-M0-WMH-MNI.nii.gz \
+#2020/*rFLAIR-MNI.nii.gz 2020/*rT1-MNI.nii.gz  2020/*-M0-WMH-MNI.nii.gz \
+#2042/*rFLAIR-MNI.nii.gz 2042/*rT1-MNI.nii.gz  2042/*-M0-WMH-MNI.nii.gz \
+#\
+#1017/*rFLAIR-MNI.nii.gz 1017/*rT1-MNI.nii.gz  1017/*-M0-WMH-MNI.nii.gz \
+#1020/*rFLAIR-MNI.nii.gz 1020/*rT1-MNI.nii.gz  1020/*-M0-WMH-MNI.nii.gz \
+#1092/*rFLAIR-MNI.nii.gz 1092/*rT1-MNI.nii.gz  1092/*-M0-WMH-MNI.nii.gz \
+#1109/*rFLAIR-MNI.nii.gz 1109/*rT1-MNI.nii.gz  1109/*-M0-WMH-MNI.nii.gz \
+#1173/*rFLAIR-MNI.nii.gz 1173/*rT1-MNI.nii.gz  1173/*-M0-WMH-MNI.nii.gz \
+#2052/*rFLAIR-MNI.nii.gz 2052/*rT1-MNI.nii.gz  2052/*-M0-WMH-MNI.nii.gz \
+#2070/*rFLAIR-MNI.nii.gz 2070/*rT1-MNI.nii.gz  2070/*-M0-WMH-MNI.nii.gz \
+#2085/*rFLAIR-MNI.nii.gz 2085/*rT1-MNI.nii.gz  2085/*-M0-WMH-MNI.nii.gz \
+#2112/*rFLAIR-MNI.nii.gz 2112/*rT1-MNI.nii.gz  2112/*-M0-WMH-MNI.nii.gz \
+#2115/*rFLAIR-MNI.nii.gz 2115/*rT1-MNI.nii.gz  2115/*-M0-WMH-MNI.nii.gz \
+#\
+#1167/*rFLAIR-MNI.nii.gz 1167/*rT1-MNI.nii.gz  1167/*-M0-WMH-MNI.nii.gz \
+#2086/*rFLAIR-MNI.nii.gz 2086/*rT1-MNI.nii.gz  2086/*-M0-WMH-MNI.nii.gz \
+#2024/*rFLAIR-MNI.nii.gz 2024/*rT1-MNI.nii.gz  2024/*-M0-WMH-MNI.nii.gz \
+#1022/*rFLAIR-MNI.nii.gz 1022/*rT1-MNI.nii.gz  1022/*-M0-WMH-MNI.nii.gz
+#
+#Sample | WMH Flair | Decision
+# 1075  |           |
+# 1195  |           |
+# 1197  |           |
+# 2001  |     1     |   OUT
+# 2002  |     1     |   OUT
+# 2009  |   1-2     |   OUT
+# 2017  |     2     |   OUT
+# 2020  |           |
+# 2042  |           |
+# 1017  |           |
+# 1020  |           |
+# 1092  |           |
+# 1109  |           |
+# 1173  |           |
+# 2052  |           |
+# 2070  |           |
+# 2085  |           |
+# 2112  |           |
+# 2115  |           |
+#
+#1: top-down inversion
+#2: bad registration
+#
+#=> Reject: 2001, 2002, 2009, 2017
+#"""
+#
+#OUTLIERS_ID = [2001, 2002, 2009, 2017]
+#OUTLIERS_INDEX = [np.where(SUBJECTS_ID == outlier_id)[0][0]
+#                  for outlier_id in OUTLIERS_ID]
+#
+#INSIDER_INDEX = np.setdiff1d(range(n), OUTLIERS_INDEX)
+#INSIDER_ID = np.setdiff1d(SUBJECTS_ID, OUTLIERS_ID)
+#
+## Store data without outliers & outliers
+#X_inside = X[INSIDER_INDEX]
+#np.save(OUTPUT_DATASET, X_inside)
+#with open(OUTPUT_SUBJECTS_ID, "w") as f:
+#    subject_list_newline = [str(subject) + "\n" for subject in INSIDER_ID]
+#    f.writelines(subject_list_newline)
+#
+#X_outliers = X[OUTLIERS_INDEX]
+#np.save(OUTPUT_OUTLIERS, X_outliers)
+#with open(OUTPUT_OUTLIERS_ID, "w") as f:
+#    subject_list_newline = [str(subject) + "\n" for subject in OUTLIERS_ID]
+#    f.writelines(subject_list_newline)
