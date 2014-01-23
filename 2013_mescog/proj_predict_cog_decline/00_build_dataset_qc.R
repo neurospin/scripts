@@ -4,7 +4,8 @@
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 INPUT_BASEDIR = "/neurospin/mescog"
-OUTPUT_PATH = "/neurospin/mescog/2014_mescog_predict_cog_decline/data/dataset_clinic_niglob_20140110"
+#OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140110"
+OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140121"
 
 # Var to use
 VARIABLES_PATH = paste(SRC,"variables.csv",sep="/")
@@ -12,9 +13,10 @@ VARIABLES_PATH = paste(SRC,"variables.csv",sep="/")
 CLINIC_PATH = paste(INPUT_BASEDIR, "clinic", "base_commun_20140109.csv", sep="/")
 CLINIC_MAPPING_PATH = paste(INPUT_BASEDIR, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
 # NI GLOBAL
-NIGLOB_PATH = paste(INPUT_BASEDIR, "neuroimaging/original/global", "baseCADASIL_imagerie.csv", sep="/")
+##NIGLOB_PATH = paste(INPUT_BASEDIR, "neuroimaging/original/global", "baseCADASIL_imagerie.csv", sep="/")
 NIGLOBVOL_DIRPATH = paste(INPUT_BASEDIR, "neuroimaging/original/munich/CAD_database_soures/global imaging variables", sep="/")
 NIGLOB_Bioclinica_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_Bioclinica.txt", sep="/")
+NIGLOB_Bioclinica_M36_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M36_Bioclinica.txt", sep="/")
 NIGLOB_Sienax_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_Sienax.txt", sep="/")
 NIGLOB_WMHV_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_WMHV.txt", sep="/")
 
@@ -55,9 +57,12 @@ print(dim(CLINIC))
 ## NI GLOBAL Measurments
 ################################################################################################
 NIGLOB_Bioclinica = read.table(NIGLOB_Bioclinica_PATH, header=TRUE, as.is=TRUE)
+NIGLOB_Bioclinica_M36 = read.table(NIGLOB_Bioclinica_M36_PATH, header=TRUE, as.is=TRUE)
 NIGLOB_Sienax     = read.table(NIGLOB_Sienax_PATH, header=TRUE, as.is=TRUE)
 NIGLOB_WMHV       = read.table(NIGLOB_WMHV_PATH, header=TRUE, as.is=TRUE)
-M = merge(merge(NIGLOB_Bioclinica, NIGLOB_Sienax, by="ID"), NIGLOB_WMHV, by="ID")
+M = merge(merge(merge(NIGLOB_Bioclinica, NIGLOB_Bioclinica_M36, by="ID", all=TRUE), 
+                NIGLOB_Sienax, by="ID", all=TRUE),
+          NIGLOB_WMHV, by="ID", all=TRUE)
 
 NIGLOB = data.frame(ID=M$ID,
                     LLV = M$M0_LLV,
@@ -66,7 +71,11 @@ NIGLOB = data.frame(ID=M$ID,
                     WMHV = M$M0_WMHV,
                     WMHVn = M$M0_WMHV / M$M0_ICC,
                     MBcount = M$M0_MBcount,
-                    BPF = M$M0_SIENAX / M$M0_ICC)
+                    BPF = M$M0_SIENAX / M$M0_ICC,
+                    BRAINVOL = M$M0_SIENAX,
+                    "LLV@M36" = M$M36_LLV,
+                    "LLcount@M36" = M$M36_LLcount,
+                    "MBcount@M36" = M$M36_MBcount, check.names=FALSE)
 
 print(dim(NIGLOB))
 # 366   8

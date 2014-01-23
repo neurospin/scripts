@@ -24,6 +24,7 @@ import sklearn.decomposition
 import pandas as pd
 
 import nibabel
+import matplotlib.pyplot as plt
 
 ##################
 # Input & output #
@@ -91,7 +92,8 @@ clinical_data.index = csv_subjects_id
 
 TRAIN_SUBJECTS_AGE = clinical_data["AGE_AT_INCLUSION"][TRAIN_SUBJECTS_ID]
 TRAIN_SUBJECTS_VOLUME = clinical_data["BRAINVOL"][TRAIN_SUBJECTS_ID]
-TRAIN_SUBJECTS_LL_COUNT = clinical_data["LLcount@M36"][TRAIN_SUBJECTS_ID]
+#TRAIN_SUBJECTS_LL_COUNT = clinical_data["LLcount@M36"][TRAIN_SUBJECTS_ID]
+TRAIN_SUBJECTS_LL_COUNT = clinical_data["LLcount"][TRAIN_SUBJECTS_ID]
 
 # Get subjects without NAN in LL_COUNT
 NAN_LL_COUNT = TRAIN_SUBJECTS_LL_COUNT.isnull()
@@ -218,6 +220,8 @@ for i in range(N_COMP):
     plt.savefig(NAME)
 print "age and brain volume graphs saved"
 
+X_proj = np.load(OUTPUT_PCA_PROJ)
+
 # Plot of 3rd component of PCA along 2nd component
 pca2_pca3_fig = plt.figure()
 plt.scatter(X_proj[:, 1], X_proj[:, 2])
@@ -259,6 +263,8 @@ plt.text(x=0, y=100, s='PCA_3', horizontalalignment='left',
          verticalalignment='bottom')
 for i, subject_id in zip(SUBJECT_INDEX_WITH_LL_COUNT, SUBJECT_ID_WITH_LL_COUNT):
     plt.annotate(str(subject_id), xy=(X_proj[i, 1], X_proj[i, 2]))
-NAME = os.path.join(OUTPUT_DIR, "pca3_pca2_colors_test")
+#plt.show()
+
+NAME = os.path.join(OUTPUT_DIR, "pca3_pca2_llcount_annotated")
 plt.savefig(NAME)
 print "position graphs saved"
