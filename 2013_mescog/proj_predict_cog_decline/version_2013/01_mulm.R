@@ -24,10 +24,10 @@ OUTPUT_SUMMARY = paste(OUTPUT, "results_mulm.csv")
 ################################################################################################
 db = read_db(INPUT_DATA, c())
 dim(db$DB_FR)# 239  42
-dim(db$DB_GR)# 126  42
+dim(db$DB_GE)# 126  42
 
 DBFR = db$DB_FR
-DBGR = db$DB_GR
+DBGR = db$DB_GE
 
 ################################################################################################
 ## M36~each variable
@@ -38,7 +38,7 @@ for(TARGET in db$col_targets){
   #TARGET = "TMTB_TIME.M36"
   #TARGET = "MDRS_TOTAL.M36"
   dbfr = db$DB_FR[!is.na(db$DB_FR[, TARGET]), ]
-  dbgr = db$DB_GR[!is.na(db$DB_GR[, TARGET]), ]
+  dbgr = db$DB_GE[!is.na(db$DB_GE[, TARGET]), ]
   RES = NULL
   for(PRED in c(db$col_clinic, db$col_niglob)){
     #PRED="TMTB_TIME"
@@ -75,7 +75,7 @@ for(TARGET in db$col_targets){
   #TARGET = "MDRS_TOTAL.M36"
   BASELINE = strsplit(TARGET, "[.]")[[1]][1]
   dbfr = data.frame(VAR=BASELINE, db$DB_FR[!is.na(db$DB_FR[, TARGET]), c("ID", "SITE", BASELINE, TARGET)])
-  dbgr = data.frame(VAR=BASELINE, db$DB_GR[!is.na(db$DB_GR[, TARGET]), c("ID", "SITE", BASELINE, TARGET)])
+  dbgr = data.frame(VAR=BASELINE, db$DB_GE[!is.na(db$DB_GE[, TARGET]), c("ID", "SITE", BASELINE, TARGET)])
   colnames(dbfr) = c("VAR", "ID", "SITE", "BASELINE", "M36")
   colnames(dbgr) = c("VAR", "ID", "SITE", "BASELINE", "M36")
   stat = data.frame(
