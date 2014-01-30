@@ -26,7 +26,6 @@ read_db=function(infile, to_remove = c()){#, to_remove = c("DELTA_BP", "TRIGLY",
 ## MISSING DATA
 ################################################################################################
 
-
 imput_missing<-function(D, skip=c()){
   # imput all missing values by colmean except M36
   #targets = colnames(D)[grep("M36",colnames(D))]
@@ -46,4 +45,59 @@ imput_missing<-function(D, skip=c()){
     #D[is.na(D[,v]), ] = mean(D[,v], na.rm=T)
   }
   return(list(Dimputed = Dimp, models=imputation))
+}
+
+################################################################################################
+## SPLIT DATASET
+################################################################################################
+
+split_db_site_stratified_with_same_target_distribution_rm_na<-function(D, TARGET){
+  D = D[!is.na(D[, TARGET]),]
+  Dfr = D[D$SITE == "FR",]
+  Dge = D[D$SITE == "GE",]
+  
+  split_idx_by_pairs<-function(idx){
+    set1 = c()
+    set2 = c()
+    for(i in seq(1, length(idx), 2)){
+      if(i+1 <= length(idx)){
+        tmp = sample(idx[i:(i+1)])
+        set1 = c(set1, tmp[1])
+        set2 = c(set2, tmp[2])
+      }else{
+        set1 = c(set1, idx[i])
+      }
+    }
+    return(list(set1, set2))
+  }
+  #Dfr
+  sfr = split_idx_by_pairs(order(Dfr[, TARGET]))
+  #Dge
+  sge = split_idx_by_pairs(order(Dge[, TARGET]))
+  D1 = rbind(Dfr[sfr[[1]],], Dge[sge[[1]], ])
+  D2 = rbind(Dfr[sfr[[2]],], Dge[sge[[2]], ])
+  return(
+    list(D1=D1, D2=D2, D1_summary = summary(D1[, TARGET]), D2_summary = summary(D2[, TARGET])))
+}
+
+################################################################################################
+## Loss func
+################################################################################################
+
+loss_reg<-function(y_true, y_pred, df2=NULL, suffix=NULL){
+  ## r2: http://en.wikipedia.org/wiki/Coefficient_of_determination
+  df1=length(y_true)
+  SS.tot       = sum((y_true - mean(y_true))^2)
+  #SS.tot.unbiased     = sum((y_true - mean(y.train))^2)
+  SS.err       = sum((y_true - y_pred)^2)
+  mse = SS.err/df1
+  r2  = 1 - SS.err/SS.tot
+  #r2.unbiased  = 1 - SS.err/SS.tot.unbiased
+  correlation = cor(y_true, y_pred)
+  loss = c(mse=mse, r2=r2, cor=correlation)
+  if(!is.null(df2))
+    loss = c(loss, fstat=((SS.tot - SS.err)/SS.err)* ((df1-df2)/(df2 - 1)))
+  #loss = c(mse=mse, r2=r2, cor=correlation, fstat=fstat)
+  if(!is.null(suffix))names(loss)=paste(names(loss), suffix, sep="_")
+  return(loss)
 }
