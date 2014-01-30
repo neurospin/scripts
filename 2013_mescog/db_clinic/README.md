@@ -2,10 +2,11 @@ COMON DATABASE
 ==============
 
 The common database of clinical variables:
-- db_clinic_cadasil-asps-common.*
+- `db_clinic_cadasil-asps-common.*`
 
 A summary of common variables:
-- db_clinic_cadasil-asps_mapping_summary_*
+- `db_clinic_cadasil-asps_mapping_summary_*`
+
 This file contains the mapping between the cadasil/asps, and some statistics (mean, sd, min, max, etc.) for a basic QC for each variable and for each cohorts (cadasil, asps, aspfs).
 
 HISTORY OF THE COMMON DB
@@ -13,30 +14,24 @@ HISTORY OF THE COMMON DB
 
 DB_Mapping.*
 ------------
-DB_Mapping_Longit_Last_EJ_2013-05-08.xlx <=> DB_Mapping_Longit_Last_EJ_2013-05-08.csv
-DB_Mapping_Longit_Last_EJ_20131007
-    EMBOLICDESEASE => EMBOLICDISEASE
+- `DB_Mapping_Longit_Last_EJ_2013-05-08.xlx` <=> `DB_Mapping_Longit_Last_EJ_2013-05-08.csv`
+- `DB_Mapping_Longit_Last_EJ_20131007`. Recode EMBOLICDESEASE => EMBOLICDISEASE
 
 CADASIL
 -------
-- base_commun.xlsx
-    => base_commun.csv
-    Add DATEINCL and DATENAIS in CADASIL
-    => base_commun_20131008.csv. See 00_MISSING_CADASIL.py
-
-- france2012.csv
-
-- CAD_Munich_Dates.txt
+- `base_commun.xlsx` => `base_commun.csv`
+- `base_commun_20131008.csv` Add DATEINCL and DATENAIS in CADASIL (See 00_MISSING_CADASIL.py)
+- `france2012.csv`
+- `CAD_Munich_Dates.txt`
   Date birth/inclusion for munich patients
 
 ASP(F)S_klinVariables_*
 ---------------------
-ASPS_klinVariables_20130806.sav received from Hofer Edith => ASPS_klinVariables_20130806.csv
+- `ASPS_klinVariables_20130806.sav` received from Hofer Edith => `ASPS_klinVariables_20130806.csv`.
     Individual 1607 is actually 53 (not 0).
     Individual 1911 is 54 (and not 34 as in the file I sent you). =>
-ASPS_klinVariables_20131015.csv
-
-ASPFS_klinVariables_20130711.sav received from Hofer Edith => ASPFS_klinVariables_20130711.csv
+- `ASPS_klinVariables_20131015.csv`
+- `ASPFS_klinVariables_20130711.sav` received from Hofer Edith => `ASPFS_klinVariables_20130711.csv`
 
 
 
@@ -45,76 +40,74 @@ MISSING DATA
 
 Add DATEINCL and DATENAIS an compute AGE_AT_INCLUSION in CADASIL subjects
 
-SCRIPT
-------
+**Script**
+
 https://github.com/neurospin/scripts/blob/master/2013_mescog/db_clinic/00_MISSING_CADASIL.py
 Access is retricted, ask edouard.duchesnay@cea.fr
 
-INPUT
------
-"base_commun.csv"
-"france2012.csv" => date DATEINCL and DATENAIS for french
-"CAD_Munich_Dates.txt" => date DATEINCL and DATENAIS for german
+**Input**
 
-OUTPUT
-------
-"base_commun_20140109.csv" == "base_commun.csv" + Date (from "france2012.csv" + CAD_Munich_Dates.txt)
+- `base_commun.csv`
+- `france2012.csv` => date DATEINCL and DATENAIS for french
+- `CAD_Munich_Dates.txt` => date DATEINCL and DATENAIS for german
+
+**Output**
+
+- `base_commun_20140109.csv` == `base_commun.csv` + Date (from `france2012.csv` + `CAD_Munich_Dates.txt`)
 
 QC for CDADASIL
 ===============
-Check if france2012 and base_commun_20131003.csv are simillar
+Check if `france2012.csv` and `base_commun_20131003.csv` are simillar.
 Manualy correct some mistakes (unit and values)
 
-SCRIPT
-------
+**Script**
+
 https://github.com/neurospin/scripts/blob/master/2013_mescog/db_clinic/01_QC_CADASIL.py
 Access is retricted, ask edouard.duchesnay@cea.fr
 
 
-INPUT
------
-france2012.csv
-base_commun_20140109.csv
+**Input**
 
-OUTPUT
-------
-QC/cadasil_qc.csv
-QC/cadasil_qc.html
-base_commun_20140109.csv
+- `france2012.csv`
+- `base_commun_20140109.csv`
+
+**Output**
+
+- `QC/cadasil_qc.csv`
+- `QC/cadasil_qc.html`
+- `base_commun_20140109.csv`
 
 where:
 For each variable in base_commun.csv (378 samples):
-in_france2012   : is the variable in france2012.csv (249 samples)
-diff            : if numeric the maximum difference, if symbolic the number of diff
-n_missing       : nb of missing values (in base_commun.csv)
-n_missing_base_commun_but_not_infr2012 : nb of missing values (in base_commun.csv) but not in france2012.csv
+- in_france2012   : is the variable in france2012.csv (249 samples)
+- diff            : if numeric the maximum difference, if symbolic the number of diff
+- n_missing       : nb of missing values (in base_commun.csv)
+- n_missing_base_commun_but_not_infr2012 : nb of missing values (in base_commun.csv) but not in france2012.csv
 
 
 MERGE BASES
 ===========
 
-SCRIPT
-------
+**Script**
+
 https://github.com/neurospin/scripts/blob/master/2013_mescog/db_clinic/02_merge_CADASIL-ASPS.py
 Access is retricted, ask edouard.duchesnay@cea.fr
 
 
-INPUT:
-------
+**Input**
 
-base_commun_20140109.csv
-ASPS_klinVariables_20131015.csv
-ASPFS_klinVariables_20130711.csv
-DB_Mapping_Longit_Last_EJ_20131007.csv
+- `base_commun_20140109.csv`
+- `ASPS_klinVariables_20131015.csv`
+- `ASPFS_klinVariables_20130711.csv`
+- `DB_Mapping_Longit_Last_EJ_20131007.csv`
 
-OUTPUT:
--------
+**Output**
 
-1) Summary of common DB
-    "db_clinic_cadasil-asps_mapping_summary.csv"
-    "db_clinic_cadasil-asps_mapping_summary.html"
-2) Common DB
-    "db_clinic_cadasil-asps-common.csv"
+1. Summary of common DB
+    `db_clinic_cadasil-asps_mapping_summary.csv`
+    `db_clinic_cadasil-asps_mapping_summary.html`
+2. Common DB
+    `db_clinic_cadasil-asps-common.csv`
 
 
 ISSUES ON CADASIL BASE
