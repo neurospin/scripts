@@ -1,24 +1,17 @@
-#install.packages("glmnet")
+#require(ggplot2)
 require(glmnet)
-require(ggplot2)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
-#setwd(WD)
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140110.csv", sep="/")
-INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140121.csv", sep="/")
+
+# INPUT ---
+INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed.csv", sep="/")
+
+# OUTPUT ---
 OUTPUT = paste(BASE_DIR, "20140128_pool-FR-GE", sep="/")
+if (!file.exists(OUTPUT)) dir.create(OUTPUT)
 
 source(paste(SRC,"utils.R",sep="/"))
-if (!file.exists(OUTPUT)) dir.create(OUTPUT)
-OUTPUT_SUMMARY = paste(OUTPUT, "results_summary.csv", sep="/")
-
-TO_REMOVE = c("DELTA_BP", "TRIGLY", "MIGRAINE_WITH_AURA", "AVC", 
-              "TRBEQUILIBRE", "TRBMARCHE", "DEMENTIA",
-              "HYPERTENSION", "HYPERCHOL", "HDL", "FAST_GLUC", "NIHSS",
-              "LLVn", "WMHVn", "BRAINVOL", "LLcount")
-
-
 
 # rsync -azvun --delete /neurospin/mescog/proj_predict_cog_decline ~/data/
 # rsync -azvun --delete  ~/data/proj_predict_cog_decline /neurospin/mescog/
@@ -26,17 +19,18 @@ TO_REMOVE = c("DELTA_BP", "TRIGLY", "MIGRAINE_WITH_AURA", "AVC",
 ################################################################################################
 ## READ INPUT
 ################################################################################################
-db = read_db(INPUT_DATA, TO_REMOVE)
-dim(db$DB_FR)# 239  42 # 244  46
-dim(db$DB_GE)# 126  42 # 128  46
+db = read_db(INPUT_DATA)
+dim(db$DB)# 372  29
 
-################################################################################################
-# REMOVE FR outliers
-OUTPUT = paste(BASE_DIR, "20140120_remove-predictors", sep="/")
-TO_REMOVE = c("DELTA_BP", "TRIGLY", "MIGRAINE_WITH_AURA", "AVC", 
-              "TRBEQUILIBRE", "TRBMARCHE", "DEMENTIA",
-              "HYPERTENSION", "HYPERCHOL", "HDL", "FAST_GLUC", "NIHSS",
-              "LLVn", "WMHVn", "BRAINVOL", "LLcount")
+D = db$DB
+TARGET = "TMTB_TIME.M36"
+
+v = D[, TARGET]
+nat = c("FR", "FR", "GE", "FR", "GE")
+v = c(8., 5., NA, 5., 3.)
+v[order(v)]
+which(is.na(v))
+
 
 #FORCE.ALPHA=1 #lasso
 FORCE.ALPHA=.95 #enet
