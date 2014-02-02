@@ -1,5 +1,6 @@
-#require(ggplot2)
+require(ggplot2)
 require(glmnet)
+require(reshape)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
@@ -26,167 +27,240 @@ ALPHA=.95 #enet
 ################################################################################################
 ## SIMPLE ENET PREDICTION NO PLOT/PERM etc.
 ################################################################################################
-RM_1_OUTLIERS = FALSE
-TMP=NULL
-for(ALPHA in seq(0, 1, 0.05)){
-for(seed in 1:100){
-#seed=11
+RM_TEST_OUTLIERS = FALSE
+#GRID=NULL
+#ALPHAS = seq(0, 1, 0.05)
+#ALPHAS = seq(0, 1, 0.25)
+#ALPHAS = seq(0, 1, 0.5)
+ALPHAS = 1
+NSEED = 2
+NPERM = 1
 SETTINGS = list("BASELINE"       = c(),
                 "BASELINE+NIGLOB"       = db$col_niglob,
                 "BASELINE+CLINIC"       = db$col_clinic,
                 "BASELINE+CLINIC+NIGLOB"= c(db$col_clinic, db$col_niglob))
-RESULTS = NULL
+RESULTS_TAB = NULL
+RESULTS = list()
+
+#seed=11
 for(TARGET in db$col_targets){
+  RESULTS[[TARGET]] = list()
   #TARGET = "TMTB_TIME.M36"
   #TARGET = "MDRS_TOTAL.M36"; TARGET =  "MRS.M36"; TARGET =          "MMSE.M36" 
-  set.seed(seed)
-  split = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
-  #pdf(paste(OUTPUT, "/",TARGET, "_datasets_qqplot.pdf", sep=""))
-  #qqplot(split$D1[, TARGET], split$D2[, TARGET], main=TARGET)
-  #dev.off()
-  #cat("=== ", TARGET, " ===\n")
-  #print(split$D1_summary)
-  #print(split$D2_summary)
-  
+  cat("** TARGET:", TARGET, "**\n" )
 for(PREDICTORS_STR in names(SETTINGS)){
+  RESULTS[[TARGET]][[PREDICTORS_STR]] = list()
   #PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
   #print(PREDICTORS)
-  PREXIF = paste(OUTPUT, "/",TARGET, "~", PREDICTORS_STR , sep="")
+  #PREXIF = paste(OUTPUT, "/",TARGET, "~", PREDICTORS_STR , sep="")
+  #cat(PREXIF,"\n")
   BASELINE = strsplit(TARGET, "[.]")[[1]][1]
   PREDICTORS = unique(c(BASELINE, SETTINGS[[PREDICTORS_STR]]))
-#  split$D1 = db$DB_FR[!is.na(db$DB_FR[, TARGET]), ]
-#  split$D2 = db$DB_GE[!is.na(db$DB_GE[, TARGET]), ]
-  X1 = as.matrix(split$D1[, PREDICTORS])
-  y1 = split$D1[, TARGET]
-  X2 = as.matrix(split$D2[, PREDICTORS])
-  y2 = split$D2[, TARGET]
+for(ALPHA in ALPHAS){
+  cat(" ** ALPHA:",ALPHA,"**\n")
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]] = list()  
+for(SEED in 1:NSEED){
+  cat("  ** SEED:", SEED, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]] = list()
+  set.seed(SEED)
+  #pdf(paste(OUTPUT, "/",TARGET, "_datasets_qqplot.pdf", sep=""))
+  #qqplot(SPLITS[[FOLD]]$tr[, TARGET], SPLITS[[FOLD]]$te[, TARGET], main=TARGET)
+  #dev.off()
+  #cat("=== ", TARGET, " ===\n")
+  #print(SPLITS[[FOLD]]$tr_summary)
+  #print(SPLITS[[FOLD]]$te_summary)
+for(PERM in 1:NPERM){
+  cat("    ** PERM:", PERM, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]] = list()
+  SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
+for(FOLD in 1:length(SPLITS)){
+  cat("   ** fold:", FOLD, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]] = list()
+  X_tr = as.matrix(SPLITS[[FOLD]]$tr[, PREDICTORS])
+  y_true_tr = SPLITS[[FOLD]]$tr[, TARGET]
+  X_te = as.matrix(SPLITS[[FOLD]]$te[, PREDICTORS])
+  y_true_te = SPLITS[[FOLD]]$te[, TARGET]
+  #y = c(y_true_tr, y_true_te)
 
   # ENET -------------------
-  if(dim(X1)[2]>1){
-  set.seed(seed)
-  cv_glmnet_1 = cv.glmnet(X1, y1, alpha=ALPHA)
-  set.seed(seed)
-  cv_glmnet_2 = cv.glmnet(X2, y2, alpha=ALPHA)
-  lambda_1 = cv_glmnet_1$lambda.min # == cv_glmnet_1$lambda[which.min(cv_glmnet_1$cvm)]
-  lambda_2 = cv_glmnet_2$lambda.min # == cv_glmnet_2$lambda[which.min(cv_glmnet_2$cvm)]
-  enet_nzero_1 = cv_glmnet_1$nzero[which.min(cv_glmnet_1$cvm)][[1]]
-  enet_nzero_2 = cv_glmnet_2$nzero[which.min(cv_glmnet_2$cvm)][[1]]
-  #
-  enet_nzero_min = max(round(dim(X1)[2]/3), 2)
-  if(enet_nzero_1 < enet_nzero_min)
-    lambda_1 = cv_glmnet_1$lambda[which(cv_glmnet_1$nzero > enet_nzero_min)[1]]
-  if(enet_nzero_2 < enet_nzero_min)
-    lambda_2 = cv_glmnet_2$lambda[which(cv_glmnet_2$nzero > enet_nzero_min)[1]]
-  #
-  mod_enet_1 = glmnet(X1, y1, lambda=lambda_1, alpha=ALPHA)
-  mod_enet_2 = glmnet(X2, y2, lambda=lambda_2, alpha=ALPHA)
-  enet_nzero_1 = sum(mod_enet_1$beta!=0)
-  enet_nzero_2 = sum(mod_enet_2$beta!=0)
-  coef_enet_1 = as.double(mod_enet_1$beta); names(coef_enet_1) = rownames(mod_enet_1$beta); coef_enet_1 = coef_enet_1[coef_enet_1!=0]
-  coef_enet_2 = as.double(mod_enet_2$beta); names(coef_enet_2) = rownames(mod_enet_2$beta); coef_enet_2 = coef_enet_2[coef_enet_2!=0]
+  if(dim(X_tr)[2]>1){
+  set.seed(SEED)
+  cv_glmnet = cv.glmnet(X_tr, y_true_tr, alpha=ALPHA)
+  lambda = cv_glmnet$lambda.min # == cv_glmnet$lambda[which.min(cv_glmnet$cvm)]
+  enet_nzero = cv_glmnet$nzero[which.min(cv_glmnet$cvm)][[1]]
+  enet_nzero_min = max(round(dim(X_tr)[2]/10), 2)
+  if(enet_nzero < enet_nzero_min)
+    lambda = cv_glmnet$lambda[which(cv_glmnet$nzero > enet_nzero_min)[1]]
+  mod_enet = glmnet(X_tr, y_true_tr, lambda=lambda, alpha=ALPHA)
+  enet_nzero = sum(mod_enet$beta!=0)
+  coef_enet = as.double(mod_enet$beta); names(coef_enet) = rownames(mod_enet$beta); coef_enet = coef_enet[coef_enet!=0]
   }
   # GLM -------------------
   formula = formula(paste(TARGET,"~", paste(PREDICTORS, collapse='+')))
-  mod_glm_1 = lm(formula, data=split$D1)
-  mod_glm_2 = lm(formula, data=split$D2)
-  coef_glm_1 = mod_glm_1$coefficients
-  coef_glm_2 = mod_glm_2$coefficients
+  mod_glm = lm(formula, data=SPLITS[[FOLD]]$tr)
+  coef_glm = mod_glm$coefficients
   
-  if(RM_1_OUTLIERS){
-    y_keep_1 =
-      split$D1[, BASELINE] <= max(split$D2[, BASELINE], na.rm=TRUE) &
-      split$D1[, TARGET]   <= max(split$D2[, TARGET], na.rm=TRUE)   &
-      split$D1[, BASELINE] >= min(split$D2[, BASELINE], na.rm=TRUE) &
-      split$D1[, TARGET]   >= min(split$D2[, TARGET], na.rm=TRUE)
-  } else{y_keep_1 = rep(TRUE, nrow(X1))}
+  if(RM_TEST_OUTLIERS){
+    idx_test_keep =
+      SPLITS[[FOLD]]$te[, BASELINE] <= max(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
+      SPLITS[[FOLD]]$te[, TARGET]   <= max(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)   &
+      SPLITS[[FOLD]]$te[, BASELINE] >= min(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
+      SPLITS[[FOLD]]$te[, TARGET]   >= min(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)
+  } else{idx_test_keep = rep(TRUE, nrow(X_tr))}
   
   # Predict ENET
-  if(dim(X1)[2]>1){
-  y_enet_pred_12 = predict(mod_enet_1, X2)
-  y_enet_pred_11 = predict(mod_enet_1, X1)
-  y_enet_pred_22 = predict(mod_enet_2, X2)
-  y_enet_pred_21 = predict(mod_enet_2, X1[y_keep_1, ])
-  
-  loss_enet_12 = round(loss_reg(y2, y_enet_pred_12, NULL, suffix="1.2"), 2)
-  loss_enet_21 = round(loss_reg(y1[y_keep_1], y_enet_pred_21, NULL, suffix="2.1"), 2)
-  loss_enet_11 = round(loss_reg(y1, y_enet_pred_11, NULL, suffix="1.1"), 2)
-  loss_enet_22 = round(loss_reg(y2, y_enet_pred_22, NULL, suffix="2.2"), 2)
+  if(dim(X_tr)[2]>1){
+  y_pred_te_enet = predict(mod_enet, X_te)
+  y_pred_tr_enet = predict(mod_enet, X_tr)
+  loss_te_enet = loss_reg(y_true_te, y_pred_te_enet, NULL, suffix="te")
+  loss_tr_enet = loss_reg(y_true_tr, y_pred_tr_enet, NULL, suffix="tr")
   }
   # Predict GLM
-  y_glm_pred_12 = predict(mod_glm_1, split$D2)
-  y_glm_pred_11 = predict(mod_glm_1, split$D1)
-  y_glm_pred_22 = predict(mod_glm_2, split$D2)
-  y_glm_pred_21 = predict(mod_glm_2, split$D1[y_keep_1, ])
-  
-  loss_glm_12 = round(loss_reg(y2, y_glm_pred_12, NULL, suffix="1.2"), 2)
-  loss_glm_21 = round(loss_reg(y1[y_keep_1], y_glm_pred_21, NULL, suffix="2.1"), 2)
-  loss_glm_11 = round(loss_reg(y1, y_glm_pred_11, NULL, suffix="1.1"), 2)
-  loss_glm_22 = round(loss_reg(y2, y_glm_pred_22, NULL, suffix="2.2"), 2)
-  
-  # result to save
+  y_pred_te_glm = predict(mod_glm, SPLITS[[FOLD]]$te)
+  y_pred_tr_glm = predict(mod_glm, SPLITS[[FOLD]]$tr)
+  loss_te_glm = loss_reg(y_true_te, y_pred_te_glm, NULL, suffix="te")
+  loss_tr_glm = loss_reg(y_true_tr, y_pred_tr_glm, NULL, suffix="tr")
+
   # GLM
-  result = list(PREDICTORS_STR=PREDICTORS_STR, TARGET=TARGET,
-  mod_glm_1=mod_glm_1, mod_glm_2=mod_glm_2, coef_glm_1=coef_glm_1, coef_glm_2=coef_glm_2,
-  y_glm_pred_12=y_glm_pred_12,
-  y_glm_pred_21=y_glm_pred_21,
-  y_glm_pred_11=y_glm_pred_11,
-  y_glm_pred_22=y_glm_pred_22,
-  loss_glm_12=loss_glm_12,
-  loss_glm_21=loss_glm_21,
-  loss_glm_11=loss_glm_11,
-  loss_glm_22=loss_glm_22,
+  result_glm = list(FOLD=FOLD, PREDICTORS_STR=PREDICTORS_STR, TARGET=TARGET,
+  mod=mod_glm, coef_glm=coef_glm,
+  y_pred_te=y_pred_te_glm,
+  y_pred_tr=y_pred_tr_glm,
+  loss_te=loss_te_glm,
+  loss_tr=loss_tr_glm,
   # DATA          
-  X1=X1, X2=X2, y1=y1, y2=y2, y_keep_1=y_keep_1, D1=split$D1, D2=split$D2)
-                
-  if(dim(X1)[2]>1){
+  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
+  D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["GLM"]] = result_glm
+  if(dim(X_tr)[2]>1){
     result_enet = list(# ENET
-      mod_enet_1=mod_enet_1, mod_enet_2=mod_enet_2, coef_enet_1=coef_enet_1, coef_enet_2=coef_enet_2,
-      y_enet_pred_12=y_enet_pred_12,
-      y_enet_pred_21=y_enet_pred_21,
-      y_enet_pred_11=y_enet_pred_11,
-      y_enet_pred_22=y_enet_pred_22,
-      loss_enet_12=loss_enet_12,
-      loss_enet_21=loss_enet_21,
-      loss_enet_11=loss_enet_11,
-      loss_enet_22=loss_enet_22)
-    result = c(result, result_enet)
+      mod = mod_enet, coef_enet=coef_enet, 
+      y_pred_te = y_pred_te_enet,
+      y_pred_tr = y_pred_tr_enet,
+      loss_te = loss_te_enet,
+      loss_tr = loss_tr_enet,
+      X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
+      D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)           
+    RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["ENET"]] = result_enet
   }
   #save(result, file=paste(PREXIF, ".Rdata", sep=""))
 
-  # results
-  res = data.frame(MODEL="GLM", TARGET=TARGET, PREDICTORS=PREDICTORS_STR, dim_1=paste(dim(X1), collapse="x"), dim_2=paste(dim(X2), collapse="x"),
-                       as.list(c(loss_glm_12, loss_glm_21)),
-                       nzero_1=(length(coef_glm_1)-1), nzero_2=(length(coef_glm_2)-1),
-                       coef_1=paste(names(coef_glm_1), collapse=", "),
-                       coef_2=paste(names(coef_glm_2), collapse=", "),
-                       coef_1_val=paste(coef_glm_1, collapse=", "),
-                       coef_2_val=paste(coef_glm_2, collapse=", "))
-  if(dim(X1)[2]>1){
-  res_enet = data.frame(MODEL="ENET", TARGET=TARGET, PREDICTORS=PREDICTORS_STR, dim_1=paste(dim(X1), collapse="x"), dim_2=paste(dim(X2), collapse="x"),
-                   as.list(c(loss_enet_12, loss_enet_21)),
-                    nzero_1=enet_nzero_1, nzero_2=enet_nzero_2,
-                    coef_1=paste(names(coef_enet_1), collapse=", "),
-                    coef_2=paste(names(coef_enet_2), collapse=", "),
-                    coef_1_val=paste(coef_enet_1, collapse=", "),
-                    coef_2_val=paste(coef_enet_2, collapse=", "))
-  res = rbind(res, res_enet)
+  # RESULTS_TAB
+  res = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="GLM",
+       dim=paste(dim(X_tr), collapse="x"),
+       as.list(c(loss_te_glm, loss_tr_glm, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
+       nzero=(length(coef_glm)-1),
+       coef=paste(names(coef_glm), collapse=", "),
+       coef_val=paste(coef_glm, collapse=", "))
+  RESULTS_TAB = rbind(RESULTS_TAB, res)
+  if(dim(X_tr)[2]>1){
+  res_enet = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="ENET", 
+            dim=paste(dim(X_tr), collapse="x"),
+            as.list(c(loss_te_enet, loss_tr_enet, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
+            nzero=enet_nzero,
+            coef=paste(names(coef_enet), collapse=", "),
+            coef_val=paste(coef_enet, collapse=", "))
+  RESULTS_TAB = rbind(RESULTS_TAB, res_enet)
   }
-  RESULTS = rbind(RESULTS, res)
-  #if(is.null(RESULTS)) RESULTS = data.1ame(as.list(res)) else RESULTS = rbind(RESULTS, data.1ame(as.list(res)))
+} # FOLD
+  perm_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]]
+  y_true_tr_glm = c()
+  y_pred_tr_glm = c()
+  y_true_te_glm = c()
+  y_pred_te_glm = c()
+  loss_te_glm = NULL
+  y_true_te_enet = c()
+  y_pred_te_enet = c()
+  y_true_tr_enet = c()
+  y_pred_tr_enet = c()
+  loss_te_enet = NULL
+  for(FOLD in 1:length(perm_curr)){
+    cv_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]]
+    y_true_tr_glm = c(y_true_tr_glm, cv_curr[["GLM"]]$y_true_tr)
+    y_pred_tr_glm = c(y_pred_tr_glm, cv_curr[["GLM"]]$y_pred_tr)
+    y_true_te_glm = c(y_true_te_glm, cv_curr[["GLM"]]$y_true_te)
+    y_pred_te_glm = c(y_pred_te_glm, cv_curr[["GLM"]]$y_pred_te)
+    loss_te_glm = rbind(loss_te_glm, cv_curr[["GLM"]]$loss_te)
+    try({
+      y_true_tr_enet= c(y_true_tr_enet, cv_curr[["ENET"]]$y_true_tr);
+      y_pred_tr_enet= c(y_pred_tr_enet, cv_curr[["ENET"]]$y_pred_tr);
+      y_true_te_enet= c(y_true_te_enet, cv_curr[["ENET"]]$y_true_te);
+      y_pred_te_enet= c(y_pred_te_enet, cv_curr[["ENET"]]$y_pred_te)
+      loss_te_enet = rbind(loss_te_enet, cv_curr[["ENET"]]$loss_te)
+      })
+  }
+  loss_te_se_glm = apply(loss_te_glm, 2, sd) / sqrt(nrow(loss_te_glm))
+  names(loss_te_se_glm) <- paste(names(loss_te_se_glm), "se", sep="_")
+  RESULTS_TAB = rbind(RESULTS_TAB, 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="GLM", 
+             dim=paste(dim(X_tr), collapse="x"),
+             as.list(c(loss_reg(y_true_te_glm, y_pred_te_glm, suffix="te"),
+                       loss_reg(y_true_tr_glm, y_pred_tr_glm, suffix="tr"),
+                       loss_te_se_glm)),
+             nzero=NA, coef=NA, coef_val=NA))
+  try({
+    loss_te_se_enet = apply(loss_te_enet, 2, sd) / sqrt(nrow(loss_te_enet))
+    names(loss_te_se_enet) <- paste(names(loss_te_se_enet), "se", sep="_")
+  RESULTS_TAB = rbind(RESULTS_TAB, 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="ENET", 
+                 dim=paste(dim(X_tr), collapse="x"),
+                 as.list(c(loss_reg(y_true_te_enet, y_pred_te_enet, suffix="te"),
+                           loss_reg(y_true_tr_enet, y_pred_tr_enet, suffix="tr"),
+                           loss_te_se_enet)),
+                 nzero=NA, coef=NA, coef_val=NA))
+  })
+} # PERM
+} # SEED
+} # ALPHA
+} # PREDICTORS_STR
+} # TARGET
+
+# r = RESULTS_TAB[RESULTS_TAB$MODEL == "ENET", c("TARGET","PREDICTORS", "r2_te", "r2_2.1")]
+# #diff_tot=sum(r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", c("r2_12","r2_2.1")] - r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC", c("r2_12", "r2_2.1")])
+# diff_1=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_te"])    
+# diff_2=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_2.1"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_2.1"])    
+# tmp = data.frame(alpha=ALPHA, seed=seed, diff_1, diff_2, tot=diff_1+diff_2)
+# print(tmp)
+# GRID = rbind(GRID, tmp)
+if(FALSE){
+################################################################################################
+## PLOT
+################################################################################################
+R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
+R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+Rm = melt(R, id.vars=c("MODEL","ALPHA","SEED","TARGET","PREDICTORS"))
+# 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
+nrow(Rm)
+4 * 4 * 2 * NSEED * length(ALPHAS)
+Rm.stat = summarySE(Rm, measurevar="value", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS", "variable"))
+nrow(Rm.stat)
+4 * 4 * 3 * length(alphas)
+
+library(RColorBrewer)
+display.brewer.pal(6, "Paired")
+pal = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
+
+## ----------------------------
+## PLOT R2 as function of alpha
+pd <- position_dodge(.1) # move them .05 to the left and right
+ggplot(Rm.stat, aes(x=ALPHA, y=value, colour=PREDICTORS)) + 
+  geom_errorbar(aes(ymin=value-ci, ymax=value+ci), width=.1, position=pd) +
+  geom_line(position=pd) +
+  geom_point(position=pd) + facet_grid(TARGET~variable, scale="free")
+
+## ----------------------------
+## PLOT R2 bar plot
+R.stat = summarySE(R, measurevar="r2_te", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS"))
+nrow(R.stat)
+# 4 TARGETs x 4 PREDICTORS 
+
+pd <- position_dodge(.1) # move them .05 to the left and right
+pbar = ggplot(R.stat, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+  geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+  geom_errorbar(aes(ymin=r2_te-ci, ymax=r2_te+ci), width=.1) + 
+#  geom_point() +
+  facet_wrap(~TARGET) + scale_fill_manual(values=pal)
+print(pbar)
+#scale_color_manual(values=pal)
 }
-}
-
-
-r = RESULTS[RESULTS$MODEL == "ENET", c("TARGET","PREDICTORS", "r2_1.2", "r2_2.1")]
-#diff_tot=sum(r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", c("r2_12","r2_2.1")] - r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC", c("r2_12", "r2_2.1")])
-diff_1=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_1.2"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_1.2"])    
-diff_2=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_2.1"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_2.1"])    
-tmp = data.frame(alpha=ALPHA, seed=seed, diff_1, diff_2, tot=diff_1+diff_2)
-print(tmp)
-TMP = rbind(TMP, tmp)
-}}
-
-#write.csv(RESULTS, OUTPUT_SUMMARY, row.names=FALSE)
-###
-###
-
