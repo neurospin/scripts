@@ -33,8 +33,9 @@ RM_TEST_OUTLIERS = FALSE
 #ALPHAS = seq(0, 1, 0.25)
 #ALPHAS = seq(0, 1, 0.5)
 ALPHAS = 1
-NSEED = 2
+SEEDS = seq(1, 100)
 NPERM = 1
+NFOLD = 5
 SETTINGS = list("BASELINE"       = c(),
                 "BASELINE+NIGLOB"       = db$col_niglob,
                 "BASELINE+CLINIC"       = db$col_clinic,
@@ -59,7 +60,7 @@ for(PREDICTORS_STR in names(SETTINGS)){
 for(ALPHA in ALPHAS){
   cat(" ** ALPHA:",ALPHA,"**\n")
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]] = list()  
-for(SEED in 1:NSEED){
+for(SEED in SEEDS){
   cat("  ** SEED:", SEED, "**\n" )
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]] = list()
   set.seed(SEED)
@@ -72,7 +73,8 @@ for(SEED in 1:NSEED){
 for(PERM in 1:NPERM){
   cat("    ** PERM:", PERM, "**\n" )
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]] = list()
-  SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
+  #SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
+  SPLITS = kfold_site_stratified_rm_na(db$DB, TARGET, k=NFOLD)
 for(FOLD in 1:length(SPLITS)){
   cat("   ** fold:", FOLD, "**\n" )
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]] = list()
@@ -189,6 +191,7 @@ for(FOLD in 1:length(SPLITS)){
       loss_te_enet = rbind(loss_te_enet, cv_curr[["ENET"]]$loss_te)
       })
   }
+  #print(dim(loss_te_glm))
   loss_te_se_glm = apply(loss_te_glm, 2, sd) / sqrt(nrow(loss_te_glm))
   names(loss_te_se_glm) <- paste(names(loss_te_se_glm), "se", sep="_")
   RESULTS_TAB = rbind(RESULTS_TAB, 
@@ -199,6 +202,7 @@ for(FOLD in 1:length(SPLITS)){
                        loss_te_se_glm)),
              nzero=NA, coef=NA, coef_val=NA))
   try({
+    #print(dim(loss_te_glm))
     loss_te_se_enet = apply(loss_te_enet, 2, sd) / sqrt(nrow(loss_te_enet))
     names(loss_te_se_enet) <- paste(names(loss_te_se_enet), "se", sep="_")
   RESULTS_TAB = rbind(RESULTS_TAB, 
@@ -214,32 +218,72 @@ for(FOLD in 1:length(SPLITS)){
 } # ALPHA
 } # PREDICTORS_STR
 } # TARGET
+#write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
 
-# r = RESULTS_TAB[RESULTS_TAB$MODEL == "ENET", c("TARGET","PREDICTORS", "r2_te", "r2_2.1")]
 # #diff_tot=sum(r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", c("r2_12","r2_2.1")] - r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC", c("r2_12", "r2_2.1")])
 # diff_1=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_te"])    
 # diff_2=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_2.1"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_2.1"])    
 # tmp = data.frame(alpha=ALPHA, seed=seed, diff_1, diff_2, tot=diff_1+diff_2)
 # print(tmp)
 # GRID = rbind(GRID, tmp)
+
+if(FALSE){
+library(plyr)  
+R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
+R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+# Which is best seed
+b = R[R$PREDICTORS == "BASELINE", c("SEED", "TARGET","PREDICTORS", "r2_te")]
+bni = R[R$PREDICTORS == "BASELINE+NIGLOB", c("SEED", "TARGET","PREDICTORS", "r2_te")]
+b_vs_bni = merge(b, bni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
+b_vs_bni$diff = b_vs_bni$r2_te_bni - b_vs_bni$r2_te_b
+
+nrow(b_vs_bni) == 4 * length(SEEDS)
+bc = R[R$PREDICTORS == "BASELINE+CLINIC", c("SEED", "TARGET","PREDICTORS", "r2_te")]
+bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", c("SEED", "TARGET","PREDICTORS", "r2_te")]
+bc_vs_bcni = merge(bc, bcni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
+nrow(bc_vs_bcni) == 4 * length(SEEDS)
+bc_vs_bcni$diff = bc_vs_bcni$r2_te_bni - bc_vs_bcni$r2_te_b
+
+d = ddply(b_vs_bni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
+d[d$mean == max(d$mean),]
+#28   28 0.04563271 0.03174524
+d = ddply(bc_vs_bcni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
+d[d$mean == max(d$mean),]
+#61   61 0.03755026 0.02776236
+# Seed 61
+R = R[R$SEED==1 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+R = R[R$SEED==61 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+#R = R[R$SEED==28 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+
+## ----------------------------
+## PLOT R2 bar plot
+library(RColorBrewer)
+#display.brewer.pal(6, "Paired")
+pal = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
+
+pd <- position_dodge(.1) # move them .05 to the left and right
+pbar = ggplot(R, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+  geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) + 
+  #  geom_point() +
+  facet_wrap(~TARGET) + scale_fill_manual(values=pal)
+print(pbar)
+
+}
 if(FALSE){
 ################################################################################################
 ## PLOT
 ################################################################################################
-R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
-R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
-R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+
+
 Rm = melt(R, id.vars=c("MODEL","ALPHA","SEED","TARGET","PREDICTORS"))
 # 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
 nrow(Rm)
-4 * 4 * 2 * NSEED * length(ALPHAS)
+4 * 4 * 2 * length(SEEDS) * length(ALPHAS)
 Rm.stat = summarySE(Rm, measurevar="value", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS", "variable"))
 nrow(Rm.stat)
 4 * 4 * 3 * length(alphas)
-
-library(RColorBrewer)
-display.brewer.pal(6, "Paired")
-pal = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
 
 ## ----------------------------
 ## PLOT R2 as function of alpha
@@ -249,16 +293,16 @@ ggplot(Rm.stat, aes(x=ALPHA, y=value, colour=PREDICTORS)) +
   geom_line(position=pd) +
   geom_point(position=pd) + facet_grid(TARGET~variable, scale="free")
 
-## ----------------------------
-## PLOT R2 bar plot
-R.stat = summarySE(R, measurevar="r2_te", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS"))
+
+
+R.stat = summarySE(R, measurevar= c("r2_te",""), groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS"))
 nrow(R.stat)
 # 4 TARGETs x 4 PREDICTORS 
 
 pd <- position_dodge(.1) # move them .05 to the left and right
 pbar = ggplot(R.stat, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
-  geom_errorbar(aes(ymin=r2_te-ci, ymax=r2_te+ci), width=.1) + 
+  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) + 
 #  geom_point() +
   facet_wrap(~TARGET) + scale_fill_manual(values=pal)
 print(pbar)

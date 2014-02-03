@@ -51,7 +51,7 @@ imput_missing<-function(D, skip=c()){
 ## SPLIT DATASET
 ################################################################################################
 
-split_db_site_stratified_with_same_target_distribution_rm_na<-function(D, TARGET){
+twofold_site_stratified_with_same_target_distribution_rm_na<-function(D, TARGET){
   D = D[!is.na(D[, TARGET]),]
   Dfr = D[D$SITE == "FR",]
   Dge = D[D$SITE == "GE",]
@@ -82,37 +82,31 @@ split_db_site_stratified_with_same_target_distribution_rm_na<-function(D, TARGET
   return(splits)
 }
 
-kfold_site_stratified_rm_na<-function(D, TARGET){
-  #D = db$DB; TARGET="TMTB_TIME.M36"
+twofold_bysite_rm_na<-function(D, TARGET){
   D = D[!is.na(D[, TARGET]),]
   Dfr = D[D$SITE == "FR",]
   Dge = D[D$SITE == "GE",]
-  
-  split_idx_by_pairs<-function(idx){
-    set1 = c()
-    set2 = c()
-    for(i in seq(1, length(idx), 2)){
-      if(i+1 <= length(idx)){
-        tmp = sample(idx[i:(i+1)])
-        set1 = c(set1, tmp[1])
-        set2 = c(set2, tmp[2])
-      }else{
-        set1 = c(set1, idx[i])
-      }
-    }
-    return(list(set1, set2))
-  }
-  #Dfr
-  sfr = split_idx_by_pairs(order(Dfr[, TARGET]))
-  #Dge
-  sge = split_idx_by_pairs(order(Dge[, TARGET]))
-  D1 = rbind(Dfr[sfr[[1]],], Dge[sge[[1]], ])
-  D2 = rbind(Dfr[sfr[[2]],], Dge[sge[[2]], ])
-  splits = list(list(tr=D1, te=D2), list(tr=D1, te=D2))
-  attr(splits, "D1_summary") = summary(D1[, TARGET])
-  attr(splits, "D2_summary") = summary(D2[, TARGET])
+  splits = list(list(tr=Dfr, te=Dge), list(tr=Dge, te=Dfr))
   return(splits)
 }
+
+kfold_site_stratified_rm_na<-function(D, TARGET, k=10){
+  #D = db$DB; TARGET="TMTB_TIME.M36"
+  D = D[!is.na(D[, TARGET]),]
+  #D$SITE = as.character(D$SITE)
+  Dfr = D[D$SITE == "FR",]
+  Dge = D[D$SITE == "GE",]
+  cvfr = cross_val(nrow(Dfr), type="k-fold", k=k)
+  cvge = cross_val(nrow(Dge), type="k-fold", k=k)
+  splits = list()
+  for(f in 1:k){
+    tr = rbind(Dfr[-cvfr[[f]],],  Dge[-cvge[[f]],])
+    te = rbind(Dfr[cvfr[[f]],],  Dge[cvge[[f]],])
+    #cat("-----------\nTR:", dim(tr),"\n"); print(summary(tr[, TARGET])); cat("TE", dim(te),"\n"); print(summary(te[, TARGET]))
+    splits[[f]] = list(tr=tr, te=te)
+  }
+  return(splits)
+  }
 
 ################################################################################################
 ## Loss func
@@ -183,4 +177,90 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
   datac$ci <- datac$se * ciMult
   
   return(datac)
+}
+
+
+################################################################################################
+## ML
+################################################################################################
+
+##' Sampling for cross-validation procedures
+##' 
+##' This function gives a list of traning and testing IDs to be used
+##' for cross-validation.
+##' 
+##' @param x a vector of \code{row.names} or a number indicating the
+##'        sample size
+##' @param type leave-one-out or K-fold (default, loo)
+##' @param K number of folds for K-fold (default K=10)
+##' @param random should the IDs be randomized
+##' @param  a seed to fix random generation
+##' @return a \code{list} test indexes
+##' @author ed, chl
+##' @seealso \code{cv.glm {boot}}
+##' @examples
+##' cross_val(50,type="k-fold")
+##' cross_val(26,type="k-fold",k=5)
+##' cross_val(26,type="k-fold",k=5,random=T)
+##' cross_val(100,"k",random=T,seed=101)
+##' n <- 100
+##' x1 <- rnorm(n,mean=5);x2 <- rnorm(n,mean=5);X=cbind(x1,x2)
+##' rownames(X)=1:n
+##' y <- x1+2*x2 + rnorm(n)
+##' d=data.frame(X,y)
+##' rownames(d)=1:n
+##' 
+##' y.hat.test <- c()
+##' loo.cv <- cross_val(n)
+##' for (test_idx in loo.cv) {
+##'     d.train=d[-test_idx,]
+##'     d.test =d[test_idx,]
+##'     lm.fit=lm(y~x1+x2,data=d.train)
+##'     y.hat.test=append(y.hat.test,predict(lm.fit, newdata =d.test))
+##' }
+##' loss_test.loo=y.hat.test-d$y
+##' cat("CV LOO MSE",sqrt(1/n*sum((loss_test.loo)^2)),"\n")
+##' 
+##' y.hat.test <- c()
+##' kfold.cv <- cross_val(n,type="k-fold")
+##' for (test_idx in kfold.cv) {
+##'     d.train=d[-test_idx,]
+##'     d.test =d[test_idx,]
+##'     lm.fit=lm(y~x1+x2,data=d.train)
+##'     y.hat.test=append(y.hat.test,predict(lm.fit, newdata =d.test))
+##' }
+##' loss_test.kfold=y.hat.test-d$y
+##' cat("CV K-FOLD MSE",sqrt(1/n*sum((loss_test.kfold)^2)),"\n")
+##' 
+##' lm.fit.all=lm(y~x1+x2,data=d)
+##' y.hat.all=predict(lm.fit.all,newdata =d)
+##' loss.all=y.hat.all-d$y
+##' cat("ALL MSE",sqrt(1/n*sum((loss.all)^2)),"\n")
+cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
+  type <- match.arg(type)
+  if (is.numeric(x) & (length(x) == 1)) { len <- x }
+  else if (length(x) > 1) { len <- length(x)}
+  else stop("Cannot determine sample size")
+  idx <- seq(1,len)
+  folds_test_idx=list()
+  if (random && (type != "loo")) {
+    if(!missing(seed)){
+      set.seed(seed)
+      attr(folds_test_idx,'seed')=seed
+    }
+    idx <- sample(len,rep=FALSE)
+  }
+  if (type == "k-fold"){
+    test_ranges_seq=round(seq(0,len,length.out=k+1))
+    # list of (randomized) index of test samples
+    for(i in 2:length(test_ranges_seq))
+      folds_test_idx[[i-1]]=idx[ (test_ranges_seq[i-1]+1):(test_ranges_seq[i]) ]
+    attr(folds_test_idx,'type')=type
+  }
+  if (type == "loo") {
+    for(i in 1:len)
+      folds_test_idx[[i]]=i
+    attr(folds_test_idx,'type')=type
+  }
+  return(folds_test_idx)
 }
