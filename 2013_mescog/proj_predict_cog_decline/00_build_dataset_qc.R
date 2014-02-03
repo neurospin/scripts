@@ -3,20 +3,23 @@
 # install.packages("gdata")
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-INPUT_BASEDIR = "/neurospin/mescog"
-OUTPUT_PATH = "/neurospin/mescog/2014_mescog_predict_cog_decline/data/dataset_clinic_niglob_20140110"
-
-# Var to use
+BASEDIR = "/neurospin/mescog"
+# Var to use ---
 VARIABLES_PATH = paste(SRC,"variables.csv",sep="/")
-# Clinic
-CLINIC_PATH = paste(INPUT_BASEDIR, "clinic", "base_commun_20140109.csv", sep="/")
-CLINIC_MAPPING_PATH = paste(INPUT_BASEDIR, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
+
+# INPUT ---
+CLINIC_PATH = paste(BASEDIR, "clinic", "base_commun_20140109.csv", sep="/")
+CLINIC_MAPPING_PATH = paste(BASEDIR, "commondb_clinic_cadasil-asps-aspfs_mapping-summary_20131015.csv", sep="/")
 # NI GLOBAL
-NIGLOB_PATH = paste(INPUT_BASEDIR, "neuroimaging/original/global", "baseCADASIL_imagerie.csv", sep="/")
-NIGLOBVOL_DIRPATH = paste(INPUT_BASEDIR, "neuroimaging/original/munich/CAD_database_soures/global imaging variables", sep="/")
+##NIGLOB_PATH = paste(BASEDIR, "neuroimaging/original/global", "baseCADASIL_imagerie.csv", sep="/")
+NIGLOBVOL_DIRPATH = paste(BASEDIR, "neuroimaging/original/munich/CAD_database_soures/global imaging variables", sep="/")
 NIGLOB_Bioclinica_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_Bioclinica.txt", sep="/")
+NIGLOB_Bioclinica_M36_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M36_Bioclinica.txt", sep="/")
 NIGLOB_Sienax_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_Sienax.txt", sep="/")
 NIGLOB_WMHV_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_WMHV.txt", sep="/")
+
+# OUTPUT ---
+OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128"
 
 ################################################################################################
 ## Names mapping
@@ -55,18 +58,25 @@ print(dim(CLINIC))
 ## NI GLOBAL Measurments
 ################################################################################################
 NIGLOB_Bioclinica = read.table(NIGLOB_Bioclinica_PATH, header=TRUE, as.is=TRUE)
+NIGLOB_Bioclinica_M36 = read.table(NIGLOB_Bioclinica_M36_PATH, header=TRUE, as.is=TRUE)
 NIGLOB_Sienax     = read.table(NIGLOB_Sienax_PATH, header=TRUE, as.is=TRUE)
 NIGLOB_WMHV       = read.table(NIGLOB_WMHV_PATH, header=TRUE, as.is=TRUE)
-M = merge(merge(NIGLOB_Bioclinica, NIGLOB_Sienax, by="ID"), NIGLOB_WMHV, by="ID")
+M = merge(merge(merge(NIGLOB_Bioclinica, NIGLOB_Bioclinica_M36, by="ID", all=TRUE), 
+                NIGLOB_Sienax, by="ID", all=TRUE),
+          NIGLOB_WMHV, by="ID", all=TRUE)
 
 NIGLOB = data.frame(ID=M$ID,
                     LLV = M$M0_LLV,
-                    LLVn = M$M0_LLV / M$M0_ICC,
+                    #LLVn = M$M0_LLV / M$M0_ICC,
                     LLcount = M$M0_LLcount,
                     WMHV = M$M0_WMHV,
-                    WMHVn = M$M0_WMHV / M$M0_ICC,
+                    #WMHVn = M$M0_WMHV / M$M0_ICC,
                     MBcount = M$M0_MBcount,
-                    BPF = M$M0_SIENAX / M$M0_ICC)
+                    BPF = M$M0_SIENAX / M$M0_ICC,
+                    #BRAINVOL = M$M0_SIENAX,
+                    "LLV.M36" = M$M36_LLV,
+                    "LLcount.M36" = M$M36_LLcount,
+                    "MBcount.M36" = M$M36_MBcount, check.names=FALSE)
 
 print(dim(NIGLOB))
 # 366   8
@@ -76,11 +86,11 @@ print(dim(NIGLOB))
 ################################################################################################
 DB = merge(CLINIC, NIGLOB, by="ID")
 print(dim(DB))
-# 365  39
+# 372  28
 id = sapply(strsplit(DB$ID, "_"), function(x)as.integer(x[[2]]))
 DB$SITE=NA
 DB$SITE[id < 2000] = "FR"
-DB$SITE[id >= 2000] = "GR"
+DB$SITE[id >= 2000] = "GE"
 
 ################################################################################################
 ## QC FR vs GR
@@ -101,7 +111,7 @@ dev.off()
 
 # stat csv
 fr = DB$SITE == "FR"
-gr = DB$SITE == "GR"
+gr = DB$SITE == "GE"
 
 stat = NULL
 for(name in colnames(DB)){
@@ -119,24 +129,18 @@ for(name in colnames(DB)){
 }
 options(width=200)
 print(stat)
-library(gdata)
-write.fwf(stat, paste(OUTPUT_PATH, "_qc_summary.csv", sep=""), rownames=FALSE)
+#library(gdata)
+write.csv(stat, paste(OUTPUT_PATH, "_qc_summary.csv", sep=""), row.names=FALSE)
 
 ################################################################################################
 ## Impute missing data by mean
 ################################################################################################
-stat$NAME = as.character(stat$NAME)
+source(paste(SRC,"utils.R",sep="/"))
 
-targets = colnames(DB)[grep("@M36",colnames(DB))]
-predictors = colnames(DB)[!(colnames(DB) %in% c("ID", "SITE", targets))]
 
-for(v in predictors){
-  DB[is.na(DB[,v]), v] = mean(DB[,v], na.rm=T)
-}
+skip = c(colnames(DB)[grep("M36",colnames(DB))], c("ID", "SITE"))
+imput = imput_missing(DB, skip)
 
 write.csv(DB, paste(OUTPUT_PATH, ".csv", sep=""), row.names=FALSE)
-
-# rsync -azvun --delete /neurospin/mescog/2014_mescog_predict_cog_decline ~/data/
-
-
-
+write.csv(imput$Dimputed, paste(OUTPUT_PATH, "_imputed.csv", sep=""), row.names=FALSE)
+write.csv(imput$models, paste(OUTPUT_PATH, "_imputed_models.csv", sep=""), row.names=FALSE)

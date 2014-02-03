@@ -63,6 +63,10 @@ MDRS at baseline                             : SCORETOT14       : MDRS_TOTAL
 NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
 Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
 
+Remove
+DELTA_BP, TRIGLY, MIGRAINE_WITH_AURA, AVC, TRBEQUILIBRE, TRBMARCHE, DEMENTIA
+HYPERTENSION, HYPERCHOL, HDL, FAST_GLUC, NIHSS
+LLcount
 
 # Global MRI data at baseline ---------------------------------------- #
 

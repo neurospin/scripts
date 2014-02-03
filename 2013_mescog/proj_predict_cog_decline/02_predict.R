@@ -1,328 +1,266 @@
-#install.packages("glmnet")
-require(glmnet)
 require(ggplot2)
+require(glmnet)
+require(reshape)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-BASE_DIR = "/neurospin/mescog/2014_mescog_predict_cog_decline"
-#setwd(WD)
-INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140110.csv", sep="/")
-source(paste(SRC,"utils.R",sep="/"))
-OUTPUT = paste(BASE_DIR, "results_201401", sep="/")
+BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 
-OUTPUT_SUMMARY = paste(OUTPUT, "results_summary.csv")
+# INPUT ---
+INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed.csv", sep="/")
+
+# OUTPUT ---
+OUTPUT = paste(BASE_DIR, "20140128_pool-FR-GE", sep="/")
+if (!file.exists(OUTPUT)) dir.create(OUTPUT)
+
+source(paste(SRC,"utils.R",sep="/"))
+
+# rsync -azvun --delete /neurospin/mescog/proj_predict_cog_decline ~/data/
+# rsync -azvun --delete  ~/data/proj_predict_cog_decline /neurospin/mescog/
 
 ################################################################################################
 ## READ INPUT
 ################################################################################################
 db = read_db(INPUT_DATA)
-dim(db$DB_FR)# 239  42
-dim(db$DB_GR)# 126  42
-# remove normalized niglob variables
-db$col_niglob = db$col_niglob[!(db$col_niglob %in% c("LLVn", "WMHVn"))]
-
-#lgenim()
-#FORCE.ALPHA=1 #lasso
-FORCE.ALPHA=.95 #enet
-MOD.SEL.CV = "manual.cv.lambda.min"
-#MOD.SEL.CV = "manual.cv.lambda.min.glm"
-#MOD.SEL.CV = "manual.cv.lambda.1sd"
-#MOD.SEL.CV = "manual.cv.lambda.1sd.glm"
-#MOD.SEL.CV = "auto.max.r2"
-#MOD.SEL.CV = "auto.max.cor"
-#MOD.SEL.CV = "auto.min.mse"
-
-BOOTSTRAP.NB=10; PERMUTATION.NB=10
-#DATA_STR = "FR"
-DATA_STR = "GR"
-RESULTS = NULL
-
-
-if(DATA_STR == "FR"){
-  DBLEARN = db$DB_FR
-  DBTEST = db$DB_GR
-}
-if(DATA_STR == "GR"){
-  DBLEARN = db$DB_GR
-  DBTEST = db$DB_FR
-}
-
-
+dim(db$DB)# 372  29
+ALPHA=.95 #enet
 
 ################################################################################################
-## M36~BASELINE
+## SIMPLE ENET PREDICTION NO PLOT/PERM etc.
 ################################################################################################
+RM_TEST_OUTLIERS = FALSE
+#GRID=NULL
+#ALPHAS = seq(0, 1, 0.05)
+#ALPHAS = seq(0, 1, 0.25)
+#ALPHAS = seq(0, 1, 0.5)
+ALPHAS = 1
+NSEED = 2
+NPERM = 1
+SETTINGS = list("BASELINE"       = c(),
+                "BASELINE+NIGLOB"       = db$col_niglob,
+                "BASELINE+CLINIC"       = db$col_clinic,
+                "BASELINE+CLINIC+NIGLOB"= c(db$col_clinic, db$col_niglob))
+RESULTS_TAB = NULL
+RESULTS = list()
 
-PREDICTORS_STR = "BASELINE_NOINTER"
+#seed=11
 for(TARGET in db$col_targets){
+  RESULTS[[TARGET]] = list()
   #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, FALSE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                         BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
-PREDICTORS_STR = "BASELINE_INTER"
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, TRUE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                               BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
+  #TARGET = "MDRS_TOTAL.M36"; TARGET =  "MRS.M36"; TARGET =          "MMSE.M36" 
+  cat("** TARGET:", TARGET, "**\n" )
+for(PREDICTORS_STR in names(SETTINGS)){
+  RESULTS[[TARGET]][[PREDICTORS_STR]] = list()
+  #PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
+  #print(PREDICTORS)
+  #PREXIF = paste(OUTPUT, "/",TARGET, "~", PREDICTORS_STR , sep="")
+  #cat(PREXIF,"\n")
+  BASELINE = strsplit(TARGET, "[.]")[[1]][1]
+  PREDICTORS = unique(c(BASELINE, SETTINGS[[PREDICTORS_STR]]))
+for(ALPHA in ALPHAS){
+  cat(" ** ALPHA:",ALPHA,"**\n")
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]] = list()  
+for(SEED in 1:NSEED){
+  cat("  ** SEED:", SEED, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]] = list()
+  set.seed(SEED)
+  #pdf(paste(OUTPUT, "/",TARGET, "_datasets_qqplot.pdf", sep=""))
+  #qqplot(SPLITS[[FOLD]]$tr[, TARGET], SPLITS[[FOLD]]$te[, TARGET], main=TARGET)
+  #dev.off()
+  #cat("=== ", TARGET, " ===\n")
+  #print(SPLITS[[FOLD]]$tr_summary)
+  #print(SPLITS[[FOLD]]$te_summary)
+for(PERM in 1:NPERM){
+  cat("    ** PERM:", PERM, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]] = list()
+  SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
+for(FOLD in 1:length(SPLITS)){
+  cat("   ** fold:", FOLD, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]] = list()
+  X_tr = as.matrix(SPLITS[[FOLD]]$tr[, PREDICTORS])
+  y_true_tr = SPLITS[[FOLD]]$tr[, TARGET]
+  X_te = as.matrix(SPLITS[[FOLD]]$te[, PREDICTORS])
+  y_true_te = SPLITS[[FOLD]]$te[, TARGET]
+  #y = c(y_true_tr, y_true_te)
 
-################################################################################################
-## M36~clin
-################################################################################################
-PREDICTORS_STR = "BASELINE+CLINIC"
-
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  PREDICTORS = db$col_clinic
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  ## FR CV
-  cv = cross_val(length(DBtr[,TARGET]),type="k-fold", k=10, random=TRUE, seed=97)
-  dump("cv",file="cv.schema.R")
-
-  Xtr = as.matrix(DBtr[, PREDICTORS])
-  ytr = DBtr[, TARGET]
-  Xte = as.matrix(DBte[, PREDICTORS])
-  yte = DBte[, TARGET]
-  #source(paste(SRC,"utils.R",sep="/"))
-  #X=Xtr; y=ytr; log_file=LOG_FILE; bootstrap.nb=1;permutation.nb=1#TARGET FORCE.ALPHA, MOD.SEL.CV
-  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
-                                  bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
-  #Xtr=Xtr; ytr=ytr; Xte=Xte; yte=yte; TARGET=TARGET; log_file=LOG_FILE; permutation.nb=PERMUTATION.NB
-  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
-                                    permutation.nb=PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
-}
-
-################################################################################################
-## M36~NIGLOB
-################################################################################################
-PREDICTORS_STR = "NIGLOB"
-
-for(TARGET in db$col_targets){
-  #TARGET =  "MMSE.M36"
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MMSE.M36"
-  PREDICTORS = db$col_niglob
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_ENET", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  ## FR CV
-  y = DBtr[,TARGET]
-  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
-  dump("cv",file="cv.schema.R")
+  # ENET -------------------
+  if(dim(X_tr)[2]>1){
+  set.seed(SEED)
+  cv_glmnet = cv.glmnet(X_tr, y_true_tr, alpha=ALPHA)
+  lambda = cv_glmnet$lambda.min # == cv_glmnet$lambda[which.min(cv_glmnet$cvm)]
+  enet_nzero = cv_glmnet$nzero[which.min(cv_glmnet$cvm)][[1]]
+  enet_nzero_min = max(round(dim(X_tr)[2]/10), 2)
+  if(enet_nzero < enet_nzero_min)
+    lambda = cv_glmnet$lambda[which(cv_glmnet$nzero > enet_nzero_min)[1]]
+  mod_enet = glmnet(X_tr, y_true_tr, lambda=lambda, alpha=ALPHA)
+  enet_nzero = sum(mod_enet$beta!=0)
+  coef_enet = as.double(mod_enet$beta); names(coef_enet) = rownames(mod_enet$beta); coef_enet = coef_enet[coef_enet!=0]
+  }
+  # GLM -------------------
+  formula = formula(paste(TARGET,"~", paste(PREDICTORS, collapse='+')))
+  mod_glm = lm(formula, data=SPLITS[[FOLD]]$tr)
+  coef_glm = mod_glm$coefficients
   
-  Xtr = as.matrix(DBtr[, PREDICTORS])
-  ytr = DBtr[, TARGET]
-  Xte = as.matrix(DBte[, PREDICTORS])
-  yte = DBte[, TARGET]
-  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
-                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
-  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
-                                    permutation.nb=PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
-}
-
-################################################################################################
-## M36~BASELINE+NIGLOB
-################################################################################################
-PREDICTORS_STR = "BASELINE+NIGLOB"
-
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  baseline = strsplit(TARGET, "[.]")[[1]][1]
-  PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  ## FR CV
-  y = DBtr[,TARGET]
-  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
-  dump("cv",file="cv.schema.R")
+  if(RM_TEST_OUTLIERS){
+    idx_test_keep =
+      SPLITS[[FOLD]]$te[, BASELINE] <= max(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
+      SPLITS[[FOLD]]$te[, TARGET]   <= max(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)   &
+      SPLITS[[FOLD]]$te[, BASELINE] >= min(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
+      SPLITS[[FOLD]]$te[, TARGET]   >= min(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)
+  } else{idx_test_keep = rep(TRUE, nrow(X_tr))}
   
-  Xtr = as.matrix(DBtr[, PREDICTORS])
-  ytr = DBtr[, TARGET]
-  Xte = as.matrix(DBte[, PREDICTORS])
-  yte = DBte[, TARGET]
-  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
-                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
-  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
-                                    permutation.nb=PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
-}
+  # Predict ENET
+  if(dim(X_tr)[2]>1){
+  y_pred_te_enet = predict(mod_enet, X_te)
+  y_pred_tr_enet = predict(mod_enet, X_tr)
+  loss_te_enet = loss_reg(y_true_te, y_pred_te_enet, NULL, suffix="te")
+  loss_tr_enet = loss_reg(y_true_tr, y_pred_tr_enet, NULL, suffix="tr")
+  }
+  # Predict GLM
+  y_pred_te_glm = predict(mod_glm, SPLITS[[FOLD]]$te)
+  y_pred_tr_glm = predict(mod_glm, SPLITS[[FOLD]]$tr)
+  loss_te_glm = loss_reg(y_true_te, y_pred_te_glm, NULL, suffix="te")
+  loss_tr_glm = loss_reg(y_true_tr, y_pred_tr_glm, NULL, suffix="tr")
 
-PREDICTORS_STR = "BASELINE+NIGLOB_NOINTER"
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  baseline = strsplit(TARGET, "[.]")[[1]][1]
-  PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, FALSE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                               BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
-PREDICTORS_STR = "BASELINE+NIGLOB_INTER"
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  #TARGET = "MDRS_TOTAL.M36"
-  baseline = strsplit(TARGET, "[.]")[[1]][1]
-  PREDICTORS = c(baseline, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_GLM", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  res = do.a.lot.of.things.glm(DBtr, DBte, TARGET, TRUE, PREDICTORS, DATA_STR, PREDICTORS_STR,
-                               BOOTSTRAP.NB, PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(as.list(res)) else RESULTS = rbind(RESULTS, data.frame(as.list(res)))
-}
+  # GLM
+  result_glm = list(FOLD=FOLD, PREDICTORS_STR=PREDICTORS_STR, TARGET=TARGET,
+  mod=mod_glm, coef_glm=coef_glm,
+  y_pred_te=y_pred_te_glm,
+  y_pred_tr=y_pred_tr_glm,
+  loss_te=loss_te_glm,
+  loss_tr=loss_tr_glm,
+  # DATA          
+  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
+  D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["GLM"]] = result_glm
+  if(dim(X_tr)[2]>1){
+    result_enet = list(# ENET
+      mod = mod_enet, coef_enet=coef_enet, 
+      y_pred_te = y_pred_te_enet,
+      y_pred_tr = y_pred_tr_enet,
+      loss_te = loss_te_enet,
+      loss_tr = loss_tr_enet,
+      X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
+      D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)           
+    RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["ENET"]] = result_enet
+  }
+  #save(result, file=paste(PREXIF, ".Rdata", sep=""))
 
+  # RESULTS_TAB
+  res = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="GLM",
+       dim=paste(dim(X_tr), collapse="x"),
+       as.list(c(loss_te_glm, loss_tr_glm, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
+       nzero=(length(coef_glm)-1),
+       coef=paste(names(coef_glm), collapse=", "),
+       coef_val=paste(coef_glm, collapse=", "))
+  RESULTS_TAB = rbind(RESULTS_TAB, res)
+  if(dim(X_tr)[2]>1){
+  res_enet = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="ENET", 
+            dim=paste(dim(X_tr), collapse="x"),
+            as.list(c(loss_te_enet, loss_tr_enet, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
+            nzero=enet_nzero,
+            coef=paste(names(coef_enet), collapse=", "),
+            coef_val=paste(coef_enet, collapse=", "))
+  RESULTS_TAB = rbind(RESULTS_TAB, res_enet)
+  }
+} # FOLD
+  perm_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]]
+  y_true_tr_glm = c()
+  y_pred_tr_glm = c()
+  y_true_te_glm = c()
+  y_pred_te_glm = c()
+  loss_te_glm = NULL
+  y_true_te_enet = c()
+  y_pred_te_enet = c()
+  y_true_tr_enet = c()
+  y_pred_tr_enet = c()
+  loss_te_enet = NULL
+  for(FOLD in 1:length(perm_curr)){
+    cv_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]]
+    y_true_tr_glm = c(y_true_tr_glm, cv_curr[["GLM"]]$y_true_tr)
+    y_pred_tr_glm = c(y_pred_tr_glm, cv_curr[["GLM"]]$y_pred_tr)
+    y_true_te_glm = c(y_true_te_glm, cv_curr[["GLM"]]$y_true_te)
+    y_pred_te_glm = c(y_pred_te_glm, cv_curr[["GLM"]]$y_pred_te)
+    loss_te_glm = rbind(loss_te_glm, cv_curr[["GLM"]]$loss_te)
+    try({
+      y_true_tr_enet= c(y_true_tr_enet, cv_curr[["ENET"]]$y_true_tr);
+      y_pred_tr_enet= c(y_pred_tr_enet, cv_curr[["ENET"]]$y_pred_tr);
+      y_true_te_enet= c(y_true_te_enet, cv_curr[["ENET"]]$y_true_te);
+      y_pred_te_enet= c(y_pred_te_enet, cv_curr[["ENET"]]$y_pred_te)
+      loss_te_enet = rbind(loss_te_enet, cv_curr[["ENET"]]$loss_te)
+      })
+  }
+  loss_te_se_glm = apply(loss_te_glm, 2, sd) / sqrt(nrow(loss_te_glm))
+  names(loss_te_se_glm) <- paste(names(loss_te_se_glm), "se", sep="_")
+  RESULTS_TAB = rbind(RESULTS_TAB, 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="GLM", 
+             dim=paste(dim(X_tr), collapse="x"),
+             as.list(c(loss_reg(y_true_te_glm, y_pred_te_glm, suffix="te"),
+                       loss_reg(y_true_tr_glm, y_pred_tr_glm, suffix="tr"),
+                       loss_te_se_glm)),
+             nzero=NA, coef=NA, coef_val=NA))
+  try({
+    loss_te_se_enet = apply(loss_te_enet, 2, sd) / sqrt(nrow(loss_te_enet))
+    names(loss_te_se_enet) <- paste(names(loss_te_se_enet), "se", sep="_")
+  RESULTS_TAB = rbind(RESULTS_TAB, 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="ENET", 
+                 dim=paste(dim(X_tr), collapse="x"),
+                 as.list(c(loss_reg(y_true_te_enet, y_pred_te_enet, suffix="te"),
+                           loss_reg(y_true_tr_enet, y_pred_tr_enet, suffix="tr"),
+                           loss_te_se_enet)),
+                 nzero=NA, coef=NA, coef_val=NA))
+  })
+} # PERM
+} # SEED
+} # ALPHA
+} # PREDICTORS_STR
+} # TARGET
+
+# r = RESULTS_TAB[RESULTS_TAB$MODEL == "ENET", c("TARGET","PREDICTORS", "r2_te", "r2_2.1")]
+# #diff_tot=sum(r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", c("r2_12","r2_2.1")] - r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC", c("r2_12", "r2_2.1")])
+# diff_1=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_te"])    
+# diff_2=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_2.1"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_2.1"])    
+# tmp = data.frame(alpha=ALPHA, seed=seed, diff_1, diff_2, tot=diff_1+diff_2)
+# print(tmp)
+# GRID = rbind(GRID, tmp)
+if(FALSE){
 ################################################################################################
-## M36~CLINIC+NIGLOB
+## PLOT
 ################################################################################################
-PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
+R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
+R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+Rm = melt(R, id.vars=c("MODEL","ALPHA","SEED","TARGET","PREDICTORS"))
+# 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
+nrow(Rm)
+4 * 4 * 2 * NSEED * length(ALPHAS)
+Rm.stat = summarySE(Rm, measurevar="value", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS", "variable"))
+nrow(Rm.stat)
+4 * 4 * 3 * length(alphas)
 
-for(TARGET in db$col_targets){
-  #TARGET = "TMTB_TIME.M36"
-  PREDICTORS = c(db$col_clinic, db$col_niglob)
-  PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
-  if (!file.exists(PREFIX)) dir.create(PREFIX)
-  setwd(PREFIX)
-  DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-  DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-  ## FR CV
-  y = DBtr[,TARGET]
-  cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
-  dump("cv",file="cv.schema.R")
-  
-  Xtr = as.matrix(DBtr[, PREDICTORS])
-  ytr = DBtr[, TARGET]
-  Xte = as.matrix(DBte[, PREDICTORS])
-  yte = DBte[, TARGET]
-  CV = do.a.lot.of.things.glmnet(X=Xtr, y=ytr, DATA_STR, TARGET, PREDICTORS_STR, FORCE.ALPHA, MOD.SEL.CV,
-                                 bootstrap.nb=BOOTSTRAP.NB, permutation.nb=PERMUTATION.NB)
-  TEST = generalize.on.test.dataset(Xtr=Xtr, ytr=ytr, Xte=Xte, yte=yte, TARGET=TARGET,PREDICTORS_STR=PREDICTORS_STR,
-                                    permutation.nb=PERMUTATION.NB)
-  if(is.null(RESULTS)) RESULTS = data.frame(c(CV, TEST)) else RESULTS = rbind(RESULTS, data.frame(c(CV, TEST)))
+library(RColorBrewer)
+display.brewer.pal(6, "Paired")
+pal = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
+
+## ----------------------------
+## PLOT R2 as function of alpha
+pd <- position_dodge(.1) # move them .05 to the left and right
+ggplot(Rm.stat, aes(x=ALPHA, y=value, colour=PREDICTORS)) + 
+  geom_errorbar(aes(ymin=value-ci, ymax=value+ci), width=.1, position=pd) +
+  geom_line(position=pd) +
+  geom_point(position=pd) + facet_grid(TARGET~variable, scale="free")
+
+## ----------------------------
+## PLOT R2 bar plot
+R.stat = summarySE(R, measurevar="r2_te", groupvars=c("MODEL","ALPHA", "TARGET","PREDICTORS"))
+nrow(R.stat)
+# 4 TARGETs x 4 PREDICTORS 
+
+pd <- position_dodge(.1) # move them .05 to the left and right
+pbar = ggplot(R.stat, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+  geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+  geom_errorbar(aes(ymin=r2_te-ci, ymax=r2_te+ci), width=.1) + 
+#  geom_point() +
+  facet_wrap(~TARGET) + scale_fill_manual(values=pal)
+print(pbar)
+#scale_color_manual(values=pal)
 }
-
-write.csv(RESULTS, OUTPUT_SUMMARY, row.names=FALSE)
-
-# rsync -azvun --delete /neurospin/mescog/2014_mescog_predict_cog_decline ~/data/
-
-
-
-# 
-# for(TARGET in db$col_targets){
-#     #TARGET = "TMTB_TIME.M36"
-#     #TARGET = "MDRS_TOTAL.M36"
-#     PREDICTORS = strsplit(TARGET, "[.]")[[1]][1]
-#     PREFIX = paste(OUTPUT, "/", DATA_STR, "_", TARGET, "~", PREDICTORS_STR, sep="")
-#     if (!file.exists(PREFIX)) dir.create(PREFIX)
-#     setwd(PREFIX)
-#     DBtr = DBLEARN[!is.na(DBLEARN[, TARGET]), c(TARGET, PREDICTORS)]
-#     DBte = DBTEST[!is.na(DBTEST[, TARGET]), c(TARGET, PREDICTORS)]
-#     ## FR CV
-#     y = DBtr[,TARGET]
-#     cv = cross_val(length(y),type="k-fold", k=10, random=TRUE, seed=97)
-#     dump("cv",file="cv.schema.R")
-#     
-#     y.pred.cv = c();  y.true.cv = c()
-#     for(test in cv){
-#         DBtr_train = DBtr[-test,]
-#         DBtr_test = DBtr[test,]
-#         formula = formula(paste(TARGET,"~",PREDICTORS))
-#         modlm = lm(formula, data = DBtr_train)
-#         y.pred.cv = c(y.pred.cv, predict(modlm, DBtr_test))
-#         y.true.cv = c(y.true.cv, DBtr_test[,TARGET])
-#     }
-#     loss.cv = round(loss.reg(y.true.cv, y.pred.cv, df2=2),digit=2)
-#     ## CV predictions
-#     ## ==============
-# 
-#     cat("\nCV predictions\n",file=LOG_FILE,append=TRUE)
-#     cat("--------------\n",file=LOG_FILE,append=TRUE)
-# 
-#     sink(LOG_FILE, append = TRUE)
-#     print(loss.cv)
-#     sink()
-# 
-#     ## Fit and predict all (same train) data, (look for overfit)
-#     ## =========================================================
-# 
-#     cat("\nFit and predict all (same train) data, (look for overfit)\n",file=LOG_FILE,append=TRUE)
-#     cat("---------------------------------------------------------\n",file=LOG_FILE,append=TRUE)
-#     #formula = formula(paste(TARGET,"~", PREDICTORS))
-#     modlm.fr = lm(formula, data = DBtr)
-#     y.pred.all = predict(modlm.fr, DBtr)
-#     loss.all = round(loss.reg(y, y.pred.all, df=2),digit=2)
-#     sink(LOG_FILE, append = TRUE)
-#     print(loss.all)
-#     sink()
-#     
-#     ## Plot true vs predicted
-#     ## ======================
-#     
-#     pdf("cv_glm_true-vs-pred.pdf")
-#     p = qplot(y.true.cv, y.pred.cv, geom = c("smooth","point"), method="lm",
-#         main=paste(TARGET," - true vs. pred - CV - [R2_10CV=",loss.cv[["R2"]],"]",sep=""))
-#     print(p); dev.off()
-#   
-#     # - true vs. pred (no CV)
-#     
-#     #svg("all.bestcv.glmnet.true-vs-pred.svg")
-#     pdf("all_glm_true-vs-pred.pdf")
-#     p = qplot(y, y.pred.all, geom = c("smooth","point"), method="lm",
-#         main=paste(TARGET," - true vs. pred - no CV - [R2=", loss.all[["R2"]],"]",sep=""))
-#     print(p); dev.off()
-# 
-#     cat("\nGeneralize on Test dataset:\n",file=LOG_FILE,append=TRUE)
-#     cat("-------------------------------\n",file=LOG_FILE,append=TRUE)
-#     y.preDBtr = predict(modlm.fr, DBtr)
-#     y.preDBte  = predict(modlm.fr, DBte)
-# 
-#     loss.fr = round(loss.reg(DBtr[,TARGET], y.preDBtr, df2=2), digit=2)
-#     loss.d  = round(loss.reg(DBte[,TARGET],  y.preDBte,  df2=2), digit=2)
-#     
-#     pdf("all_glm_true-vs-preDBte.pdf")
-#     y.preDBte = as.vector(y.preDBte)
-#     p = qplot(DBte[,TARGET], y.preDBte, geom = c("smooth","point"), method="lm",
-#         main=paste(TARGET," - true vs. pred - TEST - [R2=", loss.d[["R2"]] ,"]",sep=""))
-#     print(p);dev.off()    
-#     
-#     sink(LOG_FILE, append = TRUE)
-#     print(rbind(c(center=1,loss.fr),c(center=2,loss.d)))
-#     sink()
-#     
-#     res = data.frame(data=DATA_STR, target=TARGET, predictors="BASELINE", dim=paste(dim(DBtr)[1], dim(DBtr)[2]-1, sep="x"),
-#       r2_cv=loss.cv["R2"], cor_cv=loss.cv["cor"], fstat_cv=loss.cv["fstat"],
-#       r2_all=loss.all["R2"], cor_all=loss.all["R2"], r2_test=loss.d["R2"], cor_test=loss.d["cor"], fstat_test=loss.d["fstat"])
-#     if(is.null(RESULTS)) RESULTS = res else RESULTS = rbind(RESULTS, res)
-# }

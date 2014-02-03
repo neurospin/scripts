@@ -201,7 +201,7 @@ for i in xrange(mapping.shape[0]):
         new_name = curr
     elif (l["CADASIL.given"] == 1 or l["ASPS.given"] ==1 or l["ASPFS.given"] ==1) \
         and pd.notnull(l['time point']):
-        new_name = curr + "@" + l['time point']
+        new_name = curr + "." + l['time point']
     if l["CADASIL.given"] == 1:
         cadasil_name = l["CADASIL.name"].upper()
         in_cadasil_base = int(cadasil_name in cadasil_base.columns)
@@ -287,26 +287,26 @@ for i in xrange(mapping.shape[0]):
             exec(recode_srt)
             var_cada = var_cada.tolist()
 
-        if new_name == "BMI@M18":
+        if new_name == "BMI.M18":
             unit_str = "kg/m2"
             recode_srt = 'var_cada = cadasil_base["POIDS27"] / (cadasil_base["TAILLE"] / 100.)**2'
             remark_str = "ok"
             exec(recode_srt)
             var_cada = var_cada.tolist()
 
-        if new_name == "BMI@M36":
+        if new_name == "BMI.M36":
             unit_str = "kg/m2"
             recode_srt = 'var_cada = cadasil_base["POIDS40"] / (cadasil_base["TAILLE"] / 100.)**2'
             remark_str = "ok"
             exec(recode_srt)
             var_cada = var_cada.tolist()
 
-        if new_name == "BMI@M54":
+        if new_name == "BMI.M54":
             unit_str = "kg/m2"
             recode_srt = 'var_cada = cadasil_base["POIDS54"] / (cadasil_base["TAILLE"] / 100.)**2'
             remark_str = "PROBLEM: POIDS54 not in cadasil_base"
 
-        if new_name == "BMI@M72":
+        if new_name == "BMI.M72":
             unit_str = "kg/m2"
             remark_str = "ok"
 
@@ -320,7 +320,7 @@ for i in xrange(mapping.shape[0]):
             var_asps = replace(var_asps, asps)
             var_aspfs = replace(var_aspfs, aspfs)
 
-        if new_name == "SMOKING@M36" or new_name == "SMOKING@M72":
+        if new_name == "SMOKING.M36" or new_name == "SMOKING.M72":
             unit_str = "current, never, former"
             recode_srt = """cada={}; asps={0:"never", 1:"current", 2:"former"}"""
             remark_str = "ok"
@@ -341,7 +341,7 @@ var_aspfs = [asps_to_cad(v) for v in var_aspfs]
             recode_srt = recode_srt_alcohol
             exec(recode_srt)
             
-        if new_name == "ALCOHOL@M36" or new_name == "ALCOHOL@M72":
+        if new_name == "ALCOHOL.M36" or new_name == "ALCOHOL.M72":
             unit_str = "1:none, 2:<=2 drinks a day, 3:>2 drinks a day"
             remark_str = "STANDARDIZED:  See ALCOHOL"
             recode_srt = recode_srt_alcohol

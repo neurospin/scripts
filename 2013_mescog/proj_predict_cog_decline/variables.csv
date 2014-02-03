@@ -4,13 +4,13 @@ DESCRIPTION                                  : CAD_NAME		     : NEW_NAME
 # Clinical variables to predict
 # #################################################################### #
 
-TMTB (frontal function)                      : TMTBT42		     : TMTB_TIME@M36
-MDRS_total  (Mattis dementia rating scale)   : SCORETOT41		 : MDRS_TOTAL@M36
+TMTB (frontal function)                      : TMTBT42		     : TMTB_TIME.M36
+MDRS_total  (Mattis dementia rating scale)   : SCORETOT41		 : MDRS_TOTAL.M36
 #     (global cognitive status)
-mRS Modified Rankin Score                    : INDEXSCRANKIN40   : MRS@M36
+mRS Modified Rankin Score                    : INDEXSCRANKIN40   : MRS.M36
 #(global disability)
-Barthel Index (functional independency)      : INDEXSCBARTHEL40	 : BARTHEL@M36
-MMS                                          : INDEXMMS40        : MMSE@M36
+#Barthel Index (functional independency)      : INDEXSCBARTHEL40	 : BARTHEL.M36
+MMS                                          : INDEXMMS40        : MMSE.M36
 # Check the it is INDEXMMS40 and not "SCMMS40"
 
 # #################################################################### #
@@ -30,32 +30,32 @@ Education level                              : NCULTUREL14		: EDUCATION
 Systolic blood pressure at baseline          : PAS		        : SYS_BP
 Diastolic blood pressure at baseline         : PAD		        : DIA_BP
 #Mean blood pressure at baseline              : NA		        : NA
-∆ blood pressure at baseline                 : DELTA_BP  		: DELTA_BP
+#∆ blood pressure at baseline                 : DELTA_BP  		: DELTA_BP
 #(systolic – diastolic)
-Diagnosis of hypertension at baseline        : HTA		        : HYPERTENSION
-Diagnosis of hypercholesterolemia at baseline: HCHOLES		    : HYPERCHOL
+#Diagnosis of hypertension at baseline        : HTA		        : HYPERTENSION
+#Diagnosis of hypercholesterolemia at baseline: HCHOLES		    : HYPERCHOL
 Smoking                                      : TABAC		    : SMOKING
-HDL cholesterol                              : CHOLHDL17        : HDL
+#HDL cholesterol                              : CHOLHDL17        : HDL
 LDL cholesterol                              : CHOLLDL17	    : LDL
-Triglycerides                                : TRIGLY17		    : TRIGLY
+#Triglycerides                                : TRIGLY17		    : TRIGLY
 Homocysteine                                 : HOMOCY17		    : HOMOCYSTEIN
 HbA1c                                        : HBGLYCO17		: HBA1C
 CRP (C reactive protein)                     : CRP17		    : CRP17
-Glycemia at baseline                         : GLYC17		    : FAST_GLUC
+#Glycemia at baseline                         : GLYC17		    : FAST_GLUC
 Alcohol consumption (>2 drinks)              : CALCOOL		    : ALCOHOL
 
 
 # Clinical variables at baseline ----------------------------------- #
 
-Any history of migraine with aura            : MIGAAURA		    : MIGRAINE_WITH_AURA
-Any history of stroke                        : AVC9		        : AVC
-Presence of gait disturbances                : TRBEQUILIBRE		: TRBEQUILIBRE
-Presence/absence of balance troubles         : TRBMARCHE		: TRBMARCHE
-Presence/absence  of dementia                : DEMENCE		    : DEMENTIA
+#Any history of migraine with aura            : MIGAAURA		    : MIGRAINE_WITH_AURA
+#Any history of stroke                        : AVC9		        : AVC
+#Presence of gait disturbances                : TRBEQUILIBRE		: TRBEQUILIBRE
+#Presence/absence of balance troubles         : TRBMARCHE		: TRBMARCHE
+#Presence/absence  of dementia                : DEMENCE		    : DEMENTIA
 mRS at baseline                              : INDEXSCRANKIN    : MRS
 TMTB at baseline                             : TMTBT15		    : TMTB_TIME
 MMSE at baseline                             : INDEXMMS		    : MMSE
 MDRS at baseline                             : SCORETOT14       : MDRS_TOTAL
 #(mattis dementia rating scale)
-NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
-Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
+#NIH stroke scale at baseline                 : INDEXNIHSS		: NIHSS
+#Barthel Index at baseline                    : INDEXSCBARTHEL	: BARTHEL
