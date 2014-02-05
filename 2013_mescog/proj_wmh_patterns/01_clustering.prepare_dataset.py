@@ -19,7 +19,7 @@ INPUT:
 OUTPUT:
  - OUTPUT_DATASETS: train and test datasets
  - OUTPUT_STD_DATASETS: standardized train and test datasets
- - OUTPUT_SCALER: sklearn StandandardScaler object used to scale datasets
+ - OUTPUT_SCALER: means used to scale datasets
  - OUTPUT_MASK: mask of selected voxels (subset of INPUT_MASK)
 
 TODO:
@@ -31,7 +31,6 @@ TODO:
 """
 
 import os
-import pickle
 
 import numpy as np
 
@@ -64,14 +63,14 @@ if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 OUTPUT_FEATURES_MASK = os.path.join(OUTPUT_DIR, "features_mask.nii")
-OUTPUT_MASK = os.path.join(OUTPUT_DIR, "wmh_mask.nii")
+OUTPUT_WMH_MASK = os.path.join(OUTPUT_DIR, "wmh_mask.nii")
 OUTPUT_SUBJECTS = [os.path.join(OUTPUT_DIR, f) for f in ["french-subjects.txt",
                                                          "germans-subjects.txt"]]
 OUTPUT_DATASETS = [os.path.join(OUTPUT_DIR, f) for f in ["french.npy",
                                                          "germans.npy"]]
 OUTPUT_STD_DATASETS = [os.path.join(OUTPUT_DIR, f) for f in ["french.center.npy",
                                                              "germans.center.npy"]]
-OUTPUT_SCALER = os.path.join(OUTPUT_DIR, "scaler.pkl")
+OUTPUT_SCALER = os.path.join(OUTPUT_DIR, "scaler.npy")
 
 ##############
 # Parameters #
@@ -108,11 +107,12 @@ n_features = mask_index.shape[0]
 print "Found {n} features".format(n=n_features)
 
 # Create mask & save it
-mask = np.zeros(mni_mask.shape, dtype=bool)
-mask[mni_mask] = features_mask
-mask_babel = nibabel.Nifti1Image(mask.astype(np.uint8),
-                                 babel_mni_mask.get_affine())
-nibabel.save(mask_babel, OUTPUT_MASK)
+wmh_mask = np.zeros(mni_mask.shape, dtype=bool)
+wmh_mask[mni_mask] = features_mask
+wmh_mask_babel = nibabel.Nifti1Image(wmh_mask.astype(np.uint8),
+                                     babel_mni_mask.get_affine(),
+                                     header=babel_mni_mask.get_header())
+nibabel.save(wmh_mask_babel, OUTPUT_WMH_MASK)
 
 # Get indices of French and German subjects.
 # We use np.where so it works even with non-ordered
@@ -120,30 +120,29 @@ nibabel.save(mask_babel, OUTPUT_MASK)
 # There might be faster ways to extract test indices with sets and so on
 # but it is not worth.
 inf = subjects_id < MAX_TRAIN_ID
-train_index = np.where(inf)[0]
-print "Found", len(train_index), "training subjects"
-test_index = np.where(~inf)[0]
-print "Found", len(test_index), "testing subjects"
+french_index = np.where(inf)[0]
+print "Found", len(french_index), "french subjects"
+germans_index = np.where(~inf)[0]
+print "Found", len(germans_index), "german subjects"
 
 # Extract & save subsets
-train = X[train_index][:, mask_index]
-test = X[test_index][:, mask_index]
+french = X[french_index][:, mask_index]
+germans = X[germans_index][:, mask_index]
 del X
 
-np.savetxt(OUTPUT_SUBJECTS[0], subjects_id[train_index], '%s')
-np.savetxt(OUTPUT_SUBJECTS[1], subjects_id[test_index], '%s')
-np.save(OUTPUT_DATASETS[0], train)
-np.save(OUTPUT_DATASETS[1], test)
-print "Train and test data saved"
+np.savetxt(OUTPUT_SUBJECTS[0], subjects_id[french_index], '%s')
+np.savetxt(OUTPUT_SUBJECTS[1], subjects_id[germans_index], '%s')
+np.save(OUTPUT_DATASETS[0], french)
+np.save(OUTPUT_DATASETS[1], germans)
+print "Data saved"
 
 # Standardize sets and save
 scaler = sklearn.preprocessing.StandardScaler(with_std=False)
-scaler.fit(train)
-train_std = scaler.transform(train)
-test_std = scaler.transform(test)
+scaler.fit(french)
+french_centered = scaler.transform(french)
+germans_centered = scaler.transform(germans)
 
-np.save(OUTPUT_STD_DATASETS[0], train_std)
-np.save(OUTPUT_STD_DATASETS[1], test_std)
-with open(OUTPUT_SCALER, "wb") as f:
-    pickle.dump(scaler, f)
-print "Standardized train and test data saved"
+np.save(OUTPUT_STD_DATASETS[0], french_centered)
+np.save(OUTPUT_STD_DATASETS[1], germans_centered)
+np.save(OUTPUT_SCALER, scaler.mean_)
+print "Centered data saved"
