@@ -19,8 +19,9 @@ NIGLOB_Sienax_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_Sienax.txt", sep="/")
 NIGLOB_WMHV_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_WMHV.txt", sep="/")
 
 # OUTPUT ---
-OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128"
-
+#OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128"
+#OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140204"
+OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205"
 ################################################################################################
 ## Names mapping
 ################################################################################################
@@ -137,10 +138,82 @@ write.csv(stat, paste(OUTPUT_PATH, "_qc_summary.csv", sep=""), row.names=FALSE)
 ################################################################################################
 source(paste(SRC,"utils.R",sep="/"))
 
+# "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205"
+
+VARIABLES = variables()
+# Remove subject with missing LLV or BPF
+DB = DB[!(is.na(DB$BPF) | is.na(DB$LLV)), unlist(VARIABLES)]
+
+# Impute by site
+Dfr = DB[DB$SITE=="FR", ]
+Dge = DB[DB$SITE=="GE", ]
+
+missing = data.frame(var=colnames(DB), FR=sapply(Dfr, function(x)sum(is.na(x))), GE=sapply(Dge, function(x)sum(is.na(x))))
+rownames(missing)=NULL
+print(missing)
+# var  FR GE
+# 1                ID   0  0
+# 2              SITE   0  0
+# 3     TMTB_TIME.M36 104 40
+# 4    MDRS_TOTAL.M36  94 38
+# 5           MRS.M36  74 38
+# 6          MMSE.M36  83 38
+# 7         TMTB_TIME  34  9
+# 8        MDRS_TOTAL  13  0
+# 9               MRS   0  0
+# 10             MMSE   8  2
+# 11              LLV   0  0
+# 12          LLcount   0  0
+# 13             WMHV   1  1
+# 14          MBcount   0  0
+# 15              BPF   0  0
+# 16 AGE_AT_INCLUSION   0  0
+# 17              SEX   0  0
+# 18        EDUCATION   4  0
+# 19           SYS_BP   6  0
+# 20           DIA_BP   6  0
+# 21          SMOKING  18  5
+# 22              LDL   3  3
+# 23      HOMOCYSTEIN  16  7
+# 24            HBA1C   3  3
+# 25            CRP17   9  4
+# 26          ALCOHOL  21  3
+
+imput_missing<-function(D, var){
+  imput_model = NULL
+  # Impute baseline using other baselines
+  Di = imput_missing_lm(D, id=D$ID, to_impute=var$col_baselines, predictors=var$col_baselines)
+  imput_model = rbind(imput_model, attr(Di, "models"))
+  # Impute clinic by mean
+  Di = imput_missing_mean(Di, id=D$ID, to_impute=var$col_clinic)
+  attr(Di, "models")$model = as.factor(attr(Di, "models")$model)
+  imput_model = rbind(imput_model, attr(Di, "models"))
+  # Impute NIGLOB (except) "LLV", "BPF" by mean
+  niglob_to_imput = var$col_niglob[!(var$col_niglob %in% c("LLV", "BPF"))]
+  Di = imput_missing_mean(Di, id=Di$ID, to_impute=niglob_to_imput)
+  attr(Di, "models")$model = as.factor(attr(Di, "models")$model)
+  imput_model = rbind(imput_model, attr(Di, "models"))
+  print(data.frame(sapply(Di, function(x)sum(is.na(x)))))
+  return(list(D=Di, imput_rules=imput_model))
+}
+
+fr = imput_missing(Dfr, VARIABLES)
+ge = imput_missing(Dge, VARIABLES)
+
+Di = rbind(fr$D, ge$D)
+D_imput_rules = rbind(fr$imput_rules, ge$imput_rules)
+
+write.csv(DB, paste(OUTPUT_PATH, "_nomissing_BPF-LLV.csv", sep=""), row.names=FALSE)
+write.csv(Di, paste(OUTPUT_PATH, "_nomissing_BPF-LLV_imputed.csv", sep=""), row.names=FALSE)
+write.csv(D_imput_rules, paste(OUTPUT_PATH, "_nomissing_BPF-LLV_imputed_rules.csv", sep=""), row.names=FALSE)
+
+
+if(FALSE){#OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128"
 
 skip = c(colnames(DB)[grep("M36",colnames(DB))], c("ID", "SITE"))
 imput = imput_missing(DB, skip)
 
 write.csv(DB, paste(OUTPUT_PATH, ".csv", sep=""), row.names=FALSE)
-write.csv(imput$Dimputed, paste(OUTPUT_PATH, "_imputed.csv", sep=""), row.names=FALSE)
-write.csv(imput$models, paste(OUTPUT_PATH, "_imputed_models.csv", sep=""), row.names=FALSE)
+write.csv(imput$Dimputed, paste(OUTPUT_PATH, "_imputed_lm.csv", sep=""), row.names=FALSE)
+write.csv(imput$models, paste(OUTPUT_PATH, "_imputed_lm_models.csv", sep=""), row.names=FALSE)
+}

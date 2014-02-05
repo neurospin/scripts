@@ -1,16 +1,27 @@
 require(ggplot2)
 require(glmnet)
 require(reshape)
+library(RColorBrewer)
+library(plyr)
+
+#display.brewer.pal(6, "Paired")
+palette = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 
 # INPUT ---
-INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed.csv", sep="/")
+#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed_lm.csv", sep="/")
+#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140204_nomissing_BPF-LLV_imputed_lm.csv", sep="/")
+INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 
 # OUTPUT ---
-OUTPUT = paste(BASE_DIR, "20140128_pool-FR-GE", sep="/")
+OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), sep="/")
 if (!file.exists(OUTPUT)) dir.create(OUTPUT)
+VALIDATION = "CV"
+RM_TEST_OUTLIERS = TRUE
+#VALIDATION = "FR-GE"
+#RM_TEST_OUTLIERS = TRUE
 
 source(paste(SRC,"utils.R",sep="/"))
 
@@ -22,12 +33,11 @@ source(paste(SRC,"utils.R",sep="/"))
 ################################################################################################
 db = read_db(INPUT_DATA)
 dim(db$DB)# 372  29
-ALPHA=.95 #enet
+#ALPHA=.95 #enet
 
 ################################################################################################
 ## SIMPLE ENET PREDICTION NO PLOT/PERM etc.
 ################################################################################################
-RM_TEST_OUTLIERS = FALSE
 #GRID=NULL
 #ALPHAS = seq(0, 1, 0.05)
 #ALPHAS = seq(0, 1, 0.25)
@@ -65,23 +75,38 @@ for(SEED in SEEDS){
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]] = list()
   set.seed(SEED)
   #pdf(paste(OUTPUT, "/",TARGET, "_datasets_qqplot.pdf", sep=""))
-  #qqplot(SPLITS[[FOLD]]$tr[, TARGET], SPLITS[[FOLD]]$te[, TARGET], main=TARGET)
+  #qqplot(D_tr[, TARGET], D_te[, TARGET], main=TARGET)
   #dev.off()
   #cat("=== ", TARGET, " ===\n")
-  #print(SPLITS[[FOLD]]$tr_summary)
-  #print(SPLITS[[FOLD]]$te_summary)
+  #print(D_tr_summary)
+  #print(D_te_summary)
 for(PERM in 1:NPERM){
   cat("    ** PERM:", PERM, "**\n" )
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]] = list()
   #SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
-  SPLITS = kfold_site_stratified_rm_na(db$DB, TARGET, k=NFOLD)
+  if(VALIDATION == "CV"){
+    SPLITS = kfold_site_stratified_rm_na(db$DB, TARGET, k=NFOLD)
+  }
+  if(VALIDATION == "FR-GE"){
+    SPLITS = twofold_bysite_rm_na(db$DB, TARGET)
+  }
 for(FOLD in 1:length(SPLITS)){
   cat("   ** fold:", FOLD, "**\n" )
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]] = list()
-  X_tr = as.matrix(SPLITS[[FOLD]]$tr[, PREDICTORS])
-  y_true_tr = SPLITS[[FOLD]]$tr[, TARGET]
-  X_te = as.matrix(SPLITS[[FOLD]]$te[, PREDICTORS])
-  y_true_te = SPLITS[[FOLD]]$te[, TARGET]
+  D_tr = SPLITS[[FOLD]]$tr
+  D_te = SPLITS[[FOLD]]$te
+  if(RM_TEST_OUTLIERS){
+    idx_test_keep =
+      D_te[, BASELINE] <= max(D_tr[, BASELINE], na.rm=TRUE) &
+      D_te[, TARGET]   <= max(D_tr[, TARGET], na.rm=TRUE)   &
+      D_te[, BASELINE] >= min(D_tr[, BASELINE], na.rm=TRUE) &
+      D_te[, TARGET]   >= min(D_tr[, TARGET], na.rm=TRUE)
+    D_te = D_te[idx_test_keep, ]
+  }
+  X_tr = as.matrix(D_tr[, PREDICTORS])
+  y_true_tr = D_tr[, TARGET]
+  X_te = as.matrix(D_te[, PREDICTORS])
+  y_true_te = D_te[, TARGET]
   #y = c(y_true_tr, y_true_te)
 
   # ENET -------------------
@@ -99,28 +124,22 @@ for(FOLD in 1:length(SPLITS)){
   }
   # GLM -------------------
   formula = formula(paste(TARGET,"~", paste(PREDICTORS, collapse='+')))
-  mod_glm = lm(formula, data=SPLITS[[FOLD]]$tr)
+  mod_glm = lm(formula, data=D_tr)
   coef_glm = mod_glm$coefficients
-  
-  if(RM_TEST_OUTLIERS){
-    idx_test_keep =
-      SPLITS[[FOLD]]$te[, BASELINE] <= max(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
-      SPLITS[[FOLD]]$te[, TARGET]   <= max(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)   &
-      SPLITS[[FOLD]]$te[, BASELINE] >= min(SPLITS[[FOLD]]$tr[, BASELINE], na.rm=TRUE) &
-      SPLITS[[FOLD]]$te[, TARGET]   >= min(SPLITS[[FOLD]]$tr[, TARGET], na.rm=TRUE)
-  } else{idx_test_keep = rep(TRUE, nrow(X_tr))}
   
   # Predict ENET
   if(dim(X_tr)[2]>1){
   y_pred_te_enet = predict(mod_enet, X_te)
   y_pred_tr_enet = predict(mod_enet, X_tr)
   loss_te_enet = loss_reg(y_true_te, y_pred_te_enet, NULL, suffix="te")
+  #loss_te_enet = loss_reg(y_true_te[idx_test_keep], y_pred_te_enet[idx_test_keep], NULL, suffix="te")
   loss_tr_enet = loss_reg(y_true_tr, y_pred_tr_enet, NULL, suffix="tr")
   }
   # Predict GLM
-  y_pred_te_glm = predict(mod_glm, SPLITS[[FOLD]]$te)
-  y_pred_tr_glm = predict(mod_glm, SPLITS[[FOLD]]$tr)
+  y_pred_te_glm = predict(mod_glm, D_te)
+  y_pred_tr_glm = predict(mod_glm, D_tr)
   loss_te_glm = loss_reg(y_true_te, y_pred_te_glm, NULL, suffix="te")
+  #loss_te_glm = loss_reg(y_true_te[idx_test_keep], y_pred_te_glm[idx_test_keep], NULL, suffix="te")
   loss_tr_glm = loss_reg(y_true_tr, y_pred_tr_glm, NULL, suffix="tr")
 
   # GLM
@@ -131,8 +150,8 @@ for(FOLD in 1:length(SPLITS)){
   loss_te=loss_te_glm,
   loss_tr=loss_tr_glm,
   # DATA          
-  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
-  D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)
+  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, 
+  D_tr=D_tr, D_te=D_te)
   RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["GLM"]] = result_glm
   if(dim(X_tr)[2]>1){
     result_enet = list(# ENET
@@ -141,8 +160,8 @@ for(FOLD in 1:length(SPLITS)){
       y_pred_tr = y_pred_tr_enet,
       loss_te = loss_te_enet,
       loss_tr = loss_tr_enet,
-      X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, idx_test_keep=idx_test_keep,
-      D_tr=SPLITS[[FOLD]]$tr, D_te=SPLITS[[FOLD]]$te)           
+      X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, 
+      D_tr=D_tr, D_te=D_te)           
     RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["ENET"]] = result_enet
   }
   #save(result, file=paste(PREXIF, ".Rdata", sep=""))
@@ -219,58 +238,102 @@ for(FOLD in 1:length(SPLITS)){
 } # PREDICTORS_STR
 } # TARGET
 #write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
+write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
+save(RESULTS, file=paste(OUTPUT, "/RESULTS_",VALIDATION,".Rdata", sep=""))
 
-# #diff_tot=sum(r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", c("r2_12","r2_2.1")] - r[r$TARGET!="BARTHEL.M36" & r$PREDICTORS=="BASELINE+CLINIC", c("r2_12", "r2_2.1")])
-# diff_1=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_te"])    
-# diff_2=sum(r[r$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_2.1"] - r[r$PREDICTORS=="BASELINE+CLINIC", "r2_2.1"])    
-# tmp = data.frame(alpha=ALPHA, seed=seed, diff_1, diff_2, tot=diff_1+diff_2)
-# print(tmp)
-# GRID = rbind(GRID, tmp)
-
-if(FALSE){
-library(plyr)  
 R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
 R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
 R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+# 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
+nrow(R) == 4 * 4 * length(SEEDS) * length(ALPHAS)
+
+#ddply(R, .(MODEL, ALPHA, SEED, PREDICTORS), summarise,mean=mean(r2_te),sd=sd(r2_te))
+
+
 # Which is best seed
-b = R[R$PREDICTORS == "BASELINE", c("SEED", "TARGET","PREDICTORS", "r2_te")]
-bni = R[R$PREDICTORS == "BASELINE+NIGLOB", c("SEED", "TARGET","PREDICTORS", "r2_te")]
-b_vs_bni = merge(b, bni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
+b    = R[R$PREDICTORS == "BASELINE",               c("SEED", "TARGET", "r2_te", "r2_te_se")]
+bni  = R[R$PREDICTORS == "BASELINE+NIGLOB",        c("SEED", "TARGET", "r2_te", "r2_te_se")]
+bc   = R[R$PREDICTORS == "BASELINE+CLINIC",        c("SEED", "TARGET", "r2_te", "r2_te_se")]
+bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", c("SEED", "TARGET", "r2_te", "r2_te_se")]
+m1 = merge(b, bni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
+m2 = merge(bc, bcni, by=c("SEED", "TARGET"), suffixes=c("_bc", "_bcni"))
+m = merge(m1, m2, by=c("SEED", "TARGET"))
+nrow(m) == 4 * length(SEEDS)
+## ICI
+
+
 b_vs_bni$diff = b_vs_bni$r2_te_bni - b_vs_bni$r2_te_b
 
 nrow(b_vs_bni) == 4 * length(SEEDS)
-bc = R[R$PREDICTORS == "BASELINE+CLINIC", c("SEED", "TARGET","PREDICTORS", "r2_te")]
-bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", c("SEED", "TARGET","PREDICTORS", "r2_te")]
+
 bc_vs_bcni = merge(bc, bcni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
 nrow(bc_vs_bcni) == 4 * length(SEEDS)
+
 bc_vs_bcni$diff = bc_vs_bcni$r2_te_bni - bc_vs_bcni$r2_te_b
 
-d = ddply(b_vs_bni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
-d[d$mean == max(d$mean),]
-#28   28 0.04563271 0.03174524
-d = ddply(bc_vs_bcni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
-d[d$mean == max(d$mean),]
+
+bc_vs_bni_byseed = ddply(b_vs_bni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
+bc_vs_bni_byseed[bc_vs_bni_byseed$mean == max(bc_vs_bni_byseed$mean),]
+#28   28 0.04563271 0.03174524 (10CV)
+#78   78 0.03927785 0.02698512 (5CV)
+#53   53 0.03415659 0.02925164 (5CV) no missing BPF, LLV
+# 
+bc_vs_bcni_byseed = ddply(bc_vs_bcni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
+bc_vs_bcni_byseed[bc_vs_bcni_byseed$mean == max(bc_vs_bcni_byseed$mean),]
+
+CHOOSEN_SEED = which.max(bc_vs_bni_byseed$mean + bc_vs_bcni_byseed$mean)
+Rbest = R[R$SEED== CHOOSEN_SEED, ]
 #61   61 0.03755026 0.02776236
+#86   86 0.04224727 0.03323897
+#89   89 0.03524849 0.03154105 (5CV) no missing BPF, LLV
 # Seed 61
-R = R[R$SEED==1 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-R = R[R$SEED==61 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-#R = R[R$SEED==28 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+#Rp = R[R$SEED==1 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+#Rp = R[R$SEED==86 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+#Rp = R[R$SEED==40 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
 
-## ----------------------------
-## PLOT R2 bar plot
-library(RColorBrewer)
-#display.brewer.pal(6, "Paired")
-pal = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
+#CHOOSEN_SEED = 50 #FR-GE
 
-pd <- position_dodge(.1) # move them .05 to the left and right
-pbar = ggplot(R, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+## PLOT CV --------------------------------------------------------------------------------------------------
+pcv = ggplot(Rbest, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
-  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) + 
+  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1)+
   #  geom_point() +
-  facet_wrap(~TARGET) + scale_fill_manual(values=pal)
-print(pbar)
+  facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("CV")
 
+x11(); print(pcv)
+
+svg(paste(OUTPUT, "/RESULTS_",VALIDATION,".svg", sep=""))
+print(pcv)
+dev.off()
+
+## PLOT TRAIN-TEST --------------------------------------------------------------------------------------------------
+if(VALIDATION == "FR-GE"){ 
+  library(plyr)  
+  R = RESULTS_TAB[RESULTS_TAB$FOLD != "ALL" & RESULTS_TAB$SEED==CHOOSEN_SEED,]
+  R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+  R = R[,c("FOLD", "MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr")]
+  ## ----------------------------
+  ## PLOT R2 bar plot
+  
+  Rfr = R[R$FOLD==1, ]
+  pd <- position_dodge(.1) # move them .05 to the left and right
+  pbfr = ggplot(Rfr, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+    geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+    facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("FR>GE")
+  x11();print(pbfr)
+  Rge = R[R$FOLD==2, ]
+  pd <- position_dodge(.1) # move them .05 to the left and right
+  pbge = ggplot(Rge, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
+    geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+    facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("GE>FR")
+  x11();print(pbge)
+  pdf(paste(OUTPUT, "/RESULTS_",VALIDATION,".pdf", sep=""))
+  print(pbfr)
+  print(pbge)
+  dev.off()  
 }
+## PLOT CV --------------------------------------------------------------------------------------------------
+
 if(FALSE){
 ################################################################################################
 ## PLOT

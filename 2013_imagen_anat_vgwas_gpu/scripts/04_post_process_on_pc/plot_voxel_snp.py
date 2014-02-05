@@ -175,13 +175,10 @@ for snp in snp_of_interest:
     plot_x = subjects_snp
     shake_plot_x = add_shakes(plot_x)
     plot_y_avg = np.average(voxels_snp, axis=1)
-    plot_y_max = np.max(voxels_snp, axis=1)
     # Linear regression using least square
     avg_weights = get_linear_weights(plot_x, plot_y_avg)
-    max_weights = get_linear_weights(plot_x, plot_y_max)
     regression_line_x = np.sort(np.unique(plot_x))
     print "avg_weights =", avg_weights
-    print "max_weights =", max_weights
     # Plot first subplot
     fig = plt.figure("%s (a point denotes a subject)" % snp_list_name[snp])
     ax = fig.add_subplot(211)
@@ -193,17 +190,5 @@ for snp in snp_of_interest:
     print "Using average values"
     print "T-test between snp(0) and snp(1,2) (t-statistic, p-value)"
     print t_test(plot_x, plot_y_avg, [0], [1, 2])
-    # ax.plot(regression_line_x, regression_line_x * avg_weights[0] + avg_weights[1])
-    # Plot second subplot
-    ax = fig.add_subplot(212)
-    _ = ax.set_title('%s (a point denotes a subject)' % snp_list_name[snp])
-    _ = ax.set_xlabel('snp value')
-    _ = ax.set_ylabel('max voxel value')
-    _ = ax.scatter(shake_plot_x, plot_y_max, s=30, facecolors='none', edgecolors='r', alpha=0.3)
-    boxplot_mean_std(ax, plot_x, plot_y_max)
-    print "Using max values"
-    print "T-test between snp(0) and snp(1,2) (t-statistic, p-value):"
-    print t_test(plot_x, plot_y_max, [0], [1, 2])
-    # ax.plot(regression_line_x, regression_line_x * max_weights[0] + max_weights[1])
 
 plt.show()
