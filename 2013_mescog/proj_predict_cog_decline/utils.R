@@ -284,3 +284,33 @@ cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
   }
   return(folds_test_idx)
 }
+
+################################################################################################
+## RESULTS_TAB
+################################################################################################
+
+RESULTS_TAB_summarize_diff<-function(R, KEYS){
+  KEYS = c(KEYS, "TARGET")
+  R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+  #R = R[,c("ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+  # 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
+  nrow(R) == 4 * 4 * length(SEEDS) * length(ALPHAS)
+  
+  #ddply(R, .(MODEL, ALPHA, SEED, PREDICTORS), summarise,mean=mean(r2_te),sd=sd(r2_te))
+  # Diff pairs of PREDICTORS
+  
+  b    = R[R$PREDICTORS == "BASELINE",               ]
+  bni  = R[R$PREDICTORS == "BASELINE+NIGLOB",        ]
+  bc   = R[R$PREDICTORS == "BASELINE+CLINIC",        ]
+  bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", ]
+  m1 = merge(b, bni, by=KEYS, suffixes=c("_b", "_bni"))
+  m2 = merge(bc, bcni, by=KEYS, suffixes=c("_bc", "_bcni"))
+  m = merge(m1, m2, by=KEYS)
+  m$diff_te = (m$r2_te_bni - m$r2_te_b) + (m$r2_te_bcni - m$r2_te_bc)
+  diff_by_keys = m[, c(KEYS, "diff_te")]
+  nrow(m) == 4 * length(SEEDS)
+  ## Average over target
+  KEYS_NO_TARGET = KEYS[!(KEYS %in% "TARGET")]
+  diff_by_keys_average_targets = ddply(diff_by_keys, as.quoted(KEYS_NO_TARGET), summarise, diff_te_mu=mean(diff_te), diff_te_sd=sd(diff_te))
+  return(list(max=diff_by_keys_average_targets[which.max(diff_by_keys_average_targets$diff_te_mu), ], diff_by_keys=diff_by_keys))
+}

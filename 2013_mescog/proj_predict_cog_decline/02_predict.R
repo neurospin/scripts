@@ -18,10 +18,10 @@ INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_B
 # OUTPUT ---
 OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), sep="/")
 if (!file.exists(OUTPUT)) dir.create(OUTPUT)
-VALIDATION = "CV"
+#VALIDATION = "CV"
+#RM_TEST_OUTLIERS = FALSE
+VALIDATION = "FR-GE"
 RM_TEST_OUTLIERS = TRUE
-#VALIDATION = "FR-GE"
-#RM_TEST_OUTLIERS = TRUE
 
 source(paste(SRC,"utils.R",sep="/"))
 
@@ -42,10 +42,13 @@ dim(db$DB)# 372  29
 #ALPHAS = seq(0, 1, 0.05)
 #ALPHAS = seq(0, 1, 0.25)
 #ALPHAS = seq(0, 1, 0.5)
-ALPHAS = 1
-SEEDS = seq(1, 100)
+PNZEROS = c(.1, .25 , .5, .75)
+ALPHAS = seq(0, 1, .25)
+SEEDS = seq(1, 5)
 NPERM = 1
 NFOLD = 5
+length(PNZEROS) * length(ALPHAS) * length(SEEDS) * NPERM * 4 * 4
+
 SETTINGS = list("BASELINE"       = c(),
                 "BASELINE+NIGLOB"       = db$col_niglob,
                 "BASELINE+CLINIC"       = db$col_clinic,
@@ -65,14 +68,18 @@ for(PREDICTORS_STR in names(SETTINGS)){
   #print(PREDICTORS)
   #PREXIF = paste(OUTPUT, "/",TARGET, "~", PREDICTORS_STR , sep="")
   #cat(PREXIF,"\n")
+  cat("** PREDICTORS_STR:", PREDICTORS_STR, "**\n" )
   BASELINE = strsplit(TARGET, "[.]")[[1]][1]
   PREDICTORS = unique(c(BASELINE, SETTINGS[[PREDICTORS_STR]]))
 for(ALPHA in ALPHAS){
-  cat(" ** ALPHA:",ALPHA,"**\n")
-  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]] = list()  
+  #cat(" ** ALPHA:",ALPHA,"**\n")
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]] = list()
+for(PNZERO in PNZEROS){
+    #cat(" ** PNZERO:",PNZERO,"**\n")
+    RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]] = list()
 for(SEED in SEEDS){
-  cat("  ** SEED:", SEED, "**\n" )
-  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]] = list()
+  #cat("  ** SEED:", SEED, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]] = list()
   set.seed(SEED)
   #pdf(paste(OUTPUT, "/",TARGET, "_datasets_qqplot.pdf", sep=""))
   #qqplot(D_tr[, TARGET], D_te[, TARGET], main=TARGET)
@@ -82,7 +89,7 @@ for(SEED in SEEDS){
   #print(D_te_summary)
 for(PERM in 1:NPERM){
   cat("    ** PERM:", PERM, "**\n" )
-  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]] = list()
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]] = list()
   #SPLITS = split_db_site_stratified_with_same_target_distribution_rm_na(db$DB, TARGET)
   if(VALIDATION == "CV"){
     SPLITS = kfold_site_stratified_rm_na(db$DB, TARGET, k=NFOLD)
@@ -91,8 +98,8 @@ for(PERM in 1:NPERM){
     SPLITS = twofold_bysite_rm_na(db$DB, TARGET)
   }
 for(FOLD in 1:length(SPLITS)){
-  cat("   ** fold:", FOLD, "**\n" )
-  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]] = list()
+  #cat("   ** fold:", FOLD, "**\n" )
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[FOLD]] = list()
   D_tr = SPLITS[[FOLD]]$tr
   D_te = SPLITS[[FOLD]]$te
   if(RM_TEST_OUTLIERS){
@@ -111,11 +118,10 @@ for(FOLD in 1:length(SPLITS)){
 
   # ENET -------------------
   if(dim(X_tr)[2]>1){
-  set.seed(SEED)
   cv_glmnet = cv.glmnet(X_tr, y_true_tr, alpha=ALPHA)
   lambda = cv_glmnet$lambda.min # == cv_glmnet$lambda[which.min(cv_glmnet$cvm)]
   enet_nzero = cv_glmnet$nzero[which.min(cv_glmnet$cvm)][[1]]
-  enet_nzero_min = max(round(dim(X_tr)[2]/10), 2)
+  enet_nzero_min = max(round(dim(X_tr)[2]*PNZERO), 2)
   if(enet_nzero < enet_nzero_min)
     lambda = cv_glmnet$lambda[which(cv_glmnet$nzero > enet_nzero_min)[1]]
   mod_enet = glmnet(X_tr, y_true_tr, lambda=lambda, alpha=ALPHA)
@@ -150,9 +156,9 @@ for(FOLD in 1:length(SPLITS)){
   loss_te=loss_te_glm,
   loss_tr=loss_tr_glm,
   # DATA          
-  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, 
+  X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te,
   D_tr=D_tr, D_te=D_te)
-  RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["GLM"]] = result_glm
+  RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[FOLD]][["GLM"]] = result_glm
   if(dim(X_tr)[2]>1){
     result_enet = list(# ENET
       mod = mod_enet, coef_enet=coef_enet, 
@@ -162,12 +168,12 @@ for(FOLD in 1:length(SPLITS)){
       loss_tr = loss_tr_enet,
       X_tr=X_tr, X_te=X_te, y_true_tr=y_true_tr, y_true_te=y_true_te, 
       D_tr=D_tr, D_te=D_te)           
-    RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]][["ENET"]] = result_enet
+    RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[FOLD]][["ENET"]] = result_enet
   }
   #save(result, file=paste(PREXIF, ".Rdata", sep=""))
 
   # RESULTS_TAB
-  res = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="GLM",
+  res = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, PNZERO=PNZERO, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="GLM",
        dim=paste(dim(X_tr), collapse="x"),
        as.list(c(loss_te_glm, loss_tr_glm, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
        nzero=(length(coef_glm)-1),
@@ -175,7 +181,7 @@ for(FOLD in 1:length(SPLITS)){
        coef_val=paste(coef_glm, collapse=", "))
   RESULTS_TAB = rbind(RESULTS_TAB, res)
   if(dim(X_tr)[2]>1){
-  res_enet = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="ENET", 
+  res_enet = data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, PNZERO=PNZERO, SEED=SEED, PERM=PERM, FOLD=FOLD, MODEL="ENET", 
             dim=paste(dim(X_tr), collapse="x"),
             as.list(c(loss_te_enet, loss_tr_enet, mse_te_se=NA, r2_te_se=NA, cor_te_se=NA)),
             nzero=enet_nzero,
@@ -184,7 +190,7 @@ for(FOLD in 1:length(SPLITS)){
   RESULTS_TAB = rbind(RESULTS_TAB, res_enet)
   }
 } # FOLD
-  perm_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]]
+  perm_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]]
   y_true_tr_glm = c()
   y_pred_tr_glm = c()
   y_true_te_glm = c()
@@ -196,7 +202,7 @@ for(FOLD in 1:length(SPLITS)){
   y_pred_tr_enet = c()
   loss_te_enet = NULL
   for(FOLD in 1:length(perm_curr)){
-    cv_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[ALPHA]][[SEED]][[PERM]][[FOLD]]
+    cv_curr = RESULTS[[TARGET]][[PREDICTORS_STR]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[FOLD]]
     y_true_tr_glm = c(y_true_tr_glm, cv_curr[["GLM"]]$y_true_tr)
     y_pred_tr_glm = c(y_pred_tr_glm, cv_curr[["GLM"]]$y_pred_tr)
     y_true_te_glm = c(y_true_te_glm, cv_curr[["GLM"]]$y_true_te)
@@ -214,7 +220,7 @@ for(FOLD in 1:length(SPLITS)){
   loss_te_se_glm = apply(loss_te_glm, 2, sd) / sqrt(nrow(loss_te_glm))
   names(loss_te_se_glm) <- paste(names(loss_te_se_glm), "se", sep="_")
   RESULTS_TAB = rbind(RESULTS_TAB, 
-    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="GLM", 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, PNZERO=PNZERO, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="GLM", 
              dim=paste(dim(X_tr), collapse="x"),
              as.list(c(loss_reg(y_true_te_glm, y_pred_te_glm, suffix="te"),
                        loss_reg(y_true_tr_glm, y_pred_tr_glm, suffix="tr"),
@@ -225,73 +231,40 @@ for(FOLD in 1:length(SPLITS)){
     loss_te_se_enet = apply(loss_te_enet, 2, sd) / sqrt(nrow(loss_te_enet))
     names(loss_te_se_enet) <- paste(names(loss_te_se_enet), "se", sep="_")
   RESULTS_TAB = rbind(RESULTS_TAB, 
-    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="ENET", 
+    data.frame(TARGET=TARGET, PREDICTORS=PREDICTORS_STR, ALPHA=ALPHA, PNZERO=PNZERO, SEED=SEED, PERM=PERM, FOLD="ALL", MODEL="ENET", 
                  dim=paste(dim(X_tr), collapse="x"),
                  as.list(c(loss_reg(y_true_te_enet, y_pred_te_enet, suffix="te"),
                            loss_reg(y_true_tr_enet, y_pred_tr_enet, suffix="tr"),
                            loss_te_se_enet)),
                  nzero=NA, coef=NA, coef_val=NA))
-  })
+  })  
 } # PERM
 } # SEED
 } # ALPHA
+} # PNZERO
 } # PREDICTORS_STR
 } # TARGET
 #write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
 write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
 save(RESULTS, file=paste(OUTPUT, "/RESULTS_",VALIDATION,".Rdata", sep=""))
 
-R = RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",]
-R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
-R = R[,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-# 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
-nrow(R) == 4 * 4 * length(SEEDS) * length(ALPHAS)
+if(FALSE){
+## CHOOSE BEST PARAMETERS --------------------------------------------------------------------------------------------------
+diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+#SEED ALPHA PNZERO diff_te_mu diff_te_sd
+#79    4     1    0.5  0.1207913  0.1217304
+diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == 1,], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+#SEED ALPHA PNZERO diff_te_mu diff_te_sd
+#79    4     1    0.5   0.257412  0.1432386
+diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == 2,], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+#SEED ALPHA PNZERO diff_te_mu diff_te_sd
+#89    5   0.5    0.1 0.04937349 0.09421086
 
-#ddply(R, .(MODEL, ALPHA, SEED, PREDICTORS), summarise,mean=mean(r2_te),sd=sd(r2_te))
+print(diff_summary$max)
+SEED_CHOOSEN = diff_summary$max$SEED
+print(diff_summary$diff_by_keys[diff_summary$diff_by_keys$SEED == SEED_CHOOSEN, ])
 
-
-# Which is best seed
-b    = R[R$PREDICTORS == "BASELINE",               c("SEED", "TARGET", "r2_te", "r2_te_se")]
-bni  = R[R$PREDICTORS == "BASELINE+NIGLOB",        c("SEED", "TARGET", "r2_te", "r2_te_se")]
-bc   = R[R$PREDICTORS == "BASELINE+CLINIC",        c("SEED", "TARGET", "r2_te", "r2_te_se")]
-bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", c("SEED", "TARGET", "r2_te", "r2_te_se")]
-m1 = merge(b, bni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
-m2 = merge(bc, bcni, by=c("SEED", "TARGET"), suffixes=c("_bc", "_bcni"))
-m = merge(m1, m2, by=c("SEED", "TARGET"))
-nrow(m) == 4 * length(SEEDS)
-## ICI
-
-
-b_vs_bni$diff = b_vs_bni$r2_te_bni - b_vs_bni$r2_te_b
-
-nrow(b_vs_bni) == 4 * length(SEEDS)
-
-bc_vs_bcni = merge(bc, bcni, by=c("SEED", "TARGET"), suffixes=c("_b", "_bni"))
-nrow(bc_vs_bcni) == 4 * length(SEEDS)
-
-bc_vs_bcni$diff = bc_vs_bcni$r2_te_bni - bc_vs_bcni$r2_te_b
-
-
-bc_vs_bni_byseed = ddply(b_vs_bni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
-bc_vs_bni_byseed[bc_vs_bni_byseed$mean == max(bc_vs_bni_byseed$mean),]
-#28   28 0.04563271 0.03174524 (10CV)
-#78   78 0.03927785 0.02698512 (5CV)
-#53   53 0.03415659 0.02925164 (5CV) no missing BPF, LLV
-# 
-bc_vs_bcni_byseed = ddply(bc_vs_bcni,~SEED,summarise,mean=mean(diff),sd=sd(diff))
-bc_vs_bcni_byseed[bc_vs_bcni_byseed$mean == max(bc_vs_bcni_byseed$mean),]
-
-CHOOSEN_SEED = which.max(bc_vs_bni_byseed$mean + bc_vs_bcni_byseed$mean)
-Rbest = R[R$SEED== CHOOSEN_SEED, ]
-#61   61 0.03755026 0.02776236
-#86   86 0.04224727 0.03323897
-#89   89 0.03524849 0.03154105 (5CV) no missing BPF, LLV
-# Seed 61
-#Rp = R[R$SEED==1 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-#Rp = R[R$SEED==86 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-#Rp = R[R$SEED==40 ,c("MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
-
-#CHOOSEN_SEED = 50 #FR-GE
+Rbest = RESULTS_TAB[RESULTS_TAB$SEED==SEED_CHOOSEN & RESULTS_TAB$FOLD == "ALL", ]
 
 ## PLOT CV --------------------------------------------------------------------------------------------------
 pcv = ggplot(Rbest, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) + 
@@ -305,11 +278,34 @@ x11(); print(pcv)
 svg(paste(OUTPUT, "/RESULTS_",VALIDATION,".svg", sep=""))
 print(pcv)
 dev.off()
+}
 
 ## PLOT TRAIN-TEST --------------------------------------------------------------------------------------------------
-if(VALIDATION == "FR-GE"){ 
+if(VALIDATION == "FR-GE"){
+  ## CHOOSE BEST PARAMETERS --------------------------------------------------------------------------------------------------
+  diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == "ALL",], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+  #SEED ALPHA PNZERO diff_te_mu diff_te_sd
+  #   4     1    0.5  0.1207913  0.1217304
+  diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == 1,], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+  #SEED ALPHA PNZERO diff_te_mu diff_te_sd
+  #   4     1    0.5   0.257412  0.1432386
+  diff_summary = RESULTS_TAB_summarize_diff(RESULTS_TAB[RESULTS_TAB$FOLD == 2,], KEYS = c("SEED", "ALPHA" ,"PNZERO"))
+  print(diff_summary$max)
+  #SEED ALPHA PNZERO diff_te_mu diff_te_sd
+  #   5   0.5    0.1 0.04937349 0.09421086
+  average_by_seed = ddply(diff_summary$diff_by_keys, as.quoted(c("ALPHA" ,"PNZERO", "TARGET")), summarise, diff_te_mu=mean(diff_te), diff_te_sd=sd(diff_te))
+  
+  # Plot diff ~ ALPHA facet
+  pd <- position_dodge(.1) # move them .05 to the left and right
+  average_by_seed$PNZERO = as.factor(average_by_seed$PNZERO)
+  ggplot(average_by_seed , aes(x=ALPHA, y=diff_te_mu, colour=PNZERO)) + 
+    #geom_errorbar(aes(ymin=diff_te_mu-diff_te_sd, ymax=diff_te_mu+diff_te_sd), width=.1, position=pd) +
+    geom_line(position=pd) +
+    geom_point(position=pd) + facet_grid(TARGET~., scale="free")
+  
+  ## BAR PLOT with best seed
   library(plyr)  
-  R = RESULTS_TAB[RESULTS_TAB$FOLD != "ALL" & RESULTS_TAB$SEED==CHOOSEN_SEED,]
+  R = RESULTS_TAB[RESULTS_TAB$FOLD != "ALL" & RESULTS_TAB$SEED==diff_summary$max$SEED,]
   R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
   R = R[,c("FOLD", "MODEL","ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr")]
   ## ----------------------------
