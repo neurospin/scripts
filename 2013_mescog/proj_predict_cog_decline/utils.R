@@ -6,7 +6,7 @@ variables<-function(){
   col_targets   = c("TMTB_TIME.M36","MDRS_TOTAL.M36","MRS.M36","MMSE.M36")
   col_baselines = c("TMTB_TIME","MDRS_TOTAL","MRS","MMSE")
 #  col_niglob    = c("LLV", "LLcount", "WMHV", "MBcount","BPF")
-  col_niglob    = c("LLV", "LLcount","BPF")#, "WMHV", "MBcount") 
+  col_niglob    = c("LLV","BPF")#, "LLcount" "WMHV", "MBcount") 
   col_clinic    = c("AGE_AT_INCLUSION", "SEX", "EDUCATION", "SYS_BP", "DIA_BP", "SMOKING", "LDL", "HOMOCYSTEIN", "HBA1C", "CRP17", "ALCOHOL")
   return(list(col_info=col_info, col_targets=col_targets, col_baselines=col_baselines, col_niglob=col_niglob, col_clinic=col_clinic))
 }
