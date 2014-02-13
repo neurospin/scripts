@@ -36,7 +36,7 @@ ERR_all = read.csv(paste(INPUT, "error_refitall_rpart_M36_by_M0.csv", sep="/"))
 #pdf(paste(OUTPUT, "error_refitallglm_M36_by_M0.pdf", sep="/"), width=10, height=7)
 #pdf(paste(OUTPUT, "error_refitallglm-nointer_M36_by_M0.pdf", sep="/"), width=10, height=7)
 pdf(paste(OUTPUT, "error_refitall_rparts_M36_by_M0.pdf", sep="/"), width=10, height=7)
-err_m36_by_m0 = ggplot(ERR_all, aes(x = M0, y = M36_err)) + geom_point(aes(colour=PREDICTORS), alpha=.1, position = position_jitter(w = 0.05, h = 0.05)) + stat_smooth(aes(colour=PREDICTORS, fill = PREDICTORS), alpha=.2) + facet_wrap(~TARGET, scale="free")
+err_m36_by_m0 = ggplot(ERR_all, aes(x = M0, y = M36_err)) + geom_point(aes(colour=PREDICTORS), alpha=1, position = position_jitter(w = 0.05, h = 0.05)) + stat_smooth(aes(colour=PREDICTORS, fill = PREDICTORS), alpha=.2) + facet_wrap(~TARGET, scale="free")
 print(err_m36_by_m0)
 dev.off()
 
