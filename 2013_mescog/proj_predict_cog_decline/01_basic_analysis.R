@@ -6,8 +6,10 @@ SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline
 BASEDIR = "/neurospin/mescog"
 
 # INPUT ---
-INPUT_NA = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128.csv"
-INPUT = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128_imputed.csv"
+#INPUT_NA = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128.csv"
+#INPUT = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128_imputed.csv"
+INPUT_NA =paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV.csv", sep="/")
+INPUT = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 
 # OUTPUT ---
 OUTPUT = sub(".csv", "", INPUT_NA)
@@ -80,22 +82,22 @@ for(TARGET in db$col_targets){
 write.csv(STAT, OUTPUT_EVOL, row.names=FALSE)
 
 # VAR SITE    DATA      COEF
-# 1   TMTB_TIME   FR withNAs 0.9910368
-# 2   TMTB_TIME   GE withNAs 0.8945277
-# 3   TMTB_TIME   FR Imputed 0.9897033
-# 4   TMTB_TIME   GE Imputed 0.9174814
-# 5  MDRS_TOTAL   FR withNAs 0.9832412
-# 6  MDRS_TOTAL   GE withNAs 0.9971815
-# 7  MDRS_TOTAL   FR Imputed 0.9833754
-# 8  MDRS_TOTAL   GE Imputed 0.9971815
-# 9         MRS   FR withNAs 1.0371991
-# 10        MRS   GE withNAs 0.8804348
-# 11        MRS   FR Imputed 1.0371991
-# 12        MRS   GE Imputed 0.8804348
-# 13       MMSE   FR withNAs 1.0134277
-# 14       MMSE   GE withNAs 1.0016716
-# 15       MMSE   FR Imputed 1.0121701
-# 16       MMSE   GE Imputed 1.0016716
+# 1   TMTB_TIME   FR withNAs 0.9773488
+# 2   TMTB_TIME   GE withNAs 0.8932809
+# 3   TMTB_TIME   FR Imputed 0.9773488
+# 4   TMTB_TIME   GE Imputed 0.9168418
+# 5  MDRS_TOTAL   FR withNAs 0.9829722
+# 6  MDRS_TOTAL   GE withNAs 0.9971494
+# 7  MDRS_TOTAL   FR Imputed 0.9829722
+# 8  MDRS_TOTAL   GE Imputed 0.9971494
+# 9         MRS   FR withNAs 1.0159151
+# 10        MRS   GE withNAs 0.8791209
+# 11        MRS   FR Imputed 1.0159151
+# 12        MRS   GE Imputed 0.8791209
+# 13       MMSE   FR withNAs 1.0136127
+# 14       MMSE   GE withNAs 1.0013020
+# 15       MMSE   FR Imputed 1.0136612
+# 16       MMSE   GE Imputed 1.0013020
 
 D2 = NULL
 D2na = NULL
@@ -118,6 +120,12 @@ p = ggplot(D2, aes(x = BASELINE, y = M36)) + geom_point(aes(colour=SITE), alpha=
   geom_abline(linetype="dotted") + 
   stat_smooth(formula=y~x-1, method="lm", aes(colour=SITE)) +  facet_wrap(~VAR, scales="free") + scale_color_manual(values=c("blue", "red")) +
   ggtitle("M36 ~ BASELINE (Imputed)")
+print(p)
+
+p = ggplot(D2, aes(x = BASELINE, y = M36)) + geom_point(alpha=.5) + #, position = "jitter")
+  geom_abline(linetype="dotted") + 
+  stat_smooth(formula=y~x-1, method="lm") +  facet_wrap(~VAR, scales="free") + scale_color_manual(values=c("blue", "red")) +
+  ggtitle("FR+GE M36 ~ BASELINE (Imputed)")
 print(p)
 
 dev.off()

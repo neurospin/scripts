@@ -397,3 +397,82 @@ data.frame(TARGET=TARGET, FOLD=FOLD,
 }
 print(COMP)
 }
+
+################################################################################################
+## PREDICTION ERROR SUMMARY
+################################################################################################
+# BUILD ERR DATASET
+
+if(FALSE){
+load(file=paste(OUTPUT, "/RESULTS_",VALIDATION,"_100PERMS.Rdata", sep=""))
+
+#db = read_db(INPUT_DATA)
+
+ALPHA = names(RESULTS[[TARGET]][["BASELINE"]])
+PNZERO = names(RESULTS[[TARGET]][["BASELINE"]][[as.character(ALPHA)]])
+SEED = 11
+PERM = 1
+
+ERR = NULL
+vars = variables()
+for(TARGET in vars$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  b_y_pred_te = bni_y_pred_te = bc_y_pred_te = bcni_y_pred_te = y_true = id = m0 = c()
+  
+  BASELINE = strsplit(TARGET, "[.]")[[1]][1]
+  for(i in 1:NFOLD){
+    b = RESULTS[[TARGET]][["BASELINE"]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[i]][["GLM"]]
+    bni = RESULTS[[TARGET]][["BASELINE+NIGLOB"]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[i]][["ENET"]]
+    bc = RESULTS[[TARGET]][["BASELINE+CLINIC"]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[i]][["ENET"]]
+    bcni = RESULTS[[TARGET]][["BASELINE+CLINIC+NIGLOB"]][[as.character(ALPHA)]][[as.character(PNZERO)]][[SEED]][[PERM]][[i]][["ENET"]]
+    m0 = c(m0, b$D_te[, BASELINE])
+    id = c(id, b$D_te$ID)
+    y_true = c(y_true, b$y_true_te)
+    b_y_pred_te= c(b_y_pred_te, b$y_pred_te)
+    bni_y_pred_te= c(bni_y_pred_te, bni$y_pred_te)
+    bc_y_pred_te= c(bc_y_pred_te, bc$y_pred_te)
+    bcni_y_pred_te= c(bcni_y_pred_te, bcni$y_pred_te)
+  }
+  
+  ERR=rbind(ERR,
+            data.frame(TARGET=TARGET, PREDICTORS="BASELINE",
+                       ID = id,
+                       dim= paste(length(y_true), length(b$mod$coefficients), sep="x"),
+                       M0      = m0,
+                       M36_true = y_true,
+                       M36_pred    = b_y_pred_te,
+                       M36_err     = b_y_pred_te - y_true,
+                       M36_err_abs     = abs(b_y_pred_te - y_true)),
+            
+            data.frame(TARGET=TARGET, PREDICTORS="BASELINE+NIGLOB",
+                       ID = id,
+                       dim=paste(length(y_true), nrow(bni$mod$beta), sep="x"),
+                       M0      = m0,
+                       M36_true = y_true,
+                       M36_pred = bni_y_pred_te,
+                       M36_err  = bni_y_pred_te - y_true,
+                       M36_err_abs  = abs(bni_y_pred_te - y_true)),
+            
+            data.frame(TARGET=TARGET, PREDICTORS="BASELINE+CLINIC",
+                       ID = id,
+                       dim=paste(length(y_true), nrow(bc$mod$beta), sep="x"),
+                       M0      = m0,
+                       M36_true = y_true,
+                       M36_pred    = bc_y_pred_te,
+                       M36_err     = bc_y_pred_te - y_true,
+                       M36_err_abs     = abs(bc_y_pred_te - y_true)),
+            
+            data.frame(TARGET=TARGET, PREDICTORS="BASELINE+CLINIC+NIGLOB",
+                       ID = id,
+                       dim=paste(length(y_true), nrow(bcni$mod$beta), sep="x"),
+                       M0   = m0,
+                       M36_true = y_true,
+                       M36_pred = bcni_y_pred_te,
+                       M36_err  = bcni_y_pred_te - y_true,
+                       M36_err_abs  = abs(bcni_y_pred_te - y_true)))
+}
+
+write.csv(ERR, paste(OUTPUT, "error_pred_M36_by_M0.csv", sep="/"), row.names=FALSE)
+
+
+}
