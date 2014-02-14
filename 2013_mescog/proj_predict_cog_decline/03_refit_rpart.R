@@ -1,4 +1,6 @@
 library(rpart)
+library(ggplot2)
+
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 source(paste(SRC,"utils.R",sep="/"))
 
@@ -63,14 +65,49 @@ for(TARGET in db$col_targets){
   
   M36_err = M36_pred - M36_true
   M36_err_abs = abs(M36_err)
-  ERR=rbind(ERR, data.frame(TARGET=TARGET,PREDICTORS=PREDICTORS_STR, ID=d$ID, dim=paste(dim(d), collapse="x"), M0=M0, M36_true=M36_true, M36_pred=M36_pred, M36_err, M36_err_abs))
+  r = data.frame(TARGET=TARGET,PREDICTORS=PREDICTORS_STR, ID=d$ID, dim=paste(dim(d), collapse="x"), M0=M0, M36_true=M36_true, M36_pred=M36_pred, M36_err, M36_err_abs)
+  ERR=rbind(ERR, r)
   print(summary(mod_ni))
-  
   #cat("-- COMPARISON (ANOVA) ----------------------------------------------------------------------- \n" )
-  #print(anova(mod, mod_ni))
+  ## PLOT
+  r$GROUP = as.factor(mod_ni$where)
+  p = ggplot(r, aes(x = M0, y = M36_true)) + geom_point(alpha=.5, aes(colour=GROUP), position = "jitter") + 
+    geom_abline(linetype="dotted") + ggtitle(paste(TARGET, "~", PREDICTORS_STR))
+  #x11()
+  print(p)
+  ##
 }
 
 write.csv(ERR, paste(OUTPUT, "error_refitall_rpart_M36_by_M0.csv", sep="/"), row.names=FALSE)
 
 dev.off()
 #write.csv(ERR, paste(OUTPUT, "error_refitallglm_M36_by_M0.csv", sep="/"), row.names=FALSE)
+
+#########################################################################################################
+## MMSE
+
+if(FALSE){
+TARGET =  "MMSE.M36"
+cat("== ", TARGET, " =============================================================================== \n" )
+d = db$DB[!is.na(db$DB[, TARGET]),]
+BASELINE = strsplit(TARGET, "[.]")[[1]][1]
+# NO NI
+PREDICTORS_STR = "BASELINE"
+cat("-- ", PREDICTORS_STR, "----------------------------------------------------------------------- \n" )
+PREDICTORS = BASELINE
+formula = formula(paste(TARGET,"~", paste(PREDICTORS, collapse='+')))
+#formula = formula(paste(TARGET,"~", paste(PREDICTORS, collapse='+'), "-1"))
+mod = rpart(formula, data=d)
+M0 = d[, BASELINE]
+M36_true=d[, TARGET]
+M36_pred= predict(mod, d)
+M36_err = M36_pred - M36_true
+M36_err_abs = abs(M36_err)
+print(loss_reg(y_true=M36_true, y_pred=M36_pred))
+plot(mod, uniform=TRUE, main=paste(TARGET, "~", PREDICTORS_STR, "R2=", round(loss_reg(y_true=M36_true, y_pred=M36_pred)["r2"][[1]],2)))
+text(mod, use.n=TRUE, all=TRUE, cex=.8)
+print(mod)
+ERR=rbind(ERR, data.frame(TARGET=TARGET,PREDICTORS=PREDICTORS_STR, ID=d$ID, dim=paste(dim(d), collapse="x"), M0=M0, M36_true=M36_true, M36_pred=M36_pred, M36_err, M36_err_abs))
+print(summary(mod))
+
+}
