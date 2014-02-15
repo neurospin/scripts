@@ -286,6 +286,63 @@ cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
   return(folds_test_idx)
 }
 
+#Recursive partitioning tree with adjusted intercept
+# Use a Recursive partitioning, within each cell estimate an intercept to minimize the error of the model:
+# TARGET = BASELINE + intercept
+rpart_inter.learn<-function(data, TARGET, BASELINE, tree){
+  intercepts = c()
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  for(i in 1:length(tree)){
+    node = tree[i]
+    #node="MMSE<20.5"; node="LLV>=1592"
+    exp = parse(text=paste("data$",node , sep=""))
+    print(exp)
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = i
+    intercept = mean(data[subset, TARGET] - data[subset, BASELINE]) 
+    cat(sum(subset), intercept, "\n")
+    counts = c(counts, sum(subset))
+    intercepts = c(intercepts, intercept)
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  intercept = mean(data[left, TARGET] - data[left, BASELINE])
+  intercepts = c(intercepts, intercept)
+  group[left] = i+1
+  counts = c(counts, sum(left))
+  return(list(tree=tree, intercepts=intercepts, counts=counts, group=group, TARGET=TARGET, BASELINE=BASELINE))
+}
+
+rpart_inter.predict<-function(mod, data, limits=c(-Inf, +Inf)){
+  left = rep(TRUE, nrow(data))
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  predictions = rep(NA, nrow(data))
+  for(i in 1:length(mod$tree)){
+    node = mod$tree[i]
+    exp = parse(text=paste("data$", node , sep=""))
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = i
+    predictions[subset] = data[subset, mod$BASELINE] + mod$intercepts[i]
+    counts = c(counts, sum(subset))
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  predictions[left] = data[left, mod$BASELINE] + mod$intercepts[i+1]
+  group[left] = i+1
+  counts = c(counts, sum(left))
+  attr(predictions, "counts") = counts
+  attr(predictions, "group") = group
+  predictions[predictions < limits[1]] = limits[1]
+  predictions[predictions > limits[2]] = limits[2]
+  return(predictions)
+}
+
 ################################################################################################
 ## RESULTS_TAB
 ################################################################################################
