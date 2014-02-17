@@ -343,6 +343,63 @@ rpart_inter.predict<-function(mod, data, limits=c(-Inf, +Inf)){
   return(predictions)
 }
 
+
+#Partition samples set according rules and fit multiple lm on sub-samples
+partmlm.learn<-function(data, TARGET, BASELINE, partitions){
+  models = list()
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  formula = formula(paste(TARGET , "~", BASELINE))
+  for(i in 1:length(partitions)){
+    node = partitions[i]
+    #node="MMSE<20.5"; node="LLV>=1592"
+    exp = parse(text=paste("data$",node , sep=""))
+    #print(exp)
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = node
+    model = lm(formula, data=data, subset=subset)
+    #cat(sum(subset), intercept, "\n")
+    counts = c(counts, sum(subset))
+    models[[i]] = model
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  model = lm(formula, data=data, subset=left)
+  models[[i+1]] = model
+  group[left] = "left"
+  counts = c(counts, sum(left))
+  return(list(partitions=partitions, models=models, counts=counts, group=group, TARGET=TARGET, BASELINE=BASELINE))
+}
+
+partmlm.predict<-function(mod, data, limits=c(-Inf, +Inf)){
+  left = rep(TRUE, nrow(data))
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  predictions = rep(NA, nrow(data))
+  for(i in 1:length(mod$partitions)){
+    node = mod$partitions[i]
+    exp = parse(text=paste("data$", node , sep=""))
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = node
+    predictions[subset] = predict(mod$models[[i]], newdata=data[subset,])
+    counts = c(counts, sum(subset))
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  predictions[left] = predict(mod$models[[i+1]], newdata=data[left,])
+  group[left] = "left"
+  counts = c(counts, sum(left))
+  attr(predictions, "counts") = counts
+  attr(predictions, "group") = group
+  predictions[predictions < limits[1]] = limits[1]
+  predictions[predictions > limits[2]] = limits[2]
+  return(predictions)
+}
+
 ################################################################################################
 ## RESULTS_TAB
 ################################################################################################
