@@ -3,7 +3,7 @@
 require(ggplot2)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
-BASEDIR = "/neurospin/mescog"
+BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 
 # INPUT ---
 #INPUT_NA = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128.csv"
@@ -137,9 +137,9 @@ dev.off()
 db = read_db(INPUT)
 D = db$DB
 grp = rep(NA, nrow(D))
-#grp[D$LLV >= 1592] = "Lacunes"
+#grp[D$LLV >= 1500] = "Lacunes"
 #grp[D$BPF < 0.773] = "Atrophy"
-grp[D$LLV >= 1592] = "Lacunes"
+grp[D$LLV >= 1500] = "Lacunes"
 grp[D$BPF < 0.75] = "Atrophy"
 D$GRP = as.factor(grp)
 D$MDRS_TOTAL.M36[D$MDRS_TOTAL.M36 == min(D$MDRS_TOTAL.M36, na.rm=T)]=NA
@@ -153,13 +153,17 @@ for(TARGET in db$col_targets){
 Dg = D2[!is.na(D2$GRP), ]
 Dng = D2[is.na(D2$GRP), ]
 
-ggplot(D2, aes(x = M0, y = M36)) + 
+pdf("/neurospin/mescog/proj_predict_cog_decline/20140205_nomissing_BPF-LLV_imputed/M36~M0_cutoff_LLV-BPF.pdf")
+
+p = ggplot(D2, aes(x = M0, y = M36)) + 
   geom_point(data=Dng, aes(colour=GRP), alpha=.4, position = "jitter") +
   geom_point(data=Dg, aes(colour=GRP), alpha=1)+#, position = "jitter") +
   geom_abline(linetype="dotted") + 
   #stat_smooth(formula=y~x-1, method="lm", aes(colour=GRP))+
   facet_wrap(~VAR, scales="free") +
   ggtitle("M36 ~ M0")
+print(p)
+dev.off()
 
 # ################################################################################################
 # ## M36~each variable

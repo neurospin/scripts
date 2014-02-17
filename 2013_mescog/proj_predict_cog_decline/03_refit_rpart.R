@@ -85,19 +85,23 @@ TARGET =  "MMSE.M36"
 d = db$DB[!is.na(db$DB[, TARGET]),]
 BASELINE = strsplit(TARGET, "[.]")[[1]][1]
 
-tree = c("MMSE<20.5", "LLV>=1592", "MMSE>=25.5", "BPF<0.773")
+#tree = c("MMSE<20.5", "LLV>=1592", "MMSE>=25.5", "BPF<0.773")
+tree = c("LLV>=1592", "BPF<0.773")
 mod = rpart_inter.learn(data=d, TARGET="MMSE.M36", BASELINE="MMSE", tree=tree)
 # "MMSE>=25.5" have inddeed the same intercept than the one of group 5 ("BPF>=0.773")
-mod$intercepts[3] = mod$intercepts[5]
+#mod$intercepts[3] = mod$intercepts[5]
 y_pred_rtree = rpart_inter.predict(mod, data=d, limits=c(0, 30))
 d$MMSE.M36_pred = y_pred_rtree 
 loss_rtree = loss_reg(d$MMSE.M36, y_pred_rtree)
 
 pdf(paste(OUTPUT, "refitall_rpart_intercept_MMSE_M36_by_M0.pdf", sep="/"))
-
+#pdf(paste(OUTPUT, "refitall_partmlm_MMSE_M36_by_M0.pdf", sep="/"))
 d$GROUP = as.factor(attr(y_pred_rtree, "group"))
-p_true = ggplot(d, aes(x = MMSE, y = MMSE.M36)) + geom_point(alpha=.7, aes(colour=GROUP), position = "jitter") + 
-  geom_abline(linetype="dotted") + ggtitle(paste("MMSE.M36", "~", "MMSE"))
+p_true = ggplot(d, aes(x = MMSE, y = MMSE.M36, colour=GROUP, group=GROUP)) + geom_point(alpha=.7, aes(colour=GROUP), position = "jitter") + 
+  geom_abline(linetype="dotted") + ggtitle(paste("MMSE.M36", "~", "MMSE"))+
+  geom_smooth(method="lm")
+print(p_true)
+
 
 p_pred = ggplot(d, aes(x = MMSE, y = MMSE.M36_pred)) + geom_point(alpha=.7, aes(colour=GROUP), position = "jitter") + 
   geom_abline(linetype="dotted") + ggtitle(paste("MMSE.M36", "~", "MMSE, R2=",round(loss_rtree["r2"][[1]],2)))
