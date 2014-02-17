@@ -5,7 +5,8 @@ variables<-function(){
   col_info      = c("ID", "SITE")
   col_targets   = c("TMTB_TIME.M36","MDRS_TOTAL.M36","MRS.M36","MMSE.M36")
   col_baselines = c("TMTB_TIME","MDRS_TOTAL","MRS","MMSE")
-  col_niglob    = c("LLV", "LLcount", "WMHV", "MBcount","BPF")
+#  col_niglob    = c("LLV", "LLcount", "WMHV", "MBcount","BPF")
+  col_niglob    = c("LLV","BPF")#, "LLcount" "WMHV", "MBcount") 
   col_clinic    = c("AGE_AT_INCLUSION", "SEX", "EDUCATION", "SYS_BP", "DIA_BP", "SMOKING", "LDL", "HOMOCYSTEIN", "HBA1C", "CRP17", "ALCOHOL")
   return(list(col_info=col_info, col_targets=col_targets, col_baselines=col_baselines, col_niglob=col_niglob, col_clinic=col_clinic))
 }
@@ -283,4 +284,91 @@ cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
     attr(folds_test_idx,'type')=type
   }
   return(folds_test_idx)
+}
+
+#Recursive partitioning tree with adjusted intercept
+# Use a Recursive partitioning, within each cell estimate an intercept to minimize the error of the model:
+# TARGET = BASELINE + intercept
+rpart_inter.learn<-function(data, TARGET, BASELINE, tree){
+  intercepts = c()
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  for(i in 1:length(tree)){
+    node = tree[i]
+    #node="MMSE<20.5"; node="LLV>=1592"
+    exp = parse(text=paste("data$",node , sep=""))
+    print(exp)
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = i
+    intercept = mean(data[subset, TARGET] - data[subset, BASELINE]) 
+    cat(sum(subset), intercept, "\n")
+    counts = c(counts, sum(subset))
+    intercepts = c(intercepts, intercept)
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  intercept = mean(data[left, TARGET] - data[left, BASELINE])
+  intercepts = c(intercepts, intercept)
+  group[left] = i+1
+  counts = c(counts, sum(left))
+  return(list(tree=tree, intercepts=intercepts, counts=counts, group=group, TARGET=TARGET, BASELINE=BASELINE))
+}
+
+rpart_inter.predict<-function(mod, data, limits=c(-Inf, +Inf)){
+  left = rep(TRUE, nrow(data))
+  counts = c()
+  group = rep(NA, nrow(data))
+  left = rep(TRUE, nrow(data))
+  predictions = rep(NA, nrow(data))
+  for(i in 1:length(mod$tree)){
+    node = mod$tree[i]
+    exp = parse(text=paste("data$", node , sep=""))
+    subset = eval(exp)
+    subset = subset & left
+    group[subset] = i
+    predictions[subset] = data[subset, mod$BASELINE] + mod$intercepts[i]
+    counts = c(counts, sum(subset))
+    #sum(left & (!subset))
+    left = left & (!subset)
+  }
+  predictions[left] = data[left, mod$BASELINE] + mod$intercepts[i+1]
+  group[left] = i+1
+  counts = c(counts, sum(left))
+  attr(predictions, "counts") = counts
+  attr(predictions, "group") = group
+  predictions[predictions < limits[1]] = limits[1]
+  predictions[predictions > limits[2]] = limits[2]
+  return(predictions)
+}
+
+################################################################################################
+## RESULTS_TAB
+################################################################################################
+
+RESULTS_TAB_summarize_diff<-function(R, KEYS){
+  KEYS = c(KEYS, "TARGET")
+  R = rbind(R[(R$PREDICTORS == "BASELINE") & (R$MODEL =="GLM"),], R[(R$MODEL =="ENET"),])
+  #R = R[,c("ALPHA","SEED","TARGET","PREDICTORS", "r2_te", "r2_tr", "r2_te_se")]
+  # 4 TARGETs x 4 PREDICTORS x 2 score x 2 SEED x  x 11 ALPHA
+  nrow(R) == 4 * 4 * length(SEEDS) * length(ALPHAS)
+  
+  #ddply(R, .(MODEL, ALPHA, SEED, PREDICTORS), summarise,mean=mean(r2_te),sd=sd(r2_te))
+  # Diff pairs of PREDICTORS
+  
+  b    = R[R$PREDICTORS == "BASELINE",               ]
+  bni  = R[R$PREDICTORS == "BASELINE+NIGLOB",        ]
+  bc   = R[R$PREDICTORS == "BASELINE+CLINIC",        ]
+  bcni = R[R$PREDICTORS == "BASELINE+CLINIC+NIGLOB", ]
+  m1 = merge(b, bni, by=KEYS, suffixes=c("_b", "_bni"))
+  m2 = merge(bc, bcni, by=KEYS, suffixes=c("_bc", "_bcni"))
+  m = merge(m1, m2, by=KEYS)
+  m$diff_te = (m$r2_te_bni - m$r2_te_b) + (m$r2_te_bcni - m$r2_te_bc)
+  diff_by_keys = m[, c(KEYS, "diff_te")]
+  nrow(m) == 4 * length(SEEDS)
+  ## Average over target
+  KEYS_NO_TARGET = KEYS[!(KEYS %in% "TARGET")]
+  diff_by_keys_average_targets = ddply(diff_by_keys, as.quoted(KEYS_NO_TARGET), summarise, diff_te_mu=mean(diff_te), diff_te_sd=sd(diff_te))
+  return(list(max=diff_by_keys_average_targets[which.max(diff_by_keys_average_targets$diff_te_mu), ], diff_by_keys=diff_by_keys))
 }
