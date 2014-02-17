@@ -7,18 +7,13 @@ source(paste(SRC,"utils.R",sep="/"))
 BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 
 # INPUT ---
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed_lm.csv", sep="/")
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140204_nomissing_BPF-LLV_imputed_lm.csv", sep="/")
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 INPUT = "/neurospin/mescog/proj_predict_cog_decline/20140205_nomissing_BPF-LLV_imputed"
 OUTPUT=INPUT
 
-VALIDATION = "CV"
-
 db = read_db(INPUT_DATA)
 
-## -------------------------------------------------------------------------------------------
+## REFIT ALL -------------------------------------------------------------------------------------------
 ERR = NULL
 SUMMARY = NULL
 
@@ -109,6 +104,7 @@ p_pred = ggplot(d, aes(x = MMSE, y = MMSE.M36_pred)) + geom_point(alpha=.7, aes(
 print(p_true)
 print(p_pred)
 dev.off()
+
 
 ## CV  "MMSE.M36" ---------------------------------------------------------------------------
 TARGET =  "MMSE.M36"

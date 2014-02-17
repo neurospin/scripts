@@ -131,6 +131,36 @@ print(p)
 dev.off()
 
 
+################################################################################################
+## Partition RULE: M36 ~ BASELINE color by group
+################################################################################################
+db = read_db(INPUT)
+D = db$DB
+grp = rep(NA, nrow(D))
+#grp[D$LLV >= 1592] = "Lacunes"
+#grp[D$BPF < 0.773] = "Atrophy"
+grp[D$LLV >= 1592] = "Lacunes"
+grp[D$BPF < 0.75] = "Atrophy"
+D$GRP = as.factor(grp)
+D$MDRS_TOTAL.M36[D$MDRS_TOTAL.M36 == min(D$MDRS_TOTAL.M36, na.rm=T)]=NA
+D2 = NULL
+for(TARGET in db$col_targets){
+  #TARGET = "TMTB_TIME.M36"
+  BASELINE = strsplit(TARGET, "[.]")[[1]][1]
+  D2 = rbind(D2, data.frame(VAR=BASELINE, M36=D[, TARGET], M0=D[, BASELINE], SITE=D[, "SITE"], ID=D[, "ID"], GRP=D[, "GRP"]))
+}
+
+Dg = D2[!is.na(D2$GRP), ]
+Dng = D2[is.na(D2$GRP), ]
+
+ggplot(D2, aes(x = M0, y = M36)) + 
+  geom_point(data=Dng, aes(colour=GRP), alpha=.4, position = "jitter") +
+  geom_point(data=Dg, aes(colour=GRP), alpha=1)+#, position = "jitter") +
+  geom_abline(linetype="dotted") + 
+  #stat_smooth(formula=y~x-1, method="lm", aes(colour=GRP))+
+  facet_wrap(~VAR, scales="free") +
+  ggtitle("M36 ~ M0")
+
 # ################################################################################################
 # ## M36~each variable
 # ################################################################################################
