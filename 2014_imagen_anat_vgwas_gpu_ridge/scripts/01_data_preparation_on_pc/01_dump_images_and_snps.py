@@ -83,6 +83,7 @@ if __name__ == "__main__":
     OUT_IMAGE_DATA = os.path.join(OUT_DATA_DIR, "images.hdf5")
     OUT_SNPS_PATH = os.path.join(OUT_DATA_DIR, "snps")
     OUT_SNPS_LIST_PATH = os.path.join(OUT_DATA_DIR, "snps_list")
+    OUT_COV_PATH = os.path.join(OUT_DATA_DIR, "cov")
 
     # Load and save geno data
     geno_data = np.load(IN_SNP_NPZ + ".npz")
@@ -110,3 +111,7 @@ if __name__ == "__main__":
     ds[:] = np.asarray(images)[:]
     h5file_out.close()
     h5file.close()
+
+    # covariates
+    cov_data = np.load(OUT_COV_PATH + ".npy")
+    check_array_NaN(cov_data)
