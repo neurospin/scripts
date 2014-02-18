@@ -31,12 +31,12 @@ OUTPUT_FILE = os.path.join(OUTPUT_PATH, "groups.csv")
 adni = pandas.read_csv(INPUT_ADNIMERGE)
 
 # Read subjects used by Cuingnet et al. 2010 (only 509 subjects)
-ref_file = pandas.read_csv(INPUT_REF_FILE, index_col=2)
+ref_file = pandas.read_csv(INPUT_REF_FILE, index_col=0)
 REF_FILE_MAP = {'CN': 'control',
                 'MCIc': 'MCIc',
                 'MCInc': 'MCInc',
                 'AD': 'AD'}
-ref_file['Status'] = ref_file['Status'].map(REF_FILE_MAP)
+ref_file['Group.article'] = ref_file['Group.article'].map(REF_FILE_MAP)
 
 # Read subjects used by BV (same than Cuingnet plus the missing subject)
 bv_file = pandas.read_table(INPUT_BV_FILE, sep=" ",
@@ -53,12 +53,10 @@ adni_509_subjects = ref_file.index
 missing_subject = list(set(adni_510_subjects) - set(adni_509_subjects))[0]
 print "Subject", missing_subject, "is not in Cuingnet et al. 2010"
 
-# Add NA to the missing subject in ref_file
-ref_file_group = ref_file['Status'].copy()
-ref_file_group.name = 'Group.article'
-tmp = pandas.Series([None], name='Group.article')
+# Add the missing subject in ref_file
+tmp = pandas.DataFrame([None], columns=['Group.article'])
 tmp.index = pandas.Series([missing_subject], name='PTID')
-ref_file_group = pandas.DataFrame(ref_file_group.append(tmp))
+ref_file = ref_file.append(tmp)
 
 # Subsample ADNI (this include several examination)
 adni_510 = adni[adni['PTID'].isin(adni_510_subjects)]
@@ -92,7 +90,7 @@ adni_510_bl = adni_510[bl_indexes].copy()
 adni_510_bl.index = adni_510_bl['PTID']
 
 # Compare adni_510_bl and bv_file
-# TODO: is it better to merge them (on PTID) for comparison
+# TODO: is it better to merge them (on PTID) for comparison?
 for ID in adni_510_subjects:
     if adni_510_bl['DX.bl'].loc[ID] != bv_file['Group.BV'].loc[ID]:
         print "Subject", ID, "differ in ADNI and brainvisa"
@@ -120,7 +118,7 @@ group_cmp = pandas.DataFrame(np.empty((510, 3), dtype='object'),
                                       index = adni_510_subjects)
 group_cmp.columns = COLS
 for ID in adni_510_subjects:
-    group_cmp['Group.article'][ID] = ref_file_group['Group.article'].loc[ID]
+    group_cmp['Group.article'][ID] = ref_file['Group.article'].loc[ID]
     group_cmp['Group.BV'][ID] = bv_file['Group.BV'].loc[ID]
     group_cmp['Group.ADNI'][ID] = adni_510_bl['DX'].loc[ID]
 group_cmp.sort().to_csv(OUTPUT_FILE)
