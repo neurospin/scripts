@@ -80,7 +80,7 @@ if __name__ == "__main__":
                                             'cache_full_res_inter.hdf5')
     # Output to 2014_imagen_anat_vgwas_gpu_ridge
     OUT_DATA_DIR = os.path.join(BASE_DIR, "data")
-    OUT_IMAGE_DATA = os.path.join(OUT_DATA_DIR, "images.hdf5")
+    OUT_IMAGE_DATA = os.path.join(OUT_DATA_DIR, "images.mem")
     OUT_SNPS_PATH = os.path.join(OUT_DATA_DIR, "snps")
     OUT_SNPS_LIST_PATH = os.path.join(OUT_DATA_DIR, "snps_list")
     OUT_COV_PATH = os.path.join(OUT_DATA_DIR, "cov")
@@ -101,16 +101,18 @@ if __name__ == "__main__":
     atom = tables.Atom.from_dtype(images.dtype)
     image_shape = images.shape
     check_image(images)
-    h5file_out = tables.openFile(OUT_IMAGE_DATA,
-                             mode="w",
-                             title='dataset_pa_prace')
-    ds = h5file.createCArray(h5file_out.root,
-                             'images',
-                             atom,
-                             image_shape)
-    ds[:] = np.asarray(images)[:]
-    h5file_out.close()
+    images_mem = np.memmap(OUT_IMAGE_DATA,
+                           dtype='float64',
+                           mode='w+', shape=image_shape)
+    images_mem[:] = images[:]
+    del images_mem
     h5file.close()
+
+    # To test mem file
+    test_image_mem = np.memmap(OUT_IMAGE_DATA,
+                               dtype='float64',
+                               mode='r',
+                               shape=image_shape)
 
     # covariates
     cov_data = np.load(OUT_COV_PATH + ".npy")
