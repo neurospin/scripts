@@ -117,11 +117,18 @@ is_cool = is_ab & is_MCIcAD
 cool_indices = which(is_cool)
 #write.csv2(adni510_bl_groups_qc$PTID[cool_indices], "test.csv", quote=FALSE, row.names=FALSE)
 
+# Subsample and refactor
+MCIcAD_adni510_bl_groups_qc = adni510_bl_groups_qc[cool_indices, ]
+MCIcAD_adni510_bl_groups_qc$Group.ADNI <- factor(MCIcAD_adni510_bl_groups_qc$Group.ADNI, levels=c("MCIc", "AD"))
+
+MCIcAD_adni510_m18_groups_qc = adni510_m18_groups_qc[cool_indices, ]
+MCIcAD_adni510_m18_groups_qc$Group.ADNI <- factor(MCIcAD_adni510_m18_groups_qc$Group.ADNI, levels=c("MCIc", "AD"))
+
 # Plots
 pdf(file=OUTPUT_BL_MCIcAD_FIGS)
-data_plots(adni510_bl_groups_qc[cool_indices, ])
+data_plots(MCIcAD_adni510_bl_groups_qc)
 dev.off()
 
 pdf(file=OUTPUT_M18_MCIcAD_FIGS)
-data_plots(adni510_m18_groups_qc[cool_indices, ])
+data_plots(MCIcAD_adni510_m18_groups_qc)
 dev.off()
