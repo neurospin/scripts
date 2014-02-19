@@ -81,6 +81,7 @@ if __name__ == "__main__":
     # Output to 2014_imagen_anat_vgwas_gpu_ridge
     OUT_DATA_DIR = os.path.join(BASE_DIR, "data")
     OUT_IMAGE_DATA = os.path.join(OUT_DATA_DIR, "images.mem")
+    OUT_IMAGE_HDF5_DATA = os.path.join(OUT_DATA_DIR, "images.hdf5")
     OUT_SNPS_PATH = os.path.join(OUT_DATA_DIR, "snps")
     OUT_SNPS_LIST_PATH = os.path.join(OUT_DATA_DIR, "snps_list")
     OUT_COV_PATH = os.path.join(OUT_DATA_DIR, "cov")
@@ -101,6 +102,19 @@ if __name__ == "__main__":
     atom = tables.Atom.from_dtype(images.dtype)
     image_shape = images.shape
     check_image(images)
+
+    # Save as hdf5 file
+    h5file_out = tables.openFile(OUT_IMAGE_HDF5_DATA,
+                                 mode="w",
+                                 title='dataset_pa_prace')
+    ds = h5file_out.createCArray(h5file_out.root,
+                             'images',
+                             atom,
+                             image_shape)
+    ds[:] = np.asarray(images)[:]
+    h5file_out.close()
+
+    # Save as memmap file
     images_mem = np.memmap(OUT_IMAGE_DATA,
                            dtype='float64',
                            mode='w+', shape=image_shape)
@@ -113,6 +127,7 @@ if __name__ == "__main__":
                                dtype='float64',
                                mode='r',
                                shape=image_shape)
+    del test_image_mem
 
     # covariates
     cov_data = np.load(OUT_COV_PATH + ".npy")
