@@ -250,8 +250,8 @@ for(FOLD in 1:length(SPLITS)){
 } # PREDICTORS_STR
 } # TARGET
 #write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
-write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
-save(RESULTS, file=paste(OUTPUT, "/RESULTS_",VALIDATION,".Rdata", sep=""))
+write.csv(RESULTS_TAB, paste(OUTPUT, "/enet/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
+save(RESULTS, file=paste(OUTPUT, "/enet/RESULTS_",VALIDATION,".Rdata", sep=""))
 
 ## EXPLORE PARAMETERS --------------------------------------------------------------------------------------------------
 if(FALSE){
@@ -270,7 +270,7 @@ if(FALSE){
     geom_point(position=pd) + facet_grid(TARGET~., scale="free")
   print(pdiff)
   
-  pdf(paste(OUTPUT, "/RESULTS_diff_ALPHAS-PNZERO_",VALIDATION,"_FOLD:",FOLD,".pdf", sep=""))
+  pdf(paste(OUTPUT, "/enet/RESULTS_diff_ALPHAS-PNZERO_",VALIDATION,"_FOLD:",FOLD,".pdf", sep=""))
   print(pdiff)
   dev.off()
   
@@ -317,7 +317,7 @@ pcv = ggplot(Rbest, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
 
 x11(); print(pcv)
 
-svg(paste(OUTPUT, "/RESULTS_",VALIDATION,".svg", sep=""))
+svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,".svg", sep=""))
 print(pcv)
 dev.off()
 }
@@ -353,10 +353,10 @@ pbge = ggplot(Rbestge, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
   facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("GE>FR")
 x11();print(pbge)
-svg(paste(OUTPUT, "/RESULTS_",VALIDATION,"_FR-to-GE.svg", sep=""))
+svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_FR-to-GE.svg", sep=""))
 print(pbfr)
 dev.off()
-svg(paste(OUTPUT, "/RESULTS_",VALIDATION,"_GE-to-FR.svg", sep=""))
+svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_GE-to-FR.svg", sep=""))
 print(pbge)
 dev.off()
 }
@@ -404,7 +404,7 @@ print(COMP)
 # BUILD ERR DATASET
 
 if(FALSE){
-load(file=paste(OUTPUT, "/RESULTS_",VALIDATION,"_100PERMS.Rdata", sep=""))
+load(file=paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_100PERMS.Rdata", sep=""))
 
 #db = read_db(INPUT_DATA)
 
