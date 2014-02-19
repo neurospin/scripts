@@ -1,3 +1,4 @@
+# Plot some graphs
 library(ADNIMERGE)
 adnimerge <- adnimerge
 
