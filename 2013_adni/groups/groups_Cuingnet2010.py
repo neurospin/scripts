@@ -12,53 +12,67 @@ from data in ADNImerge.
 
 import os
 
-import numpy
+import numpy as np
 import pandas
 
 DOC_PATH = "/neurospin/cati/ADNI/ADNI_510/documents"
-INPUT_REF_FILE = os.path.join(DOC_PATH, "subjects_diagnostics_list.txt")
+INPUT_BV_FILE = os.path.join(DOC_PATH, "subjects_diagnostics_list.txt")
+INPUT_REF_FILE = os.path.join(DOC_PATH,
+                              "Subjects_Paper_Cuingnet2010",
+                              "Groups_Cuingnet2010.csv")
+
 CLINIC_PATH = "/neurospin/brainomics/2013_adni_preprocessing/clinic"
 INPUT_ADNIMERGE = os.path.join(CLINIC_PATH, "adnimerge.csv")
-OUTPUT_GROUPS = 'groups.csv'
+
+OUTPUT_PATH = "/neurospin/brainomics/2013_adni_preprocessing/clinic"
+OUTPUT_FILE = os.path.join(OUTPUT_PATH, "groups.csv")
 
 # Read ADNI file
 adni = pandas.read_csv(INPUT_ADNIMERGE)
 
-# Read subjects used by Rémy
-ref_file = pandas.read_table(INPUT_REF_FILE, sep=" ",
-                                  header=None, names=['Ref', 'Group'])
-ref_file.index = ref_file['Ref'].map(lambda x: x[0:10])
+# Read subjects used by Cuingnet et al. 2010 (only 509 subjects)
+ref_file = pandas.read_csv(INPUT_REF_FILE, index_col=0)
+REF_FILE_MAP = {'CN': 'control',
+                'MCIc': 'MCIc',
+                'MCInc': 'MCInc',
+                'AD': 'AD'}
+ref_file['Group.article'] = ref_file['Group.article'].map(REF_FILE_MAP)
 
-# Merge them
-adni_ref = pandas.merge(adni, ref_file, left_on='PTID', right_index=True)
+# Read subjects used by BV (same than Cuingnet plus the missing subject)
+bv_file = pandas.read_table(INPUT_BV_FILE, sep=" ",
+                            header=None, names=['PTID', 'Group.BV'])
+bv_file.index = bv_file['PTID'].map(lambda x: x[0:10])
 
-# Some visit don't have a diagnosis so remove them
-# This doesn't affect baseline
-null_indexes = adni_ref['DX'].isnull()
-adni_ref = adni_ref[~null_indexes]
+# Extract subjects in ADNI 510
+adni_510_subjects = bv_file.index
 
-bl_indexes = (adni_ref['EXAMDATE'] == adni_ref['EXAMDATE.bl'])
+# Subjects in ADNI 509
+adni_509_subjects = ref_file.index
+
+# Missing subject
+missing_subject = list(set(adni_510_subjects) - set(adni_509_subjects))[0]
+print "Subject", missing_subject, "is not in Cuingnet et al. 2010"
+
+# Add the missing subject in ref_file
+tmp = pandas.DataFrame([None], columns=['Group.article'])
+tmp.index = pandas.Series([missing_subject], name='PTID')
+ref_file = ref_file.append(tmp)
+
+# Subsample ADNI (this include several examination)
+adni_510 = adni[adni['PTID'].isin(adni_510_subjects)]
+
+# Extract baseline examinations indexes
+bl_indexes = (adni_510['EXAMDATE'] == adni_510['EXAMDATE.bl'])
 
 # Recode DX.bl: this should give the group
-adni_ref['DX.bl'] = adni_ref['DX.bl'].map(
+adni_510['DX.bl'] = adni_510['DX.bl'].map(
   {'AD': 'AD',
    'LMCI': 'MCI',
    'CN': 'control'})
-# PTID is used for index
-bv_group = adni_ref[['PTID', 'DX.bl']][bl_indexes].copy()
-bv_group.index = bv_group['PTID']
-
-# Compare them
-group_cmp = (bv_group['DX.bl'] == adni_ref['Group'][bl_indexes])
-if group_cmp.all():
-    print "Youhou"
-else:
-    i = numpy.where(~group_cmp)[0]
-    print "Oh non: subject(s)", group_cmp.index[i], "differ"
 
 # Column DX is differentially coded
-# Therefore I recode it
-adni_ref['DX'] = adni_ref['DX'].map(
+# Therefore I recode it in the whole dataset
+adni_510['DX'] = adni_510['DX'].map(
   {'Dementia': 'AD',
    'MCI': 'MCI',
    'NL':   'control',
@@ -68,13 +82,23 @@ adni_ref['DX'] = adni_ref['DX'].map(
    'Dementia to MCI': 'MCI',
    'MCI to NL': 'control'},
    na_action='ignore')
-adni_ref['DX'][bl_indexes] = adni_ref['DX.bl'][bl_indexes]
+# Copy baseline values
+adni_510['DX'][bl_indexes] = adni_510['DX.bl'][bl_indexes]
 
-## Find 18-month converters with a loop
-a = adni_ref['PTID'].unique()
+# Subsample adni510 (this dataframe is alignable with bv_file)
+adni_510_bl = adni_510[bl_indexes].copy()
+adni_510_bl.index = adni_510_bl['PTID']
+
+# Compare adni_510_bl and bv_file
+# TODO: is it better to merge them (on PTID) for comparison?
+for ID in adni_510_subjects:
+    if adni_510_bl['DX.bl'].loc[ID] != bv_file['Group.BV'].loc[ID]:
+        print "Subject", ID, "differ in ADNI and brainvisa"
+
+# Find 18-month converters with a loop
 converters_PTID = []
-for ptid in a:
-    subject_lines = adni_ref[adni_ref['PTID'] == ptid]
+for ptid in adni_510_subjects:
+    subject_lines = adni_510[adni_510['PTID'] == ptid]
     subject_lines_before18m = subject_lines[subject_lines['M'] <= 18]
     initial_dx = subject_lines_before18m['DX'].iloc[0]
     last_dx = subject_lines_before18m['DX'].iloc[-1]
@@ -82,17 +106,19 @@ for ptid in a:
         #print "Adding", ptid
         #print subject_lines_before18m[['M', 'DX']]
         converters_PTID.append(ptid)
-#
-Cuignet2010_group = adni_ref[['PTID', 'DX']][bl_indexes].copy()
-Cuignet2010_group['DX'] = Cuignet2010_group['DX'].map(
+adni_510_bl['DX'] = adni_510_bl['DX'].map(
   {'AD': 'AD',
    'MCI': 'MCInc',
    'control': 'control'})
-Cuignet2010_group['DX'][Cuignet2010_group['PTID'].isin(converters_PTID)] = 'MCIc'
-Cuignet2010_group.index = Cuignet2010_group['PTID']
-#print Cuignet2010_group['DX'].value_counts()
+adni_510_bl['DX'][adni_510_bl['PTID'].isin(converters_PTID)] = 'MCIc'
 
-group_cmp = pandas.DataFrame.from_items(
-  [('brainvisa_group', bv_group['DX.bl']),
-   ('Cuignet2010_group', Cuignet2010_group['DX'])])
-group_cmp.sort().to_csv(OUTPUT_GROUPS)
+# Create a dataframe with all the groups
+COLS = ['Group.article', 'Group.BV', 'Group.ADNI']
+group_cmp = pandas.DataFrame(np.empty((510, 3), dtype='object'),
+                                      index = adni_510_subjects)
+group_cmp.columns = COLS
+for ID in adni_510_subjects:
+    group_cmp['Group.article'][ID] = ref_file['Group.article'].loc[ID]
+    group_cmp['Group.BV'][ID] = bv_file['Group.BV'].loc[ID]
+    group_cmp['Group.ADNI'][ID] = adni_510_bl['DX'].loc[ID]
+group_cmp.sort().to_csv(OUTPUT_FILE)
