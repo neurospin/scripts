@@ -17,6 +17,8 @@ D = db$DB
 ## Find best cut-off on LLV and BPF to explain M36-M0 using rpart
 ################################################################################################
 library(rpart)
+library(ggplot2)
+
 D$TMTB_TIME_CHANGE = (D$TMTB_TIME.M36 - D$TMTB_TIME)
 D$MDRS_TOTAL_CHANGE = (D$MDRS_TOTAL.M36 - D$MDRS_TOTAL)
 D$MRS_CHANGE = (D$MRS.M36 - D$MRS)
@@ -30,8 +32,14 @@ TARGET =  "MMSE.M36"
 d = D[!is.na(D[, TARGET]),]
 BASELINE = strsplit(TARGET, "[.]")[[1]][1]
 
-mod = rpart(MMSE_CHANGE~LLV+BPF, data=d)
-prune(mod, cp=.015)
+
+mod = rpart(MMSE_CHANGE~MMSE+LLV+BPF, data=d)
+mod = prune(mod, cp=.02)
+
+plot(mod, uniform=TRUE, main=paste(TARGET, "~LLV+BPF"))
+text(mod, use.n=TRUE, all=TRUE, cex=.8)
+
+mod = prune(mod, cp=.015)
 #n=198 (121 observations deleted due to missingness)
 # node), split, n, deviance, yval
 # * denotes terminal node
@@ -42,8 +50,9 @@ prune(mod, cp=.015)
 # 6) BPF< 0.8187689 66  271.72180  0.1003232 *
 #   7) BPF>=0.8187689 125  351.63200  0.7120000 *
 
-partitions = c("LLV>=1964.283", "BPF<0.8187689", "MMSE<26") # found with rpart
-partitions = c("LLV>=1964.283", "BPF<0.75", "MMSE<26") #
+partitions = c("LLV>=1964.283", "MMSE>=27.5", "BPF<0.7645439") # found with rpart
+#partitions = c("LLV>=1964.283", "BPF<0.8187689", "MMSE<26") # found with rpart
+#partitions = c("LLV>=1964.283", "BPF<0.75", "MMSE<26") #
 
 mlm = partmlm.learn(data=d, TARGET, BASELINE, partitions)
 # "MMSE>=25.5" have inddeed the same intercept than the one of group 5 ("BPF>=0.773")
@@ -53,9 +62,12 @@ d$MMSE.M36_pred = y_pred_rtree
 loss_partmlm = loss_reg(d$MMSE.M36, y_pred_rtree)
 print(loss_partmlm)
 #mse        r2       cor 
-#2.6652135 0.8633871 0.9291862 
+#2.4549013 0.8741672 0.9349691
 
 pdf(paste(OUTPUT, "rpart_MMSE_CHANGE.pdf", sep="/"))
+plot(mod, uniform=TRUE, main=paste(TARGET, "~LLV+BPF"))
+text(mod, use.n=TRUE, all=TRUE, cex=.8)
+
 d$GROUP = factor(attr(y_pred_rtree, "group"), levels=c(partitions, "left"))
 
 p_true_m36_m0 = ggplot(d, aes(x = MMSE, y = MMSE.M36, colour=GROUP, group=GROUP)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
@@ -86,7 +98,7 @@ TARGET =  "MRS.M36"
 d = D[!is.na(D[, TARGET]),]
 BASELINE = strsplit(TARGET, "[.]")[[1]][1]
 
-mod = rpart(MRS_CHANGE~LLV+BPF, data=d)
+mod = rpart(MRS_CHANGE~MRS+LLV+BPF, data=d)
 mod = prune(mod, cp=.025)
 # n= 207 
 # 
@@ -99,11 +111,9 @@ mod = prune(mod, cp=.025)
 #   5) BPF< 0.8751428 163 110.269900  0.30061350 *
 #   3) LLV>=2083.204 8   8.875000  1.12500000 *
 
-plot(mod, uniform=TRUE, main=paste(TARGET, "~LLV+BPF"))
-text(mod, use.n=TRUE, all=TRUE, cex=.8)
 
 partitions = c("LLV>2083.204", "BPF<0.8751428") # found with rpart
-partitions = c("LLV>2083.204", "BPF<.75") # found with rpart
+#partitions = c("LLV>2083.204", "BPF<.75") # found with rpart
 
 #partitions = c("LLV>=1964.283", "BPF<0.75", "MRS<26") #
 
@@ -115,9 +125,12 @@ d$MRS.M36_pred = y_pred_rtree
 loss_partmlm = loss_reg(d$MRS.M36, y_pred_rtree)
 print(loss_partmlm)
 #mse        r2       cor 
-#2.6652135 0.8633871 0.9291862 
+#0.5721522 0.6886680 0.8298602 
 
 pdf(paste(OUTPUT, "rpart_MRS_CHANGE.pdf", sep="/"))
+plot(mod, uniform=TRUE, main=paste(TARGET, "~LLV+BPF"))
+text(mod, use.n=TRUE, all=TRUE, cex=.8)
+
 d$GROUP = factor(attr(y_pred_rtree, "group"), levels=c(partitions, "left"))
 
 p_true_m36_m0 = ggplot(d, aes(x = MRS, y = MRS.M36, colour=GROUP, group=GROUP)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
@@ -133,6 +146,60 @@ p_true_boxplot =
   geom_boxplot(alpha=.5)+#alpha=1, aes(colour=GROUP)) +
   geom_point(data=ds, alpha=1, size=3, colour="black") +
   ggtitle(paste("MRS_CHANGE", "~", "GROUP"))
+
+print(p_true_m36_m0)
+print(p_pred_m36_m0)
+print(p_true_boxplot)
+dev.off()
+
+
+## ---------------------------------------------------------------------------------------------
+## -- TMTB_TIME_CHANGE
+## ---------------------------------------------------------------------------------------------
+
+TARGET =  "TMTB_TIME.M36"
+d = D[!is.na(D[, TARGET]),]
+BASELINE = strsplit(TARGET, "[.]")[[1]][1]
+
+mod = rpart(TMTB_TIME_CHANGE~LLV+BPF, data=d)
+prune(mod, cp=.02)
+
+
+
+partitions = c("LLV>2083.204", "BPF<0.8751428") # found with rpart
+#partitions = c("LLV>2083.204", "BPF<.75") # found with rpart
+
+#partitions = c("LLV>=1964.283", "BPF<0.75", "TMTB_TIME<26") #
+
+mlm = partmlm.learn(data=d, TARGET, BASELINE, partitions)
+# "TMTB_TIME>=25.5" have inddeed the same intercept than the one of group 5 ("BPF>=0.773")
+#mod$intercepts[3] = mod$intercepts[5]
+y_pred_rtree = partmlm.predict(mlm, data=d, limits=c(0, 30))
+d$TMTB_TIME.M36_pred = y_pred_rtree 
+loss_partmlm = loss_reg(d$TMTB_TIME.M36, y_pred_rtree)
+print(loss_partmlm)
+#mse        r2       cor 
+#0.5721522 0.6886680 0.8298602 
+
+pdf(paste(OUTPUT, "rpart_TMTB_TIME_CHANGE.pdf", sep="/"))
+plot(mod, uniform=TRUE, main=paste(TARGET, "~LLV+BPF"))
+text(mod, use.n=TRUE, all=TRUE, cex=.8)
+
+d$GROUP = factor(attr(y_pred_rtree, "group"), levels=c(partitions, "left"))
+
+p_true_m36_m0 = ggplot(d, aes(x = TMTB_TIME, y = TMTB_TIME.M36, colour=GROUP, group=GROUP)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
+  ggtitle(paste("TMTB_TIME.M36", "~", "TMTB_TIME"))+
+  geom_smooth(method="lm", se=F) + geom_abline(linetype="dotted")# +
+#print(p_true)
+p_pred_m36_m0 = ggplot(d, aes(x = TMTB_TIME, y = TMTB_TIME.M36_pred)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
+  geom_abline(linetype="dotted") + ggtitle(paste("TMTB_TIME.M36", "~", "TMTB_TIME, R2=",round(loss_partmlm["r2"][[1]],2)))
+
+ds = summarySE(data=d, "TMTB_TIME_CHANGE", "GROUP")
+p_true_boxplot = 
+  ggplot(d, aes(x = GROUP, y = TMTB_TIME_CHANGE, fill=GROUP))+#, colour=GROUP, group=GROUP)) +
+  geom_boxplot(alpha=.5)+#alpha=1, aes(colour=GROUP)) +
+  geom_point(data=ds, alpha=1, size=3, colour="black") +
+  ggtitle(paste("TMTB_TIME_CHANGE", "~", "GROUP"))
 
 print(p_true_m36_m0)
 print(p_pred_m36_m0)
