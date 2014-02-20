@@ -24,6 +24,7 @@ OUTPUT_M18_MCIcAD_FIGS=file.path(OUTPUT_CLINIC_PATH, "m18_scores.MCIc-AD.pdf")
 data_plots <- function(data) {
   boxplot(AGE~Group.ADNI, data=data, main="Age")
   boxplot(MMSE~Group.ADNI, data=data, main="MMSE")
+  boxplot(BPF~Group.ADNI, data=data, main="BPF")
   boxplot(ADAS11~Group.ADNI, data=data, main="ADAS11")
   boxplot(ADAS13~Group.ADNI, data=data, main="ADAS13")
   plot(data$ADAS11, data$ADAS13, main="ADAS13 as a function of ADAS11",
@@ -40,6 +41,13 @@ adni510_bl_groups_qc <- read.csv(INPUT_BL_GROUP_QC)
 adni510_bl_groups_qc$Group.ADNI <- factor(adni510_bl_groups_qc$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
 adni510_m18_groups_qc <- read.csv(INPUT_M18_GROUP_QC)
 adni510_m18_groups_qc$Group.ADNI <- factor(adni510_m18_groups_qc$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
+
+###############
+# Compute BPF #
+###############
+
+adni510_bl_groups_qc['BPF'] = adni510_bl_groups_qc['WholeBrain']/adni510_bl_groups_qc['ICV']
+adni510_m18_groups_qc['BPF'] = adni510_m18_groups_qc['WholeBrain']/adni510_m18_groups_qc['ICV']
 
 #########################################
 # Scores for the whole ADNI 510 dataset #
