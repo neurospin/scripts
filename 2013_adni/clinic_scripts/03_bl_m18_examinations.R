@@ -1,14 +1,21 @@
 # Extract baseline and last examination before 18 months from adnimerge for the ADNI 510 subjects
-# Also merge the groups
+# Also merge with the groups and QC
 # This a bit long and should only be done once.
 library(ADNIMERGE)
 
 INPUT_CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
 INPUT_GROUPS=file.path(INPUT_CLINIC_PATH, "adni510_groups.csv")
 
+INPUT_ADNI510_CATI_PATH="/neurospin/cati/ADNI/ADNI_510"
+INPUT_QC_PATH=file.path(INPUT_ADNI510_CATI_PATH,
+                        "qualityControlSPM", "QC")
+INPUT_QC_GRADE=file.path(INPUT_QC_PATH, "final_grade.csv")
+
 OUTPUT_CLINIC_PATH=INPUT_CLINIC_PATH
-OUTPUT_BL_EXAM=file.path(OUTPUT_CLINIC_PATH, "adni510_bl_groups.csv")
-OUTPUT_M18_EXAM=file.path(OUTPUT_CLINIC_PATH, "adni510_m18_groups.csv")
+OUTPUT_BL_GROUPS=file.path(OUTPUT_CLINIC_PATH, "adni510_bl_groups.csv")
+OUTPUT_M18_GROUPS=file.path(OUTPUT_CLINIC_PATH, "adni510_m18_groups.csv")
+OUTPUT_BL_GROUPS_QC=file.path(OUTPUT_CLINIC_PATH, "adni510_bl_groups_qc.csv")
+OUTPUT_M18_GROUPS_QC=file.path(OUTPUT_CLINIC_PATH, "adni510_m18_groups_qc.csv")
 
 ######################################################
 # Extract baseline and m18 examinations in adnimerge #
@@ -50,6 +57,20 @@ adni510_subjects = adni510_groups$PTID
 
 # Merge & write
 adni510_bl_groups = merge(adnimerge_bl, adni510_groups)
-write.csv(adni510_bl_groups, OUTPUT_BL_EXAM, row.names=FALSE)
+write.csv(adni510_bl_groups, OUTPUT_BL_GROUPS, row.names=FALSE)
 adni510_m18_groups = merge(adnimerge_m18, adni510_groups)
-write.csv(adni510_m18_groups, OUTPUT_M18_EXAM, row.names=FALSE)
+write.csv(adni510_m18_groups, OUTPUT_M18_GROUPS, row.names=FALSE)
+
+#################
+# Merge with QC #
+#################
+
+# Open QC
+qc <- read.csv(INPUT_QC_GRADE)
+rownames(qc) = qc$PTID
+
+# Merge & write (order is the same in those tables)
+adni510_bl_groups_qc = merge(adni510_bl_groups, qc)
+write.csv(adni510_bl_groups_qc, OUTPUT_BL_GROUPS_QC, row.names=FALSE)
+adni510_m18_groups_qc = merge(adni510_m18_groups, qc)
+write.csv(adni510_m18_groups_qc, OUTPUT_M18_GROUPS_QC, row.names=FALSE)

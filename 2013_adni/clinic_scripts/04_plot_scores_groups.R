@@ -4,8 +4,8 @@
 library(ADNIMERGE)
 
 INPUT_CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
-INPUT_BL_EXAM=file.path(INPUT_CLINIC_PATH, "adni510_bl_groups.csv")
-INPUT_M18_EXAM=file.path(INPUT_CLINIC_PATH, "adni510_m18_groups.csv")
+INPUT_BL_GROUP_QC=file.path(INPUT_CLINIC_PATH, "adni510_bl_groups_qc.csv")
+INPUT_M18_GROUP_QC=file.path(INPUT_CLINIC_PATH, "adni510_m18_groups_qc.csv")
 
 INPUT_QC_PATH="/neurospin/cati/ADNI/ADNI_510/qualityControlSPM/QC"
 INPUT_QC_GRADE=file.path(INPUT_QC_PATH, "final_grade.csv")
@@ -36,10 +36,10 @@ data_plots <- function(data) {
 # Read data & reorder group factor #
 ####################################
 
-adni510_bl_groups <- read.csv(INPUT_BL_EXAM)
-adni510_bl_groups$Group.ADNI <- factor(adni510_bl_groups$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
-adni510_m18_groups <- read.csv(INPUT_M18_EXAM)
-adni510_m18_groups$Group.ADNI <- factor(adni510_m18_groups$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
+adni510_bl_groups_qc <- read.csv(INPUT_BL_GROUP_QC)
+adni510_bl_groups_qc$Group.ADNI <- factor(adni510_bl_groups_qc$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
+adni510_m18_groups_qc <- read.csv(INPUT_M18_GROUP_QC)
+adni510_m18_groups_qc$Group.ADNI <- factor(adni510_m18_groups_qc$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
 
 #########################################
 # Scores for the whole ADNI 510 dataset #
@@ -47,25 +47,17 @@ adni510_m18_groups$Group.ADNI <- factor(adni510_m18_groups$Group.ADNI, levels=c(
 
 # Baseline scores
 pdf(file=OUTPUT_BL_FIGS)
-data_plots(adni510_bl_groups)
+data_plots(adni510_bl_groups_qc)
 dev.off()
 
 # m18 scores
 pdf(file=OUTPUT_M18_FIGS)
-data_plots(adni510_m18_groups)
+data_plots(adni510_m18_groups_qc)
 dev.off()
 
 ######################################################
 # Scores for MCIc & AD subjects that succeeded in CQ #
 ######################################################
-
-# Open QC
-qc <- read.csv(INPUT_QC_GRADE)
-rownames(qc) = qc$PTID
-
-# Merge (order is the same in those tables)
-adni510_bl_groups_qc = merge(adni510_bl_groups, qc)
-adni510_m18_groups_qc = merge(adni510_m18_groups, qc)
 
 # A, B indices
 is_ab = adni510_bl_groups_qc$Grade %in% c("A", "B")
