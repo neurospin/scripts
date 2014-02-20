@@ -13,7 +13,7 @@ DOC_PATH="/neurospin/cati/ADNI/ADNI_510/documents"
 INPUT_REF_FILE=os.path.join(DOC_PATH, "subjects_diagnostics_list.txt")
 
 # Read ADNI file
-CLINIC_PATH="/neurospin/brainomics/2013_adni_preprocessing/clinic"
+CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
 INPUT_ADNIMERGE=os.path.join(CLINIC_PATH, "adnimerge.csv")
 adni = pandas.read_csv(INPUT_ADNIMERGE)
 

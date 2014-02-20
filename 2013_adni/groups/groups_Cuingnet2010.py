@@ -21,10 +21,10 @@ INPUT_REF_FILE = os.path.join(DOC_PATH,
                               "Subjects_Paper_Cuingnet2010",
                               "Groups_Cuingnet2010.csv")
 
-CLINIC_PATH = "/neurospin/brainomics/2013_adni_preprocessing/clinic"
+CLINIC_PATH = "/neurospin/brainomics/2013_adni/clinic"
 INPUT_ADNIMERGE = os.path.join(CLINIC_PATH, "adnimerge.csv")
 
-OUTPUT_PATH = "/neurospin/brainomics/2013_adni_preprocessing/clinic"
+OUTPUT_PATH = "/neurospin/brainomics/2013_adni/clinic"
 OUTPUT_FILE = os.path.join(OUTPUT_PATH, "groups.csv")
 
 # Read ADNI file
