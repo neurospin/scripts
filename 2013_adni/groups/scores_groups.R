@@ -3,17 +3,15 @@
 # but with an extra subject (027_S_1082).
 library(ADNIMERGE)
 
-INPUT_CLINIC_PATH="/neurospin/brainomics/2013_adni_preprocessing/clinic"
-INPUT_GROUPS=file.path(INPUT_CLINIC_PATH, "groups.csv")
+INPUT_CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
+INPUT_BL_EXAM=file.path(INPUT_CLINIC_PATH, "adni510_bl_groups.csv")
+INPUT_M18_EXAM=file.path(INPUT_CLINIC_PATH, "adni510_m18_groups.csv")
 
 INPUT_QC_PATH="/neurospin/cati/ADNI/ADNI_510/qualityControlSPM/QC"
 INPUT_QC_GRADE=file.path(INPUT_QC_PATH, "final_grade.csv")
 
 OUTPUT_CLINIC_PATH=INPUT_CLINIC_PATH
-OUTPUT_BL_EXAM=file.path(OUTPUT_CLINIC_PATH, "adni510_bl_groups.csv")
 OUTPUT_BL_FIGS=file.path(OUTPUT_CLINIC_PATH, "bl_scores.pdf")
-
-OUTPUT_M18_EXAM=file.path(OUTPUT_CLINIC_PATH, "adni510_m18_groups.csv")
 OUTPUT_M18_FIGS=file.path(OUTPUT_CLINIC_PATH, "m18_scores.pdf")
 
 OUTPUT_BL_MCIcAD_FIGS=file.path(OUTPUT_CLINIC_PATH, "bl_scores.MCIc-AD.pdf")
@@ -34,49 +32,14 @@ data_plots <- function(data) {
        xlab="ADAS11", ylab="MMSE")
 }
 
-######################################################
-# Extract baseline and m18 examinations in adnimerge #
-######################################################
-adnimerge <- adnimerge
-
-# Baseline indexes (in adnimerge)
-bl_indices = which(adnimerge$EXAMDATE == adnimerge$EXAMDATE.bl)
-
-# Extract baseline examinations (and index by PTID)
-adnimerge_bl = adnimerge[bl_indices, ]
-rownames(adnimerge_bl) <- adnimerge_bl$PTID
-
-# Indexes of last examination before 18 months (in adnimerge)
-# This is slow
-m18_indices = c()
-PTID = unique(adnimerge$PTID)
-for (ptid in PTID) {
-  #print(ptid)
-  subject_lines = adnimerge[adnimerge['PTID'] == ptid, ]
-  #print(rownames(subject_lines))
-  subject_lines_before18m = subject_lines[subject_lines['M'] <= 18, ]
-  #print(rownames(subject_lines_before18m))
-  m18_indices = append(m18_indices, as.numeric(max(rownames(subject_lines_before18m))))
-}
-
-# Extract examination <= 18 months (and index by PTID)
-adnimerge_m18 = adnimerge[m18_indices, ]
-rownames(adnimerge_m18) <- adnimerge_m18$PTID
-
 ####################################
-# Extract information for ADNI 510 #
+# Read data & reorder group factor #
 ####################################
 
-# Open ADNI 510 groups
-adni510_groups <- read.csv(INPUT_GROUPS)
-adni510_groups$Group.ADNI <- factor(adni510_groups$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
-adni510_subjects = adni510_groups$PTID
-
-# Merge & write
-adni510_bl_groups = merge(adnimerge_bl, adni510_groups)
-write.csv(adni510_bl_groups, OUTPUT_BL_EXAM)
-adni510_m18_groups = merge(adnimerge_m18, adni510_groups)
-write.csv(adni510_m18_groups, OUTPUT_M18_EXAM)
+adni510_bl_groups <- read.csv(INPUT_BL_EXAM)
+adni510_bl_groups$Group.ADNI <- factor(adni510_bl_groups$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
+adni510_m18_groups <- read.csv(INPUT_M18_EXAM)
+adni510_m18_groups$Group.ADNI <- factor(adni510_m18_groups$Group.ADNI, levels=c("control", "MCInc", "MCIc", "AD"))
 
 #########################################
 # Scores for the whole ADNI 510 dataset #
