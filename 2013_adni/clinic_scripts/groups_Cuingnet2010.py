@@ -25,7 +25,7 @@ CLINIC_PATH = "/neurospin/brainomics/2013_adni/clinic"
 INPUT_ADNIMERGE = os.path.join(CLINIC_PATH, "adnimerge.csv")
 
 OUTPUT_PATH = "/neurospin/brainomics/2013_adni/clinic"
-OUTPUT_FILE = os.path.join(OUTPUT_PATH, "groups.csv")
+OUTPUT_FILE = os.path.join(OUTPUT_PATH, "adni510_groups.csv")
 
 # Read ADNI file
 adni = pandas.read_csv(INPUT_ADNIMERGE)

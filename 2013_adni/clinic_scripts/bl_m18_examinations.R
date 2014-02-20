@@ -4,7 +4,7 @@
 library(ADNIMERGE)
 
 INPUT_CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
-INPUT_GROUPS=file.path(INPUT_CLINIC_PATH, "groups.csv")
+INPUT_GROUPS=file.path(INPUT_CLINIC_PATH, "adni510_groups.csv")
 
 OUTPUT_CLINIC_PATH=INPUT_CLINIC_PATH
 OUTPUT_BL_EXAM=file.path(OUTPUT_CLINIC_PATH, "adni510_bl_groups.csv")
