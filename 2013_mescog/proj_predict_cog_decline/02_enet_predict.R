@@ -16,7 +16,9 @@ BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 
 # OUTPUT ---
-OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), sep="/")
+#OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "M36", sep="/")
+OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "CHANGE", sep="/")
+
 if (!file.exists(OUTPUT)) dir.create(OUTPUT)
 VALIDATION = "CV"
 #VALIDATION = "FR-GE"
@@ -31,15 +33,36 @@ source(paste(SRC,"utils.R",sep="/"))
 ## READ INPUT
 ################################################################################################
 db = read_db(INPUT_DATA)
+db$DB
+
+db$DB$TMTB_TIME.CHANGE = (db$DB$TMTB_TIME.M36 - db$DB$TMTB_TIME)
+db$DB$MDRS_TOTAL.CHANGE = (db$DB$MDRS_TOTAL.M36 - db$DB$MDRS_TOTAL)
+db$DB$MRS.CHANGE = (db$DB$MRS.M36 - db$DB$MRS)
+db$DB$MMSE.CHANGE = (db$DB$MMSE.M36 - db$DB$MMSE)
 
 ################################################################################################
 ## SIMPLE ENET PREDICTION NO PLOT/PERM etc.
 ################################################################################################
+# M36 ~ M0
+if(FALSE){
 PNZEROS = 0.5# c(.1, .25 , .5, .75)
 ALPHAS = 0.25# seq(0, 1, .25)
-SEEDS = seq(1, 100)
+#SEEDS = seq(1, 100)
 if(VALIDATION == "CV") SEEDS = 11
 if(VALIDATION == "FR-GE") SEEDS = 50
+TARGETS = db$col_targets
+}
+if(TRUE){
+# CHANGES ~ M0
+PNZEROS = 0.5# c(.1, .25 , .5, .75)
+ALPHAS = 0.25# seq(0, 1, .25)
+SEEDS = 46#seq(1, 100)
+#SEED ALPHA PNZERO diff_te_mu diff_te_sd
+#46   46  0.25    0.5  0.1919573  0.1745975
+#if(VALIDATION == "CV") SEEDS = 11
+#if(VALIDATION == "FR-GE") SEEDS = 50
+TARGETS = c("TMTB_TIME.CHANGE", "MDRS_TOTAL.CHANGE", "MRS.CHANGE", "MMSE.CHANGE")
+}
 
 NPERM = 1000
 NFOLD = 5
@@ -54,14 +77,16 @@ RESULTS_TAB = NULL
 RESULTS = list()
 
 #seed=11
-for(TARGET in db$col_targets){
+for(TARGET in TARGETS){
   RESULTS[[TARGET]] = list()
   #TARGET = "TMTB_TIME.M36"
   #TARGET = "MDRS_TOTAL.M36"; TARGET =  "MRS.M36"; TARGET =          "MMSE.M36" 
+  # TARGET = "MMSE.CHANGE"
   cat("** TARGET:", TARGET, "**\n" )
 for(PREDICTORS_STR in names(SETTINGS)){
   RESULTS[[TARGET]][[PREDICTORS_STR]] = list()
   #PREDICTORS_STR = "BASELINE+CLINIC+NIGLOB"
+  #PREDICTORS_STR = "BASELINE+NIGLOB"
   #print(PREDICTORS)
   #PREXIF = paste(OUTPUT, "/",TARGET, "~", PREDICTORS_STR , sep="")
   #cat(PREXIF,"\n")
@@ -250,8 +275,10 @@ for(FOLD in 1:length(SPLITS)){
 } # PREDICTORS_STR
 } # TARGET
 #write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
-write.csv(RESULTS_TAB, paste(OUTPUT, "/enet/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
-save(RESULTS, file=paste(OUTPUT, "/enet/RESULTS_",VALIDATION,".Rdata", sep=""))
+write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
+#write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_1000PERMS.csv",VALIDATION,".csv", sep=""), row.names=FALSE)
+
+save(RESULTS, file=paste(OUTPUT, "/RESULTS_",VALIDATION,".Rdata", sep=""))
 
 ## EXPLORE PARAMETERS --------------------------------------------------------------------------------------------------
 if(FALSE){
@@ -270,7 +297,7 @@ if(FALSE){
     geom_point(position=pd) + facet_grid(TARGET~., scale="free")
   print(pdiff)
   
-  pdf(paste(OUTPUT, "/enet/RESULTS_diff_ALPHAS-PNZERO_",VALIDATION,"_FOLD:",FOLD,".pdf", sep=""))
+  pdf(paste(OUTPUT, "/RESULTS_diff_ALPHAS-PNZERO_",VALIDATION,"_FOLD:",FOLD,".pdf", sep=""))
   print(pdiff)
   dev.off()
   
@@ -308,20 +335,31 @@ Rbest = RESULTS_TAB[RESULTS_TAB$PERM == 1 &
                     (((RESULTS_TAB$PREDICTORS == "BASELINE") & (RESULTS_TAB$MODEL =="GLM")) | RESULTS_TAB$MODEL =="ENET") &
                     RESULTS_TAB$FOLD == "ALL", ]
 
+# Compute sd based on repeated CV (over multiple seeds)
+Rall = RESULTS_TAB[RESULTS_TAB$PERM == 1 &
+                     RESULTS_TAB$ALPHA==ALPHA_CHOOSEN &
+                     RESULTS_TAB$PNZERO==PNZERO_CHOOSEN &
+                     (((RESULTS_TAB$PREDICTORS == "BASELINE") & (RESULTS_TAB$MODEL =="GLM")) | RESULTS_TAB$MODEL =="ENET") &
+                     RESULTS_TAB$FOLD == "ALL", ]
+Rall.s = summarySE(data=Rall, measurevar="r2_te", groupvars=c("TARGET","PREDICTORS","ALPHA","PNZERO"))
+
+Rbest = merge(Rbest, Rall.s[, c("TARGET", "PREDICTORS", "ALPHA" ,"PNZERO", "sd")])
+
 ## PLOT AVERAGE CV --------------------------------------------------------------------------------------------------
 pcv = ggplot(Rbest, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
-  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) +
+  geom_errorbar(aes(ymin=r2_te-sd, ymax=r2_te+sd), width=.1) +
   #  geom_point() +
   facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("CV")
 
 x11(); print(pcv)
 
-svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,".svg", sep=""))
+svg(paste(OUTPUT, "/RESULTS_",VALIDATION,".svg", sep=""))
 print(pcv)
 dev.off()
-}
 
+}
+                        
 ## PLOT FR GE --------------------------------------------------------------------------------------------------
 if(FALSE && VALIDATION == "FR-GE"){
 if(length(unique(RESULTS_TAB$SEED))==1)SEED_CHOOSEN=unique(RESULTS_TAB$SEED)
@@ -353,10 +391,10 @@ pbge = ggplot(Rbestge, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
   facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("GE>FR")
 x11();print(pbge)
-svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_FR-to-GE.svg", sep=""))
+svg(paste(OUTPUT, "/RESULTS_",VALIDATION,"_FR-to-GE.svg", sep=""))
 print(pbfr)
 dev.off()
-svg(paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_GE-to-FR.svg", sep=""))
+svg(paste(OUTPUT, "/RESULTS_",VALIDATION,"_GE-to-FR.svg", sep=""))
 print(pbge)
 dev.off()
 }
@@ -365,6 +403,8 @@ dev.off()
 ## Significance by permutation
 
 if(FALSE){
+RESULTS_TAB = read.csv(paste(OUTPUT, "RESULTS_TAB_CV_1000PERMS.csv", sep="/"))
+
 NPERM * (NFOLD+1) * 4 * 4 * length(PNZEROS) * length(ALPHAS)
 R = RESULTS_TAB[(((RESULTS_TAB$PREDICTORS == "BASELINE") & (RESULTS_TAB$MODEL =="GLM")) | RESULTS_TAB$MODEL =="ENET"), ]
 dim(R)
@@ -374,7 +414,7 @@ RP = R[R$PERM!=1 , keep]
 
 COMP = NULL
 for(FOLD in unique(R$FOLD)){
-for(TARGET in db$col_targets){
+for(TARGET in TARGETS){
 #TARGET = "TMTB_TIME.M36"
 rt = RT[RT$TARGET == TARGET & RT$FOLD==FOLD, ]
 rp = RP[RP$TARGET == TARGET & RP$FOLD==FOLD, ]
@@ -384,6 +424,9 @@ bcni_diff_t = rt[rt$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - rt[rt$PREDI
 bcni_diff_p = rp[rp$PREDICTORS=="BASELINE+CLINIC+NIGLOB", "r2_te"] - rp[rp$PREDICTORS=="BASELINE+CLINIC", "r2_te"]
 bc_diff_t = rt[rt$PREDICTORS=="BASELINE+CLINIC", "r2_te"] - rt[rt$PREDICTORS=="BASELINE", "r2_te"]
 bc_diff_p = rp[rp$PREDICTORS=="BASELINE+CLINIC", "r2_te"] - rp[rp$PREDICTORS=="BASELINE", "r2_te"]
+nic_diff_t = rt[rt$PREDICTORS=="BASELINE+NIGLOB", "r2_te"] - rt[rt$PREDICTORS=="BASELINE+CLINIC", "r2_te"]
+nic_diff_p = rp[rp$PREDICTORS=="BASELINE+NIGLOB", "r2_te"] - rp[rp$PREDICTORS=="BASELINE+CLINIC", "r2_te"]
+
 
 COMP = rbind(COMP,
 data.frame(TARGET=TARGET, FOLD=FOLD,
@@ -392,7 +435,10 @@ data.frame(TARGET=TARGET, FOLD=FOLD,
            BCvsBCNIBLOG_pval=sum(bcni_diff_p > bcni_diff_t)/length(bcni_diff_p),
            BCvsBCNIBLOG_increase=bcni_diff_t,
            BvsBC_pval=sum(bc_diff_p > bc_diff_t)/length(bc_diff_p),
-           BvsBC_increase=bc_diff_t))
+           BvsBC_increase=bc_diff_t,
+           CvsBNIBLOG_pval=sum(nic_diff_p > nic_diff_t)/length(nic_diff_p),
+           CvsBNIBLOG_increase=nic_diff_t
+           ))
 }
 }
 print(COMP)
@@ -404,7 +450,7 @@ print(COMP)
 # BUILD ERR DATASET
 
 if(FALSE){
-load(file=paste(OUTPUT, "/enet/RESULTS_",VALIDATION,"_100PERMS.Rdata", sep=""))
+load(file=paste(OUTPUT, "/RESULTS_",VALIDATION,"_100PERMS.Rdata", sep=""))
 
 #db = read_db(INPUT_DATA)
 

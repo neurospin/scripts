@@ -344,17 +344,90 @@ rpart_inter.predict<-function(mod, data, limits=c(-Inf, +Inf)){
 }
 
 
+
+rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name=""){
+  if(is.null(group)) group = rep(0, nrow(data))
+  if(is.null(subset)) subset= rep(TRUE, nrow(data))
+  if(class(mod) == "rpart")
+    mod = cbind(var=as.character(mod$frame[,"var"]), rules = labels(mod, collapse=F))
+  if(mod[i, "var"] == "<leaf>"){
+    cat(i, sum(subset), "\n")
+    group[subset] = i
+    if(is.null(attr(group, "name"))) attr(group, "name") = list()
+    attr(group, "name")[[as.character(i)]] = name
+    #print(group)
+    return(group)
+    }else{
+      lname = paste(mod[i, "var"], mod[i, "ltemp"], sep="")
+      rname = paste(mod[i, "var"], mod[i, "rtemp"], sep="") 
+      lexp = paste("lsubset = data$", lname, sep="")
+      rexp = paste("rsubset = data$", rname, sep="") 
+      eval(parse(text=lexp)); lsubset = lsubset & subset
+      eval(parse(text=rexp)); rsubset = rsubset & subset
+      lgroup = rpart.groups(mod, data, i+1, group, lsubset, paste(name, lname, sep="/"))
+      rgroup = rpart.groups(mod, data, i+2, group, rsubset, paste(name, rname, sep="/"))
+      group = lgroup+rgroup
+      attr(group, "name") = c(attr(lgroup, "name"), attr(rgroup, "name"))
+      #   cat(">>>>\n")
+      #   print(lgroup)
+      #   print(rgroup)
+      #   print(lgroup+rgroup)
+      #   cat("====\n")
+      return(group)
+  }
+}
+#group = rpart.groups(mod, data)
+#group
+
+# Learn lm on subgroups of samples
+subgrouplm.learn<-function(group, data, TARGET, BASELINE){
+  models = list()
+  counts = c()
+  formula = formula(paste(TARGET , "~", BASELINE))
+  for(g in unique(group)){
+    model = lm(formula, data=data, subset=group==g)
+    counts = c(counts, sum(group==g))
+    models[[as.character(g)]] = model
+  }
+  return(list(models=models, counts=counts, group=group, TARGET=TARGET, BASELINE=BASELINE))
+}
+
+subgrouplm.predict<-function(subgrouplm.mod, group, data, limits=c(-Inf, +Inf)){
+  #left = rep(TRUE, nrow(data))
+  counts = c()
+  #group = rep(NA, nrow(data))
+  #left = rep(TRUE, nrow(data))
+  predictions = rep(NA, nrow(data))
+  #attach(data)
+  for(gstr in names(subgrouplm.mod$models)){
+    g = as.integer(gstr)
+    predictions[group==g] = predict(subgrouplm.mod$models[[gstr]], newdata=data[group==g,])
+    counts = c(counts, sum(group==g))
+  }
+  #detach(data)
+  #predictions[left] = predict(mod$models[[i+1]], newdata=data[left,])
+  #group[left] = "left"
+  #counts = c(counts, sum(left))
+  attr(predictions, "counts") = counts
+  attr(predictions, "group") = group
+  predictions[predictions < limits[1]] = limits[1]
+  predictions[predictions > limits[2]] = limits[2]
+  return(predictions)
+}
+
+
 #Partition samples set according rules and fit multiple lm on sub-samples
-partmlm.learn<-function(data, TARGET, BASELINE, partitions){
+partmlm.learn.old<-function(data, TARGET, BASELINE, partitions){
   models = list()
   counts = c()
   group = rep(NA, nrow(data))
   left = rep(TRUE, nrow(data))
   formula = formula(paste(TARGET , "~", BASELINE))
+  attach(data)
   for(i in 1:length(partitions)){
     node = partitions[i]
     #node="MMSE<20.5"; node="LLV>=1592"
-    exp = parse(text=paste("data$",node , sep=""))
+    exp = parse(text=node)
     #print(exp)
     subset = eval(exp)
     subset = subset & left
@@ -366,6 +439,7 @@ partmlm.learn<-function(data, TARGET, BASELINE, partitions){
     #sum(left & (!subset))
     left = left & (!subset)
   }
+  detach(data)
   model = lm(formula, data=data, subset=left)
   models[[i+1]] = model
   group[left] = "left"
@@ -373,15 +447,16 @@ partmlm.learn<-function(data, TARGET, BASELINE, partitions){
   return(list(partitions=partitions, models=models, counts=counts, group=group, TARGET=TARGET, BASELINE=BASELINE))
 }
 
-partmlm.predict<-function(mod, data, limits=c(-Inf, +Inf)){
+partmlm.predict.old<-function(mod, data, limits=c(-Inf, +Inf)){
   left = rep(TRUE, nrow(data))
   counts = c()
   group = rep(NA, nrow(data))
   left = rep(TRUE, nrow(data))
   predictions = rep(NA, nrow(data))
+  attach(data)
   for(i in 1:length(mod$partitions)){
     node = mod$partitions[i]
-    exp = parse(text=paste("data$", node , sep=""))
+    exp = parse(text=node)
     subset = eval(exp)
     subset = subset & left
     group[subset] = node
@@ -390,6 +465,7 @@ partmlm.predict<-function(mod, data, limits=c(-Inf, +Inf)){
     #sum(left & (!subset))
     left = left & (!subset)
   }
+  detach(data)
   predictions[left] = predict(mod$models[[i+1]], newdata=data[left,])
   group[left] = "left"
   counts = c(counts, sum(left))
