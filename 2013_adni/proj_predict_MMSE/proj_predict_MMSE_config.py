@@ -25,7 +25,7 @@ CV_SEED = 56
 N_GLOBAL_PENALIZATION = 10
 
 # Range of value for the l1 ratio parameter in ElasticNet
-ENET_L1_RATIO_RANGE = [.1, .5, .7, .9, .95, .99, 1]
+ENET_L1_RATIO_RANGE = np.array([.1, .5, .7, .9, .95, .99, 1])
 
 ENET_MODEL_PATH_FORMAT="{l1_ratio}-{alpha}"
 
