@@ -9,9 +9,9 @@ Created on Fri Feb 21 19:15:48 2014
 
 import os
 import sys
-import pickle
+#import pickle
 import numpy as np
-import pandas as pd
+#import pandas as pd
 from joblib import Parallel, delayed
 #import sklearn.cross_validation
 #import sklearn.linear_model
@@ -81,10 +81,11 @@ if False:
 #########################
 
 alphas = [1000, 100, 10, 1, .1]
+#alphas = [1]
 
 
 def mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_im):
-    print "** FOLD **", fold
+    #print "** FOLD **", fold
     Xtr = X[train, :]
     Xte = X[test, :]
     ytr = y[train, :]
@@ -95,13 +96,13 @@ def mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_i
     for alpha in alphas:
         k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
         tv = RidgeRegression_L1_TV(k, l, g, A, output=True,
-                                   algorithm=algorithms.StaticCONESTA(max_iter=10))
-        print tv.fit(X, y, beta)
+                                   algorithm=algorithms.StaticCONESTA(max_iter=1000))
+        tv.fit(X, y, beta)
         y_pred = tv.predict(Xte)
         #y_pred = yte
         beta = tv.beta
         #print key, "ite:%i, time:%f" % (len(mod.info["t"]), np.sum(mod.info["t"]))
-        out_dir = os.path.join(OUTPUT_PATH, "CV", str(fold),
+        out_dir = os.path.join(OUTPUT_PATH, "cv", str(fold),
                      "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
         print out_dir, "Time ellapsed:", time.time() - time_curr
         if not os.path.exists(out_dir):
@@ -115,13 +116,9 @@ def mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_i
 CV = proj_predict_MMSE_config.BalancedCV(y, proj_predict_MMSE_config.N_FOLDS,
     random_seed=proj_predict_MMSE_config.CV_SEED)
 
-for fold, (train, test) in enumerate(CV):
-    print fold
-
-mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_im)
-
-
-
+#for fold, (train, test) in enumerate(CV):
+#    print fold
+#mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_im)
 
 Parallel(n_jobs=proj_predict_MMSE_config.N_FOLDS, verbose=True)(
     delayed(mapper) (X, y, fold, train, test,A, alphas, ratio_k, ratio_l, ratio_g, mask_im)
@@ -129,35 +126,6 @@ Parallel(n_jobs=proj_predict_MMSE_config.N_FOLDS, verbose=True)(
 
 
 
-
-betas = list()
-y_pred = list()
-y_true = list()
-i=0
-for i, (train, test) in enumerate(CV):
-    
-    #print train, test
-#    enet = sklearn.linear_model.ElasticNet(alpha=alpha_g / (2. * n_train),
-#                                            l1_ratio=.5,
-#                                            fit_intercept=False)
-#    enet.fit(Xtr, ytr)
-#    predictions.append(enet.predict(Xte))
-    tv.fit(Xtr, ytr, beta=beta)
-    y_pred.append(tv.predict(Xte))
-    y_true.append(yte)
-    beta = tv.beta
-    out = os.path.join(OUTPUT_PATH, str(i) ,"tv",
-                 "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
-    if not os.path.exists(out):
-        os.makedirs(out)
-        np.save(os.path.join(out,"beta.npy"), beta)
-    arr = np.zeros(mask.shape)
-    arr[mask] = beta.ravel()
-    im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine(), header=mask_im.get_header().copy())
-    im_out.to_filename(os.path.join(out,"beta.nii"))
-    betas.append(beta.copy())
-    print 
-    
 
 # First RUN no limit on iteration
 #Time: 37018.9876552 # 10h
@@ -168,15 +136,15 @@ for i, (train, test) in enumerate(CV):
 # warm retart accross folds divide by 2 execution time
 # 
 
-y_pred = np.concatenate(y_pred, axis=0)
-y_true = np.concatenate(y_true, axis=0)
-
-r2_score(y_true, y_pred)
-#-0.0823733933819768
-
-for i, (train, test) in enumerate(CV):
-    Xtr = X[train, :]
-    Xte = X[test, :]
-    ytr = y[train, :]
-    yte = y[test, :]
-    print ytr.mean(), yte.mean(), np.concatenate([ytr, yte]).mean()
+#y_pred = np.concatenate(y_pred, axis=0)
+#y_true = np.concatenate(y_true, axis=0)
+#
+#r2_score(y_true, y_pred)
+##-0.0823733933819768
+#
+#for i, (train, test) in enumerate(CV):
+#    Xtr = X[train, :]
+#    Xte = X[test, :]
+#    ytr = y[train, :]
+#    yte = y[test, :]
+#    print ytr.mean(), yte.mean(), np.concatenate([ytr, yte]).mean()
