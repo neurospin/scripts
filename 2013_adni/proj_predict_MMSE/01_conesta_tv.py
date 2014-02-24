@@ -8,22 +8,26 @@ Created on Fri Feb 21 19:15:48 2014
 
 
 import os
-
+import sys
 import pickle
-
 import numpy as np
 import pandas as pd
-
-import sklearn.cross_validation
-import sklearn.linear_model
-import sklearn.linear_model.coordinate_descent
-import sys
+from joblib import Parallel, delayed
+#import sklearn.cross_validation
+#import sklearn.linear_model
+#import sklearn.linear_model.coordinate_descent
 import parsimony.functions.nesterov.tv as tv
 from parsimony.estimators import RidgeRegression_L1_TV
+import parsimony.algorithms.explicit as algorithms
 import nibabel
 import time
+from sklearn.metrics import r2_score
 
 BASE_PATH = "/neurospin/brainomics/2013_adni/proj_predict_MMSE"
+alpha = 10.
+ratio_k, ratio_l, ratio_g = .1, .4, .5
+
+
 SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_predict_MMSE")
 sys.path.append(SRC_PATH)
 import proj_predict_MMSE_config
@@ -33,19 +37,11 @@ INPUT_PATH = BASE_PATH
 INPUT_X_CENTER_FILE = os.path.join(INPUT_PATH, "X.center.npy")
 INPUT_Y_CENTER_FILE = os.path.join(INPUT_PATH, "y.center.npy")
 
-INPUT_MASK_PATH = "/neurospin/brainomics/2013_adni/masks/template_FinalQC_MCIc-AD/mask.img"
+INPUT_MASK_PATH = "/neurospin/brainomics/2013_adni/proj_predict_MMSE/SPM/template_FinalQC_MCIc-AD/mask.img"
 
-OUTPUT_PATH = os.path.join(BASE_PATH, "CV")
+OUTPUT_PATH = os.path.join(BASE_PATH, "tv")
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
-
-OUTPUT_ENET_PATH = os.path.join(OUTPUT_PATH, "ElasticNet")
-if not os.path.exists(OUTPUT_ENET_PATH):
-    os.makedirs(OUTPUT_ENET_PATH)
-OUTPUT_RSQUARED = os.path.join(OUTPUT_ENET_PATH, "r_squared.npy")
-OUTPUT_L1_RATIO = os.path.join(OUTPUT_ENET_PATH, "l1_ratio.npy")
-# Will be used for TV penalized
-OUTPUT_GLOBAL_PENALIZATION = os.path.join(OUTPUT_PATH, "alpha.npy")
 
 #############
 # Load data #
@@ -56,47 +52,131 @@ n, p = X.shape
 y = np.load(INPUT_Y_CENTER_FILE)
 y = y[:, np.newaxis]
 
-babel_mask = nibabel.load(INPUT_MASK_PATH)
-mask = babel_mask.get_data() != 0
-
-alpha_g = 10.
-k, l, g = alpha_g * np.array((.1, .4, .5))  # l2, l1, tv penalties
+mask_im = nibabel.load(INPUT_MASK_PATH)
+mask = mask_im.get_data() != 0
 A, n_compacts = tv.A_from_mask(mask)
 
-ridgel1tv = RidgeRegression_L1_TV(k, l, g, A)
-beta = ridgel1tv.start_vector.get_vector((X.shape[1], 1))
-if False:
-    %time ridgel1tv.fit(X, y)
 
+
+#########################
+# Fit on all data       #
+#########################
+
+if False:
+    k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
+    
+    tv = RidgeRegression_L1_TV(k, l, g, A, 
+                                      algorithm=algorithms.StaticCONESTA(max_iter=1000))
+    beta = tv.start_vector.get_vector((X.shape[1], 1))
+    %time tv.fit(X, y)
+    #CPU times: user 43687.42 s, sys: 4.67 s, total: 43692.09 s
+    #Wall time: 43672.06 s
+    out = os.path.join(OUTPUT_PATH, "all",
+                     "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
+    
+    proj_predict_MMSE_config.save_model(out, tv, mask_im)
 
 #########################
 # Cross validation loop #
 #########################
 
-# Create the cross-validation object
-CV = sklearn.cross_validation.KFold(
-    n,
-    shuffle=True,
-    #n_folds=2,
-    n_folds=proj_predict_MMSE_config.N_FOLDS,
-    random_state=proj_predict_MMSE_config.CV_SEED)
+alphas = [1000, 100, 10, 1, .1]
 
 
-predictions = list()
-time_curr = time.time()
-for train, test in CV:
+def mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_im):
+    print "** FOLD **", fold
     Xtr = X[train, :]
     Xte = X[test, :]
     ytr = y[train, :]
     yte = y[test, :]
     n_train = Xtr.shape[0]
+    time_curr = time.time()
+    beta = None
+    for alpha in alphas:
+        k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
+        tv = RidgeRegression_L1_TV(k, l, g, A, output=True,
+                                   algorithm=algorithms.StaticCONESTA(max_iter=10))
+        print tv.fit(X, y, beta)
+        y_pred = tv.predict(Xte)
+        #y_pred = yte
+        beta = tv.beta
+        #print key, "ite:%i, time:%f" % (len(mod.info["t"]), np.sum(mod.info["t"]))
+        out_dir = os.path.join(OUTPUT_PATH, "CV", str(fold),
+                     "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
+        print out_dir, "Time ellapsed:", time.time() - time_curr
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        time_curr = time.time()
+        proj_predict_MMSE_config.save_model(out_dir, tv, mask_im)
+        np.save(os.path.join(out_dir, "y_pred.npy"), y_pred)
+        np.save(os.path.join(out_dir, "y_true.npy"), yte)
+
+
+CV = proj_predict_MMSE_config.BalancedCV(y, proj_predict_MMSE_config.N_FOLDS,
+    random_seed=proj_predict_MMSE_config.CV_SEED)
+
+for fold, (train, test) in enumerate(CV):
+    print fold
+
+mapper(X, y, fold, train, test, A, alphas, ratio_k, ratio_l, ratio_g, mask_im)
+
+
+
+
+Parallel(n_jobs=proj_predict_MMSE_config.N_FOLDS, verbose=True)(
+    delayed(mapper) (X, y, fold, train, test,A, alphas, ratio_k, ratio_l, ratio_g, mask_im)
+    for fold, (train, test) in enumerate(CV))
+
+
+
+
+betas = list()
+y_pred = list()
+y_true = list()
+i=0
+for i, (train, test) in enumerate(CV):
+    
     #print train, test
 #    enet = sklearn.linear_model.ElasticNet(alpha=alpha_g / (2. * n_train),
 #                                            l1_ratio=.5,
 #                                            fit_intercept=False)
 #    enet.fit(Xtr, ytr)
 #    predictions.append(enet.predict(Xte))
-    ridgel1tv.fit(Xtr, ytr, beta=beta)
-    predictions.append(ridgel1tv.predict(Xte))
-    print "Time:", time.time() - time_curr
-    time_curr = time.time()
+    tv.fit(Xtr, ytr, beta=beta)
+    y_pred.append(tv.predict(Xte))
+    y_true.append(yte)
+    beta = tv.beta
+    out = os.path.join(OUTPUT_PATH, str(i) ,"tv",
+                 "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
+    if not os.path.exists(out):
+        os.makedirs(out)
+        np.save(os.path.join(out,"beta.npy"), beta)
+    arr = np.zeros(mask.shape)
+    arr[mask] = beta.ravel()
+    im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine(), header=mask_im.get_header().copy())
+    im_out.to_filename(os.path.join(out,"beta.nii"))
+    betas.append(beta.copy())
+    print 
+    
+
+# First RUN no limit on iteration
+#Time: 37018.9876552 # 10h
+#Time: 18923.3399591 # 5h
+#Time: 18117.568048
+#Time: 19425.1853101
+#Time: 19714.5431721
+# warm retart accross folds divide by 2 execution time
+# 
+
+y_pred = np.concatenate(y_pred, axis=0)
+y_true = np.concatenate(y_true, axis=0)
+
+r2_score(y_true, y_pred)
+#-0.0823733933819768
+
+for i, (train, test) in enumerate(CV):
+    Xtr = X[train, :]
+    Xte = X[test, :]
+    ytr = y[train, :]
+    yte = y[test, :]
+    print ytr.mean(), yte.mean(), np.concatenate([ytr, yte]).mean()
