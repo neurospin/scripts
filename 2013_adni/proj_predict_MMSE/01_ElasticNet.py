@@ -21,6 +21,8 @@ import sklearn.cross_validation
 import sklearn.linear_model
 import sklearn.linear_model.coordinate_descent
 
+from joblib import Parallel, delayed
+
 import proj_predict_MMSE_config
 
 BASE_PATH = "/neurospin/brainomics/2013_adni/proj_predict_MMSE"
@@ -65,9 +67,27 @@ alphas = sklearn.linear_model.coordinate_descent._alpha_grid(
     n_alphas=proj_predict_MMSE_config.N_GLOBAL_PENALIZATION)
 np.save(OUTPUT_ALL_GLOBAL_PENALIZATION, alphas)
 
-# CV
+
+def fit_and_predict(model, model_file, X_train, y_train, X_test, y_pred_path):
+    model.fit(X_train, y_train)
+    # Store
+    with open(model_file, "w") as f:
+        pickle.dump(model, f)
+    # Evaluate model (we just return the prediction and compute a
+    #  global r_squared outside the loop in case of unbalanced folds)
+    y_pred = model.predict(X_test)
+    np.save(y_pred_path, y_pred)
+
+# Create CV jobs
+print "Creating jobs"
+MODELS = []
+MODEL_FILES = []
+X_TRAINS = []
+Y_TRAINS = []
+X_TESTS = []
+PRED_FILES = []
 for fold_index, fold_indices in enumerate(CV):
-    print fold_index
+    #print fold_index
     fold_path = os.path.join(OUTPUT_PATH,
                              proj_predict_MMSE_config.FOLD_PATH_FORMAT.format(
                                  fold_index=fold_index))
@@ -76,17 +96,13 @@ for fold_index, fold_indices in enumerate(CV):
     # Create train and test sets
     train_indices, test_indices = fold_indices
     X_train = X[train_indices]
-    #np.save(os.path.join(fold_path, "X_train.npy"), X_train)
     X_test = X[test_indices]
-    #np.save(os.path.join(fold_path, "X_test.npy"), X_test)
     y_train = y[train_indices]
-    #np.save(os.path.join(fold_path, "y_train.npy"), y_train)
     y_test = y[test_indices]
-    #np.save(os.path.join(fold_path, "y_test.npy"), y_test)
     for l1_index, l1_ratio in enumerate(l1_ratios):
-        print "\t", l1_ratio
+        #print "\t", l1_ratio
         for alpha_index, alpha in enumerate(alphas):
-            print "\t\t", alpha
+            #print "\t\t", alpha
             model_path = os.path.join(
                 fold_path,
                 proj_predict_MMSE_config.ENET_MODEL_PATH_FORMAT.format(
@@ -94,18 +110,30 @@ for fold_index, fold_indices in enumerate(CV):
                     alpha=alpha))
             if not os.path.exists(model_path):
                 os.makedirs(model_path)
-            # Create and fit model
+            # Append model
             model = sklearn.linear_model.ElasticNet(alpha=alpha,
                                                     l1_ratio=l1_ratio,
                                                     fit_intercept=False)
-            model.fit(X_train, y_train)
-            # Store model
+            MODELS.append(model)
+            # Append data
+            X_TRAINS.append(X_train)
+            Y_TRAINS.append(y_train)
+            X_TESTS.append(X_test)
+            # Append output files
             model_file = os.path.join(model_path, "model.pkl")
-            with open(model_file, "w") as f:
-                pickle.dump(model, f)
-            # Evaluate model (we just return the prediction and compute a
-            #  global r_squared outside the loop in case of unbalanced folds)
-            y_pred = model.predict(X_test)
+            MODEL_FILES.append(model_file)
             y_pred_path = os.path.join(model_path,
                                       "y_pred.npy")
-            np.save(y_pred_path, y_pred)
+            PRED_FILES.append(y_pred_path)
+
+ALL_JOBS = zip(MODELS,
+               MODEL_FILES,
+               X_TRAINS,
+               Y_TRAINS,
+               X_TESTS,
+               PRED_FILES)
+
+# Run it
+print "Running jobs"
+Parallel(n_jobs=4, verbose=True)(
+    delayed(fit_and_predict)(*j) for j in ALL_JOBS)
