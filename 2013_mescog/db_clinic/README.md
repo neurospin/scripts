@@ -34,6 +34,43 @@ ASP(F)S_klinVariables_*
 - `ASPFS_klinVariables_20130711.sav` received from Hofer Edith => `ASPFS_klinVariables_20130711.csv`
 
 
+--------------------------------------------------------------------------------
+TODO Update from Edith Hofer:
+Just a reminder: for ASPS Family we have two different IDs:
+ID: this is the ID which was in the file with ASPS Family clinical variables which I already sent to you
+mr_id: this is the Id of our mr images. I now added this id to the files
+
+
+ASPS_klinVariables_20131218.sav:
+This is the file I already sent you but I added 2 new Variables:
+
+
+corresponding_ASPS_Family_ID:  it has a value only if the same indiviual also exists in the ASPS Family database, the value is the ASPS Family ID
+
+
+corresponging_ASPS_Family_mr_nr: it has a value only if the same indiviual also exists in the ASPS Family database, the value is the ASPS Family mr_nr
+
+
+ASPS_Family_klinVariables_20131218.sav:
+This file is sligthly different than the file I already sent to you because I removed all the individuals for which we do not have any MR data (and therefore they also do not have an mr_nr)
+
+
+I added 2 new Variables:
+
+
+corresponding_ASPS_ID: it has a value only if the same indiviual also exists in the ASPS database, the value is the ASPS ID
+
+
+mr_nr: this is the ASPS Family mr number
+
+
+Please do not hesitate to ask if you have any questions!
+
+
+Best wishes,
+Edith
+--------------------------------------------------------------------------------
+
 
 MISSING DATA
 ============
