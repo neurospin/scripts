@@ -194,7 +194,7 @@ im_out = nibabel.Nifti1Image(arr,
                              header=babel_mask.get_header().copy())
 im_out.to_filename(os.path.join(OUTPUT_PATH, "opt_beta.nii"))
 y_pred = opt_model.predict(X)
-np.save(os.path.join(OUTPUT_PATH, "opt_beta.nii"), y_pred)
+np.save(os.path.join(OUTPUT_PATH, "opt_beta.npy"), y_pred)
 opt_r_squared = sklearn.metrics.r2_score(y, y_pred)
 np.save(os.path.join(OUTPUT_PATH, "opt_r_squared.npy"),
         opt_r_squared)
