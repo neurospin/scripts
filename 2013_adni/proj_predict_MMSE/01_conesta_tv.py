@@ -38,7 +38,7 @@ INPUT_PATH = BASE_PATH
 INPUT_X_CENTER_FILE = os.path.join(INPUT_PATH, "X.center.npy")
 INPUT_Y_CENTER_FILE = os.path.join(INPUT_PATH, "y.center.npy")
 
-INPUT_MASK_PATH = "/neurospin/brainomics/2013_adni/proj_predict_MMSE/SPM/template_FinalQC_MCIc-AD/mask.img"
+INPUT_MASK_PATH = "/neurospin/brainomics/2013_adni/proj_predict_MMSE/SPM/template_FinalQC_MCIc-AD/mask.nii"
 
 OUTPUT_PATH = os.path.join(BASE_PATH, "tv")
 if not os.path.exists(OUTPUT_PATH):
