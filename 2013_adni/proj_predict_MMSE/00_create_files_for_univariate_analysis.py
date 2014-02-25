@@ -34,7 +34,10 @@ INPUT_IMAGE_PATH = os.path.join(INPUT_TEMPLATE_PATH,
 INPUT_IMAGEFILE_FORMAT = os.path.join(INPUT_IMAGE_PATH,
                                       "smw{PTID}*_Nat_dartel_greyProba.nii")
 
-OUTPUT_PATH = "/neurospin/brainomics/2013_adni/masks/template_FinalQC_MCIc-AD"
+OUTPUT_PATH = os.path.join(BASE_PATH,
+                           "proj_predict_MMSE",
+                           "SPM",
+                           "template_FinalQC_MCIc-AD")
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
 OUTPUT_FILE = os.path.join(OUTPUT_PATH, "spm_file.txt")
