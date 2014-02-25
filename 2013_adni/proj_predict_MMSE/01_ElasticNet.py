@@ -49,15 +49,13 @@ y = np.load(INPUT_Y_CENTER_FILE)
 #########################
 
 # Create the cross-validation object
-# À DÉFONCER avc proj_predict_MMSE_config.BalancedCV
-CV = sklearn.cross_validation.KFold(
-    n,
-    shuffle=True,
-    n_folds=proj_predict_MMSE_config.N_FOLDS,
-    random_state=proj_predict_MMSE_config.CV_SEED)
+CV = proj_predict_MMSE_config.BalancedCV(
+    y,
+    proj_predict_MMSE_config.N_FOLDS,
+    random_seed=proj_predict_MMSE_config.CV_SEED)
 
 # Create l1 ratio grid
-l1_ratios = np.array(proj_predict_MMSE_config.ENET_L1_RATIO_RANGE)
+l1_ratios = proj_predict_MMSE_config.ENET_L1_RATIO_RANGE
 
 # Create alpha grid
 mean_l1_ratio = l1_ratios.mean()
