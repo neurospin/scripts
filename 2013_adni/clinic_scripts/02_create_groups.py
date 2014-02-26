@@ -113,12 +113,13 @@ adni_510_bl['DX'] = adni_510_bl['DX'].map(
 adni_510_bl['DX'][adni_510_bl['PTID'].isin(converters_PTID)] = 'MCIc'
 
 # Create a dataframe with all the groups
-COLS = ['Group.article', 'Group.BV', 'Group.ADNI']
-group_cmp = pandas.DataFrame(np.empty((510, 3), dtype='object'),
+COLS = ['Group.article', 'Group.BV', 'Group.ADNI', 'Sample']
+group_cmp = pandas.DataFrame(np.empty((510, len(COLS)), dtype='object'),
                                       index = adni_510_subjects)
 group_cmp.columns = COLS
 for ID in adni_510_subjects:
     group_cmp['Group.article'][ID] = ref_file['Group.article'].loc[ID]
     group_cmp['Group.BV'][ID] = bv_file['Group.BV'].loc[ID]
     group_cmp['Group.ADNI'][ID] = adni_510_bl['DX'].loc[ID]
+    group_cmp['Sample'][ID] = ref_file['Sample'].loc[ID]
 group_cmp.sort().to_csv(OUTPUT_FILE)
