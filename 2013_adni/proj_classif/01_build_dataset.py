@@ -28,7 +28,7 @@ PROJ_PATH = os.path.join(BASE_PATH,
                          "proj_classif")
 
 INPUT_CLINIC_FILE = os.path.join(PROJ_PATH,
-                                 "pop.csv")
+                                 "population.csv")
 #INPUT_GROUPS = ['control', 'AD']
 
 INPUT_TEMPLATE_PATH = os.path.join(BASE_PATH,
@@ -43,7 +43,7 @@ INPUT_MASK_PATH = os.path.join(PROJ_PATH,
                                "SPM",
                                "template_FinalQC_CTL_AD")
 INPUT_MASK = os.path.join(INPUT_MASK_PATH,
-                          "mask.hdr")
+                          "mask.nii")
 
 OUTPUT_PATH = PROJ_PATH
 if not os.path.exists(OUTPUT_PATH):
@@ -116,5 +116,4 @@ np.save(OUTPUT_X_TRAIN_CENTER_FILE, X_train_center)
 np.save(OUTPUT_X_MEAN_FILE, x_scaler.mean_)
 
 X_test_center = x_scaler.transform(X_test)
-np.save(OUTPUT_X_TEST_CENTER_FILE, X_train_center)
-
+np.save(OUTPUT_X_TEST_CENTER_FILE, X_test_center)

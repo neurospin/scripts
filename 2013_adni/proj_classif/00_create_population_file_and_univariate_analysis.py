@@ -10,6 +10,8 @@ This analysis will create the mask.
 We don't need QC because the template folder contains the list of selected
 subjects.
 
+We also create a CSV file for the population.
+
 """
 
 
@@ -40,7 +42,7 @@ INPUT_IMAGEFILE_FORMAT = os.path.join(INPUT_IMAGE_PATH,
 OUTPUT_BASE_PATH = os.path.join(BASE_PATH,
                                 "proj_classif")
 OUTPUT_CSV = os.path.join(OUTPUT_BASE_PATH,
-                          "pop.csv")
+                          "population.csv")
 OUTPUT_PATH = os.path.join(OUTPUT_BASE_PATH,
                            "SPM",
                            "template_FinalQC_CTL_AD")
