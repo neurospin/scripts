@@ -41,7 +41,15 @@ INPUT_MASK = os.path.join(INPUT_MASK_PATH,
 
 INPUT_PENALTIES = ['l1', 'l2']
 INPUT_C = [0.1, 1, 1.0]
-ALL_JOBS = list(itertools.product(INPUT_PENALTIES,
+
+# Construct list of possible jobs (loss, penalty, C)
+# loss = 'l1' and penalty = 'l1' is not supported
+ALL_JOBS = []
+ALL_JOBS.extend(itertools.product(['l2'],
+                                  INPUT_PENALTIES,
+                                  INPUT_C))
+ALL_JOBS.extend(itertools.product(['l1'],
+                                  ['l2'],
                                   INPUT_C))
 
 OUTPUT_PATH = os.path.join(BASE_PATH, "SVM")
@@ -70,11 +78,11 @@ print n_test, "testing subjects"
 # Launch jobs #
 ###############
 
-def mapper(Xtr, ytr, Xte, yte, penalty, C, mask_im):
+def mapper(Xtr, ytr, Xte, yte, loss, penalty, C, mask_im):
     time_curr = time.time()
-    svm = sklearn.svm.LinearSVC(loss='l2',
+    svm = sklearn.svm.LinearSVC(loss=loss,
                                 penalty=penalty,
-                                dual=False, # Needed for l1 penalty
+                                dual=False,  # Needed for l1 penalty
                                 C=C,
                                 fit_intercept=False  )
     svm.fit(Xtr, ytr)
@@ -93,6 +101,6 @@ def mapper(Xtr, ytr, Xte, yte, penalty, C, mask_im):
     np.save(os.path.join(out_dir, "y_true.npy"), yte)
 
 
-Parallel(n_jobs=2, verbose=True)(
-    delayed(mapper) (X_train, y_train, X_test, y_test, penalty, C, mask_im)
-    for penalty, C in ALL_JOBS)
+Parallel(n_jobs=3, verbose=True)(
+    delayed(mapper) (X_train, y_train, X_test, y_test, loss, penalty, C, mask_im)
+    for loss, penalty, C in ALL_JOBS)
