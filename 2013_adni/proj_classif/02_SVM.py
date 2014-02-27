@@ -37,20 +37,25 @@ INPUT_MASK_PATH = os.path.join(INPUT_PATH,
                                "SPM",
                                "template_FinalQC_CTL_AD")
 INPUT_MASK = os.path.join(INPUT_MASK_PATH,
-                          "mask.hdr")
+                          "mask.nii")
 
 INPUT_PENALTIES = ['l1', 'l2']
 INPUT_C = [0.1, 1, 1.0]
 
-# Construct list of possible jobs (loss, penalty, C)
+# Construct list of possible jobs (loss, penalty, C, dual)
 # loss = 'l1' and penalty = 'l1' is not supported
+# For loss = 'l2' and penalty = 'l1' -> dual must be False
+# For loss = 'l2' and penalty = 'l2' we use False
+# For loss = 'l1' and penalty = 'l2' -> dual must be True
 ALL_JOBS = []
 ALL_JOBS.extend(itertools.product(['l2'],
                                   INPUT_PENALTIES,
-                                  INPUT_C))
+                                  INPUT_C,
+                                  [False]))
 ALL_JOBS.extend(itertools.product(['l1'],
                                   ['l2'],
-                                  INPUT_C))
+                                  INPUT_C,
+                                  [True]))
 
 OUTPUT_PATH = os.path.join(BASE_PATH, "SVM")
 if not os.path.exists(OUTPUT_PATH):
@@ -78,20 +83,23 @@ print n_test, "testing subjects"
 # Launch jobs #
 ###############
 
-def mapper(Xtr, ytr, Xte, yte, loss, penalty, C, mask_im):
+def mapper(Xtr, ytr, Xte, yte, loss, penalty, C, dual, mask_im):
     time_curr = time.time()
     svm = sklearn.svm.LinearSVC(loss=loss,
                                 penalty=penalty,
-                                dual=False,  # Needed for l1 penalty
+                                dual=dual,
                                 C=C,
-                                fit_intercept=False  )
+                                fit_intercept=False,
+                                class_weight='auto')
     svm.fit(Xtr, ytr)
     y_pred = svm.predict(Xte)
     #y_pred = yte
     beta = svm.coef_
     #print key, "ite:%i, time:%f" % (len(mod.info["t"]), np.sum(mod.info["t"]))
-    out_dir = os.path.join(OUTPUT_PATH,
-                 "-".join([str(v) for v in (penalty, C)]))
+    param_dir = "loss={loss}-pen={pen}-C={C}".format(loss=loss,
+                                                     pen=penalty,
+                                                     C=C)
+    out_dir = os.path.join(OUTPUT_PATH, param_dir)
     print out_dir, "Time ellapsed:", time.time() - time_curr
     #if not os.path.exists(out_dir):
     #    os.makedirs(out_dir)
@@ -102,5 +110,5 @@ def mapper(Xtr, ytr, Xte, yte, loss, penalty, C, mask_im):
 
 
 Parallel(n_jobs=3, verbose=True)(
-    delayed(mapper) (X_train, y_train, X_test, y_test, loss, penalty, C, mask_im)
-    for loss, penalty, C in ALL_JOBS)
+    delayed(mapper) (X_train, y_train, X_test, y_test, loss, penalty, C, dual, mask_im)
+    for loss, penalty, C, dual in ALL_JOBS)
