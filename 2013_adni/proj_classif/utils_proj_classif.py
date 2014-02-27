@@ -10,7 +10,7 @@ Created on Fri Feb 21 13:50:14 2014
 # UTILS
 #############
 
-def save_model(out_dir, mod, mask_im=None):
+def save_model(out_dir, mod, coef, mask_im=None):
     import os, os.path, pickle, nibabel, numpy
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -18,7 +18,7 @@ def save_model(out_dir, mod, mask_im=None):
     if mask_im is not None:
         mask = mask_im.get_data() != 0
         arr = numpy.zeros(mask.shape)
-        arr[mask] = mod.beta.ravel()
+        arr[mask] = coef.ravel()
         im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine(), header=mask_im.get_header().copy())
         im_out.to_filename(os.path.join(out_dir,"beta.nii"))
 
