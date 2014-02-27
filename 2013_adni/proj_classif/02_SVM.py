@@ -15,7 +15,6 @@ import itertools
 
 import numpy as np
 
-import sklearn.cross_validation
 import sklearn.svm
 
 import nibabel
@@ -40,7 +39,7 @@ INPUT_MASK = os.path.join(INPUT_MASK_PATH,
                           "mask.nii")
 
 INPUT_PENALTIES = ['l1', 'l2']
-INPUT_C = [0.1, 1, 1.0]
+INPUT_C = [0.1, 1, 10]
 
 # Construct list of possible jobs (loss, penalty, C, dual)
 # loss = 'l1' and penalty = 'l1' is not supported
@@ -57,9 +56,11 @@ ALL_JOBS.extend(itertools.product(['l1'],
                                   INPUT_C,
                                   [True]))
 
-OUTPUT_PATH = os.path.join(BASE_PATH, "SVM")
+OUTPUT_PATH = os.path.join(BASE_PATH, "svm")
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
+
+SVM_DIR_FORMAT = "loss={loss}-pen={pen}-C={C}"
 
 #############
 # Load data #
@@ -69,9 +70,9 @@ X_train = np.load(INPUT_X_TRAIN_FILE)
 n_train, p = X_train.shape
 y_train = np.load(INPUT_Y_TRAIN_FILE)
 
-X_test = np.load(INPUT_X_TRAIN_FILE)
+X_test = np.load(INPUT_X_TEST_FILE)
 n_test, _ = X_test.shape
-y_test = np.load(INPUT_Y_TRAIN_FILE)
+y_test = np.load(INPUT_Y_TEST_FILE)
 
 mask_im = nibabel.load(INPUT_MASK)
 
@@ -96,17 +97,16 @@ def mapper(Xtr, ytr, Xte, yte, loss, penalty, C, dual, mask_im):
     #y_pred = yte
     beta = svm.coef_
     #print key, "ite:%i, time:%f" % (len(mod.info["t"]), np.sum(mod.info["t"]))
-    param_dir = "loss={loss}-pen={pen}-C={C}".format(loss=loss,
-                                                     pen=penalty,
-                                                     C=C)
+    param_dir = SVM_DIR_FORMAT.format(loss=loss,
+                                      pen=penalty,
+                                      C=C)
     out_dir = os.path.join(OUTPUT_PATH, param_dir)
     print out_dir, "Time ellapsed:", time.time() - time_curr
     #if not os.path.exists(out_dir):
     #    os.makedirs(out_dir)
     time_curr = time.time()
-    utils_proj_classif.save_model(out_dir, svm, beta, mask_im)
-    np.save(os.path.join(out_dir, "y_pred.npy"), y_pred)
-    np.save(os.path.join(out_dir, "y_true.npy"), yte)
+    extra_data = {'y_true': yte, 'y_pred': y_pred}
+    utils_proj_classif.save_model(out_dir, svm, beta, mask_im, **extra_data)
 
 
 Parallel(n_jobs=3, verbose=True)(
