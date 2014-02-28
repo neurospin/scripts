@@ -122,4 +122,8 @@ for ID in adni_510_subjects:
     group_cmp['Group.BV'][ID] = bv_file['Group.BV'].loc[ID]
     group_cmp['Group.ADNI'][ID] = adni_510_bl['DX'].loc[ID]
     group_cmp['Sample'][ID] = ref_file['Sample'].loc[ID]
+
+# Set the missing subject to 'testing'
+group_cmp['Sample'].loc[missing_subject] = 'testing'
+
 group_cmp.sort().to_csv(OUTPUT_FILE)
