@@ -169,59 +169,64 @@ p.map(mapper, PARAMS_LIST)
 
 if MODE == "reduce":
     #print MODE, ALPHAS, ratio_k, ratio_l, ratio_g
-    OUTPUT_PATH = os.path.join(BASE_PATH, "tv", MODE)
-    y = dict()
-    recall_tot = dict()
-    models = dict()
-    #mse_tot = dict()
-    #r2_mean = dict()
-    for rep in glob.glob(os.path.join(OUTPUT_PATH, "*-*-*")):
-        key = os.path.basename(rep)
-        print rep
-        res = utils_proj_classif.load(rep)
-        mod = res['model']
-        #self.function = None
-        #self.A = None
-        #import pickle
-        #pickle.dump(self, open(os.path.join(rep, "model.pkl"), "w"))
-        #rep = '/neurospin/brainomics/2013_adni/proj_predict_MMSE/tv/cv/2/100-0.1-0.4-0.5'
-        # BUG CORRECT START
-        arr = np.zeros(mask.shape)
-        arr[mask] = mod.beta.ravel()
-        im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine())#, header=mask_im.get_header().copy())
-        im_out.to_filename(os.path.join(rep,"beta.nii"))
-        print np.all(nibabel.load(os.path.join(rep,"beta.nii")).get_data()[mask] == mod.beta.ravel())
-        # BUG CORRECT END
-        y_pred = res["y_pred_tv"].ravel()
-        y_true = res["y_true"].ravel()
-        y[key] = dict(y_true=y_true, y_pred=y_pred)
-        _, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average=None)
-        recall_tot[key] = r
-        models[key] = res['model']
-    r =list()
-    for k in recall_tot: r.append(k.split("-")+recall_tot[k].tolist())
-    import pandas as pd
-    res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",  "recall_0", "recall_1"])
-    res = res.sort("recall_1", ascending=False)
-    print res.to_string()
-    #[m.weigths[:2] for m in models.values()]
-    #key = '1-0.1-0.4-0.5'
-    key = '0.1-0.1-0.4-0.5'
-    #key = '5-0.1-0.4-0.5'
-    recall_tot[key]
-    np.all(y[key]["y_true"] == yte.ravel())
-    tv = models[key]
-    precision_recall_fscore_support(yte, tv.predict(Xte))
-    precision_recall_fscore_support(ytr, tv.predict(Xtr))
+OUTPUT_PATH = os.path.join(BASE_PATH, "tv", "split")
+y = dict()
+recall_tot = dict()
+models = dict()
+#mse_tot = dict()
+#r2_mean = dict()
+for rep in glob.glob(os.path.join(OUTPUT_PATH, "*-*-*")):
+    key = os.path.basename(rep)
+    print rep
+    res = utils_proj_classif.load(rep)
+    mod = res['model']
+    #self.function = None
+    #self.A = None
+    #import pickle
+    #pickle.dump(self, open(os.path.join(rep, "model.pkl"), "w"))
+    #rep = '/neurospin/brainomics/2013_adni/proj_predict_MMSE/tv/cv/2/100-0.1-0.4-0.5'
+    # BUG CORRECT START
+    #arr = np.zeros(mask.shape)
+    #arr[mask] = mod.beta.ravel()
+    #im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine())#, header=mask_im.get_header().copy())
+    #im_out.to_filename(os.path.join(rep,"beta.nii"))
+    #print np.all(nibabel.load(os.path.join(rep,"beta.nii")).get_data()[mask] == mod.beta.ravel())
+    # BUG CORRECT END
+    y_pred = res["y_pred_tv"].ravel()
+    y_true = res["y_true"].ravel()
+    y[key] = dict(y_true=y_true, y_pred=y_pred)
+    _, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average=None)
+    recall_tot[key] = r.tolist() + [r.mean()]
+    models[key] = res['model']
+
+r =list()
+for k in recall_tot: r.append(k.split("-")+recall_tot[k])
+import pandas as pd
+res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",  "recall_0", "recall_1", "recall_mean"])
+res = res.sort("recall_mean", ascending=False)
+print res.to_string()
     
-    if SIMU:
-        key = '10-0.1-0.4-0.5'
-        tv = models[key]
-        title = key+", ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
-        print tv.beta.min(), tv.beta.max()
-        plot_map2d(beta3d.squeeze(), title="betastar", limits=[beta3d.min(), beta3d.max()])
-        plot_map2d(tv.beta.reshape(shape), title=title, limits=[beta3d.min(), beta3d.max()])
-        plt.show()
+    y["1.0-1.0-0.0-0.0"]["y_pred_tv"]
+    a = np.load('/neurospin/brainomics/2013_adni/proj_classif/svm/loss=l2-pen=l2-C=1/y_pred.npy')
+    y["1.0-1.0-0.0-0.0"]["y_pred"] == a
+#    #[m.weigths[:2] for m in models.values()]
+#    #key = '1-0.1-0.4-0.5'
+#    key = '0.1-0.1-0.4-0.5'
+#    #key = '5-0.1-0.4-0.5'
+#    recall_tot[key]
+#    np.all(y[key]["y_true"] == yte.ravel())
+#    tv = models[key]
+#    precision_recall_fscore_support(yte, tv.predict(Xte))
+#    precision_recall_fscore_support(ytr, tv.predict(Xtr))
+#    
+#    if mod == "simu":
+#        key = '10-0.1-0.4-0.5'
+#        tv = models[key]
+#        title = key+", ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
+#        print tv.beta.min(), tv.beta.max()
+#        plot_map2d(beta3d.squeeze(), title="betastar", limits=[beta3d.min(), beta3d.max()])
+#        plot_map2d(tv.beta.reshape(shape), title=title, limits=[beta3d.min(), beta3d.max()])
+#        plt.show()
 
 # TV 0.9 => 0.6
 #python 02_conesta_tv.py --cores=8 --ratios="0.05 0.05 0.9; 0.0 0.1 0.9; 0.1 0.0 0.9; 0.1 0.1 0.8; 0.0 0.2 0.8; 0.2 0.0 0.8; 0.2 0.2 0.6; 0.4 0.0 0.6; 0.0 0.4 0.6"
