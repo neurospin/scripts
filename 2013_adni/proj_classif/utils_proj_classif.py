@@ -21,7 +21,7 @@ def save_model(out_dir, mod, coef, mask_im=None, **kwargs):
         mask = mask_im.get_data() != 0
         arr = numpy.zeros(mask.shape)
         arr[mask] = coef.ravel()
-        im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine(), header=mask_im.get_header().copy())
+        im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine())#, header=mask_im.get_header().copy())
         im_out.to_filename(os.path.join(out_dir,"beta.nii"))
 
 def load(input_dir):
