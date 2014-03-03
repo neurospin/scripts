@@ -121,9 +121,10 @@ if MODE == "all":
 
 weigths = np.zeros(ytr.shape)
 prop = np.asarray([np.sum(ytr == l) for l in [0, 1]]) / float(ytr.size)
-weigths[ytr==0] = prop[0]
-weigths[ytr==1] = prop[1]
+weigths[ytr==0] = prop[1]
+weigths[ytr==1] = prop[0]
 
+print "weitghed sum", weigths[ytr==0].sum(), weigths[ytr==1].sum()
 
 ###############################
 # Mapper
