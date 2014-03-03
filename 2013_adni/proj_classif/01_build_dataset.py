@@ -49,6 +49,8 @@ OUTPUT_PATH = PROJ_PATH
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
 OUTPUT_X_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.npy")
+OUTPUT_MEAN_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.nii")
+OUTPUT_MEAN_MASKED_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.masked.nii")
 OUTPUT_X_TRAIN_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.train.npy")
 OUTPUT_X_TEST_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.test.npy")
 OUTPUT_X_TRAIN_CENTER_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.train.center.npy")
@@ -70,9 +72,10 @@ mask = babel_mask.get_data() != 0
 p = np.count_nonzero(mask)
 print "Mask: {n} voxels".format(n=p)
 
-# Load images
+# Load images & compute an average image (without mask)
 print "Loading images"
 X = np.zeros((n, p))
+mean_image_data = np.zeros(mask.shape)
 for i, PTID in enumerate(pop.index):
     #bv_group = m18_clinic_qc['Group.BV'].loc[PTID]
     #adni_group = m18_clinic_qc['Group.ADNI'].loc[PTID]
@@ -84,15 +87,28 @@ for i, PTID in enumerate(pop.index):
     #print imagefile_pattern
     imagefile_name = glob.glob(imagefile_pattern)[0]
     babel_image = nibabel.load(imagefile_name)
-    image = babel_image.get_data()
+    image_data = babel_image.get_data()
     # Apply mask (returns a flat image)
-    X[i, :] = image[mask]
+    X[i, :] = image_data[mask]
+    # Store in mean image
+    mean_image_data += image_data
 
 # Store X and y
 print "Storing data"
 np.save(OUTPUT_X_FILE, X)
 y = np.array(pop['Group.num'], dtype='float64')
 np.save(OUTPUT_Y_FILE, y)
+
+# Create mean image
+mean_image_data /= n
+mean_im = nibabel.Nifti1Image(mean_image_data, affine=babel_mask.get_affine())
+mean_im.to_filename(OUTPUT_MEAN_IMAGE)
+
+# Create average image (in mask)
+X_mean_masked = np.zeros(mask.shape)
+X_mean_masked[mask] = X.mean(axis=0)
+X_mean_masked_im = nibabel.Nifti1Image(X_mean_masked, affine=babel_mask.get_affine())
+X_mean_masked_im.to_filename(OUTPUT_MEAN_MASKED_IMAGE)
 
 # Split in train-test according to Cuingnet et al. 2010
 print "Splitting in train-test & storing"
