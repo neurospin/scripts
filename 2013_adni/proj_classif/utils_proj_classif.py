@@ -37,3 +37,21 @@ def load(input_dir):
         name, ext = os.path.splitext(os.path.basename(pkl_filename))
         res[name] = pickle.load(open(pkl_filename, "r"))
     return res
+
+
+def get_threshold_from_norm2_ratio(v, ratio=.99):
+    """Threshold to apply an input_vector such
+    norm2(output_vector) / norm2(input_vector) == ratio
+    return the thresholded vector and the threshold"""
+    #shape = v.shape
+    import numpy as np
+    v = v.copy().ravel()
+    v2 = (v ** 2)
+    v2.sort()
+    v2 = v2[::-1]
+    v_n2 = np.sqrt(np.sum(v2))
+    #(v_n2 * ratio) ** 2
+    cumsum2 = np.cumsum(v2)  #np.sqrt(np.cumsum(v2))
+    select = cumsum2 <= (v_n2 * ratio) ** 2
+    thres = np.sqrt(v2[select][-1])
+    return thres

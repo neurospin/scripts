@@ -58,6 +58,7 @@ MODE = "split"
 ALPHAS = "5 1 0.5 0.1"
 RATIOS_LIST = "0.1 0.1 0.8; 0.0 0.2 0.8; 0.2 0.0 0.8"
 NBCORES = 8
+REDUCE = False
 
 parser = optparse.OptionParser(description=__doc__)
 parser.add_option('--mode',
@@ -69,6 +70,8 @@ parser.add_option('--cores',
     help='Nb cpu cores to use (default %i)' % NBCORES, default=NBCORES, type=int)
 parser.add_option('--ratios',
     help='Ratio triplet separated by ";" (default %s)' % RATIOS_LIST, default=RATIOS_LIST, type=str)
+parser.add_option('-r', '--reduce',
+                      help='Reduce (default %s)' % REDUCE, default=False, action='store_true', dest='reduce')
 
 
 options, args = parser.parse_args(sys.argv)
@@ -81,6 +84,8 @@ RATIOS_LIST = [[float(ratio) for ratio in ratios.split()]  for ratios in RATIOS_
 PARAMS_LIST = [[alpha]+ratios for ratios in RATIOS_LIST for alpha in ALPHAS]
 NBCORES = options.cores
 
+REDUCE = options.reduce
+#print REDUCE
 #print MODE, PARAMS_LIST, NBCORES
 
 ##############
@@ -124,7 +129,7 @@ prop = np.asarray([np.sum(ytr == l) for l in [0, 1]]) / float(ytr.size)
 weigths[ytr==0] = prop[1]
 weigths[ytr==1] = prop[0]
 
-print "weitghed sum", weigths[ytr==0].sum(), weigths[ytr==1].sum()
+#print "weitghed sum", weigths[ytr==0].sum(), weigths[ytr==1].sum()
 
 ###############################
 # Mapper
@@ -132,8 +137,9 @@ print "weitghed sum", weigths[ytr==0].sum(), weigths[ytr==1].sum()
 
 def mapper(params):
     alpha, ratio_k, ratio_l, ratio_g = params
-    out_dir = os.path.join(OUTPUT_PATH,
-                 "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
+    out_dir =  os.path.join(OUTPUT_PATH, "%.2f-%.3f-%.3f-%.2f" % (alpha, ratio_k, ratio_l, ratio_g))
+    #out_dir = os.path.join(OUTPUT_PATH,
+    #             "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
     print "START:", out_dir
     np.asarray([np.sum(ytr == l) for l in np.unique(ytr)]) / float(ytr.size)
     time_curr = time.time()
@@ -157,58 +163,47 @@ def mapper(params):
 ###############################
 # Execution
 ###############################
-
-print PARAMS_LIST
-p = Pool(NBCORES)
-p.map(mapper, PARAMS_LIST)
+if not REDUCE:
+    print PARAMS_LIST
+    p = Pool(NBCORES)
+    p.map(mapper, PARAMS_LIST)
 
 
 #########################
 # Result: reduce
 #########################
 
-if MODE == "reduce":
-    #print MODE, ALPHAS, ratio_k, ratio_l, ratio_g
-OUTPUT_PATH = os.path.join(BASE_PATH, "tv", "split")
-y = dict()
-recall_tot = dict()
-models = dict()
-#mse_tot = dict()
-#r2_mean = dict()
-for rep in glob.glob(os.path.join(OUTPUT_PATH, "*-*-*")):
-    key = os.path.basename(rep)
-    print rep
-    res = utils_proj_classif.load(rep)
-    mod = res['model']
-    #self.function = None
-    #self.A = None
-    #import pickle
-    #pickle.dump(self, open(os.path.join(rep, "model.pkl"), "w"))
-    #rep = '/neurospin/brainomics/2013_adni/proj_predict_MMSE/tv/cv/2/100-0.1-0.4-0.5'
-    # BUG CORRECT START
-    #arr = np.zeros(mask.shape)
-    #arr[mask] = mod.beta.ravel()
-    #im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine())#, header=mask_im.get_header().copy())
-    #im_out.to_filename(os.path.join(rep,"beta.nii"))
-    #print np.all(nibabel.load(os.path.join(rep,"beta.nii")).get_data()[mask] == mod.beta.ravel())
-    # BUG CORRECT END
-    y_pred = res["y_pred_tv"].ravel()
-    y_true = res["y_true"].ravel()
-    y[key] = dict(y_true=y_true, y_pred=y_pred)
-    _, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average=None)
-    recall_tot[key] = r.tolist() + [r.mean()]
-    models[key] = res['model']
+if REDUCE:
+    OUTPUT_PATH = os.path.join(BASE_PATH, "tv", "split")
+    y = dict()
+    recall_tot = dict()
+    models = dict()
+    for rep in glob.glob(os.path.join(OUTPUT_PATH, "*-*-*")):
+        key = os.path.basename(rep)
+        print rep
+        res = utils_proj_classif.load(rep)
+        mod = res['model']
+        y_pred = res["y_pred_tv"].ravel()
+        y_true = res["y_true"].ravel()
+        y[key] = dict(y_true=y_true, y_pred=y_pred)
+        _, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average=None)
+        recall_tot[key] = r.tolist() + [r.mean()]
+        models[key] = res['model']
+    r =list()
+    for k in recall_tot: r.append(k.split("-")+recall_tot[k])
+    import pandas as pd
+    res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",  "recall_0", "recall_1", "recall_mean"])
+    res = res.sort("recall_mean", ascending=False)
+    print res.to_string()
+    res.to_csv(os.path.join(OUTPUT_PATH, "..", "split_results_ctl-ad_tvenet.csv"), index=False)
 
-r =list()
-for k in recall_tot: r.append(k.split("-")+recall_tot[k])
-import pandas as pd
-res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",  "recall_0", "recall_1", "recall_mean"])
-res = res.sort("recall_mean", ascending=False)
-print res.to_string()
-    
-    y["1.0-1.0-0.0-0.0"]["y_pred_tv"]
-    a = np.load('/neurospin/brainomics/2013_adni/proj_classif/svm/loss=l2-pen=l2-C=1/y_pred.npy')
-    y["1.0-1.0-0.0-0.0"]["y_pred"] == a
+
+
+
+
+     #   y["1.0-1.0-0.0-0.0"]["y_pred_tv"]
+     #   a = np.load('/neurospin/brainomics/2013_adni/proj_classif/svm/loss=l2-pen=l2-C=1/y_pred.npy')
+     #   y["1.0-1.0-0.0-0.0"]["y_pred"] == a
 #    #[m.weigths[:2] for m in models.values()]
 #    #key = '1-0.1-0.4-0.5'
 #    key = '0.1-0.1-0.4-0.5'
@@ -240,3 +235,4 @@ print res.to_string()
 #/neurospin/brainomics/2013_adni/proj_classif/tv/split/1-0.1-0.1-0.8 Time ellapsed: 6580.30336094 ite:12270, time:3830.900000
 #/neurospin/brainomics/2013_adni/proj_classif/tv/split/0.5-0.1-0.1-0.8 Time ellapsed: 6619.85201001 ite:12412, time:3854.080000
 #/neurospin/brainomics/2013_adni/proj_classif/tv/split/0.1-0.1-0.1-0.8 Time ellapsed: 6710.06726408 ite:12703, time:3973.000000
+
