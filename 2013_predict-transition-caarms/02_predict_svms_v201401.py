@@ -156,7 +156,7 @@ C_values = [0.01, 0.05, .1, .5, 1, 5, 10]
 # OK
 svms = Methods(*[SVM(dual=False, class_weight='auto', penalty="l1", C=C)  for C in C_values])
 
-svms = Methods(*[SVM(dual=False, class_weight='auto', loss='l1', penalty="l1", C=C)  for C in C_values])
+#svms = Methods(*[SVM(dual=False, class_weight='auto', loss='l1', penalty="l1", C=C)  for C in C_values])
 svms_cv = CVBestSearchRefit(svms, n_folds=10, cv_type="stratified")
 svms_all = Methods(svms, svms_cv)
 cv = CV(svms_all, cv_type="stratified", n_folds=10)
