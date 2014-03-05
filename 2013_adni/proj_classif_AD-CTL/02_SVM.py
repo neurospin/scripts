@@ -24,7 +24,7 @@ from joblib import Parallel, delayed
 import proj_classif_config
 import utils_proj_classif
 
-BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif"
+BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
 
 INPUT_PATH = BASE_PATH
 INPUT_X_TRAIN_FILE = os.path.join(INPUT_PATH, "X_CTL_AD.train.center.npy")
