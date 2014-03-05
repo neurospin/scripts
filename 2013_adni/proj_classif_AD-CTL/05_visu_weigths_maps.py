@@ -12,12 +12,12 @@ import nibabel, numpy as np
 from nsap.use_cases.utils.brainvisa_map_cluster_analysis import *
 from nsap.plugins.nipype import set_environment
 #
-SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif")
+SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif_AD-CTL")
 sys.path.append(SRC_PATH)
 import utils_proj_classif
 
 
-BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif"
+BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
 INPUT_MASK = os.path.join(BASE_PATH,"SPM", "template_FinalQC_CTL_AD", "mask.nii")
 OUTPUT_DIR = "/tmp/mesh"
 # set image of wheights and taget volume
@@ -79,11 +79,11 @@ do_mesh_cluster_rendering(mesh_file = outputs["mesh_file"],
                              anat_file = target)
 
 """
-bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif/tv/split_vizu/1-1.0-0.0-0.0_beta.nii
-bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif/tv/split_vizu/1-0.1-0.0-0.9_beta.nii
-bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif/tv/split_vizu/1-0.9-0.1-0.0_beta.nii
+bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/split_vizu/1-1.0-0.0-0.0_beta.nii
+bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/split_vizu/1-0.1-0.0-0.9_beta.nii
+bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/split_vizu/1-0.9-0.1-0.0_beta.nii
 
-bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif/tv/split_vizu/1-0.0-0.1-0.9_beta.nii
-bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif/tv/split_vizu/1-0.1-0.1-0.8_beta.nii
+bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/split_vizu/1-0.0-0.1-0.9_beta.nii
+bv_env python 05_visu_weigths_maps.py --input=/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/split_vizu/1-0.1-0.1-0.8_beta.nii
 
 """

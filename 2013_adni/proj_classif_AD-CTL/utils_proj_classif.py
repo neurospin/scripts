@@ -25,7 +25,7 @@ def save_model(out_dir, mod, coef, mask_im=None, **kwargs):
         im_out.to_filename(os.path.join(out_dir,"beta.nii"))
 
 def load(input_dir):
-    #input_dir = '/neurospin/brainomics/2013_adni/proj_classif/tv/10-0.1-0.4-0.5'
+    #input_dir = '/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/10-0.1-0.4-0.5'
     import os, os.path, pickle, numpy, glob
     res = dict()
     for arr_filename in glob.glob(os.path.join(input_dir, "*.npy")):

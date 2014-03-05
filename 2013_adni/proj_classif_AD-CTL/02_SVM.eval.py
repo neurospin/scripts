@@ -22,7 +22,7 @@ import nibabel
 import proj_classif_config
 import utils_proj_classif
 
-BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif"
+BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
 
 INPUT_PATH = BASE_PATH
 INPUT_Y_TEST_FILE = os.path.join(INPUT_PATH, "y_CTL_AD.test.npy")

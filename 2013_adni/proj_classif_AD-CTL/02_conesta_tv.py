@@ -29,7 +29,7 @@ from parsimony.datasets import make_classification_struct
 from parsimony.utils import plot_map2d
 
 ## GLOBALS ==================================================================
-BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif"
+BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
 OUTPUT_PATH = os.path.join(BASE_PATH, "tv")
 INPUT_X_TRAIN_CENTER_FILE = os.path.join(BASE_PATH, "X_CTL_AD.train.center.npy")
 INPUT_X_TEST_CENTER_FILE = os.path.join(BASE_PATH, "X_CTL_AD.test.center.npy")
@@ -41,7 +41,7 @@ INPUT_MASK_PATH = os.path.join(BASE_PATH,
 INPUT_MASK = os.path.join(INPUT_MASK_PATH,
                               "mask.nii")
 
-SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif")
+SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif_AD-CTL")
 sys.path.append(SRC_PATH)
 import utils_proj_classif
 
@@ -197,36 +197,6 @@ if REDUCE:
     print res.to_string()
     res.to_csv(os.path.join(OUTPUT_PATH, "..", "split_results_ctl-ad_tvenet.csv"), index=False)
 
-
-
-
-
-     #   y["1.0-1.0-0.0-0.0"]["y_pred_tv"]
-     #   a = np.load('/neurospin/brainomics/2013_adni/proj_classif/svm/loss=l2-pen=l2-C=1/y_pred.npy')
-     #   y["1.0-1.0-0.0-0.0"]["y_pred"] == a
-#    #[m.weigths[:2] for m in models.values()]
-#    #key = '1-0.1-0.4-0.5'
-#    key = '0.1-0.1-0.4-0.5'
-#    #key = '5-0.1-0.4-0.5'
-#    recall_tot[key]
-#    np.all(y[key]["y_true"] == yte.ravel())
-#    tv = models[key]
-#    precision_recall_fscore_support(yte, tv.predict(Xte))
-#    precision_recall_fscore_support(ytr, tv.predict(Xtr))
-#    
-#    if mod == "simu":
-#        key = '10-0.1-0.4-0.5'
-#        tv = models[key]
-#        title = key+", ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
-#        print tv.beta.min(), tv.beta.max()
-#        plot_map2d(beta3d.squeeze(), title="betastar", limits=[beta3d.min(), beta3d.max()])
-#        plot_map2d(tv.beta.reshape(shape), title=title, limits=[beta3d.min(), beta3d.max()])
-#        plt.show()
-
-# TV 0.9 => 0.6
-#python 02_conesta_tv.py --cores=8 --ratios="0.05 0.05 0.9; 0.0 0.1 0.9; 0.1 0.0 0.9; 0.1 0.1 0.8; 0.0 0.2 0.8; 0.2 0.0 0.8; 0.2 0.2 0.6; 0.4 0.0 0.6; 0.0 0.4 0.6"
-# TV 0.95 et 0.5
-#python 02_conesta_tv.py --cores=8 --ratios="0.025 0.025 0.9; 0.0 0.05 0.95; 0.05 0.0 0.9; 0.25 0.25 0.5; 0.5 0.0 0.5; 0.0 0.5 0.5
 
 # Execution time
 #/neurospin/brainomics/2013_adni/proj_classif/tv/split/50-0.1-0.1-0.8 Time ellapsed: 1357.92806792 ite:1289, time:479.500000

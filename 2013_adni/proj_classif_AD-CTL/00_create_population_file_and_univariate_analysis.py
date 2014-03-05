@@ -40,7 +40,7 @@ INPUT_IMAGEFILE_FORMAT = os.path.join(INPUT_IMAGE_PATH,
                                       "mw{PTID}*_Nat_dartel_greyProba.nii")
 
 OUTPUT_BASE_PATH = os.path.join(BASE_PATH,
-                                "proj_classif")
+                                "proj_classif_AD-CTL")
 OUTPUT_CSV = os.path.join(OUTPUT_BASE_PATH,
                           "population.csv")
 OUTPUT_PATH = os.path.join(OUTPUT_BASE_PATH,
