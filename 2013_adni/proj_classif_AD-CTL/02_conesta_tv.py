@@ -176,7 +176,7 @@ if not REDUCE:
 if REDUCE:
     OUTPUT_PATH = os.path.join(BASE_PATH, "tv", "split")
     y = dict()
-    recall_tot = dict()
+    results = dict()
     models = dict()
     for rep in glob.glob(os.path.join(OUTPUT_PATH, "*-*-*")):
         key = os.path.basename(rep)
@@ -187,12 +187,14 @@ if REDUCE:
         y_true = res["y_true"].ravel()
         y[key] = dict(y_true=y_true, y_pred=y_pred)
         _, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average=None)
-        recall_tot[key] = r.tolist() + [r.mean()]
+        results[key] = r.tolist() + [r.mean(), np.sum(mod.info["t"]), len(mod.info["t"])]
         models[key] = res['model']
     r =list()
-    for k in recall_tot: r.append(k.split("-")+recall_tot[k])
+    for k in results: r.append(k.split("-")+results[k])
     import pandas as pd
-    res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",  "recall_0", "recall_1", "recall_mean"])
+    res = pd.DataFrame(r, columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",
+                                   "recall_0", "recall_1", "recall_mean",
+                                   "time", "n_ite"])
     res = res.sort("recall_mean", ascending=False)
     print res.to_string()
     res.to_csv(os.path.join(OUTPUT_PATH, "..", "split_results_ctl-ad_tvenet.csv"), index=False)
