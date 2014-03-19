@@ -11,6 +11,7 @@ mRS Modified Rankin Score                    : INDEXSCRANKIN40   : MRS.M36
 #(global disability)
 #Barthel Index (functional independency)      : INDEXSCBARTHEL40	 : BARTHEL.M36
 MMS                                          : INDEXMMS40        : MMSE.M36
+#mini-mental state examination
 # Check the it is INDEXMMS40 and not "SCMMS40"
 
 # #################################################################### #
