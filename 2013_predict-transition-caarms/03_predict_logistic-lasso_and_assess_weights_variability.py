@@ -44,8 +44,8 @@ import utils
 #MODE = "cv"
 MODE = "permutations"
 
-#DATASET = "full"
-DATASET = "reduced"
+DATASET = "full"
+#DATASET = "reduced"
 
 ############################################################################
 ## Dataset: CARMS ONLY
@@ -186,6 +186,8 @@ if MODE == "permutations":
     
     scores = list()
     coefs_count = list()
+    coefs_mean = list()
+    coefs_std = list()
     for perm_i in xrange(N_PERMS):
         print "** Perm", perm_i
         if perm_i == 0:
@@ -218,14 +220,29 @@ if MODE == "permutations":
         roc_auc = auc(fpr, tpr)
         scores.append(np.r_[p, p.mean(), r, r.mean(), f, f.mean(), s, roc_auc])
         coefs_count.append(np.sum(Coefs != 0, axis=0))
-    
+        coefs_mean.append(np.mean(Coefs, axis=0))
+        coefs_std.append(np.std(Coefs, axis=0))
+
     scores = np.r_[scores]
-    coefs_count = np.r_[coefs_count]  
-    coefs_count_pval = np.sum(coefs_count[1:, :] >= coefs_count[0, :],  axis=0) / float(coefs_count.shape[0] - 1)  
+    coefs_count = np.r_[coefs_count]
+    coefs_mean = np.r_[coefs_mean]
+    coefs_std = np.r_[coefs_std]
+    # avoid division by 0
+    coefs_std[coefs_mean == 0] = 1.
+    coefs_count_pval = np.sum(coefs_count[1:, :] >= coefs_count[0, :],  axis=0) / float(coefs_count.shape[0] - 1)
+    coefs_mean_pval = np.sum(np.abs(coefs_mean[1:, :]) >= np.abs(coefs_mean[0, :]),  axis=0) / float(coefs_mean.shape[0] - 1)
+    coefs_z_pval = np.sum(
+        np.abs(coefs_mean[1:, :] / coefs_std[1:, :]) >= \
+        np.abs(coefs_mean[0, :] / coefs_std[0, :]),  axis=0) \
+        / float(coefs_mean.shape[0] - 1)
     scores_pval = np.sum(scores[1:, :] >= scores[0, :],  axis=0) / float(scores.shape[0] - 1)
     #
     nzero = coefs_count[0, ] !=0
-    coefs = pd.DataFrame(dict(var=Xd.columns[nzero], coef_count=coefs_count[0, nzero], pval=coefs_count_pval[nzero]))
+    coefs = pd.DataFrame(dict(var=Xd.columns[nzero],
+            count=coefs_count[0, nzero], count_pval=coefs_count_pval[nzero],   
+            mean=coefs_mean[0, nzero],    mean_pval=coefs_mean_pval[nzero],
+            z=coefs_mean[0, nzero] / coefs_std[0, nzero],
+            z_pval=coefs_z_pval[nzero]))
     print coefs.to_string()
     coefs.to_csv(os.path.join(WD, "enet_permuation%i_10cv_%s-dataset_coefs.csv" %\
         (N_PERMS, DATASET)), index=False)
@@ -256,9 +273,36 @@ F:           [ 0.90909091  0.85714286] 0.883116883117
 AUC:         0.835227272727 
 Support:     [16 11]
 
-    
+
+NPERM = 10000
+-------------
+
+   coef_count    pval    var
+0          10  1.0000  inter
+1           4  0.2613   @1.2
+2          10  0.0415   @4.3
+3          10  0.0705   @5.4
+4          10  0.0954   @7.4
+5          10  0.0757   @7.6
+6           7  0.1559   @7.7
+          score        val   p-val
+0        prec_0   0.882353  0.0069
+1        prec_1   0.900000  0.0008
+2     prec_mean   0.891176  0.0009
+3      recall_0   0.937500  0.0024
+4      recall_1   0.818182  0.0336
+5   recall_mean   0.877841  0.0008
+6           f_0   0.909091  0.0008
+7           f_1   0.857143  0.0008
+8        f_mean   0.883117  0.0008
+9     support_0  16.000000  1.0000
+10     suppor_1  11.000000  1.0000
+11          auc   0.835227  0.0065
+
+
 NPERM = 2000
 ------------
+
 
    coef_count    pval    var
 0          10  0.0000  inter
@@ -293,5 +337,28 @@ Recalls:     [ 0.9375      0.81818182] 0.877840909091
 F:           [ 0.90909091  0.85714286] 0.883116883117 
 AUC:         0.9375 
 Support:     [16 11]
+
+NPERM = 10000
+-------------
+   coef_count  pval    var
+0          10     1  inter
+1          10     1   @4.3
+2          10     1   @5.4
+3          10     1   @7.4
+4          10     1   @7.6
+          score        val   p-val
+0        prec_0   0.882353  0.0011
+1        prec_1   0.900000  0.0000
+2     prec_mean   0.891176  0.0000
+3      recall_0   0.937500  0.0001
+4      recall_1   0.818182  0.0138
+5   recall_mean   0.877841  0.0000
+6           f_0   0.909091  0.0000
+7           f_1   0.857143  0.0000
+8        f_mean   0.883117  0.0000
+9     support_0  16.000000  1.0000
+10     suppor_1  11.000000  1.0000
+11          auc   0.937500  0.0001
+
 
 """
