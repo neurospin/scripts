@@ -44,9 +44,9 @@ import utils
 #MODE = "cv"
 MODE = "permutations"
 
-DATASET = "full"
-#DATASET = "reduced"
-
+#DATASET = "full"
+DATASET = "reduced"
+ 
 ############################################################################
 ## Dataset: CARMS ONLY
 ############################################################################
@@ -77,6 +77,7 @@ y = np.asarray(yd)
 y = y.astype(float)[:, np.newaxis]
 A, n_compacts = A_empty(X.shape[1]-1)
 
+print "X.shape:", X.shape
 
 ############################################################################
 ## FIXED PARAMETERS

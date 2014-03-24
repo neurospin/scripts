@@ -2,11 +2,10 @@ COMON DATABASE
 ==============
 
 The common database of clinical variables:
-- `db_clinic_cadasil-asps-common.*`
+- `commondb_clinic_cadasil-asps-aspfs_<date>.csv`
 
 A summary of common variables:
-- `db_clinic_cadasil-asps_mapping_summary_*`
-
+- `commondb_clinic_cadasil-asps-aspfs_mapping-summary_<date>.csv`
 This file contains the mapping between the cadasil/asps, and some statistics (mean, sd, min, max, etc.) for a basic QC for each variable and for each cohorts (cadasil, asps, aspfs).
 
 HISTORY OF THE COMMON DB
@@ -36,6 +35,7 @@ ASP(F)S_klinVariables_*
 
 --------------------------------------------------------------------------------
 TODO Update from Edith Hofer:
+18/12/2013
 Just a reminder: for ASPS Family we have two different IDs:
 ID: this is the ID which was in the file with ASPS Family clinical variables which I already sent to you
 mr_id: this is the Id of our mr images. I now added this id to the files
