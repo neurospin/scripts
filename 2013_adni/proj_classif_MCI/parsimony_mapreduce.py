@@ -7,10 +7,12 @@ Created on Mon Mar 24 11:53:20 2014
 """
 
 import time
-import sys, optparse
+import sys, os, optparse
+from multiprocessing import Pool
 import numpy as np
 from parsimony.estimators import RidgeLogisticRegression_L1_TV
 from parsimony.algorithms.explicit import StaticCONESTA
+import parsimony.functions.nesterov.tv as tv
 
 
 def save_model(output_dir, mod, coef, mask_im=None, **kwargs):
@@ -43,21 +45,26 @@ def load_model(input_dir):
     return res
 
 
-def mapper(output_dir, params_list):
+def mapper(key):
+    output_dir, params = key
+    print output_dir, params, XTR.shape, MASK.shape
+    
+
+def mapper2(output_dir, params_list):
     alpha, ratio_k, ratio_l, ratio_g = params
     output_dir =  os.path.join(OUTPUT_PATH, "%.2f-%.3f-%.3f-%.2f" % (alpha, ratio_k, ratio_l, ratio_g))
     #output_dir = os.path.join(OUTPUT_PATH,
     #             "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
     print "START:", output_dir
-    #np.asarray([np.sum(ytr == l) for l in np.unique(ytr)]) / float(ytr.size)
+    #np.asarray([np.sum(YTR == l) for l in np.unique(YTR)]) / float(YTR.size)
     time_curr = time.time()
     beta = None
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
     tv = RidgeLogisticRegression_L1_TV(alpha, 0, 0, A, algorithm=StaticCONESTA(max_iter=100))
     tv = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto", output=True,
                                algorithm=StaticCONESTA(max_iter=100))
-    tv.fit(Xtr, ytr)#, beta)
-    y_pred_tv = tv.predict(Xte)
+    tv.fit(XTR, YTR)#, beta)
+    y_pred_tv = tv.predict(XTE)
     beta = tv.beta
     #print key, "ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
     print output_dir, "Time ellapsed:", time.time() - time_curr, "ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
@@ -67,7 +74,7 @@ def mapper(output_dir, params_list):
     tv.function = tv.A = None # Save disk space
     save_model(output_dir, tv, beta, mask_im,
                                   y_pred_tv=y_pred_tv,
-                                  y_true=yte)
+                                  y_true=YTE)
 
 
 def simu_dataset_load():
@@ -78,15 +85,15 @@ def simu_dataset_load():
         datasets.classification.dice5.load(n_samples=n_samples,
                             shape=shape, snr=5, random_seed=1)
     X = X3d.reshape((n_samples, np.prod(beta3d.shape)))
-    #A, n_compacts = tv.A_from_shape(beta3d.shape)
-    #plt.plot(proba[y.ravel() == 1], "ro", proba[y.ravel() == 0], "bo")
-    #plt.show()
+#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy", y)
+#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy", np.arange(100, X.shape[0]))
+#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy", np.ones(shape))
     n_train = 100
-    Xtr = X[:n_train, :]
-    ytr = y[:n_train]
-    Xte = X[n_train:, :]
-    yte = y[n_train:]
-    return Xtr, ytr, Xte, yte
+    XTR = X[:n_train, :]
+    YTR = y[:n_train]
+    XTE = X[n_train:, :]
+    YTE = y[n_train:]
+    return XTR, YTR, XTE, YTE
 
 
 if __name__ == "__main__":
@@ -99,6 +106,8 @@ if __name__ == "__main__":
         default=None, type=str)
     parser.add_option('--test_idx',
         help='numpy file containing test index subjects, if missing train == test', type=str)
+    parser.add_option('--mask',
+        help='path to mask  file (numpy or niftii)', type=str)
     parser.add_option('--params',
         help='List of parameters quaduplets separated by ";" \
          ex: alpha l2 l1 tv; alpha l2 l1 tv;', type=str)
@@ -113,20 +122,15 @@ if __name__ == "__main__":
     #options, args = parser.parse_args(['../../2013_adni/proj_classif_MCI/parsimony_mapreduce.py'])
 
     # DATASET ---------------------------------------------------------------
-    INPUT_X = options.input_x
-    INPUT_y = options.input_y
-    if (not INPUT_X and INPUT_y) or (INPUT_X and not INPUT_y):
-        print "input_x and input_y sould be both provided or both missing (simmulation)"
+    if (not options.input_x and options.input_y) or (options.input_x and not options.input_y):
+        print "options.input_x and options.input_y sould be both provided or both missing (simmulation)"
         sys.exit(1)
-    if not INPUT_X:
+    if not options.input_x:
         print "Simulated data"
-        Xtr, ytr, Xte, yte = simu_dataset_load()
-        #X = np.r_[Xtr, Xte]; np.save("/tmp/X.npy", X)
-        #y = np.r_[ytr, yte]; np.save("/tmp/y.npy", y)
-        #test_idx = np.arange(Xtr.shape[0], Xtr.shape[0]+Xte.shape[0]); np.save("/tmp/test_idx.npy", test_idx)
+        XTR, YTR, XTE, YTE = simu_dataset_load()
     else:
-        X = np.load(INPUT_X)
-        y = np.load(INPUT_y)
+        X = np.load(options.input_x)
+        y = np.load(options.input_y)
         if options.test_idx:
             test_idx = np.load(options.test_idx)
             all_mask = np.ones(X.shape[0],dtype=bool)
@@ -136,45 +140,59 @@ if __name__ == "__main__":
             print "all data train==test"
             test_idx = train_idx = np.arange(X.shape[0])
         #print train_idx, test_idx
-        Xtr = X[train_idx, :]
-        Xte = X[test_idx, :]
-        ytr = y[train_idx, :]
-        yte = y[test_idx, :]
-    
-    print "Xtr.shape =", Xtr.shape, "; Xte.shape =", Xte.shape
+        XTR = X[train_idx, :]
+        XTE = X[test_idx, :]
+        YTR = y[train_idx, :]
+        YTE = y[test_idx, :]
+    print "XTR.shape =", XTR.shape, "; XTE.shape =", XTE.shape
 
-    # PARAMETERS  -----------------------------------------------------------
-    PARAMS_LIST_STR = options.params
-    PARAMS_LIST_STR=" 1,  0.1  0.1 0.8; 0.1 0.1 0.1 0.8;;"
-    PARAMS_LIST_STR = PARAMS_LIST_STR.split(";")
-    PARAMS_LIST_STR = [params for params in PARAMS_LIST_STR if len(params)]
+    if not options.mask:
+        print "Mask should provided"
+    print "MASK:", options.mask
+    MASK = np.load(options.mask)
+    A, _ = tv.A_from_mask(MASK)
+
+    # PARAMETERS  -------------------------------------------------------------
+    if os.path.isfile(options.params):
+        f = open(options.params)
+        params_list_str = f.readlines()
+        f.close()
+    else:
+        params_list_str = options.params
+        params_list_str = params_list_str.split(";")
+    params_list_str = [params.strip() for params in params_list_str \
+        if len(params.strip())]
     import re
-    PARAMS_LIST_STR = [re.sub("[ ,]+", "-", params.strip()) for params in PARAMS_LIST_STR]
-    PARAMS_LIST = [[float(param) for param in params.split("-")] for params in 
-        PARAMS_LIST_STR]
-    print "PARAMS_LIST=", PARAMS_LIST
+    params_list_str = [re.sub("[ ,]+", "-", params) for params in
+        params_list_str]
+    print params_list_str
+    params_list = [[float(param) for param in params.split("-")] for params in
+        params_list_str]
+    print "params_list=", zip(params_list_str, params_list)
 
-    # OUTPUT ----------------------------------------------------------------
+    # OUTPUT ------------------------------------------------------------------
     if not options.output:
         print "Output directory should be provided"
         sys.exit(1)
-    OUTPUT = options.output
-    PARAMS_LIST =  [[1.0, 0.1, 0.1, 0.853], [0.1, 0.1, 0.1, 0.8], [0.01, 0.1, 0.1, 0.8]]
-    precision  = [0 for i in xrange(len(PARAMS_LIST[0]))]
-    for params in PARAMS_LIST:
-        for i, p in enumerate(params):
-            k = 0
-            while np.round(p, k) != p:
-                k += 1
-            precision[i] = k if k > precision[i] else precision[i]
-    import string
-    output_formating_string = string.join(['%.'+'%if' % p for p in precision], sep="-")
-    
-    
-    # OTHERS ----------------------------------------------------------------
-    NBCORES = options.cores    
+    output_dir = options.output
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    keys = zip([os.path.join(output_dir, o) for o in params_list_str], params_list)
+    print keys
+    # OTHERS ------------------------------------------------------------------
+    nbcores = options.cores
     REDUCE = options.reduce
 
+    # MAP  --------------------------------------------------------------------
+    print params_list
+    p = Pool(nbcores)
+    p.map(mapper, keys)
 """  
-python ../../2013_adni/proj_classif_MCI/parsimony_mapreduce.py --input_x=/tmp/X.npy --input_y=/tmp/y.npy  --test_idx=/tmp/test_idx.npy --params="1 .1 .1 .8; .1 .1 .1 .8"
+
+python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
+--options.input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
+--options.input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
+--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy \
+--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy \
+--params=$HOME/data/pylearn-parsimony/params_l2-l1-tv.txt --output=/tmp/toto
 """ 

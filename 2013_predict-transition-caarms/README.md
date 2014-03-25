@@ -1,26 +1,36 @@
-Projet
-======
+Project
+=======
 
-Prédiction de la transition psychotique à partir de l'échelle de la CAARMS
-pour 27 patients. Collab avec SHU St-Anne, J Bourgin, MO Krebs
+Prediction of psychotic transition from CAARMS items.
+27 patient: 16 non-convertors, 11 convertors
+
+Collaboration with SHU St-Anne, J Bourgin, MO Krebs
+
+Abstract
+=======
+
+METHODS:
+A supervised machine learning linear model based on the Elastic net logistic regression was used to distinguish between UHR-T and UHR-NT subjects. The Elastic net combines ridge (like SVM) and Lasso shrinkages. Lasso shrinkage promotes the selection of few relevant CAARMS items. The power of the classifier to generalize to an independent data set (predicting the clinical outcome given the all CAARMS items of unseen subjects) was assessed with a 10-fold stratified cross-validation. The significance of both prediction rates and selection of CAARMS items was assessed with random permutation.
+
 
 Scripts
 =======
 
-IO.py
+mylib.py: I/O etc.
 01_mulm.py : univariate analysis + features correlation
 02_predict_svms.py : multivariate prediction
+03_predict_logistic-lasso_and_assess_weights_variability.py: simi
 
-Design
-======
+Methods
+=======
 
-2 algos:
-- Filtre univarié P<0.05 + SVM
-- sparse SVM
+- Univariate filtering (P<0.05) + SVM => FAILED
+- Sparse SVM => OK similar to logistic but has square loss, hard to refit on reduced dataset (without l1)
+- Elasticnet Logistic regression (from ParsimonY) **CHOOSEN**
 
-Dataset:
-- CAARMS
-- CAARMS + PAS + Canabis
+Tested datsets:
+- CAARMS + PAS + Canabis => FAILED
+- CAARMS => **CHOOSEN**
 
 
 Results
@@ -60,6 +70,12 @@ Univariate analysis (uncorrected t-test)
 
 Multivariate prediction
 -----------------------
+
+
+
+
+OLDIES
+======
 
 Parmis les 27 11 ont fait la transition et 16 ne l'on pas faite
 - Sensibilité (Taux de detection de les transitions)
