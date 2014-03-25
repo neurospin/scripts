@@ -10,23 +10,25 @@ import time
 import sys, os, optparse
 from multiprocessing import Pool
 import numpy as np
+import nibabel
 from parsimony.estimators import RidgeLogisticRegression_L1_TV
 from parsimony.algorithms.explicit import StaticCONESTA
 import parsimony.functions.nesterov.tv as tv
 
 
-def save_model(output_dir, mod, coef, mask_im=None, **kwargs):
+def save_model(output_dir, mod, coef, mask=None, **kwargs):
     import os, os.path, pickle, nibabel, numpy
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     pickle.dump(mod, open(os.path.join(output_dir, "model.pkl"), "w"))
     for k in kwargs:
         numpy.save(os.path.join(output_dir, k + ".npy"), kwargs[k])
-    if mask_im is not None:
-        mask = mask_im.get_data() != 0
-        arr = numpy.zeros(mask.shape)
-        arr[mask] = coef.ravel()
-        im_out = nibabel.Nifti1Image(arr, affine=mask_im.get_affine())
+    if mask is not None:
+        import nibabel
+        mask_data = mask.get_data() != 0
+        arr = numpy.zeros(mask_data.shape)
+        arr[mask_data] = coef.ravel()
+        im_out = nibabel.Nifti1Image(arr, affine=mask.get_affine())
         im_out.to_filename(os.path.join(output_dir, "beta.nii"))
 
 
@@ -50,9 +52,9 @@ def mapper(key):
     print output_dir, params, XTR.shape, MASK.shape
     
 
-def mapper2(output_dir, params_list):
+def mapper2(key):
+    output_dir, params = key
     alpha, ratio_k, ratio_l, ratio_g = params
-    output_dir =  os.path.join(OUTPUT_PATH, "%.2f-%.3f-%.3f-%.2f" % (alpha, ratio_k, ratio_l, ratio_g))
     #output_dir = os.path.join(OUTPUT_PATH,
     #             "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
     print "START:", output_dir
@@ -60,7 +62,6 @@ def mapper2(output_dir, params_list):
     time_curr = time.time()
     beta = None
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
-    tv = RidgeLogisticRegression_L1_TV(alpha, 0, 0, A, algorithm=StaticCONESTA(max_iter=100))
     tv = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto", output=True,
                                algorithm=StaticCONESTA(max_iter=100))
     tv.fit(XTR, YTR)#, beta)
@@ -72,7 +73,7 @@ def mapper2(output_dir, params_list):
     #    os.makedirs(output_dir)
     time_curr = time.time()
     tv.function = tv.A = None # Save disk space
-    save_model(output_dir, tv, beta, mask_im,
+    save_model(output_dir, tv, beta, MASK,
                                   y_pred_tv=y_pred_tv,
                                   y_true=YTE)
 
@@ -85,9 +86,12 @@ def simu_dataset_load():
         datasets.classification.dice5.load(n_samples=n_samples,
                             shape=shape, snr=5, random_seed=1)
     X = X3d.reshape((n_samples, np.prod(beta3d.shape)))
-#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy", y)
-#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy", np.arange(100, X.shape[0]))
-#    np.save("/home/edouard/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy", np.ones(shape))
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy", y)
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy", np.arange(100, X.shape[0]))
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy", np.ones(shape))
+#    import nibabel
+#    im = nibabel.Nifti1Image(np.ones(shape)), affine=np.eye(4))
+#    im.to_filename("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii")
     n_train = 100
     XTR = X[:n_train, :]
     YTR = y[:n_train]
@@ -117,13 +121,12 @@ if __name__ == "__main__":
         help='Nb cpu cores to use (default %i)' % 8, default=8, type=int)
     parser.add_option('-r', '--reduce',
                           help='Reduce (default %s)' % False, default=False, action='store_true', dest='reduce')
-    
+    print sys.argv
     options, args = parser.parse_args(sys.argv)
-    #options, args = parser.parse_args(['../../2013_adni/proj_classif_MCI/parsimony_mapreduce.py'])
-
+    #options, args = parser.parse_args(['scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py', '--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy', '--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy', '--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy', '--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy', '--params=/home/ed203246/data/pylearn-parsimony/params_l2-l1-tv.txt', '--output=/tmp/toto'])
     # DATASET ---------------------------------------------------------------
     if (not options.input_x and options.input_y) or (options.input_x and not options.input_y):
-        print "options.input_x and options.input_y sould be both provided or both missing (simmulation)"
+        print "--input_x and --input_y should be both provided or both missing do a simmulation"
         sys.exit(1)
     if not options.input_x:
         print "Simulated data"
@@ -149,8 +152,12 @@ if __name__ == "__main__":
     if not options.mask:
         print "Mask should provided"
     print "MASK:", options.mask
-    MASK = np.load(options.mask)
-    A, _ = tv.A_from_mask(MASK)
+    try:
+        MASK = np.load(options.mask)
+        A, _ = tv.A_from_mask(MASK)
+    except :
+        MASK = nibabel.load(options.mask)
+        A, _ = tv.A_from_mask(MASK.get_data())
 
     # PARAMETERS  -------------------------------------------------------------
     if os.path.isfile(options.params):
@@ -190,9 +197,9 @@ if __name__ == "__main__":
 """  
 
 python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
---options.input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
---options.input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
+--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
+--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
 --test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy \
---mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy \
+--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii \
 --params=$HOME/data/pylearn-parsimony/params_l2-l1-tv.txt --output=/tmp/toto
 """ 
