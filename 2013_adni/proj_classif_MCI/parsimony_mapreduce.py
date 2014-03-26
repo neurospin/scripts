@@ -24,12 +24,17 @@ def save_model(output_dir, mod, coef, mask=None, **kwargs):
     for k in kwargs:
         numpy.save(os.path.join(output_dir, k + ".npy"), kwargs[k])
     if mask is not None:
-        import nibabel
-        mask_data = mask.get_data() != 0
-        arr = numpy.zeros(mask_data.shape)
-        arr[mask_data] = coef.ravel()
-        im_out = nibabel.Nifti1Image(arr, affine=mask.get_affine())
-        im_out.to_filename(os.path.join(output_dir, "beta.nii"))
+        if isinstance(mask, nibabel.Nifti1Image):
+            mask_data = mask.get_data() != 0
+            arr = numpy.zeros(mask_data.shape)
+            arr[mask_data] = coef.ravel()
+            im_out = nibabel.Nifti1Image(arr, affine=mask.get_affine())
+            im_out.to_filename(os.path.join(output_dir, "beta.nii"))
+        else:
+            mask_data = mask != 0
+            arr = numpy.zeros(mask_data.shape)
+            arr[mask_data] = coef.ravel()
+            np.save(os.path.join(output_dir, "beta.nii"), arr)
 
 
 def load_model(input_dir):
@@ -50,10 +55,6 @@ def load_model(input_dir):
 def mapper(key):
     output_dir, params = key
     print output_dir, params, XTR.shape, MASK.shape
-    
-
-def mapper2(key):
-    output_dir, params = key
     alpha, ratio_k, ratio_l, ratio_g = params
     #output_dir = os.path.join(OUTPUT_PATH,
     #             "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
@@ -74,7 +75,7 @@ def mapper2(key):
     time_curr = time.time()
     tv.function = tv.A = None # Save disk space
     save_model(output_dir, tv, beta, MASK,
-                                  y_pred_tv=y_pred_tv,
+                                  y_pred=y_pred_tv,
                                   y_true=YTE)
 
 
@@ -102,28 +103,49 @@ def simu_dataset_load():
 
 if __name__ == "__main__":
     parser = optparse.OptionParser(description=__doc__)
-    parser.add_option('--input_x',
+    parser.add_option('--input_x', '-x',
         help='X dataset path, if missing simulate data (default %s)' % None,
         default=None, type=str)
-    parser.add_option('--input_y',
+    parser.add_option('--input_y', '-y',
         help='y dataset path, if missing simulate data (default %s)' % None,
         default=None, type=str)
-    parser.add_option('--test_idx',
+    parser.add_option('--test_idx', '-t',
         help='numpy file containing test index subjects, if missing train == test', type=str)
-    parser.add_option('--mask',
+    parser.add_option('--mask', '-m',
         help='path to mask  file (numpy or niftii)', type=str)
     parser.add_option('--params',
         help='List of parameters quaduplets separated by ";" \
          ex: alpha l2 l1 tv; alpha l2 l1 tv;', type=str)
-    parser.add_option('--output',
+    parser.add_option('--output', '-o',
         help='output directory', type=str)
-    parser.add_option('--cores',
+    parser.add_option('--cores', '-c',
         help='Nb cpu cores to use (default %i)' % 8, default=8, type=int)
-    parser.add_option('-r', '--reduce',
-                          help='Reduce (default %s)' % False, default=False, action='store_true', dest='reduce')
-    print sys.argv
+    
+    #print sys.argv
     options, args = parser.parse_args(sys.argv)
-    #options, args = parser.parse_args(['scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py', '--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy', '--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy', '--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy', '--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy', '--params=/home/ed203246/data/pylearn-parsimony/params_l2-l1-tv.txt', '--output=/tmp/toto'])
+    #options, args = parser.parse_args(['scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py', '--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy', '--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy', '--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy', '--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii', '--params=/home/ed203246/data/pylearn-parsimony/params_l2-l1-tv.txt', '--output=/tmp/toto'])
+
+    # PARAMETERS  -------------------------------------------------------------
+    if os.path.isfile(options.params):
+        f = open(options.params)
+        params_list_str = f.readlines()
+        f.close()
+    else:
+        params_list_str = options.params
+        params_list_str = params_list_str.split(";")
+    params_list_str = [params.strip() for params in params_list_str \
+        if len(params.strip())]
+    import re
+    params_list_str = [re.sub("[ ,]+", "-", params) for params in
+        params_list_str]
+    params_list = [[float(param) for param in params.split("-")] for params in
+        params_list_str]
+
+    # REDUCE -----------------------------------------------------------------
+    if options.reduce:
+        print "** REDUCE **"
+        sys.exit(0)
+
     # DATASET ---------------------------------------------------------------
     if (not options.input_x and options.input_y) or (options.input_x and not options.input_y):
         print "--input_x and --input_y should be both provided or both missing do a simmulation"
@@ -159,24 +181,6 @@ if __name__ == "__main__":
         MASK = nibabel.load(options.mask)
         A, _ = tv.A_from_mask(MASK.get_data())
 
-    # PARAMETERS  -------------------------------------------------------------
-    if os.path.isfile(options.params):
-        f = open(options.params)
-        params_list_str = f.readlines()
-        f.close()
-    else:
-        params_list_str = options.params
-        params_list_str = params_list_str.split(";")
-    params_list_str = [params.strip() for params in params_list_str \
-        if len(params.strip())]
-    import re
-    params_list_str = [re.sub("[ ,]+", "-", params) for params in
-        params_list_str]
-    print params_list_str
-    params_list = [[float(param) for param in params.split("-")] for params in
-        params_list_str]
-    print "params_list=", zip(params_list_str, params_list)
-
     # OUTPUT ------------------------------------------------------------------
     if not options.output:
         print "Output directory should be provided"
@@ -185,16 +189,22 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     keys = zip([os.path.join(output_dir, o) for o in params_list_str], params_list)
-    print keys
+    #print keys
     # OTHERS ------------------------------------------------------------------
     nbcores = options.cores
     REDUCE = options.reduce
 
     # MAP  --------------------------------------------------------------------
-    print params_list
     p = Pool(nbcores)
     p.map(mapper, keys)
 """  
+
+python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
+--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
+--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
+--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy \
+--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii \
+--params=$HOME/data/pylearn-parsimony/params_l2-l1-tv.txt --output=/tmp/toto
 
 python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
 --input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \

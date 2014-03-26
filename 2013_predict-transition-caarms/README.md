@@ -32,9 +32,84 @@ Tested datsets:
 - CAARMS + PAS + Canabis => FAILED
 - CAARMS => **CHOOSEN**
 
+elastic net logistic regression
+Lasso + ridge
+Stratified CV
+Permutation
+
+Prediction accuracy scores
+Coefficients
+The the Lasso shrinkage comprises in the elastic net logistic regression promotes the selection of few items among the 25 possible items.
 
 Results
 =======
+The elastic net logistic regression achieved highly significant prediction of the conversion given the 25 CAARMS items of independent set of subjects. Using the ten fold stratified cross-validation the classification achieved 81.8% (P = 0.035) of sensitivity (correct prediction of UHR-T subjects) and 93.7% (P = 0.0016) of specificity (correct prediction of UHR-NT subjects). All other binary classification scores were also highly significant: positive predictive value (90%, P = 0.0002), negative predictive value (88%, P = 0.0062), area under curve (0.83, P = 0.0086) and F1 scores on both UHR-T (0.857, P = 0.0004) and UHR-NT (0.90, P = 0.0002) subjects.
+
+
+The whole 10 fold cross-validation round led to the selection of only 6 different CAARMS items, and noticeably four of them () where systematically selected across the ten folds. This suggest a stable and reproducible predictive patterns that replicate over the cross-validation re-sampling. 
+
+and 
+
+Four CAARMS items were always selected : 
+
+Multivariate prediction
+-----------------------
+
+Full data
+~~~~~~~~~~
+
+Predictions:
+score	    val	            p-val
+prec_0	    0.8823529412	0.0062
+prec_1	    0.9	            0.0002
+prec_mean	0.8911764706	0.0003
+recall_0	0.9375        	0.0016
+recall_1	0.8181818182	0.0359
+recall_mean	0.8778409091	0.0004
+f_0	        0.9090909091	0.0002
+f_1	        0.8571428571	0.0004
+f_mean	    0.8831168831	0.0004
+support_0	16	            1
+suppor_1	11	            1
+auc	        0.8352272727	0.0086
+
+Coefficients:
+count	count_pval	mean	        mean_pval	var	    z	            z_pval
+10	    1	        -0.0330010508	0.9633	    inter	-0.1661938279	0.9416
+4	    0.2665	    0.0060310892	0.3953	    @1.2	0.6090562234	0.2548
+10	    0.0381	    -0.1879307305	0.0267	    @4.3	-3.8547418439	0.0062
+10	    0.0707	    0.2861784479	0.0123	    @5.4	3.6504777519	0.0169
+10	    0.1018	    -0.2486472376	0.0274	    @7.4	-5.2497576126	0.0103
+10	    0.0715	    0.1522711267	0.0664	    @7.6	1.8131611685	0.0836
+7	    0.158	    0.0523902029	0.1765	    @7.7	1.0775088485	0.1284
+
+
+
+Reduced data
+~~~~~~~~~~~~
+
+Predictions:
+prec_0	    0.8823529412	0.001
+prec_1	    0.9	            0
+prec_mean	0.8911764706	0
+recall_0	0.9375	        0.0001
+recall_1	0.8181818182	0.0159
+recall_mean	0.8778409091	0.0001
+f_0	        0.9090909091	0
+f_1	        0.8571428571	0.0001
+f_mean	    0.8831168831	0.0001
+support_0	16	            1
+suppor_1	11	            1
+auc	        0.9375	        0
+
+Coefficients:
+count	count_pval	mean	mean_pval	var	z	z_pval
+10	1	2.1441287709	0.1108	inter	5.1584028117	0.0464
+10	1	-1.2047445808	0.007	@4.3	-15.0787477839	0.0001
+10	1	1.4774808887	0.0019	@5.4	9.7615092629	0.0025
+10	1	-1.7931352757	0.0006	@7.4	-13.1761157949	0.0004
+10	1	1.0345555593	0.0111	@7.6	5.236217604	0.0377
+
 
 Univariate analysis (uncorrected t-test)
 ----------------------------------------
@@ -67,12 +142,6 @@ Univariate analysis (uncorrected t-test)
 #7      @3.1 -0.143957  0.886689  25  3.1250  3.181818  1.028519  1.028519
 #26     @7.8 -0.079911  0.936945  25  2.7500  2.818182  2.036851  2.036851
 #21     @7.3 -0.031192  0.975364  25  2.4375  2.454545  1.499311  1.499311
-
-Multivariate prediction
------------------------
-
-
-
 
 OLDIES
 ======
