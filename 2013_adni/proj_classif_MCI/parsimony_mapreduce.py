@@ -185,9 +185,9 @@ if __name__ == "__main__":
               items.append(dirpath)
         #predictions = by_param dict of  by_groups dict
         #print predictions['0.010-0.05-0.25-0.70']
-        #{'/volatile/duchesnay/classif_500x500x500/cv/0': {'path': '/volatile/duchesnay/classif_500x500x500/cv/0/0.010-0.05-0.25-0.70'},
-        # '/volatile/duchesnay/classif_500x500x500/cv/1': {'path': '/volatile/duchesnay/classif_500x500x500/cv/1/0.010-0.05-0.25-0.70'}}
-        #print predictions['0.010-0.05-0.25-0.70']['/volatile/duchesnay/classif_500x500x500/cv/1'].keys()
+        #{'cv/0': {'path': 'cv/0/0.010-0.05-0.25-0.70'},
+        # 'cv/1': {'path': 'cv/1/0.010-0.05-0.25-0.70'}}
+        #print predictions['0.010-0.05-0.25-0.70']['cv/1'].keys()
         #['path', 'y_true', 'model', 'y_pred']
         predictions = dict()
         for item in items:
