@@ -242,7 +242,7 @@ python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
 --reduce_input="/volatile/duchesnay/classif_500x500x500/cv" \
 --reduce_output="/volatile/duchesnay/classif_500x500x500/scores.csv"
 
-python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py.new.py \
+python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
 --input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
 --input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
 --test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy \
