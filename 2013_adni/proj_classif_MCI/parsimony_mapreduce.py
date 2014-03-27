@@ -59,7 +59,10 @@ def mapper2(key):
 def mapper(key):
     output_dir, params = key
     alpha, ratio_k, ratio_l, ratio_g = params
+    #output_dir = os.path.join(OUTPUT_PATH,
+    #             "-".join([str(v) for v in (alpha, ratio_k, ratio_l, ratio_g)]))
     print "START:", output_dir
+    #np.asarray([np.sum(YTR == l) for l in np.unique(YTR)]) / float(YTR.size)
     time_curr = time.time()
     beta = None
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
@@ -77,6 +80,28 @@ def mapper(key):
     save_model(output_dir, tv, beta, MASK,
                                   y_pred=y_pred_tv,
                                   y_true=YTE)
+
+
+def simu_dataset_load():
+    from  parsimony import datasets
+    n_samples = 500
+    shape = (10, 10, 1)
+    X3d, y, beta3d, proba = \
+        datasets.classification.dice5.load(n_samples=n_samples,
+                            shape=shape, snr=5, random_seed=1)
+    X = X3d.reshape((n_samples, np.prod(beta3d.shape)))
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy", y)
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy", np.arange(100, X.shape[0]))
+#    np.save("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.npy", np.ones(shape))
+#    import nibabel
+#    im = nibabel.Nifti1Image(np.ones(shape)), affine=np.eye(4))
+#    im.to_filename("/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii")
+    n_train = 100
+    XTR = X[:n_train, :]
+    YTR = y[:n_train]
+    XTE = X[n_train:, :]
+    YTE = y[n_train:]
+    return XTR, YTR, XTE, YTE
 
 
 if __name__ == "__main__":
@@ -158,83 +183,29 @@ if __name__ == "__main__":
                     params_list)
         nbcores = options.cores
 
-        # MAP  --------------------------------------------------------------
-        print params_list
-        if len(keys) > 1:
-            p = Pool(nbcores)
-            p.map(mapper, keys)
-        else:
-            mapper(keys[0])
+    # OUTPUT ------------------------------------------------------------------
+    if not options.output:
+        print "Output directory should be provided"
+        sys.exit(1)
+    output_dir = options.output
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    keys = zip([os.path.join(output_dir, o) for o in params_list_str], params_list)
+    print keys
+    # OTHERS ------------------------------------------------------------------
+    nbcores = options.cores
+    REDUCE = options.reduce
 
-    # =======================================================================
-    # == REDUCE                                                            ==
-    # =======================================================================
-    if options.reduce_input is not None:
-        print "** REDUCE **"
-        #print options.reduce_input 
-        #reduce_input = "/volatile/duchesnay/classif_500x500x500/cv"
-        #reduce_output = "/volatile/duchesnay/classif_500x500x500/scores.csv"
-        items = []
-        for dirpath, dirnames, filenames in os.walk(options.reduce_input):
-          for filename in fnmatch.filter(filenames, 'model.pkl'):
-              items.append(dirpath)
-        #predictions = by_param dict of  by_groups dict
-        #print predictions['0.010-0.05-0.25-0.70']
-        #{'/volatile/duchesnay/classif_500x500x500/cv/0': {'path': '/volatile/duchesnay/classif_500x500x500/cv/0/0.010-0.05-0.25-0.70'},
-        # '/volatile/duchesnay/classif_500x500x500/cv/1': {'path': '/volatile/duchesnay/classif_500x500x500/cv/1/0.010-0.05-0.25-0.70'}}
-        #print predictions['0.010-0.05-0.25-0.70']['/volatile/duchesnay/classif_500x500x500/cv/1'].keys()
-        #['path', 'y_true', 'model', 'y_pred']
-        predictions = dict()
-        for item in items:
-            key_arg = os.path.basename(item)
-            key_group = os.path.dirname(item)
-            if not key_arg in predictions:
-                predictions[key_arg] = dict()
-            #if not key_group in predictions[key_arg]: predictions[key_arg][key_group] = dict(dir_path=item)
-            print "load", item
-            item_res = load_model(item)
-            item_res["path"] = item
-            predictions[key_arg][key_group] = item_res
-        scores = list()
-        for key_param in predictions:
-            cur_param = predictions[key_param]
-            y_true = list()
-            y_pred = list()
-            for key_group  in cur_param:
-                y_true.append(cur_param[key_group]["y_true"].ravel())
-                y_pred.append(cur_param[key_group]["y_pred"].ravel())
-            y_true = np.concatenate(y_true)
-            y_pred = np.concatenate(y_pred)
-            p, r, f, s = precision_recall_fscore_support(y_true, y_pred,
-                                                         average=None)
-            scores.append(key_param.split(param_sep) +
-            p.tolist() + [p.mean()] +
-            r.tolist() + [r.mean()] +
-            f.tolist() + [f.mean()] +
-            s.tolist())
-        scores = pd.DataFrame(scores,
-            columns=["alpha", "l2_ratio", "l1_ratio", "tv_ratio",
-                     "recall_0", "recall_1", "recall_mean",
-                     "precision_0", "precision_1", "precision_mean",
-                     "f1_0", "f1_1", "f1_mean",
-                     "support_0", "support_1"])
-        scores = scores.sort("recall_mean", ascending=False)
-        print scores.to_string()
-        if options.reduce_output is not None:
-            scores.to_csv(options.reduce_output, index=False)
-
-"""
-python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
---input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x500x500_X.npy \
---input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x500x500_y.npy \
---test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x500x500_test_idx.npy \
---mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x500x500_test_mask.nii \
---params=/home/ed203246/data/pylearn-parsimony/params_alpha-l2-l1-tv.txt \
---output=/volatile/duchesnay/classif_500x500x500/cv/0 \
---cores=8
+    # MAP  --------------------------------------------------------------------
+    print params_list
+    p = Pool(nbcores)
+    p.map(mapper, keys)
+"""  
 
 python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
---reduce_input="/volatile/duchesnay/classif_500x500x500/cv" \
---reduce_output="/volatile/duchesnay/classif_500x500x500/scores.csv"
-
-"""
+--input_x=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_X.npy \
+--input_y=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_y.npy \
+--test_idx=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_idx.npy \
+--mask=/home/ed203246/data/pylearn-parsimony/datasets/classif_500x10x10_test_mask.nii \
+--params=$HOME/data/pylearn-parsimony/params_l2-l1-tv.txt --output=/tmp/toto
+""" 
