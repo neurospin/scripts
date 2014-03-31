@@ -48,9 +48,8 @@ The elastic net logistic regression achieved highly significant prediction of th
 
 The whole 10 fold cross-validation round led to the selection of only 6 different CAARMS items, and noticeably four of them () where systematically selected across the ten folds. This suggest a stable and reproducible predictive patterns that replicate over the cross-validation re-sampling. 
 
-and 
-
-Four CAARMS items were always selected : 
+i-log(1 + exp(yxw)) + ( w1 + (1-) ||w||22)
+-ilog{1+exp(-yi(xiwT+b))}+{ w1+(1-)||w||22}
 
 Multivariate prediction
 -----------------------
