@@ -2,9 +2,15 @@
 #  
 #  Copyright 2013 Vincent FROUIN <vf140245@is207857>
 #  date : June 13th 2013
-import igutils as ig
-import numpy as np
+
 import sys
+import numpy as np
+import json
+sys.path.append('/home/vf140245/gits/igutils')
+import igutils as ig
+
+basepath = '/neurospin/brainomics/2013_brainomics_genomics/'
+
 def impute_data_by_med(data, verbose=0, nan_symbol=128):
    """ This function cut/pasted from B DaMota (genim-stat)
    """
@@ -80,6 +86,85 @@ def build_websters(gfn, pfn, pafn, gsubset=None, psubset=None):
                 pheno_data=pheno_data, pheno_colnames=pheno_header[2:],
                 patho_data=patho_data, patho_colnames=patho_header[2:]))
 
+
+def get_websters_linr(gene_name='KIF1B', snp_subset=['rs12120191']):
+    from os import path
+    gfn = path.join(basepath,'data','geno','genetic_control_xpt')
+    pfn = path.join(basepath,'data','pheno','filter_residuals')
+    pafn = path.join(basepath,'data','patho','genetic_control_xpt.cov')
+    blocks = build_websters(gfn, pfn, pafn, gsubset=snp_subset)
+    ind = blocks['pheno_colnames'].index(gene_name)
+    y =blocks['pheno_data'][:,ind].reshape((-1,))
+    X =blocks['snp_data']
+    
+    return y, X
+
+def get_websters_logr(snp_subset=['rs12120191']):
+    from os import path
+    gfn = path.join(basepath,'data','geno','genetic_control_xpt')
+    pfn = path.join(basepath,'data','pheno','filter_residuals')
+    pafn = path.join(basepath,'data','patho','genetic_control_xpt.cov')
+    blocks = build_websters(gfn, pfn, pafn, gsubset=snp_subset)
+    y = blocks['patho_data']
+    y = y - 1 # code 0/1
+    X =blocks['snp_data']
+    
+    return y, X
+
+def pw_gene_snp(nb=10):
+    from os import path
+    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    tmp = []
+    for i in constraint:
+        for j in constraint[i]:
+            tmp+=(constraint[i][j])
+    snpList = np.unique(tmp)
+    
+    return constraint, snpList
+
+
+def group_pw_snp(nb=10):
+    from os import path
+    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    tmp = []
+    group_names = constraint.keys()    
+    for i in constraint:
+        for j in constraint[i]:
+            tmp+=(constraint[i][j])
+    snpList = np.unique(tmp)
+    group = dict()
+    for ii, i in enumerate(constraint):
+        tmp = []
+        for j in constraint[i]:
+            tmp+=[np.where(snpList==k)[0][0] for k in constraint[i][j]]
+        group[ii] = tmp
+    
+    return group, group_names, snpList
+
+
+def build_constraint(nb=10):
+    from os import path
+    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    tmp = []
+    constraint_name = constraint.keys()    
+    for i in constraint:
+        for j in constraint[i]:
+            tmp+=(constraint[i][j])
+    refList = np.unique(tmp)
+    constraintIndex = dict()
+    for ii, i in enumerate(constraint):
+        tmp = []
+        for j in constraint[i]:
+            tmp+=[np.where(refList==k)[0][0] for k in constraint[i][j]]
+        constraintIndex[ii] = tmp
+    return refList, constraint, constraintIndex, constraint_name
+
+
+def list_constraint(con_name='go_synaptic'):
+    from os import path
+    constraint = json.load(open(path.join(basepath, 'data',con_name)+'.json'))
+    return constraint.keys()
+
 if __name__=="__main__":
    ###### get the 3 blocks geno, pheno, patho
    gfn = '/neurospin/brainomics/2013_brainomics_genomics/data/geno/genetic_control_xpt'
@@ -89,7 +174,6 @@ if __name__=="__main__":
    #gsubset = ['rs2645081','rs3128309','rs2803285']
    blocks = build_websters(gfn, pfn, pafn, gsubset=gsubset)
    blocks.keys()
-   basepath = '/neurospin/brainomics/2013_brainomics_genomics/'
    f = open(basepath+'data/blocks.pickle', 'w')
    pickle.dump(blocks, f)
    f.close()
