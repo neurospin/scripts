@@ -50,7 +50,7 @@ if __name__=="__main__":
    go  = json.load(open("/neurospin/brainomics/2013_brainomics_genomics/data/go_synaptic.json"))
 
    # example with a go entry
-   tree = tree_path_gene_snp(go, ref=ref, snps=snps, name = 'synaptic transmission')
+   tree = tree_path_gene_snp(go, ref=ref, snps=snps, name = 'synaptic vesicle')
 
    # exmaple with a gene entry
    snp_list = gene_snp(ref=ref, snps=snps, name='UTS2')
