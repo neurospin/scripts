@@ -12,25 +12,23 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.join(os.getenv('HOME'),
                                 'gits','scripts','2013_brainomics_genomics'))
 
-
-
 if __name__=="__main__":
-    # read constraints : we do not use Group Constraint here
-    from bgutils.build_websters import group_pw_snp,get_websters_logr, pw_gene_snp
-    group, group_names, snpList = group_pw_snp(nb=10)
-    pw, _ = pw_gene_snp(nb=10)    
+    # 1- read constraints : we do not use Group Constraint here
+    from bgutils.build_websters import group_pw_snp2,get_websters_logr, pw_gene_snp2
+    group, group_names, snpList = group_pw_snp2(nb=10, cache=True)
+    pw, _ = pw_gene_snp2(nb=10, cache=True)    
     
-    # get the snps list to get a data set w/ y continous variable
+    # 2- get the snps list to get a data set w/ y continous variable
     # convenient snp order
     # subject order granted by the method
     snp_subset=np.asarray(snpList,dtype=str).tolist()
     y, X = get_websters_logr(snp_subset=snp_subset)
 
-    # fix X : add a ones constant regressor
+    # 3- fix X : add a ones constant regressor
     p = (X.shape)[1]                            # keep orig size
     X = np.hstack((np.ones((X.shape[0],1)),X))  # add intercept
     
-    # build A matrix
+    # 4- build A matrix
     import parsimony.functions.nesterov.gl as gl
     weights = [np.sqrt(len(group[i])) for i in group]
     A = gl.A_from_groups(p, groups=group, weights=weights)
@@ -38,7 +36,7 @@ if __name__=="__main__":
 
     import parsimony.algorithms.explicit as explicit
     import parsimony.estimators as estimators
-    # Logistic regresssion
+    # 5- Logistic regresssion
     eps = 1e-8
     max_iter = 200
     conts = 20        # will be removed next version current max_iter x cont
@@ -62,24 +60,21 @@ if __name__=="__main__":
     print "================================================================="
 
 
-    #Interpretation
+    # 6- Interpretation
+    beta = logr_gl.beta[1:] 
     mask = (logr_gl.beta[1:] != 0.).ravel()
-    print "================================================================="
-    print "nb feat selected : %d/%d"%(np.sum(mask), mask.shape[0])
-    print "================================================================="
-    sel_snp =set(snpList[mask])
-    lig = ""
-    for i,n in enumerate(pw):
-        lig="\n==%s=\n"%str(n)
-        for jg in pw[n]:
-            lig += str(jg)+":%d/%d, "%(
-                   len(set(pw[n][jg]).intersection(sel_snp)),
-                   len(pw[n][jg]))  
-        print lig
-    
-    
-    plt.plot(logr_gl.beta[1:])
+    mask = (beta*beta>1e-8)
+    from bgutils.pway_interpret import pw_status, pw_beta_thresh
+    pw_status(pw, snpList, mask.ravel())
+
+    # 7- 
+    from bgutils.pway_plot import plot_pw
+    beta = logr_gl.beta[1:]
+    nbeta = pw_beta_thresh(beta, threshold=1e-2)
+    nbeta[nbeta!=0.] = 0.8
+    nbeta[nbeta==0.] = 0.1
+    plot_pw(nbeta, pway=pw, snplist=snpList)    
     plt.show()
-    
+
     plt.plot(logr_gl.info['f'], '+')
     plt.show()

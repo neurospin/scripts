@@ -16,9 +16,9 @@ sys.path.append(os.path.join(os.getenv('HOME'),
 
 if __name__=="__main__":
     # read constraints : we do not use Group Constraint here
-    from bgutils.build_websters import group_pw_snp,get_websters_linr, pw_gene_snp
-    group, group_names, snpList = group_pw_snp(nb=10)
-    pw, _ = pw_gene_snp(nb=10)    
+    from bgutils.build_websters import group_pw_snp2,get_websters_linr, pw_gene_snp2
+    group, group_names, snpList = group_pw_snp2(nb=10)
+    pw, _ = pw_gene_snp2(nb=10)    
     
     # get the snps list to get a data set w/ y continous variable
     # convenient snp order

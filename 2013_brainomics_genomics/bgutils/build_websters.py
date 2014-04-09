@@ -111,6 +111,59 @@ def get_websters_logr(snp_subset=['rs12120191']):
     
     return y, X
 
+
+def pw_gene_snp2(nb=10, cache=False):
+    import pickle, os
+
+    if cache:
+        f = open(os.path.join(basepath,'data','pw_gene_snp2.pickle'))
+        combo = pickle.load(f)
+        f.close()
+        return combo['constraint2'], combo['snpList']
+    
+    sys.path.append('/home/vf140245/gits/igutils')
+    import igutils as ig
+    gfn = '/neurospin/brainomics/2013_brainomics_genomics/data/geno/genetic_control_xpt'
+    genotype = ig.Geno(gfn)
+    genotypeSnp = genotype.snpList().tolist()
+    from os import path
+    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    sys.path.append('/home/vf140245/gits/brainomics/bioresource/examples/python')
+    from bioresourcesdb import BioresourcesDB
+    BioresourcesDB.login('admin', 'admin')
+    
+    tmp = []
+    to_drop =[]
+    constraint2 = dict()
+    for i in constraint:
+        constraint2[i] = dict()
+        for j in constraint[i]:
+            req = ("Any RS WHERE G name '%(gene)s', "
+                   "G start_position B, G stop_position E, "
+                   "G chromosomes C, S chromosome C, "
+                   "S is Snp, S rs_id RS, S position SP HAVING SP > B, SP < E"
+                     % {'gene': j})
+            tmp = BioresourcesDB.rql(req)
+            tmp = [item for sublist in tmp for item in sublist]
+            tmp = list(set(genotypeSnp).intersection(set([str(s) for s in tmp])))
+            if (len(tmp)!=0):
+                constraint2[i][j] = tmp
+        if (len(constraint2[i].keys())==0):
+            to_drop.append(i)
+    for i in to_drop:
+        del constraint2[i]
+    tmp = []
+    for i in constraint2:
+        for j in constraint2[i]:
+            tmp+=(constraint2[i][j])
+    snpList = np.unique(tmp)
+    f = open(os.path.join(basepath,'data','pw_gene_snp2.pickle'), 'w')
+    combo = pickle.dump({'constraint2' : constraint2, 'snpList' : snpList}, f)
+    f.close()
+    
+    return constraint2, snpList
+
+
 def pw_gene_snp(nb=10):
     from os import path
     constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
@@ -122,7 +175,32 @@ def pw_gene_snp(nb=10):
     
     return constraint, snpList
 
+def group_pw_snp2(nb=10, cache=False):
+    import pickle, os
 
+    if cache:
+        f = open(os.path.join(basepath,'data','group_pw_snp2.pickle'))
+        combo = pickle.load(f)
+        f.close()
+        return combo['group'], combo['group_names'], combo['snpList']
+
+    constraint, snpList = pw_gene_snp2(nb=nb, cache=cache)
+    group_names = constraint.keys()    
+    group = dict()
+    for ii, i in enumerate(constraint):
+        tmp = []
+        for j in constraint[i]:
+            tmp+=[np.where(snpList==k)[0][0] for k in constraint[i][j]]
+        group[ii] = tmp
+    f = open(os.path.join(basepath,'data','group_pw_snp2.pickle'), 'w')
+    combo = pickle.dump({'group' : group, 'group_names' : group_names,
+                         'snpList' : snpList}, f)
+    f.close()
+
+    
+    return group, group_names, snpList
+
+    
 def group_pw_snp(nb=10):
     from os import path
     constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
