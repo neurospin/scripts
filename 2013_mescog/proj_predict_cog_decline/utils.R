@@ -345,7 +345,7 @@ rpart_inter.predict<-function(mod, data, limits=c(-Inf, +Inf)){
 
 
 
-rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name=""){
+rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name="", ret_idx=FALSE){
   if(is.null(group)) group = rep(0, nrow(data))
   if(is.null(subset)) subset= rep(TRUE, nrow(data))
   if(class(mod) == "rpart")
@@ -356,7 +356,7 @@ rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name=""){
     if(is.null(attr(group, "name"))) attr(group, "name") = list()
     attr(group, "name")[[as.character(i)]] = name
     #print(group)
-    return(group)
+    return(list(idx=i, group=group))
     }else{
       lname = paste(mod[i, "var"], mod[i, "ltemp"], sep="")
       rname = paste(mod[i, "var"], mod[i, "rtemp"], sep="") 
@@ -364,8 +364,12 @@ rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name=""){
       rexp = paste("rsubset = data$", rname, sep="") 
       eval(parse(text=lexp)); lsubset = lsubset & subset
       eval(parse(text=rexp)); rsubset = rsubset & subset
-      lgroup = rpart.groups(mod, data, i+1, group, lsubset, paste(name, lname, sep="/"))
-      rgroup = rpart.groups(mod, data, i+2, group, rsubset, paste(name, rname, sep="/"))
+      lret = rpart.groups(mod, data, i+1, group, lsubset, paste(name, lname, sep="/"), ret_idx=TRUE)
+      #print(lret)
+      rret = rpart.groups(mod, data, lret$idx+1, group, rsubset, paste(name, rname, sep="/"), ret_idx=TRUE)
+      #print(rret)
+      lgroup = lret$group
+      rgroup = rret$group
       group = lgroup+rgroup
       attr(group, "name") = c(attr(lgroup, "name"), attr(rgroup, "name"))
       #   cat(">>>>\n")
@@ -373,9 +377,14 @@ rpart.groups<-function(mod, data, i=1, group=NULL, subset=NULL, name=""){
       #   print(rgroup)
       #   print(lgroup+rgroup)
       #   cat("====\n")
-      return(group)
+      if(ret_idx)
+        return(list(idx=rret$idx, group=group))
+      else
+        return(group)
   }
 }
+#group = rpart.groups(rpart_mod, data=d)
+
 #group = rpart.groups(mod, data)
 #group
 
