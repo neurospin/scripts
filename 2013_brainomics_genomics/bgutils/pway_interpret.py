@@ -8,6 +8,7 @@ Copyrignt : CEA NeuroSpin - 2014
 
 
 import numpy as np
+import sys, os
 sys.path.append(os.path.join(os.getenv('HOME'),
                                 'gits','scripts','2013_brainomics_genomics'))
     
