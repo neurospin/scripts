@@ -7,7 +7,7 @@ Created on Wed Feb 19 16:02:32 2014
 Read the non-smoothed images for all the subjects, mask them and dump them.
 Similarly read group and dump it.
 
-Data are then centered.
+Data are then centered. The mean is computed on the whole dataset.
 
 """
 
@@ -23,9 +23,10 @@ import sklearn.preprocessing as sklp
 
 import nibabel
 
-BASE_PATH = "/neurospin/brainomics/2013_adni"
-PROJ_PATH = os.path.join(BASE_PATH,
-                         "proj_classif")
+import proj_classif_config
+
+BASE_PATH = proj_classif_config.BASE_PATH
+PROJ_PATH = proj_classif_config.PROJ_PATH
 
 INPUT_CLINIC_FILE = os.path.join(PROJ_PATH,
                                  "population.csv")
@@ -48,17 +49,17 @@ INPUT_MASK = os.path.join(INPUT_MASK_PATH,
 OUTPUT_PATH = PROJ_PATH
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
-OUTPUT_X_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.npy")
+OUTPUT_X_FILE = os.path.join(OUTPUT_PATH, "X.npy")
 OUTPUT_MEAN_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.nii")
 OUTPUT_MEAN_MASKED_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.masked.nii")
-OUTPUT_X_TRAIN_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.train.npy")
-OUTPUT_X_TEST_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.test.npy")
-OUTPUT_X_TRAIN_CENTER_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.train.center.npy")
-OUTPUT_X_TEST_CENTER_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.test.center.npy")
-OUTPUT_X_MEAN_FILE = os.path.join(OUTPUT_PATH, "X_CTL_AD.mean.npy")
-OUTPUT_Y_FILE = os.path.join(OUTPUT_PATH, "y_CTL_AD.npy")
-OUTPUT_Y_TRAIN_FILE = os.path.join(OUTPUT_PATH, "y_CTL_AD.train.npy")
-OUTPUT_Y_TEST_FILE = os.path.join(OUTPUT_PATH, "y_CTL_AD.test.npy")
+OUTPUT_Y_FILE = os.path.join(OUTPUT_PATH, "y.npy")
+# Train & test indices
+OUTPUT_TRAIN_INDICES_FILE = os.path.join(OUTPUT_PATH, "train_indices.npy")
+OUTPUT_TEST_INDICES_FILE = os.path.join(OUTPUT_PATH, "test_indices.npy")
+# Centered data
+OUTPUT_X_MEAN_FILE = os.path.join(OUTPUT_PATH, "X.mean.npy")
+OUTPUT_X_CENTER_FILE = os.path.join(OUTPUT_PATH, "X.center.npy")
+
 
 # Read clinic data
 pop = pd.read_csv(INPUT_CLINIC_FILE,
@@ -107,29 +108,20 @@ mean_im.to_filename(OUTPUT_MEAN_IMAGE)
 # Create average image (in mask)
 X_mean_masked = np.zeros(mask.shape)
 X_mean_masked[mask] = X.mean(axis=0)
-X_mean_masked_im = nibabel.Nifti1Image(X_mean_masked, affine=babel_mask.get_affine())
+X_mean_masked_im = nibabel.Nifti1Image(X_mean_masked,
+                                       affine=babel_mask.get_affine())
 X_mean_masked_im.to_filename(OUTPUT_MEAN_MASKED_IMAGE)
 
 # Split in train-test according to Cuingnet et al. 2010
 print "Splitting in train-test & storing"
 train_subjects = pop['Sample'] == 'training'
 test_subjects = ~train_subjects
-X_train = X[train_subjects.nonzero()]
-np.save(OUTPUT_X_TRAIN_FILE, X_train)
-X_test  = X[test_subjects.nonzero()]
-np.save(OUTPUT_X_TEST_FILE, X_test)
+np.save(OUTPUT_TRAIN_INDICES_FILE, train_subjects)
+np.save(OUTPUT_TEST_INDICES_FILE, test_subjects)
 
-y_train = y[train_subjects.nonzero()]
-np.save(OUTPUT_Y_TRAIN_FILE, y_train)
-y_test  = y[test_subjects.nonzero()]
-np.save(OUTPUT_Y_TEST_FILE, y_test)
-
-# Centering X_train & X_test accordingly
+# Centering data
 print "Centering images & storing"
 x_scaler = sklp.StandardScaler(with_std=False)
-X_train_center = x_scaler.fit_transform(X_train)
-np.save(OUTPUT_X_TRAIN_CENTER_FILE, X_train_center)
+X_center = x_scaler.fit_transform(X)
+np.save(OUTPUT_X_CENTER_FILE, X_center)
 np.save(OUTPUT_X_MEAN_FILE, x_scaler.mean_)
-
-X_test_center = x_scaler.transform(X_test)
-np.save(OUTPUT_X_TEST_CENTER_FILE, X_test_center)
