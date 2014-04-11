@@ -23,7 +23,7 @@ import pandas as pd
 
 import proj_classif_config
 
-BASE_PATH = "/neurospin/brainomics/2013_adni"
+BASE_PATH = proj_classif_config.BASE_PATH
 
 CLINIC_PATH = os.path.join(BASE_PATH, "clinic")
 INPUT_CLINIC_FILE = os.path.join(CLINIC_PATH, "adni510_bl_groups.csv")
@@ -39,8 +39,7 @@ INPUT_IMAGE_PATH = os.path.join(INPUT_TEMPLATE_PATH,
 INPUT_IMAGEFILE_FORMAT = os.path.join(INPUT_IMAGE_PATH,
                                       "mw{PTID}*_Nat_dartel_greyProba.nii")
 
-OUTPUT_BASE_PATH = os.path.join(BASE_PATH,
-                                "proj_classif_AD-CTL")
+OUTPUT_BASE_PATH = proj_classif_config.PROJ_PATH
 OUTPUT_CSV = os.path.join(OUTPUT_BASE_PATH,
                           "population.csv")
 OUTPUT_PATH = os.path.join(OUTPUT_BASE_PATH,
@@ -90,3 +89,13 @@ for group in INPUT_GROUPS:
     print >> output_file
 
 output_file.close()
+
+# Display some statistics
+import itertools
+levels = list(itertools.product(INPUT_GROUPS, ['training', 'testing']))
+index = pd.MultiIndex.from_tuples(levels,
+                                  names=['Class', 'Set'])
+count = pd.DataFrame(columns=['Count'], index=index)
+for i, (group, sample) in enumerate(levels):
+    is_in = (pop['Group.ADNI'] == group) & (pop['Sample'] == sample)
+    count['Count'].loc[group, sample] = is_in.nonzero()[0].shape[0]
