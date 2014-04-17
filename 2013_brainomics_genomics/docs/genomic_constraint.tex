@@ -8,6 +8,8 @@
 \usepackage{color}
 \usepackage{epsfig}
 
+%\let\oldeqref\eqref
+\newcommand{\eqref}[1]{Eq.~\ref{#1}}
 \newcommand{\figref}[1]{Figure~\ref{#1}}
 \newcommand{\algref}[1]{Algorithm~\ref{#1}}
 \newcommand{\theoremref}[1]{Theorem~\ref{#1}}
@@ -60,10 +62,19 @@ Les pénalités travaillées sont Ridge + L1 dans le cas de la regression logist
 \begin{itemize}
 \item Montage des contraintes repose sur inst\_bioresource OK pour gene et snp tedious pour les pathways
 \item Mise en place d'une visu des résultats
-\item \textcolor{red}{Mise en place d'un cadre pour le choix des hyperparametres. Map Reduce et usage de Gabriel}
-\item \textcolor{red}{passage a l'échelle pour le nombre de pathways}
-\item \textcolor{red}{Choix des poids a appliquer à chacun des pathway. ici il y a une ambiguité explicitée dans la \figref{fig:fig_group} }
+\item \textcolor{red}{Mise en place d'un cadre pour le choix des hyperparametres. Map Reduce et usage de Gabriel}. Implémenté par VF
+\item \textcolor{red}{Passage a l'échelle pour le nombre de pathways}
+\item \textcolor{red}{Choix des poids a appliquer à chacun des pathway. ici il y a une ambiguité explicitée dans la \figref{fig:fig_group} }. Implémenté par FHS
 \end{itemize}
+
+\subsubsection{Adaptive Group Lasso}
+L'idée est de fonder la choix des parametres de poids dans le terme de GroupLasso. FHS a recensé deux papier \cite{Wang2008,Huang2012}. Ces méthodes ont été décrites dans le cadre de la régression linéaire. Dans ce cadre, le paramétrage revient à :
+(i) un run en moindre carré (qd on est en version regression linéaire) et partir des beta estimé comme estimateur non biaisés (entachés de variance), (ii) calculer les poids du GL et les hyper-paramètres du $L2$, $L1$ suivant la formule \eqref{eq:weight_estim}.
+\begin{equation}\label{eq:weight_estim}
+    w_{\mathbf{G}} = \frac{1}{||\beta_{\mathbf{G}}||^{-\gamma}}
+\end{equation}
+Il reste deux paramtrers : le paramètre $\alpha$ global (lien avec SNR) et le parametre $\gamma$ qui peut varier dans $\left [0, 1\right]$. 
+
 
 \begin{figure}[!!!h]
     \begin{center}
@@ -74,6 +85,15 @@ Les pénalités travaillées sont Ridge + L1 dans le cas de la regression logist
 \end{figure}
 
 
+Un premier résultat sur les données Websters en régression logistique avec les 10 premiers pathways (en fait 9 car un pathway avait 0 gènes) tirés du terme GO \textit{synapse}. 539 SNPs TOFIX genes. Comme il n'y a pas de Lasso aucun beta n'est nul. Un seuillage des petites contributions est faite. Les traits longs correspondent aux SNPs qui passent le seuil ; les autres sont donnés pour information en trait court. Le choix du seuil et fait de telle manière que les teme du vecteur beta qui sont seuillés représentent mois de 1\% de la norme2 du vecteur beta.
+
+\begin{figure}[!!!h]
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{{{images/exampleW10}}}
+        \caption{Résultats d'un run de rRidgeGL. }
+        \label{fig:fig_group}
+    \end{center}
+\end{figure}
 
 \bibliographystyle{plain}
 \bibliography{genomic_constraint}
