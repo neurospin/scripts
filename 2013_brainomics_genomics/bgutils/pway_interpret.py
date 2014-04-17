@@ -17,13 +17,17 @@ def pw_status(pw, snpList, mask):
     print "nb features selected : %d/%d"%(np.sum(mask), mask.shape[0])
     print "================================================================="
     sel_snp =set(snpList[mask])
-    lig = ""
     for i,n in enumerate(pw):
-        lig="\n==%s=\n"%str(n)
+        lig = ""
+        s = 0
+        c = 0
         for jg in pw[n]:
+            c += len(pw[n][jg])
+            s += len(set(pw[n][jg]).intersection(sel_snp))
             lig += str(jg)+":%d/%d, "%(
                    len(set(pw[n][jg]).intersection(sel_snp)),
-                   len(pw[n][jg]))  
+                   len(pw[n][jg]))                      
+        lig="\n==%s== %d/%d\n%s\n"%(str(n), s, c,lig)
         print lig
 
 def pw_beta_thresh(beta, threshold=1e-2):

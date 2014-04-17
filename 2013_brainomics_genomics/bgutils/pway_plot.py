@@ -6,6 +6,7 @@ Created on Mon Apr  7 14:05:35 2014
 Copyrignt : CEA NeuroSpin - 2014
 """
 import sys, os, json
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tic
@@ -128,7 +129,7 @@ def pw_gene_asnp(pw, snpList, relative=False):
 def transcode(chrom, coord_abs):
     s_start = chrom['s_start']
     s_len = chrom['s_len']
-    s_offset = [0] + s_len[:-1]
+    s_offset = np.cumsum([0] + s_len[:-1]).tolist()
     s_end = [i+j for i,j in zip(s_start,s_len)]
     x = np.zeros(coord_abs.shape, dtype=int)
     for ival, val in enumerate(coord_abs):
@@ -137,45 +138,61 @@ def transcode(chrom, coord_abs):
     return x
 
 
-def plot_pw(beta, pway=None, snplist=None):#gene_list, beta, snpPos, snpChr):
+def plot_pw(beta, pway=None, snplist=None, cache=False):#gene_list, beta, snpPos, snpChr):
     """Plot
     """
     if pway==None or snplist==None:
         return
-
-    sys.path.append('/home/vf140245/gits/brainomics/bioresource/examples/python')
-    from bioresourcesdb import BioresourcesDB
-    BioresourcesDB.login('admin', 'admin')
-    
-    gene_list = get_gene_from_pw(pway)
-    snpPos, snpChr = pw_gene_asnp(pway, snplist, relative=False)
-    genes_annot = dict()
-    for gene in gene_list:
-        tmp = info_gene(BioresourcesDB, gene)
-        if (len(tmp) == 1):
-            genes_annot[gene] = tmp[0]
-        else:
-            print "One gene is des not belong exactly to one chromosome :%s"%gene
-#    print genes_annot
-    chr_annot = dict()
-    for i in genes_annot:
-        if chr_annot.has_key(genes_annot[i][3]):
-            chr_annot[genes_annot[i][3]].append([i,genes_annot[i][1], genes_annot[i][2]])
-        else:
-            chr_annot[genes_annot[i][3]] = [[i,genes_annot[i][1], genes_annot[i][2]]]
-    chr_plot_info = dict()
-    for i in chr_annot:
-        chr_plot_info[i] = dict()
-        arg_sort = np.argsort([g[1] for g in chr_annot[i]])
-        s_start = (np.asarray([g[1] for g in chr_annot[i]])[arg_sort]).tolist()
-        chr_plot_info[i]['s_start'] = s_start
-        s_name = (np.asarray([g[0] for g in chr_annot[i]])[arg_sort]).tolist()
-        chr_plot_info[i]['s_name'] = s_name
-        s_len = (np.asarray([g[2]-g[1]+1 for g in chr_annot[i]])[arg_sort]).tolist()
-        tmp = (np.asarray(tmp)).tolist()
-        chr_plot_info[i]['s_len'] = s_len
-        chr_plot_info[i]['start'] = s_start[0]
-        chr_plot_info[i]['end'] = np.sum(s_len)
+    basepath = '/neurospin/brainomics/2013_brainomics_genomics/'
+    fic= "-%s"%beta.shape[0]
+    if cache and os.path.exists(os.path.join(os.path.join(basepath,'data','plotpw_'+fic+'.pickle'))):
+        print "Reading from cache"
+        f = open(os.path.join(basepath,'data','plotpw_'+fic+'.pickle'))
+        combo = pickle.load(f)
+        f.close()
+        chr_plot_info = combo['chr_plot_info']
+        snpChr = combo['snpChr']
+        snpPos = combo['snpPos']
+    else:
+        sys.path.append('/home/vf140245/gits/brainomics/bioresource/examples/python')
+        from bioresourcesdb import BioresourcesDB
+        BioresourcesDB.login('admin', 'admin')
+        
+        gene_list = get_gene_from_pw(pway)
+        snpPos, snpChr = pw_gene_asnp(pway, snplist, relative=False)
+        genes_annot = dict()
+        for gene in gene_list:
+            tmp = info_gene(BioresourcesDB, gene)
+            if (len(tmp) == 1):
+                genes_annot[gene] = tmp[0]
+            else:
+                print "One gene is des not belong exactly to one chromosome :%s"%gene
+    #    print genes_annot
+        chr_annot = dict()
+        for i in genes_annot:
+            if chr_annot.has_key(genes_annot[i][3]):
+                chr_annot[genes_annot[i][3]].append([i,genes_annot[i][1], genes_annot[i][2]])
+            else:
+                chr_annot[genes_annot[i][3]] = [[i,genes_annot[i][1], genes_annot[i][2]]]
+        chr_plot_info = dict()
+        for i in chr_annot:
+            chr_plot_info[i] = dict()
+            arg_sort = np.argsort([g[1] for g in chr_annot[i]])
+            s_start = (np.asarray([g[1] for g in chr_annot[i]])[arg_sort]).tolist()
+            chr_plot_info[i]['s_start'] = s_start
+            s_name = (np.asarray([g[0] for g in chr_annot[i]])[arg_sort]).tolist()
+            chr_plot_info[i]['s_name'] = s_name
+            s_len = (np.asarray([g[2]-g[1]+1 for g in chr_annot[i]])[arg_sort]).tolist()
+            tmp = (np.asarray(tmp)).tolist()
+            chr_plot_info[i]['s_len'] = s_len
+            chr_plot_info[i]['start'] = s_start[0]
+            chr_plot_info[i]['end'] = np.sum(s_len)
+        print("Saving cache...")
+        f = open(os.path.join(basepath,'data','plotpw_'+fic+'.pickle'), "w")
+        pickle.dump({'chr_plot_info' : chr_plot_info,
+                     'snpChr' : snpChr,
+                     'snpPos' : snpPos}, f)
+        f.close()
     
     
     lig_plot=len(chr_plot_info)%2 + len(chr_plot_info)/2
@@ -192,7 +209,7 @@ def plot_pw(beta, pway=None, snplist=None):#gene_list, beta, snpPos, snpChr):
 #            print 'DBG>', chrom['start'], chrom['start']+chrom['end'] 
         y = np.zeros(len(x))
         plt.plot(x,y)
-        y = np.ones(len(x))*.9
+        y = np.ones(len(x))*1.
         acc = 0
         y[0] = y[0] - 1
         y[-1] = y[-1] - 1

@@ -15,8 +15,9 @@ sys.path.append(os.path.join(os.getenv('HOME'),
 if __name__=="__main__":
     # 1- read constraints : we do not use Group Constraint here
     from bgutils.build_websters import group_pw_snp2,get_websters_logr, pw_gene_snp2
-    group, group_names, snpList = group_pw_snp2(nb=10, cache=True)
-    pw, _ = pw_gene_snp2(nb=10, cache=True)    
+    fic = 'go_synaptic_snps_gene'  #'go_synaptic_snps_gene10'
+    group, group_names, snpList = group_pw_snp2(fic=fic, cache=True)
+    pw, _ = pw_gene_snp2(fic=fic, cache=True)    
     
     # 2- get the snps list to get a data set w/ y continous variable
     # convenient snp order
@@ -37,12 +38,12 @@ if __name__=="__main__":
     import parsimony.algorithms.explicit as explicit
     import parsimony.estimators as estimators
     # 5- Logistic regresssion
-    eps = 1e-8
+    eps = 1e-6
     max_iter = 200
     conts = 20        # will be removed next version current max_iter x cont
     k = 0.9 #ridge 
     l = 0.0 #lasso ( if ENET k+l should be 1
-    g = 5. 
+    g = 0. 
     logr_gl = estimators.RidgeLogisticRegression_L1_GL(
                     k=k, l=l, g=g,
                     A=A,
@@ -69,11 +70,12 @@ if __name__=="__main__":
 
     # 7- 
     from bgutils.pway_plot import plot_pw
-    beta = logr_gl.beta[1:]
-    nbeta = pw_beta_thresh(beta, threshold=1e-2)
-    nbeta[nbeta!=0.] = 0.8
-    nbeta[nbeta==0.] = 0.1
-    plot_pw(nbeta, pway=pw, snplist=snpList)    
+    beta = logr_gl.beta[1:].copy()
+    beta = beta / np.max(np.abs(beta))
+#    nbeta = pw_beta_thresh(beta, threshold=1e-2)
+#    nbeta[nbeta!=0.] = 0.8
+#    nbeta[nbeta==0.] = 0.1
+    plot_pw(beta, pway=pw, snplist=snpList, cache=True)    
     plt.show()
 
     plt.plot(logr_gl.info['f'], '+')
