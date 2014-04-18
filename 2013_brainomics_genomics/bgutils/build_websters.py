@@ -5,6 +5,7 @@
 
 import sys
 import numpy as np
+import pickle
 import json
 sys.path.append('/home/vf140245/gits/igutils')
 import igutils as ig
@@ -112,11 +113,12 @@ def get_websters_logr(snp_subset=['rs12120191']):
     return y, X
 
 
-def pw_gene_snp2(nb=10, cache=False):
+def pw_gene_snp2(fic='go_synaptic_snps_gene10', cache=False):
     import pickle, os
 
-    if cache:
-        f = open(os.path.join(basepath,'data','pw_gene_snp2.pickle'))
+    if cache and os.path.exists(os.path.join(basepath,'data','pw_'+fic+'.pickle')):
+        print "Reading from cache"
+        f = open(os.path.join(basepath,'data','pw_'+fic+'.pickle'))
         combo = pickle.load(f)
         f.close()
         return combo['constraint2'], combo['snpList']
@@ -127,7 +129,7 @@ def pw_gene_snp2(nb=10, cache=False):
     genotype = ig.Geno(gfn)
     genotypeSnp = genotype.snpList().tolist()
     from os import path
-    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     sys.path.append('/home/vf140245/gits/brainomics/bioresource/examples/python')
     from bioresourcesdb import BioresourcesDB
     BioresourcesDB.login('admin', 'admin')
@@ -157,16 +159,16 @@ def pw_gene_snp2(nb=10, cache=False):
         for j in constraint2[i]:
             tmp+=(constraint2[i][j])
     snpList = np.unique(tmp)
-    f = open(os.path.join(basepath,'data','pw_gene_snp2.pickle'), 'w')
+    f = open(os.path.join(basepath,'data','pw_'+fic+'.pickle'), 'w')
     combo = pickle.dump({'constraint2' : constraint2, 'snpList' : snpList}, f)
     f.close()
     
     return constraint2, snpList
 
 
-def pw_gene_snp(nb=10):
+def pw_gene_snp(fic='go_synaptic_snps_gene10'):
     from os import path
-    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     tmp = []
     for i in constraint:
         for j in constraint[i]:
@@ -175,16 +177,17 @@ def pw_gene_snp(nb=10):
     
     return constraint, snpList
 
-def group_pw_snp2(nb=10, cache=False):
+def group_pw_snp2(fic='go_synaptic_snps_gene10', cache=False):
     import pickle, os
 
-    if cache:
-        f = open(os.path.join(basepath,'data','group_pw_snp2.pickle'))
+    if cache and os.path.exists(os.path.join(os.path.join(basepath,'data','grouppw_'+fic+'.pickle'))):
+        print "Reading from cache"
+        f = open(os.path.join(basepath,'data','grouppw_'+fic+'.pickle'))
         combo = pickle.load(f)
         f.close()
         return combo['group'], combo['group_names'], combo['snpList']
 
-    constraint, snpList = pw_gene_snp2(nb=nb, cache=cache)
+    constraint, snpList = pw_gene_snp2(fic=fic, cache=cache)
     group_names = constraint.keys()    
     group = dict()
     for ii, i in enumerate(constraint):
@@ -192,7 +195,7 @@ def group_pw_snp2(nb=10, cache=False):
         for j in constraint[i]:
             tmp+=[np.where(snpList==k)[0][0] for k in constraint[i][j]]
         group[ii] = tmp
-    f = open(os.path.join(basepath,'data','group_pw_snp2.pickle'), 'w')
+    f = open(os.path.join(basepath,'data','grouppw_'+fic+'.pickle'), 'w')
     combo = pickle.dump({'group' : group, 'group_names' : group_names,
                          'snpList' : snpList}, f)
     f.close()
@@ -201,9 +204,9 @@ def group_pw_snp2(nb=10, cache=False):
     return group, group_names, snpList
 
     
-def group_pw_snp(nb=10):
+def group_pw_snp(fic='go_synaptic_snps_gene10'):
     from os import path
-    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     tmp = []
     group_names = constraint.keys()    
     for i in constraint:
@@ -220,9 +223,9 @@ def group_pw_snp(nb=10):
     return group, group_names, snpList
 
 
-def build_constraint(nb=10):
+def build_constraint(fic='go_synaptic_snps_gene10'):
     from os import path
-    constraint = json.load(open(path.join(basepath,'data','constraint10.json')))
+    constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     tmp = []
     constraint_name = constraint.keys()    
     for i in constraint:
