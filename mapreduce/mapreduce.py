@@ -89,6 +89,7 @@ job_template_pbs =\
 """
 
 def _build_pbs_jobfiles(options):
+    print options
     #print options
     #print options.pbs_njob
     cmd_path = os.path.realpath(__file__)
@@ -99,7 +100,8 @@ def _build_pbs_jobfiles(options):
     for nb in xrange(options.pbs_njob):
         params = dict()
         params['job_name'] = '%s_%.2i' % (project_name, nb)
-        params['ppn'] =options.ncore
+        print options.ncore
+        params['ppn'] = options.ncore
         params['job_dir'] = job_dir
         params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
         params['queue'] = options.pbs_queue
@@ -110,7 +112,7 @@ def _build_pbs_jobfiles(options):
         os.chmod(job_filename, 0777)
     run_all = os.path.join(job_dir, 'jobs_all.sh')
     with open(run_all, 'wb') as f:
-        f.write("ls %s/job_*.pbs|while read f ; do sh $f ; done" % job_dir)
+        f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
     os.chmod(run_all, 0777)
     sync_push = os.path.join(job_dir, 'sync_push.sh')
     with open(sync_push, 'wb') as f:
@@ -268,9 +270,9 @@ if __name__ == "__main__":
         ""
         
         )
-    nproc = int(cpu_count() / 2)
+    default_nproc = int(cpu_count() / 2)
     parser.add_argument('--ncore',
-        help='Nb cpu ncore to use (default %i)' % nproc, default=nproc, type=int)
+        help='Nb cpu ncore to use (default %i)' % default_nproc, type=int)
 
     # Reducer options --------------------------------------------------------
     parser.add_argument('--reduce_input', help='Input root dir for reduce. '
@@ -283,9 +285,9 @@ if __name__ == "__main__":
     parser.add_argument('--pbs_njob', type=int,
                         help='Build n PBS job file in the '
                              'same directory than the config file')
+    default_pbs_queue = "Cati_LowPrio"
     parser.add_argument('--pbs_queue',
-                        help='PBS queue (default %s)' % "Cati_LowPrio",
-                        default="Cati_LowPrio", )
+                        help='PBS queue (default %s)' % default_pbs_queue)
 
     #print sys.argv
     options = parser.parse_args()
@@ -304,29 +306,16 @@ if __name__ == "__main__":
         setattr(options, "user_func", None)
     if not hasattr(options, "job_file"):
         setattr(options, "job_file", None)
-
-#    # =======================================================================
-#    # == BUILD JOBS TABLE                                                  ==
-#    # =======================================================================
-#    # ["params", "resample", "output", "structure", "data"]
+    if options.ncore is None:
+        options.ncore = default_nproc
+    if options.pbs_queue is None:
+        options.pbs_queue = default_pbs_queue
+    # =======================================================================
+    # == BUILD JOBS TABLE                                                  ==
+    # =======================================================================
+    # ["params", "resample", "output", "structure", "data"]
     if options.pbs_njob:
         _build_pbs_jobfiles(options)
-#        if options.data and options.params and options.map_output \
-#        and options.job_file:
-#            jobs = _build_job_table(options)
-#            _makedirs_safe(os.path.dirname(options.job_file))
-#            #try:
-#            #    os.makedirs(os.path.dirname(options.job_file))
-#            #except:
-#            #    pass
-#            of = open(options.job_file, "w")
-#            json.dump(jobs, of)
-#            of.close()
-#            print "Save jobs in:", options.job_file
-#        else:
-#            print \
-#            'Required fields in config file: data, params, map_output, job_file'
-#            'Optional arguments: resample, structure'
 
     # =======================================================================
     # == MAP                                                               ==
@@ -415,16 +404,20 @@ if __name__ == "__main__":
         exec(open(options.user_func).read() )
         print "** REDUCE **"
         items = glob.glob(options.reduce_input)
+        items = [item for item in items if os.path.isdir(item)]
+        #print items
         options.reduce_group_by
         group_keys = set([re.findall(options.reduce_group_by, item)[0] for item
             in items])
-        #print group_keys
+        print group_keys
+        #print items
         groups = {k:[] for k in group_keys}
 #        groups['0.010 0.25 0.25 0.50']
 #        [{'y_true': [], 'model':, 'y_pred': []},
 #         {'y_true': [], 'model':, 'y_pred': []}]
         for item in items:
             which_group_key = [k for k in groups if item.count(k)]
+            print which_group_key
             if len(which_group_key) != 1:
                 raise ValueError("Many/No keys match %f" % item)
             output_collector = OutputCollector(item)

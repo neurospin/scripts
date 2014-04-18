@@ -42,9 +42,6 @@ np.save(os.path.join(WD, 'y.npy'), y)
 
 #############################################################################
 ## Create config file
-#cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=2)]
-#params = [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]]
-
 cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=2)]
 params = [[alpha, l1_ratio] for alpha in [0.01, 0.05, 0.1, 0.5, 1, 10] for l1_ratio in np.arange(0, 1.1, .1)]
 
@@ -55,47 +52,20 @@ config = dict(data=os.path.join(WD, "?.npy"), params=params, resample=cv,
               map_output=os.path.join(WD, "results"),
               user_func=os.path.join(WD, "enet_userfunc.py"),
               ncore=12,
-              reduce_input=os.path.join(WD, "map_results/*/*"),
-              reduce_group_by=os.path.join(WD, ".*/.*/(.*)"))
+              reduce_input=os.path.join(WD, "results/*/*"),
+              reduce_group_by=os.path.join(WD, "results/.*/(.*)"))
 json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
-#############################################################################
-## Build jobs file
 
 #############################################################################
-## Run with comand line
-# Use it
-# ------
-# 2) Map
+## Run Locally
 os.system("mapreduce.py --mode map --config config.json")
 
-# 3) Reduce
-os.system("mapreduce.py --mode reduce --config config.json")
-
-
 #############################################################################
-## Or Run on the cluster 4 PBS Jobs
+## Or Run on the cluster with 4 PBS Jobs
+## Execute messages
 os.system("mapreduce.py --pbs_njob 4 --config %s/config.json" % WD)
 
-ssh gabriel
-rsync -azvu is222244:/neurospin/tmp/brainomics/testenet  /neurospin/tmp/brainomics/
 #############################################################################
-## Run with soma-workflow
-## Each soma-workflow will execute one mapreduce, with 2 nested processes
-## This limit the I/O an memory footprint since nested processes share the
-## data
-from soma_workflow.client import Job, Workflow, Helper
-
-
-# create the workflow:
-
-job_1 = Job(command=["mapreduce.py", "--mode",  "map", "--config", os.path.join(WD, "config.json"),  "--core", "2"], name="job 1")
-job_2 = Job(command=["mapreduce.py", "--mode",  "map", "--config", os.path.join(WD, "config.json"),  "--core", "2"], name="job 2")
-
-jobs = [job_1, job_2]
-
-
-workflow = Workflow(jobs=jobs)
-
-# save the workflow into a file
-Helper.serialize( os.path.join(WD, "sw_jobs.json"), workflow)
+## 3) Reduce
+os.system("mapreduce.py --mode reduce --config config.json")
