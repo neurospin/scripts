@@ -50,13 +50,17 @@ def mapper(key, output_collector):
     ------
     None but call output_collector.collect(result_dict)
     """
-    Xtr = DATA["X.center"][0]
-    Xte = DATA["X.center"][1]
-    ytr = DATA["y.center"][0]
-    yte = DATA["y.center"][1]
+    Xtr = DATA["X.intercept"][0]
+    Xte = DATA["X.intercept"][1]
+    ytr = DATA["y.intercept"][0]
+    yte = DATA["y.intercept"][1]
+    print "mapper", output_collector, Xtr.shape, Xte.shape
+    #output_collector.collect(key, dict())
+    #return None
     alpha, ratio_k, ratio_l, ratio_g = key
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
     mod = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto",
+                                    penalty_start=1,
                                     algorithm=StaticCONESTA(info=LimitedDict(Info.num_iter, Info.t)))
     time_curr = time.time()
     mod.fit(Xtr, ytr)
@@ -66,7 +70,7 @@ def mapper(key, output_collector):
     mod.A = None
     structure_data = STRUCTURE.get_data() != 0
     arr = np.zeros(structure_data.shape)
-    arr[structure_data] = mod.beta.ravel()
+    arr[structure_data] = mod.beta.ravel()[1:]
     beta3d = nibabel.Nifti1Image(arr, affine=STRUCTURE.get_affine())
     ret = dict(model=mod, y_pred=y_pred, y_true=yte, beta3d=beta3d, info=mod.algorithm.info)
     output_collector.collect(key, ret)

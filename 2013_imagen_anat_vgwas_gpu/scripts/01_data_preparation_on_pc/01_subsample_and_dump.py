@@ -63,6 +63,8 @@ def resample(input_image,
 BASE_DIR = '/neurospin/brainomics/2013_imagen_anat_vgwas_gpu'
 
 # Input
+# DATA ARE
+# /neurospin/brainomics/2013_imagen_anat_vgwas_gpu/2012_imagen_shfj/VBM
 DATA_DIR = os.path.join(BASE_DIR, '2013_imagen_bmi', 'data')
 CLINIC_DIR = os.path.join(DATA_DIR, 'clinic')
 IMAGES_DIR = os.path.join(DATA_DIR, 'VBM', 'new_segment_spm8')
