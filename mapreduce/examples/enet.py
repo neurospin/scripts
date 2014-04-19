@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.cross_validation import KFold
 
 WD = "/neurospin/tmp/brainomics/testenet"
-os.makedirs(WD)
+if not os.path.exists(WD): os.makedirs(WD)
 
 user_func = """
 # "enet_userfunc.py": user defined map/reduce functions
@@ -48,7 +48,9 @@ params = [[alpha, l1_ratio] for alpha in [0.01, 0.05, 0.1, 0.5, 1, 10] for l1_ra
 of = open(os.path.join(WD, "enet_userfunc.py"), "w")
 of.writelines(user_func)
 of.close()
-config = dict(data=os.path.join(WD, "?.npy"), params=params, resample=cv,
+config = dict(data=dict(X=os.path.join(WD, "X.npy"),
+                        y=os.path.join(WD, "y.npy")),
+              params=params, resample=cv,
               map_output=os.path.join(WD, "results"),
               user_func=os.path.join(WD, "enet_userfunc.py"),
               ncore=12,
@@ -59,7 +61,7 @@ json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
 #############################################################################
 ## Run Locally
-os.system("mapreduce.py --mode map --config config.json")
+os.system("mapreduce.py --mode map --config %s/config.json" % WD)
 
 #############################################################################
 ## Or Run on the cluster with 4 PBS Jobs

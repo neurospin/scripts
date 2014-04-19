@@ -8,7 +8,6 @@ import fcntl
 import errno
 import json
 import sys, os, glob, argparse, re
-import copy
 import pickle
 import nibabel
 from multiprocessing import Process, cpu_count
@@ -47,19 +46,13 @@ json.dump(config, open("config.json", "w"))
 """
 
 
-def A_from_structure(structure_filepath):
-    """Default A_from_structure that does nothing"""
-    return None, None
+#def A_from_structure(structure_filepath):
+#    """Default A_from_structure that does nothing"""
+#    return None, None
 
 
-def load_data(path_glob):
-    filenames = glob.glob(path_glob)
-    data = dict()
-    for filename in filenames:
-        key, _ = os.path.splitext(os.path.basename(filename))
-        data[key] = np.load(filename)
-    return data
-
+def load_data(key_filename):
+    return {key:np.load(key_filename[key]) for key in key_filename}
 
 _table_columns = dict(output=0, params=1, resample_nb=2, data=3)
 

@@ -1,61 +1,92 @@
 # -*- coding: utf-8 -*-
 """
 Map reduce for parsimony.
-In Mapper mode provide: --input_x, --input_y, --params, --image, --map_output.
-It will fork one process per param tuple.
-In reducer mode provide: --reduce_input, --reduce_output
 """
 
 import time
-import sys, os, glob, optparse, re, fnmatch
-from multiprocessing import Pool, Process
+import sys, os, glob, argparse, fnmatch
+from multiprocessing import Process
 import numpy as np
-import nibabel
 import pandas as pd
 
 from sklearn.metrics import precision_recall_fscore_support
-
 from parsimony.utils import check_arrays
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
-from parsimony.algorithms.explicit import StaticCONESTA
-import parsimony.functions.nesterov.tv as tv
 
 param_sep = " "
 
-def save_model(output_dir, mod, coef, image=None, **kwargs):
-    import os, os.path, pickle, nibabel, numpy
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    pickle.dump(mod, open(os.path.join(output_dir, "model.pkl"), "w"))
-    for k in kwargs:
-        numpy.save(os.path.join(output_dir, k + ".npy"), kwargs[k])
-    if image is not None:
-        if isinstance(image, nibabel.Nifti1Image):
-            image_data = image.get_data() != 0
-            arr = numpy.zeros(image_data.shape)
-            arr[image_data] = coef.ravel()
-            im_out = nibabel.Nifti1Image(arr, affine=image.get_affine())
-            im_out.to_filename(os.path.join(output_dir, "beta.nii"))
-        else:
-            image_data = image != 0
-            arr = numpy.zeros(image_data.shape)
-            arr[image_data] = coef.ravel()
-            np.save(os.path.join(output_dir, "beta.nii"), arr)
+example = """
+Example
+-------
 
-def load_model(input_dir):
-    #input_dir = '/neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv/10-0.1-0.4-0.5'
-    import os, os.path, pickle, numpy, glob
-    res = dict()
-    for arr_filename in glob.glob(os.path.join(input_dir, "*.npy")):
-        #print arr_filename
-        name, ext = os.path.splitext(os.path.basename(arr_filename))
-        res[name] = numpy.load(arr_filename)
-    for pkl_filename in glob.glob(os.path.join(input_dir, "*.pkl")):
-        #print pkl_filename
-        name, ext = os.path.splitext(os.path.basename(pkl_filename))
-        res[name] = pickle.load(open(pkl_filename, "r"))
-    return res
+# Build a dataset: X, y, mask structure and cv
+import numpy as np, nibabel
+from  parsimony import datasets
+from sklearn.cross_validation import StratifiedKFold
+n_samples, shape = 10, (7, 7, 1)
+X3d, y, beta3d, proba = datasets.classification.dice5.load(n_samples=n_samples,
+shape=shape, snr=5, random_seed=1)
+X = X3d.reshape((n_samples, np.prod(beta3d.shape)))
+cv = StratifiedKFold(y.ravel(), n_folds=2)
 
+# Save X, y, mask structure and cv
+np.save('X.npy', X)
+np.save('y.npy', y)
+nibabel.Nifti1structure(np.ones(shape), np.eye(4)).to_filename('mask.nii')
+# cv file
+o = open('cv-train-idx.txt', "w")
+for tr, te in cv:
+    o.write(str(tr) + str(te) + "\\n")
+o.close()
+
+# parameters file
+o = open("params_alpha-l2-l1-tv.txt", "w")
+params=["0.100 0.25 0.25 0.50", "0.010 0.25 0.25 0.50", "0.001 0.25 0.25 0.50"]
+for param in params:
+    o.write(param + "\\n")
+o.close()
+
+# 1) Build jobs file ---
+python parsimony_mapreduce.py --mode build_job \
+--data "?.npy" \
+--params params_alpha-l2-l1-tv.txt \
+--map_output map_results \
+--cv cv-train-idx.txt \
+--structure mask.nii  \
+--job_file jobs.csv
+
+# 2) Map ---
+python parsimony_mapreduce.py --mode map \
+--job_file jobs.csv \
+--user_func user_func_mapreduce.py  \
+--cores 2
+
+python parsimony_mapreduce.py \
+--reduce_input="/volatile/duchesnay/classif_500x10x10/cv" \
+--reduce_output="/volatile/duchesnay/classif_500x10x10/scores.csv"
+"""
+
+
+def jobs_table(options):
+# -- PARAMETERS  ----------------------------------------------------
+    params_list = tuples_fromtxt(options.params, otype=str)
+    jobs = [param_sep.join(param[0]) for param in params_list]
+    ## -- RESAMPLING ----------------------------------------------------
+    if options.cv:
+        cv = tuples_fromtxt(options.cv, otype=int)
+        jobs = [[job] + [str(fold),
+                os.path.join(options.map_output, str(fold_i), jobs[job_i])]
+            for fold_i, fold in enumerate(cv)
+            for job_i, job in enumerate(jobs)]
+    else:
+        jobs = [[job] + [None] for job in jobs]
+    if options.structure:
+        jobs = [job + [options.structure] for job in jobs]
+    else:
+        jobs = [job + [None] for job in jobs]
+    jobs = [job + [options.data] for job in jobs]
+    jobs = pd.DataFrame(jobs, columns=["params", "resample", "output", "structure", "data"])
+    return jobs
+        #sys.exit(0)
 
 def tuples_fromtxt(lines, otype=int):
     """Read resampling text file/lines. Each line is one resample, each resample
@@ -109,102 +140,99 @@ def tuples_fromtxt(lines, otype=int):
         if len(blocs) > 0:
             tuples.append(blocs)
     return tuples
-
-def mapper2(key):
-    output_dir, params = key
-    print output_dir, params, XSR[0][0].shape, XSR[0][1].shape, XSR[1][0].shape, XSR[1][1].shape, IMAGE.shape
-    
-
-def mapper(key):
-    output_dir, params = key
-    alpha, ratio_k, ratio_l, ratio_g = params
-    print "START:", output_dir
-    time_curr = time.time()
-    beta = None
-    k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g)) # l2, l1, tv penalties
-    tv = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto", output=True,
-                               algorithm=StaticCONESTA(max_iter=100))
-    tv.fit(XsTR[0], XsTR[1])#, beta)
-    y_pred_tv = tv.predict(XsTE[0])
-    beta = tv.beta
-    #print key, "ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
-    print output_dir, "Time ellapsed:", time.time() - time_curr, "ite:%i, time:%f" % (len(tv.info["t"]), np.sum(tv.info["t"]))
-    #if not os.path.exists(output_dir):
-    #    os.makedirs(output_dir)
-    time_curr = time.time()
-    tv.function = tv.A = None # Save disk space
-    save_model(output_dir, tv, beta, image,
-                                  y_pred=y_pred_tv,
-                                  y_true=XsTE[1])
-
-
+  
 if __name__ == "__main__":
-    parser = optparse.OptionParser(description=__doc__)
-#    parser.add_option('--input_x', '-x', help='X (numpy) dataset path (Required for Mapper)', type=str)
-#    parser.add_option('--input_y', '-y', help='y (numpy) dataset path (Required for Mapper)', type=str)
-    parser.add_option('--map_cv',
+    parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description=__doc__, epilog=example)
+    parser.add_argument('--mode',
+        help='Three possible mode: '
+        '(1)"build_job": build jobs csv file. '
+           'Required arguments: --data, --params, --map_output, --job_file. '
+           'Optional arguments: --cv, --structure. '
+        '(2)"map": run jobs file. '
+        '(3)"reduce": reduce.')
+    # Job builder options ------------------------------------------------------
+    # Data, params, output (optional cv and structure)
+    parser.add_argument('--data', help='Path (with wildcard) to numpy datasets. '
+        'Required option for --mode=build_job.')
+    parser.add_argument('--params',
+        help='List of parameters tuples (Required for Mapper) separated by ";". '
+        'Example: 1.0 0.1 0.1 0.8; 2.0 0.0 0.2 0.8;. '
+        'Or a file path containing one line per parameters tuple. '
+        'Required option for --mode=build_job.')
+    parser.add_argument('--map_output',
+        help='Mapper output root directory. '
+        'Required option for --mode=build_job.')
+    parser.add_argument('--cv',
         help='Text file containing cross-validation resamples. '
         'Each line contains one train/test fold. Train/test are grouped '
         'by brackets or semicolons. Items may be separeted by comma or space:'
         '[0 3] [1 2] or [0, 3] [1, 2] or 0, 3; 1, 2. It is also possible to add'
-        ' commented lines starting with #',
-        type=str)
-    parser.add_option('--map_data', help='Path (with wildcard) to numpy datasets (Required for Mapper)', type=str)
-    parser.add_option('--map_data_image',
-        help='Path to image file (niftii). image IS NOT APPLIED '
-        'data are supposed to be imageed, it is only used to generate '
-        'niftii output image.', type=str)
-    parser.add_option('--map_params',
-        help='List of parameters tuples (Required for Mapper) separated by ";". ' +\
-         'Example: 1.0 0.1 0.1 0.8; 2.0 0.0 0.2 0.8;. ' +\
-         'Or a file path containing one line per parameters tuple.', type=str)
-    parser.add_option('--map_output', '-o',
-        help='Mapper output root directory  (Required for Reducer)', type=str)
-    parser.add_option('--cores', '-c',
+        ' commented lines starting with #. '
+        'Optional option for --mode=build_job.')
+    parser.add_argument('--structure',
+        help='Path to structure file. This file has the structure of the '
+        'original data. it will be provided to user defined '
+        'A_from_structure(structure) method. All format are possible.'
+        'Optional option for --mode=build_job.')
+    parser.add_argument('--job_file',
+        help='Path to jobs csv file: used as output in --mode=build_job '
+        'and used as input in --mode=map')
+    parser.add_argument('--user_func',
+        help='User defined functions: (i) A_from_structure(structure_filepath) '
+        '(ii) def mapper(key)'
+        'Required with --mode=map')
+    # Or map_jobs
+    parser.add_argument('--cores', '-c',
         help='Nb cpu cores to use (default %i)' % 8, default=8, type=int)
-    parser.add_option('--reduce_input',  help='Reduce input root directory of partial results', type=str)
-    parser.add_option('--reduce_output', help='Reduce output, csv file', type=str)
-    print sys.argv
-    options, args = parser.parse_args(sys.argv)
+
+    # Reducer options --------------------------------------------------------
+    parser.add_argument('--reduce_input',  help='Reduce input root directory of partial results')
+    parser.add_argument('--reduce_output', help='Reduce output, csv file')
+    #print sys.argv
+    options = parser.parse_args()#sys.argv)
+    #print options
     """
-    options, args =  parser.parse_args(['scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py', '--map_data=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_?.npy', '--map_cv=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_cv-train-idx.txt', '--map_data_image=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_mask.nii', '--map_params=/home/ed203246/data/pylearn-parsimony/params_alpha-l2-l1-tv_small.txt', '--map_output=/volatile/duchesnay/classif_500x10x10/cv', '--cores=8'])
-)
+    options, args =  parser.parse_args()
     """
+    # =======================================================================
+    # == BUILD JOBS TABLE                                                  ==
+    # =======================================================================
+    # ["params", "resample", "output", "structure", "data"]
+    if options.mode == "build_job":
+        if options.data and options.params and options.map_output \
+        and options.job_file:
+            jobs = jobs_table(options)
+            try:
+                os.makedirs(os.path.dirname(options.job_file))
+            except:
+                pass
+            jobs.to_csv(options.job_file)
+            print "Save jobs in:", options.job_file
+        else:
+            print \
+            'Required arguments: --data, --params, --map_output, --job_file'
+            'Optional arguments: --cv, --structure'
+            sys.exit(1)
     # =======================================================================
     # == MAP                                                               ==
     # =======================================================================
-    # Build Jobs tab    
-    # [params, resample, input, output]
-    workers = list()
-    if options.map_data and options.map_params and options.map_output:
-        # -- PARAMETERS  ----------------------------------------------------
-        params_list = tuples_fromtxt(options.map_params, otype=str)
-        jobs = [param_sep.join(param[0]) for param in params_list]
-        ## -- RESAMPLING ----------------------------------------------------
-        if options.map_cv:
-            cv = tuples_fromtxt(options.map_cv, otype=int)
-            jobs = [[job] + [str(fold),
-                    os.path.join(options.map_output, str(fold_i), jobs[job_i])]
-                for fold_i, fold in enumerate(cv)
-                for job_i, job in enumerate(jobs)]
-        else:
-            jobs = [[job] + [None] for job in jobs]
-        if options.map_data_image:
-            jobs = [job + [options.map_data_image] for job in jobs]
-        else:
-            jobs = [job + [None] for job in jobs]
-        jobs = [job + [options.map_data] for job in jobs]
-        jobs = pd.DataFrame(jobs, columns=["params", "resample", "output", "image", "data"])
-        jobs_file = os.path.join(options.map_output, "jobs.csv")
-        jobs.to_csv(jobs_file)
-        print "Save jobs in", jobs_file
-        #sys.exit(0)
-
-        print "** MAP **"
+    if options.mode == "map":
+        if not options.job_file:
+            print 'Required arguments: --job_file'
+            sys.exit(1)
+        if not options.user_func:
+            print 'Required arguments: --user_func'
+            sys.exit(1)
+        exec(open(options.user_func).read() )
+        jobs = pd.read_csv(options.job_file)
+        print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
         resample_cur = None
         data_cur = None
-        image_cur = None
+        structure_cur = None
+        workers = list()
         for i in xrange(jobs.shape[0]):
             #i=0
             job = jobs.iloc[i]
@@ -223,69 +251,40 @@ if __name__ == "__main__":
             if resample_cur != job["resample"]:
                 resample = tuples_fromtxt(job["resample"], otype=int)[0]\
                     if job["resample"] is not None else None
-                #XSR X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
+                #DATA X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
             if resample:
-                XSR = [[X[idx, :] for X in XS] for idx in resample]
+                DATA = [[X[idx, :] for X in XS] for idx in resample]
             else: # If not resample create [[Xtr, ytr], [Xte, yte]]
                 # where Xtr == Xte and ytr == yte
-                XSR = [[X for X in XS] for i in xrange(2)]
-            if not image_cur and job["image"]:
-                IMAGE = nibabel.load(job["image"])
-                A, _ = tv.A_from_mask(IMAGE.get_data())
-                image_cur = job["image"]
-            if image_cur != job["image"]:  # load image
-                IMAGE = nibabel.load(job["image"])
-                A, _ = tv.A_from_image(IMAGE.get_data())
-                image_cur = job["image"]
+                DATA = [[X for X in XS] for i in xrange(2)]
+            if not structure_cur and job["structure"]:
+                A, STRUCTURE = A_from_structure(job["structure"])
+                structure_cur = job["structure"]
+            if structure_cur != job["structure"]:  # load structure
+                A, STRUCTURE = A_from_structure(job["structure"])
+                structure_cur = job["structure"]
             # Job ready to be executed
             key = (job["output"], params)
             # see if we can create a worker
-            if len(workers) < options.cores:
-                p = Process(target=mapper2, args=(key, ))
-                p.start()
-                workers.append(p)
-            else:
+            #print "len(workers)", len(workers), options.cores
+            while len(workers) == options.cores:
                 for p in workers:
-                    p.join(1) 
-        # -- DATASET --------------------------------------------------------
-        
-        #X = np.load(options.input_x)
-        #y = np.load(options.input_y)
-#            test_idx = np.load(options.test_idx)
-#            all_image = np.ones(Xs[0].shape[0], dtype=bool)
-#            all_image[test_idx] = False
-#            train_idx = np.where(all_image)[0]
-#            XsTR = [X[train_idx, :] for X in Xs]
-#            XsTE = [X[test_idx, :] for X in Xs]
-#            #XTE = X[test_idx, :]
-#            #YTR = y[train_idx, :]
-#            #YTE = y[test_idx, :]
-#        else:
-#            print "all data train==test"
-#            XsTR = XsTE = Xs
-#        del(Xs)
-#        print "XsTR shapes =", [x.shape for x in XsTR]
-#        try:
-#            image = np.load(options.map_data_image)
-#            A, _ = tv.A_from_image(image)
-#        except:
-#        print "params_list len =", len(params_list)
+                    #print "Is alive", str(p), p.is_alive()
+                    if not p.is_alive():
+                        p.join()
+                        workers.remove(p)
+                        print "Join :", str(p)
+                time.sleep(1)
+            p = Process(target=mapper, args=(key, ))
+            print "Start:", str(p)
+            p.start()
+            workers.append(p)
 
-        # -- OUTPUT ---------------------------------------------------------
-#        output_dir = options.map_output
-#        if not os.path.exists(output_dir):
-#            os.makedirs(output_dir)
-#        keys = zip([os.path.join(output_dir, o) for o in params_list_str],
-#                    params_list)
-#        nbcores = options.cores
-#
-#        # MAP  --------------------------------------------------------------
-#        print params_list
-#        if len(keys) > 1:
-#            p = Pool(nbcores)
-#            p.map(mapper, keys)
-#        else:
-#            mapper(keys[0])
+        for p in workers:  # Join remaining worker
+            p.join()
+            workers.remove(p)
+            print "Join :", str(p)
+
 
     # =======================================================================
     # == REDUCE                                                            ==
@@ -344,17 +343,4 @@ if __name__ == "__main__":
         if options.reduce_output is not None:
             scores.to_csv(options.reduce_output, index=False)
 
-"""
-python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
---map_data=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_?.npy \
---map_cv=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_cv-train-idx.txt \
---map_data_image=/home/ed203246/data/pylearn-parsimony/datasets/data/classif_10x7x7x1_mask.nii \
---map_params=/home/ed203246/data/pylearn-parsimony/params_alpha-l2-l1-tv_small.txt \
---map_output=/volatile/duchesnay/classif_500x10x10/cv \
---cores=2
-
-python scripts/2013_adni/proj_classif_MCI/parsimony_mapreduce.py \
---reduce_input="/volatile/duchesnay/classif_500x10x10/cv" \
---reduce_output="/volatile/duchesnay/classif_500x10x10/scores.csv"
-"""
 
