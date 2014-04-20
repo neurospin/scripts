@@ -16,6 +16,7 @@ import pandas as pd
 
 #from parsimony.utils import check_arrays
 
+DATA = "GLOBAL TOTO"
 param_sep = "_"
 
 example = """
@@ -77,18 +78,12 @@ job_template_pbs =\
 """
 
 def _build_pbs_jobfiles(options):
-    print options
-    #print options
-    #print options.pbs_njob
     cmd_path = os.path.realpath(__file__)
-    #src_dir = os.path.dirname(cmd_path)
-    #print src_dir
     project_name = os.path.basename(os.path.dirname(options.config))
     job_dir = os.path.dirname(options.config)
     for nb in xrange(options.pbs_njob):
         params = dict()
         params['job_name'] = '%s_%.2i' % (project_name, nb)
-        print options.ncore
         params['ppn'] = options.ncore
         params['job_dir'] = job_dir
         params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
@@ -112,12 +107,14 @@ def _build_pbs_jobfiles(options):
         f.write("rsync -azvu gabriel.intra.cea.fr:%s %s/" %
         (os.path.dirname(options.config), os.path.dirname(os.path.dirname(options.config))))
     os.chmod(sync_pull, 0777)
-    print "# Push your file to gabriel, run:"
+    print "# 1) Push your file to gabriel, run:"
     print sync_push
+    print "# 2) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr "cd %s ; bash"' % os.path.dirname(options.config)
-    print "# Run the jobs"
+    print "# 3) Run the jobs"
     print run_all
-    print "# Pull your file from gabriel, run"
+    print "exit"
+    print "# 4) Pull your file from gabriel, run"
     print sync_pull
 
 def _makedirs_safe(path):
@@ -126,6 +123,14 @@ def _makedirs_safe(path):
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+
+def _import_module_from_filename(filename):
+    sys.path.append(os.path.dirname(filename))
+    name, _ = os.path.splitext(os.path.basename(filename))
+    user_module = __import__(os.path.basename(name))
+    return user_module
+
+_import_user_func = _import_module_from_filename
 
 class OutputCollector:
     """Map output collector
@@ -218,6 +223,7 @@ import atexit
 atexit.register(clean_atexit)
 
 if __name__ == "__main__":
+    #global DATA
     parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description=__doc__, epilog=example)
@@ -298,6 +304,16 @@ if __name__ == "__main__":
         options.ncore = default_nproc
     if options.pbs_queue is None:
         options.pbs_queue = default_pbs_queue
+
+    # import itself to modify global variables (glob.DATA)
+    sys.path.append(os.path.dirname(__file__))
+    import mapreduce as GLOBAL  # to access to global variables
+#    glob.DATA = 33
+#    user_func = _import_user_func(options.user_func)
+#    user_func.test()
+#    print "TOTO"
+#    sys.exit(1)
+
     # =======================================================================
     # == BUILD JOBS TABLE                                                  ==
     # =======================================================================
@@ -312,9 +328,10 @@ if __name__ == "__main__":
         if not options.user_func:
             print 'Required fields in config file: "user_func"'
             sys.exit(1)
-        exec(open(options.user_func).read())
+        user_func = _import_user_func(options.user_func)
+        #exec(open(options.user_func).read())
         if hasattr(options, "structure"):
-            A, STRUCTURE = A_from_structure(options.structure)
+            GLOBAL.A, GLOBAL.STRUCTURE = user_func.A_from_structure(options.structure)
         #jobs = pd.read_csv(options.job_file)
         if options.job_file:
             jobs = json.load(open(options.job_file))
@@ -361,14 +378,14 @@ if __name__ == "__main__":
                     resample = [resample]
                 #DATA X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
             if resample:
-                DATA = {k:[dat_orig[k][idx, :]  for idx in resample] for k in dat_orig}
+                GLOBAL.DATA = {k:[dat_orig[k][idx, :]  for idx in resample] for k in dat_orig}
             else: # If not resample create {X:[Xtr, ytr], y:[Xte, yte]}
                 # where Xtr == Xte and ytr == yte
-                DATA = {k:[dat_orig[k]  for i in xrange(2)] for k in dat_orig}
+                GLOBAL.DATA = {k:[dat_orig[k]  for i in xrange(2)] for k in dat_orig}
             # Job ready to be executed
             #key = (job[P["output"]], params)
             key = job[T["params"]]
-            p = Process(target=mapper, args=(key, output_collector))
+            p = Process(target=user_func.mapper, args=(key, output_collector))
             print "Start :", str(p), str(output_collector)
             p.start()
             workers.append(p)
@@ -389,7 +406,7 @@ if __name__ == "__main__":
         if not options.user_func:
             print 'Required arguments: --user_func'
             sys.exit(1)
-        exec(open(options.user_func).read() )
+        user_func = _import_user_func(options.user_func)
         print "** REDUCE **"
         items = glob.glob(options.reduce_input)
         items = [item for item in items if os.path.isdir(item)]
@@ -416,7 +433,7 @@ if __name__ == "__main__":
             groups[which_group_key[0]].append(output_collector.load())
         #print groups
         # Do the reduce
-        scores = [reducer(key=k, values=groups[k]) for k in groups]
+        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
         scores = pd.DataFrame(scores)
         print scores.to_string()
         if options.reduce_output is not None:
