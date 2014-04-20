@@ -46,11 +46,6 @@ json.dump(config, open("config.json", "w"))
 """
 
 
-#def A_from_structure(structure_filepath):
-#    """Default A_from_structure that does nothing"""
-#    return None, None
-
-
 def load_data(key_filename):
     return {key:np.load(key_filename[key]) for key in key_filename}
 
@@ -402,23 +397,26 @@ if __name__ == "__main__":
         options.reduce_group_by
         group_keys = set([re.findall(options.reduce_group_by, item)[0] for item
             in items])
-        print group_keys
+        #print group_keys
         #print items
         groups = {k:[] for k in group_keys}
 #        groups['0.010 0.25 0.25 0.50']
 #        [{'y_true': [], 'model':, 'y_pred': []},
 #         {'y_true': [], 'model':, 'y_pred': []}]
+        #print groups
+        #print options.reduce_group_by
         for item in items:
-            which_group_key = [k for k in groups if item.count(k)]
-            print which_group_key
+            #print item
+            which_group_key = [k for k in groups if re.findall(options.reduce_group_by, item)[0]==k]
+            #print which_group_key
             if len(which_group_key) != 1:
-                raise ValueError("Many/No keys match %f" % item)
+                raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
             print "load", output_collector
             groups[which_group_key[0]].append(output_collector.load())
         #print groups
         # Do the reduce
-        scores = [reducer(key=key, values=groups[key]) for key in groups]
+        scores = [reducer(key=k, values=groups[k]) for k in groups]
         scores = pd.DataFrame(scores)
         print scores.to_string()
         if options.reduce_output is not None:
