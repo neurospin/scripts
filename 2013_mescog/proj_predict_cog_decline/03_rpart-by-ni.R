@@ -313,6 +313,10 @@ p_true_m36_m0 = ggplot(d, aes(x = TMTB_TIME, y = TMTB_TIME.M36, colour=GROUP, gr
   geom_smooth(method="lm", se=F) + geom_abline(linetype="dotted") +
   theme(legend.position="bottom", legend.direction="vertical")
 
+p_change_llv = ggplot(d, aes(x = LLV, y = TMTB_TIME.CHANGE, colour=LLV)) + geom_point(alpha=1) + ggtitle(paste("TMTB_TIME.CHANGE", "~", "LLV"))
+
+p_change_bpf = ggplot(d, aes(x = BPF, y = TMTB_TIME.CHANGE, colour=BPF)) + geom_point(alpha=1) + ggtitle(paste("TMTB_TIME.CHANGE", "~", "BPF"))
+
 p_pred_m36_m0 = ggplot(d, aes(x = TMTB_TIME, y = TMTB_TIME.M36_pred)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
   geom_abline(linetype="dotted") + ggtitle(paste("TMTB_TIME.M36", "~", "TMTB_TIME, R2=",round(loss_partmlm_mod["r2"][[1]],2))) +
   theme(legend.position="bottom", legend.direction="vertical")
@@ -362,6 +366,8 @@ plot(rpart_mod, uniform=TRUE, main=paste("TMTB_TIME.CHANGE~TMTB_TIME+LLV+BPF"))
 text(rpart_mod, use.n=TRUE, all=TRUE, cex=.8)
 print(p_true_m36_m0)
 print(p_pred_m36_m0)
+print(p_change_llv)
+print(p_change_bpf)
 print(p_change_boxplot)
 print(p_change_boxplot_simple)
 dev.off()
@@ -382,21 +388,20 @@ BASELINE = strsplit(M36, "[.]")[[1]][1]
 
 
 rpart_mod1 = rpart(MDRS_TOTAL.CHANGE~MDRS_TOTAL+LLV+BPF, data=d)
+
 rpart_mod2 = rpart(MDRS_TOTAL.CHANGE~LLV+BPF, data=d)
 
 loss_reg(d$MDRS_TOTAL.CHANGE, predict(rpart_mod1, d))
 #mse         r2        cor 
 #32.5973123  0.4251535  0.6520379 
-
 loss_reg(d$MDRS_TOTAL.CHANGE, predict(rpart_mod2, d))
 #mse         r2        cor 
 #35.1516447  0.3801084  0.6165293 
+rpart_mod = rpart_mod1
 
-)#prune(rpart_mod, cp=.093156)
-#rpart_mod = prune(rpart_mod, cp=.1)
-
-plot(rpart_mod, uniform=TRUE, main=paste(BASELINE, "~LLV+BPF"))
+plot(rpart_mod, uniform=TRUE, main=paste(BASELINE, ".CHANGE~LLV+BPF"))
 text(rpart_mod, use.n=TRUE, all=TRUE, cex=.8)
+
 
 
 group = rpart.groups(rpart_mod, data=d)
@@ -407,8 +412,8 @@ y_pred_rtree = subgrouplm.predict(mlm_mod, group, data=d, limits=c(0, 30))
 d$MDRS_TOTAL.M36_pred = y_pred_rtree 
 loss_partmlm_mod = loss_reg(d$MDRS_TOTAL.M36, y_pred_rtree)
 print(loss_partmlm_mod)
-#mse           r2          cor 
-#11990.285714    -1.031316           NA 
+#mse            r2           cor 
+#11642.5972169   -49.7042757     0.6331371 
 
 label = unlist(attr(attr(y_pred_rtree, "group"), "name"))
 
@@ -418,6 +423,10 @@ p_true_m36_m0 = ggplot(d, aes(x = MDRS_TOTAL, y = MDRS_TOTAL.M36, colour=GROUP, 
   ggtitle(paste("MDRS_TOTAL.M36", "~", "MDRS_TOTAL")) +
   geom_smooth(method="lm", se=F) + geom_abline(linetype="dotted") +
   theme(legend.position="bottom", legend.direction="vertical")
+
+p_change_llv = ggplot(d, aes(x = LLV, y = MDRS_TOTAL.CHANGE, colour=LLV)) + geom_point(alpha=1) + ggtitle(paste("MDRS_TOTAL.CHANGE", "~", "LLV"))
+
+p_change_bpf = ggplot(d, aes(x = BPF, y = MDRS_TOTAL.CHANGE, colour=BPF)) + geom_point(alpha=1) + ggtitle(paste("MDRS_TOTAL.CHANGE", "~", "BPF"))
 
 p_pred_m36_m0 = ggplot(d, aes(x = MDRS_TOTAL, y = MDRS_TOTAL.M36_pred)) + geom_point(alpha=1, aes(colour=GROUP), position = "jitter") + 
   geom_abline(linetype="dotted") + ggtitle(paste("MDRS_TOTAL.M36", "~", "MDRS_TOTAL, R2=",round(loss_partmlm_mod["r2"][[1]],2))) +
@@ -435,16 +444,14 @@ p_change_boxplot =
 # ------------
 groups = rep(NA, length(d$GROUP))
 
-m0 = d$MDRS_TOTAL>=173
-m1 = d$MDRS_TOTAL<173 & d$LLV<394.9
-m2 = d$MDRS_TOTAL<173 & d$LLV>=394.9
+m0 = d$LLV>=1632 | (d$LLV<1632 & d$BPF<0.749)
+m1 = !m0
 
 
 groups[m0] = 0
 groups[m1] = 1 
-groups[m2] = 2
 
-groups = factor(groups, labels=c("MDRS_TOTAL>=173", "MDRS_TOTAL<173/LLV<394.9", "MDRS_TOTAL<173/LLV>=394.9"))
+groups = factor(groups, labels=c("LLV>=1632 OR (LLV<1632 AND BPF<0.749)", "others"))
 
 d$GROUP2 = groups
 
@@ -468,6 +475,8 @@ plot(rpart_mod, uniform=TRUE, main=paste("MDRS_TOTAL.CHANGE~MDRS_TOTAL+LLV+BPF")
 text(rpart_mod, use.n=TRUE, all=TRUE, cex=.8)
 print(p_true_m36_m0)
 print(p_pred_m36_m0)
+print(p_change_llv)
+print(p_change_bpf)
 print(p_change_boxplot)
 print(p_change_boxplot_simple)
 dev.off()
@@ -476,3 +485,4 @@ dev.off()
 svg(paste(OUTPUT, "rpart_MDRS_TOTAL.CHANGE.svg", sep="/"))
 print(p_change_boxplot_simple)
 dev.off()
+
