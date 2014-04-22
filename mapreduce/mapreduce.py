@@ -81,21 +81,22 @@ def _build_pbs_jobfiles(options):
     cmd_path = os.path.realpath(__file__)
     project_name = os.path.basename(os.path.dirname(options.config))
     job_dir = os.path.dirname(options.config)
-    for nb in xrange(options.pbs_njob):
-        params = dict()
-        params['job_name'] = '%s_%.2i' % (project_name, nb)
-        params['ppn'] = options.ncore
-        params['job_dir'] = job_dir
-        params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
-        params['queue'] = options.pbs_queue
-        qsub = job_template_pbs % params
-        job_filename = os.path.join(job_dir, 'job_%.2i.pbs' % nb)
-        with open(job_filename, 'wb') as f:
-            f.write(qsub)
-        os.chmod(job_filename, 0777)
+    #for nb in xrange(options.pbs_njob):
+    params = dict()
+    params['job_name'] = '%s' % project_name
+    params['ppn'] = options.ncore
+    params['job_dir'] = job_dir
+    params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
+    params['queue'] = options.pbs_queue
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(job_dir, 'job.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
     run_all = os.path.join(job_dir, 'jobs_all.sh')
     with open(run_all, 'wb') as f:
-        f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
+        f.write('for i in `seq 1 %i`; do echo $i do qsub $f ; done' % options.pbs_njob)
+        #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
     os.chmod(run_all, 0777)
     sync_push = os.path.join(job_dir, 'sync_push.sh')
     with open(sync_push, 'wb') as f:
@@ -378,7 +379,7 @@ if __name__ == "__main__":
                     resample = [resample]
                 #DATA X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
             if resample:
-                GLOBAL.DATA = {k:[dat_orig[k][idx, :]  for idx in resample] for k in dat_orig}
+                GLOBAL.DATA = {k:[dat_orig[k][idx, ...]  for idx in resample] for k in dat_orig}
             else: # If not resample create {X:[Xtr, ytr], y:[Xte, yte]}
                 # where Xtr == Xte and ytr == yte
                 GLOBAL.DATA = {k:[dat_orig[k]  for i in xrange(2)] for k in dat_orig}

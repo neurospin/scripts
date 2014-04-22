@@ -58,18 +58,18 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    #BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
-    BASE = "/neurospin/tmp/brainomics/testenettv"
-    INPUT_DATA_X = os.path.join(BASE, 'X_intercept.npy')
-    INPUT_DATA_y = os.path.join(BASE, 'y.npy')
-    #INPUT_MASK_PATH = os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii")
-    INPUT_MASK_PATH = os.path.join(BASE, "mask.nii")
+    BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
+    #BASE = "/neurospin/tmp/brainomics/testenettv"
+    WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
+    INPUT_DATA_X = os.path.join(WD, 'X_intercept.npy')
+    INPUT_DATA_y = os.path.join(WD, 'y.npy')
+    INPUT_MASK_PATH = os.path.join(WD, "mask.nii")
     NFOLDS = 5
-    OUTPUT = os.path.join(BASE, 'logistictvenet_intercept_5cv')
+    OUTPUT = os.path.join(WD, 'logistictvenet_intercept_5cv')
     if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
 
     #############################################################################
-    ## Create dataset
+    ## Create dataset on /neurospin/tmp/brainomics
     ## ADD Intercept
     if False:
         X = np.load(os.path.join(BASE, 'X.npy'))
@@ -78,6 +78,14 @@ if __name__ == "__main__":
         np.save(os.path.join(BASE, 'X_intercept.npy'), X_inter)
         X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
         np.all(X_inter[:, 1:] == X)
+        if not os.path.exists(WD): os.makedirs(WD)
+        import shutil
+        shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
+        shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
+        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
+        os.path.join(WD, "mask.nii"))
+        # sync data to gabriel
+        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
         # True
 
     #############################################################################
@@ -93,7 +101,7 @@ if __name__ == "__main__":
     l2l1tv = np.concatenate(l2l1tv)
     alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
     # reduced parameters list
-    alphal2l1tv = alphal2l1tv[10:12, :]
+    #alphal2l1tv = alphal2l1tv[10:12, :]
     params = [params.tolist() for params in alphal2l1tv]
     # User map/reduce function file:
     try:
@@ -109,14 +117,14 @@ if __name__ == "__main__":
                   structure=INPUT_MASK_PATH,
                   map_output=os.path.join(OUTPUT, "results"),
                   user_func=user_func_filename,
-                  ncore=2,
+                  ncore=12,
                   reduce_input=os.path.join(OUTPUT, "results/*/*"),
                   reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"))
     json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
 
     #############################################################################
-    print "# Run Locally:"
-    print "mapreduce.py --mode map --config %s/config.json" % OUTPUT
+    print "# Start by running Locally with 2 cores, to check that everything os OK)"
+    print "mapreduce.py --mode map --config %s/config.json --ncore 2" % OUTPUT
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     
     #############################################################################
