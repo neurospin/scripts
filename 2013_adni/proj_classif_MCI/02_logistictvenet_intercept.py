@@ -58,7 +58,7 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
+    BASE = "/neurospin/brainomics/2013_adni/proj_classif_MCI"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     INPUT_DATA_X = os.path.join(WD, 'X_intercept.npy')
@@ -82,11 +82,10 @@ if __name__ == "__main__":
         import shutil
         shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
         shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
-        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
-        reduce_output=os.path.join(OUTPUT, "results.csv"),
+        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_MCI", "mask.nii"),
         os.path.join(WD, "mask.nii"))
         # sync data to gabriel
-        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
+        os.system('rsync -azvu %s gabriel.intra.cea.fr:%s/' % (WD, os.path.dirname(WD)))
         # True
 
     #############################################################################
@@ -101,15 +100,13 @@ if __name__ == "__main__":
     l2l1tv.append(np.array([[0., 0., 1.]]))
     l2l1tv = np.concatenate(l2l1tv)
     alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
-    # reduced parameters list
-    #alphal2l1tv = alphal2l1tv[10:12, :]
     params = [params.tolist() for params in alphal2l1tv]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_AD-CTL", 
+        "git", "scripts", "2013_adni", "proj_classif_MCI", 
         "02_logistictvenet_intercept.py")
         print "USE", user_func_filename
 
@@ -120,7 +117,8 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   ncore=12,
                   reduce_input=os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"))
+                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"),
+                  reduce_output=os.path.join(OUTPUT, "results.csv"))
     json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
 
     #############################################################################

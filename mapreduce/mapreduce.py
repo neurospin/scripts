@@ -95,7 +95,7 @@ def _build_pbs_jobfiles(options):
     os.chmod(job_filename, 0777)
     run_all = os.path.join(job_dir, 'jobs_all.sh')
     with open(run_all, 'wb') as f:
-        f.write('for i in `seq 1 %i`; do echo $i do qsub $f ; done' % options.pbs_njob)
+        f.write('for i in `seq 1 %i`; do qsub job.pbs ; done' % options.pbs_njob)
         #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
     os.chmod(run_all, 0777)
     sync_push = os.path.join(job_dir, 'sync_push.sh')
@@ -113,9 +113,15 @@ def _build_pbs_jobfiles(options):
     print "# 2) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr "cd %s ; bash"' % os.path.dirname(options.config)
     print "# 3) Run the jobs"
+    print "# 4) Run one Job to test"
+    print "qsub -I"
+    print "cd %s" % s
+    print "./job.pbs"
+    print "# Interrupt afetr a while CTL-C"
+    print "exit"
     print run_all
     print "exit"
-    print "# 4) Pull your file from gabriel, run"
+    print "# 5) Pull your file from gabriel, run"
     print sync_pull
 
 def _makedirs_safe(path):
