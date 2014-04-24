@@ -10,15 +10,15 @@ import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
-import parsimony.functions.nesterov.tv as tv
+from parsimony.estimators import LogisticRegressionL1L2TV
+import parsimony.functions.nesterov.tv as tv_helper
 
 ##############################################################################
 ## User map/reduce functions
 def A_from_structure(structure_filepath):
     # Input: structure_filepath. Output: A, structure
     STRUCTURE = nibabel.load(structure_filepath)
-    A, _ = tv.A_from_mask(STRUCTURE.get_data())
+    A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     return A, STRUCTURE
 
 def mapper(key, output_collector):
@@ -26,29 +26,27 @@ def mapper(key, output_collector):
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
-    alpha, ratio_k, ratio_l, ratio_g = key
-    k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = RidgeLogisticRegression_L1_TV(k, l, g, GLOBAL.A, penalty_start=1, 
-                                        class_weight="auto")
+    alpha, ratio_l2, ratio_l1, ratio_tv = key
+    # class_weight="auto" unbiased
+    class_weight = {0:0.4, 1:0.6}  #biased
+    l2, l1, tv = alpha *  np.array((ratio_l2, ratio_l1, ratio_tv))
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
+                                        class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["X"][1])
-    print "Time :",key,
-    structure_data = GLOBAL.STRUCTURE.get_data() != 0
-    arr = np.zeros(structure_data.shape)
-    arr[structure_data] = mod.beta.ravel()[1:]
-    beta3d = nibabel.Nifti1Image(arr, affine=GLOBAL.STRUCTURE.get_affine())
-    ret = dict(model=mod, y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta3d=beta3d)
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta=mod.beta)
     output_collector.collect(key, ret)
 
 def reducer(key, values):
     # key : string of intermediary key
-    # values: list of dict. list of all the values associated with intermediary key.
+    # load return dict correspondning to mapper ouput. they need to be loaded.
+    values = [item.load("*.npy") for item in values]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
+    n_ite = None
     scores = dict(key=key,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
@@ -91,6 +89,12 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
+    from parsimony.utils.classif_label import class_weight_to_sample_weight
+    w0 = class_weight_to_sample_weight("auto", y)
+    print "UNBIASED sum of weigths", np.array([np.sum(w0[y==l]) for l in np.unique(y)]) / y.shape[0]
+    w1 = class_weight_to_sample_weight({0:0.4, 1:0.6}, y)
+    print "BIASED sum of weigths", np.array([np.sum(w1[y==l]) for l in np.unique(y)]) / y.shape[0]
+    
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
     tv_range = np.arange(0, 1., .1)
@@ -123,6 +127,7 @@ if __name__ == "__main__":
 
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
+    print "Interrupt after a while CTL-C"
     print "mapreduce.py --mode map --config %s/config.json --ncore 2" % OUTPUT
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     

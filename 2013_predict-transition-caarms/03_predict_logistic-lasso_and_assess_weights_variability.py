@@ -11,7 +11,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from sklearn.metrics import roc_curve, auc
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
+from parsimony.estimators import LogisticRegressionL1L2TV
 
 #from sklearn import cross_validation
 from sklearn.metrics import precision_recall_fscore_support
@@ -104,7 +104,7 @@ if MODE == "model_selection":
         for alpha in ALPHAS:
             for l1_ratio in L1_RATIOS:
                 k, l, g = alpha * np.array([1-l1_ratio, l1_ratio, 0])
-                mod = RidgeLogisticRegression_L1_TV(k=k, l=l, g=g, A=A,
+                mod = LogisticRegressionL1L2TV(k=k, l=l, g=g, A=A,
                                                     penalty_start=1,
                                                     class_weight="auto")
                 mod.fit(Xtr, ytr)
@@ -147,7 +147,7 @@ if MODE == "cv":
         yte = y[test, :]
         print "fold",fold
         k, l, g = ALPHA * np.array([1-L1_RATIO, L1_RATIO, 0])
-        mod = RidgeLogisticRegression_L1_TV(k=k, l=l, g=g, A=A,
+        mod = LogisticRegressionL1L2TV(k=k, l=l, g=g, A=A,
                                             penalty_start=1,
                                             class_weight="auto")
         mod.fit(Xtr, ytr)
@@ -181,7 +181,7 @@ if MODE == "cv":
 ############################################################################
 if MODE == "permutations":
     k, l, g = ALPHA * np.array([1 - L1_RATIO, L1_RATIO, 0])
-    mod = RidgeLogisticRegression_L1_TV(k=k, l=l, g=g, A=A,
+    mod = LogisticRegressionL1L2TV(k=k, l=l, g=g, A=A,
                                                     penalty_start=1,
                                                     class_weight="auto")
     

@@ -6,7 +6,7 @@ from sklearn.cross_validation import StratifiedKFold
 from  parsimony import datasets
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
+from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv
 
 ##############################################################################
@@ -24,7 +24,7 @@ def mapper(key, output_collector):
     # key: list of parameters
     alpha, ratio_k, ratio_l, ratio_g = key
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = RidgeLogisticRegression_L1_TV(k, l, g, GLOBAL.A, class_weight="auto")
+    mod = LogisticRegressionL1L2TV(k, l, g, GLOBAL.A, class_weight="auto")
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["X"][1])
     print "Time :",key,
@@ -37,7 +37,9 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # key : string of intermediary key
-    # values: list of dict. list of all the values associated with intermediary key.
+    # values are OutputCollerctors containing a path to the results.
+    # load return dict correspondning to mapper ouput. they need to be loaded.
+    values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]     
     y_true = np.concatenate(y_true)

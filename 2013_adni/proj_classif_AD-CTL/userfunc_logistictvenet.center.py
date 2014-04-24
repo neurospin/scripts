@@ -4,7 +4,7 @@
 import time
 import numpy as np
 import nibabel
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
+from parsimony.estimators import LogisticRegressionL1L2TV
 from parsimony.algorithms.explicit import StaticCONESTA
 from parsimony.utils import LimitedDict, Info
 import parsimony.functions.nesterov.tv as tv
@@ -56,7 +56,7 @@ def mapper(key, output_collector):
     yte = DATA["y.center"][1]
     alpha, ratio_k, ratio_l, ratio_g = key
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto",
+    mod = LogisticRegressionL1L2TV(k, l, g, A, class_weight="auto",
                                     algorithm=StaticCONESTA(info=LimitedDict(Info.num_iter, Info.t)))
     time_curr = time.time()
     mod.fit(Xtr, ytr)

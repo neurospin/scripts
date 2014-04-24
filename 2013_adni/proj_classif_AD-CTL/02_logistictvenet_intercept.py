@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from parsimony.estimators import RidgeLogisticRegression_L1_TV
+from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv
 
 ##############################################################################
@@ -28,7 +28,7 @@ def mapper(key, output_collector):
     # key: list of parameters
     alpha, ratio_k, ratio_l, ratio_g = key
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = RidgeLogisticRegression_L1_TV(k, l, g, GLOBAL.A, penalty_start=1, 
+    mod = LogisticRegressionL1L2TV(k, l, g, GLOBAL.A, penalty_start=1, 
                                         class_weight="auto")
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["X"][1])
@@ -37,25 +37,27 @@ def mapper(key, output_collector):
     arr = np.zeros(structure_data.shape)
     arr[structure_data] = mod.beta.ravel()[1:]
     beta3d = nibabel.Nifti1Image(arr, affine=GLOBAL.STRUCTURE.get_affine())
-    ret = dict(model=mod, y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta3d=beta3d)
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta3d=beta3d)
     output_collector.collect(key, ret)
 
-def reducer(key, values):
+def reducer(key, output_collectors):
     # key : string of intermediary key
-    # values: list of dict. list of all the values associated with intermediary key.
+    # load return dict correspondning to mapper ouput. they need to be loaded.
+    print "load ", output_collectors
+    values = [item.load("*.npy") for item in output_collectors]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
+    #n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
+    n_ite = None
     scores = dict(key=key,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
     return scores
-
 
 if __name__ == "__main__":
     BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
@@ -83,8 +85,7 @@ if __name__ == "__main__":
         shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
         shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
         shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
-        reduce_output=os.path.join(OUTPUT, "results.csv"),
-        os.path.join(WD, "mask.nii"))
+                        os.path.join(WD, "mask.nii"))
         # sync data to gabriel
         os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
         # True
@@ -120,7 +121,9 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   ncore=12,
                   reduce_input=os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"))
+                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"),
+                  reduce_output=os.path.join(OUTPUT, "results.csv"))
+                  
     json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
 
     #############################################################################

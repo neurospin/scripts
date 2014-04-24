@@ -17,6 +17,9 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
+    # values are OutputCollerctors containing a path to the results.
+    # load return dict correspondning to mapper ouput. they need to be loaded.
+    values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     return dict(param=key, r2=r2_score(y_true, y_pred))

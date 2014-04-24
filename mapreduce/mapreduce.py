@@ -115,7 +115,7 @@ def _build_pbs_jobfiles(options):
     print "# 3) Run the jobs"
     print "# 4) Run one Job to test"
     print "qsub -I"
-    print "cd %s" % s
+    print "cd %s" % os.path.dirname(options.config)
     print "./job.pbs"
     print "# Interrupt afetr a while CTL-C"
     print "exit"
@@ -205,18 +205,23 @@ class OutputCollector:
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
 
-    def load(self):
+    def load(self, pattern="*"):
         res = dict()
-        for arr_filename in glob.glob(os.path.join(self.output_dir, "*.npy")):
-            #print arr_filename
-            name, ext = os.path.splitext(os.path.basename(arr_filename))
-            res[name] = np.load(arr_filename)
-        for pkl_filename in glob.glob(os.path.join(self.output_dir, "*.pkl")):
-            #print pkl_filename
-            name, ext = os.path.splitext(os.path.basename(pkl_filename))
-            infile = open(pkl_filename, "r")
-            res[name] = pickle.load(infile)
-            infile.close()
+        for filename in  glob.glob(os.path.join(self.output_dir, pattern)):
+            o = None
+            try:
+                o = np.load(filename)
+            except:
+                try:
+                   o = o = pickle.load(open(filename, "r"))
+                except:
+                    try:
+                        o = nibabel.load(filename)
+                    except:
+                        pass
+            if o is not None:
+                name, ext = os.path.splitext(os.path.basename(filename))
+                res[name] = o
         return res
 
 ## Store output_collectors to do some cleaning if killed
@@ -413,6 +418,8 @@ if __name__ == "__main__":
         if not options.user_func:
             print 'Required arguments: --user_func'
             sys.exit(1)
+        #print "TOTO"
+        #sys.exit(1)
         user_func = _import_user_func(options.user_func)
         print "** REDUCE **"
         items = glob.glob(options.reduce_input)
@@ -436,8 +443,12 @@ if __name__ == "__main__":
             if len(which_group_key) != 1:
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
-            print "load", output_collector
-            groups[which_group_key[0]].append(output_collector.load())
+            #print "load", output_collector
+            #groups[which_group_key[0]].append(output_collector.load())
+            groups[which_group_key[0]].append(output_collector)
+        #print "\n\n\n"
+        #print groups['0.05_0.45_0.05_0.5']
+        #sys.exit(0)
         #print groups
         # Do the reduce
         scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]

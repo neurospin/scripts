@@ -19,12 +19,12 @@ INPUT_DATA_PATH = os.path.join(INPUT_PATH, '?.center.npy')
 #y_PATH = os.path.join(INPUT_PATH, 'y.npy')
 INPUT_MASK_PATH = os.path.join(INPUT_PATH, "SPM", "template_FinalQC_CTL_AD", "mask.nii")
 NFOLDS = 5
-CONFIG_5CV_PATH = os.path.join(INPUT_PATH, 'tv_5cv_center', 'config.json')
-JOBS_5CV_PATH = os.path.join(INPUT_PATH, 'tv_5cv_center', 'jobs.json')
+CONFIG_5CV_PATH = os.path.join(INPUT_PATH, 'logistictvenet_center_5cv', 'config.json')
+JOBS_5CV_PATH = os.path.join(INPUT_PATH, 'logistictvenet_center_5cv', 'jobs.json')
 SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif_AD-CTL")
 USER_FUNC_PATH = os.path.join(SRC_PATH, "userfunc_logistictvenet.center.py")
 
-OUTPUT_5CV = os.path.join(INPUT_PATH, 'tv_5cv_center', 'cv')
+OUTPUT_5CV = os.path.join(INPUT_PATH, 'logistictvenet_center_5cv', 'cv')
 
 #############################################################################
 ## Test on all DATA
@@ -45,7 +45,7 @@ if False:
     Xtr = DATA['X.center']
     ytr = DATA['y.center']
     
-    from parsimony.estimators import RidgeLogisticRegression_L1_TV
+    from parsimony.estimators import LogisticRegressionL1L2TV
     from parsimony.algorithms.explicit import StaticCONESTA
     from parsimony.utils import LimitedDict, Info
     
@@ -54,7 +54,7 @@ if False:
     from parsimony.utils import Info
     
     k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = RidgeLogisticRegression_L1_TV(k, l, g, A, class_weight="auto",
+    mod = LogisticRegressionL1L2TV(k, l, g, A, class_weight="auto",
                                         algorithm=StaticCONESTA(info=LimitedDict(Info.num_iter, Info.t)))
     
     mod.fit(Xtr, ytr)
@@ -98,23 +98,23 @@ o.close()
 # ------
 """
 # 1) Build jobs file ---
-mapreduce.py --mode build_job --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json
+mapreduce.py --mode build_job --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json
 
 # 2) Map ---
-mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json --core 4
+mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json --core 4
 
 # 3) Reduce ---
-mapreduce.py --mode reduce --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json --reduce_output  /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/results.csv
+mapreduce.py --mode reduce --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json --reduce_output  /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/results.csv
 
 ssh $HOST_NS_FOUAD
 cd /neurospin/brainomics/2013_adni/proj_classif_AD-CTL
 
-ssh -t $HOST_NS_DESK    /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json  --core 4
-ssh -t $HOST_NS_FOUAD   /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json  --core 4
-ssh -t $HOST_NS_DIMITRI /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json  --core 4
-ssh -t $HOST_NS_DAVIDGO /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json  --core 4
-ssh -t $HOST_NS_JI      /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/tv_5cv_center/config.json  --core 2
+ssh -t $HOST_NS_DESK    /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json  --core 4
+ssh -t $HOST_NS_FOUAD   /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json  --core 4
+ssh -t $HOST_NS_DIMITRI /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json  --core 4
+ssh -t $HOST_NS_DAVIDGO /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json  --core 4
+ssh -t $HOST_NS_JI      /home/ed203246/bin/mapreduce.py --mode map --config /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_center_5cv/config.json  --core 2
 
-ls -d tv_5cv_center/*/*_run*|while read f ; do echo rm -f $f ; done
+ls -d logistictvenet_center_5cv/*/*_run*|while read f ; do echo rm -f $f ; done
 """
 
