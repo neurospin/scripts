@@ -26,7 +26,7 @@ mapreduce.py --mode reduce --config /neurospin/tmp/brainomics/2013_adni/proj_cla
 cd /neurospin/tmp/brainomics/2013_adni/proj_classif_MCI/logistictvenet_intercept_5cv/
 
 
-find results -name model.pkl | while read f ; do rm -f $f ; done
-find results -name beta3d.nii | while read f ; do gzip $f ; done
+#find results -name model.pkl | while read f ; do rm -f $f ; done
+#find results -name beta3d.nii | while read f ; do gzip $f ; done
 #rm -rf results
 rsync -avu /neurospin/tmp/brainomics/2013_adni/proj_classif_MCI/logistictvenet_intercept_5cv /neurospin/brainomics/2013_adni/proj_classif_MCI/

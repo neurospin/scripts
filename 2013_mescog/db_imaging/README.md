@@ -1,20 +1,22 @@
-/neurospin/mescog/neuroimaging
-==============================
-
+Neuroimaging data
 - original: data received in March 2013 in Munich meeting
-- processed: processed data
 - ressources: other ressources: atlas etc.
 
-/neurospin/mescog/neuroimaging/original/munich
-==============================================
+munich
+======
 
+CAD_bioclinical_nifti
+--------------------
+CADASIL (Paris + Munich) Neuroimaging data
+
+Organisation:
 CAD_bioclinical_nifti/<subject_id>/<subject_id>-M<month>-<modality>
------------------------------------------------------
+
 month : 0 | 18 | 36
 
 modality:
 - T1: native not registred (native)
-- rT1: rT1 biolinical space "rT1"
+- rT1: T1 in biolinical space: "rT1"
 - LL: lacune map in "rT1"
 - rFLAIR: FLAIR biolinical space "rFLAIR"
 - WMH: WMH map in space "rFLAIR"
