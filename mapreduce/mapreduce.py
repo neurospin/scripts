@@ -81,21 +81,22 @@ def _build_pbs_jobfiles(options):
     cmd_path = os.path.realpath(__file__)
     project_name = os.path.basename(os.path.dirname(options.config))
     job_dir = os.path.dirname(options.config)
-    for nb in xrange(options.pbs_njob):
-        params = dict()
-        params['job_name'] = '%s_%.2i' % (project_name, nb)
-        params['ppn'] = options.ncore
-        params['job_dir'] = job_dir
-        params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
-        params['queue'] = options.pbs_queue
-        qsub = job_template_pbs % params
-        job_filename = os.path.join(job_dir, 'job_%.2i.pbs' % nb)
-        with open(job_filename, 'wb') as f:
-            f.write(qsub)
-        os.chmod(job_filename, 0777)
+    #for nb in xrange(options.pbs_njob):
+    params = dict()
+    params['job_name'] = '%s' % project_name
+    params['ppn'] = options.ncore
+    params['job_dir'] = job_dir
+    params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
+    params['queue'] = options.pbs_queue
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(job_dir, 'job.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
     run_all = os.path.join(job_dir, 'jobs_all.sh')
     with open(run_all, 'wb') as f:
-        f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
+        f.write('for i in `seq 1 %i`; do qsub job.pbs ; done' % options.pbs_njob)
+        #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
     os.chmod(run_all, 0777)
     sync_push = os.path.join(job_dir, 'sync_push.sh')
     with open(sync_push, 'wb') as f:
@@ -112,9 +113,15 @@ def _build_pbs_jobfiles(options):
     print "# 2) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr "cd %s ; bash"' % os.path.dirname(options.config)
     print "# 3) Run the jobs"
+    print "# 4) Run one Job to test"
+    print "qsub -I"
+    print "cd %s" % os.path.dirname(options.config)
+    print "./job.pbs"
+    print "# Interrupt afetr a while CTL-C"
+    print "exit"
     print run_all
     print "exit"
-    print "# 4) Pull your file from gabriel, run"
+    print "# 5) Pull your file from gabriel, run"
     print sync_pull
 
 def _makedirs_safe(path):
@@ -198,18 +205,23 @@ class OutputCollector:
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
 
-    def load(self):
+    def load(self, pattern="*"):
         res = dict()
-        for arr_filename in glob.glob(os.path.join(self.output_dir, "*.npy")):
-            #print arr_filename
-            name, ext = os.path.splitext(os.path.basename(arr_filename))
-            res[name] = np.load(arr_filename)
-        for pkl_filename in glob.glob(os.path.join(self.output_dir, "*.pkl")):
-            #print pkl_filename
-            name, ext = os.path.splitext(os.path.basename(pkl_filename))
-            infile = open(pkl_filename, "r")
-            res[name] = pickle.load(infile)
-            infile.close()
+        for filename in  glob.glob(os.path.join(self.output_dir, pattern)):
+            o = None
+            try:
+                o = np.load(filename)
+            except:
+                try:
+                   o = o = pickle.load(open(filename, "r"))
+                except:
+                    try:
+                        o = nibabel.load(filename)
+                    except:
+                        pass
+            if o is not None:
+                name, ext = os.path.splitext(os.path.basename(filename))
+                res[name] = o
         return res
 
 ## Store output_collectors to do some cleaning if killed
@@ -378,7 +390,7 @@ if __name__ == "__main__":
                     resample = [resample]
                 #DATA X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
             if resample:
-                GLOBAL.DATA = {k:[dat_orig[k][idx, :]  for idx in resample] for k in dat_orig}
+                GLOBAL.DATA = {k:[dat_orig[k][idx, ...]  for idx in resample] for k in dat_orig}
             else: # If not resample create {X:[Xtr, ytr], y:[Xte, yte]}
                 # where Xtr == Xte and ytr == yte
                 GLOBAL.DATA = {k:[dat_orig[k]  for i in xrange(2)] for k in dat_orig}
@@ -406,6 +418,8 @@ if __name__ == "__main__":
         if not options.user_func:
             print 'Required arguments: --user_func'
             sys.exit(1)
+        #print "TOTO"
+        #sys.exit(1)
         user_func = _import_user_func(options.user_func)
         print "** REDUCE **"
         items = glob.glob(options.reduce_input)
@@ -429,8 +443,12 @@ if __name__ == "__main__":
             if len(which_group_key) != 1:
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
-            print "load", output_collector
-            groups[which_group_key[0]].append(output_collector.load())
+            #print "load", output_collector
+            #groups[which_group_key[0]].append(output_collector.load())
+            groups[which_group_key[0]].append(output_collector)
+        #print "\n\n\n"
+        #print groups['0.05_0.45_0.05_0.5']
+        #sys.exit(0)
         #print groups
         # Do the reduce
         scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]

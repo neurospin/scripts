@@ -11,14 +11,14 @@ from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
 from parsimony.estimators import LogisticRegressionL1L2TV
-import parsimony.functions.nesterov.tv as tv
+import parsimony.functions.nesterov.tv as tv_helper
 
 ##############################################################################
 ## User map/reduce functions
 def A_from_structure(structure_filepath):
     # Input: structure_filepath. Output: A, structure
     STRUCTURE = nibabel.load(structure_filepath)
-    A, _ = tv.A_from_mask(STRUCTURE.get_data())
+    A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     return A, STRUCTURE
 
 def mapper(key, output_collector):
@@ -26,31 +26,26 @@ def mapper(key, output_collector):
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
-    alpha, ratio_k, ratio_l, ratio_g = key
-    k, l, g = alpha *  np.array((ratio_k, ratio_l, ratio_g))
-    mod = LogisticRegressionL1L2TV(k, l, g, GLOBAL.A, penalty_start=1, 
-                                        class_weight="auto")
+    alpha, ratio_l2, ratio_l1, ratio_tv = key
+    # class_weight="auto" unbiased
+    class_weight = {0:0.4, 1:0.6}  #biased
+    l2, l1, tv = alpha *  np.array((ratio_l2, ratio_l1, ratio_tv))
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
+                                        class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["X"][1])
-    print "Time :",key,
-    structure_data = GLOBAL.STRUCTURE.get_data() != 0
-    arr = np.zeros(structure_data.shape)
-    arr[structure_data] = mod.beta.ravel()[1:]
-    beta3d = nibabel.Nifti1Image(arr, affine=GLOBAL.STRUCTURE.get_affine())
-    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta3d=beta3d)
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta=mod.beta)
     output_collector.collect(key, ret)
 
-def reducer(key, output_collectors):
+def reducer(key, values):
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
-    print "load ", output_collectors
-    values = [item.load("*.npy") for item in output_collectors]
+    values = [item.load("*.npy") for item in values]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    #n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
     n_ite = None
     scores = dict(key=key,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
@@ -59,8 +54,9 @@ def reducer(key, output_collectors):
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
     return scores
 
+
 if __name__ == "__main__":
-    BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
+    BASE = "/neurospin/brainomics/2013_adni/proj_classif_MCI"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     INPUT_DATA_X = os.path.join(WD, 'X_intercept.npy')
@@ -84,15 +80,21 @@ if __name__ == "__main__":
         import shutil
         shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
         shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
-        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
-                        os.path.join(WD, "mask.nii"))
+        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_MCI", "mask.nii"),
+        os.path.join(WD, "mask.nii"))
         # sync data to gabriel
-        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
+        os.system('rsync -azvu %s gabriel.intra.cea.fr:%s/' % (WD, os.path.dirname(WD)))
         # True
 
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
+    from parsimony.utils.classif_label import class_weight_to_sample_weight
+    w0 = class_weight_to_sample_weight("auto", y)
+    print "UNBIASED sum of weigths", np.array([np.sum(w0[y==l]) for l in np.unique(y)]) / y.shape[0]
+    w1 = class_weight_to_sample_weight({0:0.4, 1:0.6}, y)
+    print "BIASED sum of weigths", np.array([np.sum(w1[y==l]) for l in np.unique(y)]) / y.shape[0]
+    
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
     tv_range = np.arange(0, 1., .1)
@@ -102,15 +104,13 @@ if __name__ == "__main__":
     l2l1tv.append(np.array([[0., 0., 1.]]))
     l2l1tv = np.concatenate(l2l1tv)
     alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
-    # reduced parameters list
-    #alphal2l1tv = alphal2l1tv[10:12, :]
     params = [params.tolist() for params in alphal2l1tv]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_AD-CTL", 
+        "git", "scripts", "2013_adni", "proj_classif_MCI", 
         "02_logistictvenet_intercept.py")
         print "USE", user_func_filename
 
@@ -123,11 +123,11 @@ if __name__ == "__main__":
                   reduce_input=os.path.join(OUTPUT, "results/*/*"),
                   reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"),
                   reduce_output=os.path.join(OUTPUT, "results.csv"))
-                  
     json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
 
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
+    print "Interrupt after a while CTL-C"
     print "mapreduce.py --mode map --config %s/config.json --ncore 2" % OUTPUT
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     
