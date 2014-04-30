@@ -76,13 +76,13 @@ if __name__ == "__main__":
     tv_range = np.arange(0, 1., .1)
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.5, .5, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
-    l2l1tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l2l1tv.append(np.array([[0., 0., 1.]]))
-    l2l1tv = np.concatenate(l2l1tv)
-    alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv.append(np.array([[0., 0., 1.]]))
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
     # reduced parameters list
-    alphal2l1tv = alphal2l1tv[10:12, :]
-    params = [params.tolist() for params in alphal2l1tv]
+    alphal1l2tv = alphal1l2tv[10:12, :]
+    params = [params.tolist() for params in alphal1l2tv]
     # User map/reduce function file:
     user_func_filename = os.path.abspath(__file__)
 

@@ -197,9 +197,14 @@ class OutputCollector:
             elif isinstance(value[k], nibabel.Nifti1Image):
                 value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
             else:
-                of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
-                pickle.dump(value[k], of)
-                of.close()
+                try:
+                    of = open(os.path.join(self.output_dir, k + ".json"), "w")
+                    json.dump(value[k], of)
+                    of.close()
+                except:
+                    of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
+                    pickle.dump(value[k], of)
+                    of.close()
         self.set_running(False)
 
     def __repr__(self):
@@ -213,12 +218,15 @@ class OutputCollector:
                 o = np.load(filename)
             except:
                 try:
-                   o = o = pickle.load(open(filename, "r"))
+                   o = json.load(open(filename, "r"))
                 except:
                     try:
-                        o = nibabel.load(filename)
+                       o = pickle.load(open(filename, "r"))
                     except:
-                        pass
+                        try:
+                            o = nibabel.load(filename)
+                        except:
+                            pass
             if o is not None:
                 name, ext = os.path.splitext(os.path.basename(filename))
                 res[name] = o

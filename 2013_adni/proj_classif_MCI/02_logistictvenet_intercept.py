@@ -138,15 +138,3 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --mode reduce --config %s/config.json" % OUTPUT
-
-"""
-#Misc scipts
-
-# Find number of accomplished tasks
-find /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv/results/ -name model.pkl|wc
-
-# rm run files
-find /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv/results/0/ -name "*run*" |wc
-# find run files
-find /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv/results/0/ -name "*run*" | while read f ; do rm $f ; done
-""" 

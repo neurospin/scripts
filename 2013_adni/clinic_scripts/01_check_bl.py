@@ -3,6 +3,7 @@
 Created on Mon Sep 16 14:39:00 2013
 
 @author: md238665
+Check that DX == DX.bl for line at baseline (in ADNIMERGE)  for Remy subjects
 """
 
 import os
@@ -10,7 +11,7 @@ import os
 import pandas
 
 DOC_PATH="/neurospin/cati/ADNI/ADNI_510/documents"
-INPUT_REF_FILE=os.path.join(DOC_PATH, "subjects_diagnostics_list.txt")
+INPUT_REF_FILE=os.path.join(DOC_PATH, "subjects_diagnostics_list.txt")  # Remy subjects
 
 # Read ADNI file
 CLINIC_PATH="/neurospin/brainomics/2013_adni/clinic"
@@ -24,7 +25,7 @@ adni['EXAMDATE.bl'] = pandas.to_datetime(adni['EXAMDATE.bl'])
 subject_data_index = pandas.MultiIndex.from_arrays([adni['PTID'], adni['EXAMDATE']])
 adni.index = subject_data_index
 
-# Only baseline examination
+# Keep only baseline examination where EXAMDATE == EXAMDATE.bl
 adni_bl = adni.loc[adni['EXAMDATE'] == adni['EXAMDATE.bl']]
 adni_bl.index = adni_bl['PTID']
 

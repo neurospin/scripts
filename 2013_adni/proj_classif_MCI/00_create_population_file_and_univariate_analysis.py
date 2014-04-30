@@ -13,6 +13,9 @@ subjects.
 
 We also create a CSV file for the population.
 
+Subject 510 subject 
+DX: Group.ADNI
+
 """
 
 
