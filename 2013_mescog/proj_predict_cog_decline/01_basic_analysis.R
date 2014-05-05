@@ -20,6 +20,54 @@ OUTPUT_EVOL_PLOT = paste(OUTPUT, "_descriptive_M36xM0.pdf", sep="")
 source(paste(SRC,"utils.R",sep="/"))
 
 ###############################################################################################
+## Population descriptive statistics for variables used
+################################################################################################
+db = read_db(INPUT)
+D = db$DB
+
+# Clinical variables
+db$col_clinic
+# SEX cada={1:'m', 2:'f'}
+# CADASIL: 1 = none, 2 = < 2 drinks a day ; 3 = > 2 drinks a day
+# cada={1:"current", 2:"never", 3:"former"}
+D$SEX = as.factor(D$SEX)
+D$ALCOHOL = as.factor(D$ALCOHOL)
+
+Age, years
+Male sex, n (%)
+History of hypertension, n (%)
+History of hypercholesterolemia
+n, n (%)
+Diabetes, n (%)
+Any alcohol consumption, n (%)
+
+# Disability and cognitive scores
+db$col_targets
+db$col_baselines
+
+Modified Rankin’s scale, mean,
+median, range
+Mattis dementia rating scale,
+mean, median, range
+Trail making test A, s, mean,
+median, range
+Trail making test B, s, mean,
+median, range
+
+# MRI markers
+db$col_niglob
+
+Brain parenchymal fraction,
+mean Ϯ SD, range
+Volume of white matter
+hyperintensities, mm 3 , mean,
+median, range
+Volume of lacunar lesions, mm 3 ,
+mean, median, range
+Number of cerebral microbleeds,
+mean, median, range
+
+###############################################################################################
 ## Descriptive statistics: Pairs scatter plot
 ################################################################################################
 db = read_db(INPUT)
