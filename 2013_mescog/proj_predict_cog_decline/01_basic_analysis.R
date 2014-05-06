@@ -23,15 +23,37 @@ source(paste(SRC,"utils.R",sep="/"))
 ## Population descriptive statistics for variables used
 ################################################################################################
 db = read_db(INPUT)
+#db = read_db(INPUT_NA)
 D = db$DB
+D$TMTB_TIME.CHANGE = (D$TMTB_TIME.M36 - D$TMTB_TIME)
+D$MDRS_TOTAL.CHANGE = (D$MDRS_TOTAL.M36 - D$MDRS_TOTAL)
+D$MRS.CHANGE = (D$MRS.M36 - D$MRS)
+D$MMSE.CHANGE = (D$MMSE.M36 - D$MMSE)
 
 # Clinical variables
 db$col_clinic
 # SEX cada={1:'m', 2:'f'}
+D$SEX = as.factor(sub(2, "F", sub(1, 'M', D$SEX)))
 # CADASIL: 1 = none, 2 = < 2 drinks a day ; 3 = > 2 drinks a day
+D$ALCOHOL = as.factor(sub(1, "None", sub(2, '2 drink/day', sub(3, '>2 drink/day', round(D$ALCOHOL)))))
 # cada={1:"current", 2:"never", 3:"former"}
-D$SEX = as.factor(D$SEX)
-D$ALCOHOL = as.factor(D$ALCOHOL)
+D$SMOKING = as.factor(sub(1, "Current", sub(2, "Never", sub(3, "Former", round(D$SMOKING)))))
+
+v = "SEX"
+num = NULL
+for(v in colnames(D))
+if(is.numeric(D[,v])){
+  num = rbind(num, data.frame(var=v,
+  N=sum(!is.na(D[, v])),
+  Mean=round(mean(D[, v], na.rm=TRUE),2),
+  Sd=round(sd(D[, v], na.rm=TRUE),2),
+  #median(D[, v], na.rm=TRUE),
+  min=round(min(D[, v], na.rm=TRUE),2),
+  max=round(max(D[, v], na.rm=TRUE),2)))
+}else{
+  t=table(D[,v])
+  
+}
 
 Age, years
 Male sex, n (%)

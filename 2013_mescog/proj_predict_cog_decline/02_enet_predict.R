@@ -64,7 +64,7 @@ SEEDS = 46#seq(1, 100)
 TARGETS = c("TMTB_TIME.CHANGE", "MDRS_TOTAL.CHANGE", "MRS.CHANGE", "MMSE.CHANGE")
 }
 
-NPERM = 1000
+NPERM = 1#1000
 NFOLD = 5
 length(PNZEROS) * length(ALPHAS) * length(SEEDS) * NPERM * 4 * 4
 FORGET = TRUE
@@ -73,6 +73,12 @@ SETTINGS = list("BASELINE"       = c(),
                 "BASELINE+NIGLOB"       = db$col_niglob,
                 "BASELINE+CLINIC"       = db$col_clinic,
                 "BASELINE+CLINIC+NIGLOB"= c(db$col_clinic, db$col_niglob))
+SETTINGS = list("BASELINE"       = c(),
+                "BASELINE+LLV"       = "LLV",
+                "BASELINE+BPF"       = "BPF",
+                "BASELINE+MBcount"       = "MBcount",
+                "BASELINE+LLV+BPF"       = c("LLV", "BPF"),
+                "BASELINE+LLV+BPF+MBcount"       = c("LLV", "BPF", "MBcount"))
 RESULTS_TAB = NULL
 RESULTS = list()
 
@@ -277,6 +283,7 @@ for(FOLD in 1:length(SPLITS)){
 #write.csv(paste(OUTPUT, "RESULTS_TAB__10CV.csv", sep="/"), row.names=FALSE)
 write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION,".csv", sep=""), row.names=FALSE)
 #write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_1000PERMS.csv",VALIDATION,".csv", sep=""), row.names=FALSE)
+write.csv(RESULTS_TAB, paste(OUTPUT, "/RESULTS_TAB_",VALIDATION, "LLV-BPF-MBcount.csv", sep=""), row.names=FALSE)
 
 save(RESULTS, file=paste(OUTPUT, "/RESULTS_",VALIDATION,".Rdata", sep=""))
 
@@ -359,6 +366,8 @@ print(pcv)
 dev.off()
 
 }
+
+
                         
 ## PLOT FR GE --------------------------------------------------------------------------------------------------
 if(FALSE && VALIDATION == "FR-GE"){
@@ -522,3 +531,24 @@ write.csv(ERR, paste(OUTPUT, "error_pred_M36_by_M0.csv", sep="/"), row.names=FAL
 
 
 }
+
+
+#####################################################################################################
+## FOR MARCO
+Rbest = RESULTS_TAB[RESULTS_TAB$TARGET=="TMTB_TIME.CHANGE" & RESULTS_TAB$MODEL =="GLM"  &  RESULTS_TAB$FOLD == "ALL", ]
+#Rbest = RESULTS_TAB[RESULTS_TAB$TARGET=="TMTB_TIME.CHANGE" & RESULTS_TAB$MODEL =="ENET"  &  RESULTS_TAB$FOLD == "ALL", ]
+
+Rbest$r2_te_se = Rbest$r2_te_se/10
+# Compute Rbest then
+## PLOT AVERAGE CV --------------------------------------------------------------------------------------------------
+pcv = ggplot(Rbest, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
+  geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+  geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) +
+  #  geom_point() +
+  facet_wrap(~TARGET)+ theme(legend.position="bottom", legend.direction="vertical")
+
+x11(); print(pcv)
+
+svg(paste(OUTPUT, "/RESULTS_",VALIDATION,"TMTB-CHANGE-BPF-LLV-MBcount.svg", sep=""))
+print(pcv)
+dev.off()
