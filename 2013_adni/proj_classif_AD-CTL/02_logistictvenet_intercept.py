@@ -26,9 +26,9 @@ def mapper(key, output_collector):
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
-    alpha, ratio_l2, ratio_l1, ratio_tv = key
+    alpha, ratio_l1, ratio_l2, ratio_tv = key
     class_weight="auto" # unbiased
-    l2, l1, tv = alpha *  np.array((ratio_l2, ratio_l1, ratio_tv))
+    l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
     mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
                                         class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
@@ -87,50 +87,52 @@ if __name__ == "__main__":
 
     #############################################################################
     ## Fit on all
-    #key = "0.01_0.2_0.0_0.8"
-    #key = "0.01_0.9_0.0_0.1"
-    key = "0.01_1.0_0.0_0.0"
-    OUTPUT = os.path.join(BASE, 'logistictvenet_intercept_all', key)
-    if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
-    y = np.load(INPUT_DATA_y)
-    A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
-    params = np.array([float(p) for p in key.split("_")])
-    l2, l1, tv = params[0] * params[1:]
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1, 
-                                   class_weight="auto")
-    %time mod.fit(X_inter, y)
-    #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
-    # Wall time: 1937.13 s / 2042.58 s
-    y_pred = mod.predict(X_inter)
-    p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
-    n_ite = mod.algorithm.num_iter
-    scores = dict(
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
-               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
-    beta3d = np.zeros(STRUCTURE.get_data().shape)
-    beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
-    out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
-    ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = OutputCollector(OUTPUT)
-    oc.collect(key=key, value=ret)
+    if False:
+        #key = "0.01_0.2_0.0_0.8"
+        #key = "0.01_0.9_0.0_0.1"
+        key = "0.01_1.0_0.0_0.0"
+        OUTPUT = os.path.join(BASE, 'logistictvenet_intercept_all', key)
+        if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+        X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
+        y = np.load(INPUT_DATA_y)
+        A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
+        params = np.array([float(p) for p in key.split("_")])
+        l2, l1, tv = params[0] * params[1:]
+        mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1, 
+                                       class_weight="auto")
+        mod.fit(X_inter, y)
+        #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
+        # Wall time: 1937.13 s / 2042.58 s
+        y_pred = mod.predict(X_inter)
+        p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
+        n_ite = mod.algorithm.num_iter
+        scores = dict(
+                   recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+                   precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+                   f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+                   support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
+        beta3d = np.zeros(STRUCTURE.get_data().shape)
+        beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
+        out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
+        ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
+        # run /home/ed203246/bin/mapreduce.py
+        oc = OutputCollector(OUTPUT)
+        oc.collect(key=key, value=ret)
 
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
+    # Re-run with 
     tv_range = np.arange(0, 1., .1)
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.5, .5, 1]])
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.01, .99, 1], [.5, .5, 1]])    
     alphas = [.01, .05, .1 , .5, 1.]
-    l2l1tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l2l1tv.append(np.array([[0., 0., 1.]]))
-    l2l1tv = np.concatenate(l2l1tv)
-    alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
-    params = [params.tolist() for params in alphal2l1tv]
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv.append(np.array([[0., 0., 1.]]))
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    params = [params.tolist() for params in alphal1l2tv]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
