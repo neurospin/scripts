@@ -10,118 +10,80 @@ Similarly read group and dump it.
 Data are then centered. The mean is computed on the whole dataset.
 
 """
-
-# TODO: Images?
-
+#Mask stem from
+# proj_classif_AD-CTL_v2014-04/SPM/template_FinalQC_CTL_AD/mask.nii
 import os
-import glob
-
 import numpy as np
+import glob
 import pandas as pd
-
-import sklearn.preprocessing as sklp
-
 import nibabel
+#import proj_classif_config
+GROUP_MAP = {'CTL': 0, 'AD': 1}
+GENDER_MAP = {'Female': 0, 'Male': 1}
 
-import proj_classif_config
-
-BASE_PATH = proj_classif_config.BASE_PATH
-PROJ_PATH = proj_classif_config.PROJ_PATH
-
-INPUT_CLINIC_FILE = os.path.join(PROJ_PATH,
-                                 "population.csv")
-#INPUT_GROUPS = ['control', 'AD']
-
-INPUT_TEMPLATE_PATH = os.path.join(BASE_PATH,
+BASE_PATH = "/neurospin/brainomics/2013_adni"
+#INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_baseline.csv")
+INPUT_SUBJECTS_LIST_FILENAME = os.path.join(BASE_PATH,
                                    "templates",
-                                   "template_FinalQC")
-INPUT_IMAGE_PATH = os.path.join(INPUT_TEMPLATE_PATH,
-                                "registered_images")
-INPUT_IMAGEFILE_FORMAT = os.path.join(INPUT_IMAGE_PATH,
-                                      "mw{PTID}*_Nat_dartel_greyProba.nii")
+                                   "template_FinalQC",
+                                   "subject_list.txt")
 
-INPUT_MASK_PATH = os.path.join(PROJ_PATH,
-                               "SPM",
-                               "template_FinalQC_CTL_AD")
-INPUT_MASK = os.path.join(INPUT_MASK_PATH,
-                          "mask.nii")
+INPUT_IMAGEFILE_FORMAT = os.path.join(BASE_PATH,
+                                   "templates",
+                                   "template_FinalQC",
+                                   "registered_images",
+                                    "mw{PTID}*_Nat_dartel_greyProba.nii")
 
-OUTPUT_PATH = PROJ_PATH
-if not os.path.exists(OUTPUT_PATH):
-    os.makedirs(OUTPUT_PATH)
-OUTPUT_X_FILE = os.path.join(OUTPUT_PATH, "X.npy")
-OUTPUT_MEAN_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.nii")
-OUTPUT_MEAN_MASKED_IMAGE = os.path.join(OUTPUT_PATH, "X_mean.masked.nii")
-OUTPUT_Y_FILE = os.path.join(OUTPUT_PATH, "y.npy")
-# Train & test indices
-OUTPUT_TRAIN_INDICES_FILE = os.path.join(OUTPUT_PATH, "train_indices.npy")
-OUTPUT_TEST_INDICES_FILE = os.path.join(OUTPUT_PATH, "test_indices.npy")
-# Centered data
-OUTPUT_X_MEAN_FILE = os.path.join(OUTPUT_PATH, "X.mean.npy")
-OUTPUT_X_CENTER_FILE = os.path.join(OUTPUT_PATH, "X.center.npy")
+INPUT_CSV = os.path.join(BASE_PATH, "proj_classif_AD-CTL", "population.csv")
+INPUT_MASK = os.path.join(BASE_PATH, "proj_classif_AD-CTL", "mask.nii")
+OUTPUT_X = os.path.join(BASE_PATH, "proj_classif_AD-CTL", "X.npy")
+OUTPUT_y = os.path.join(BASE_PATH, "proj_classif_AD-CTL", "y.npy")
 
+# Read input subjects
+input_subjects = pd.read_table(INPUT_SUBJECTS_LIST_FILENAME, sep=" ",
+                               header=None)
+input_subjects = [x[:10] for x in input_subjects[1]]
 
-# Read clinic data
-pop = pd.read_csv(INPUT_CLINIC_FILE,
-                  index_col=0)
+# Read pop csv
+pop = pd.read_csv(INPUT_CSV)
+pop['PTGENDER.num'] = pop["PTGENDER"].map(GENDER_MAP)
+
 n = len(pop)
-print "Found", n, "subjects"
-
 # Open mask
 babel_mask = nibabel.load(INPUT_MASK)
 mask = babel_mask.get_data() != 0
 p = np.count_nonzero(mask)
 print "Mask: {n} voxels".format(n=p)
+#Mask: 311341 voxels
 
-# Load images & compute an average image (without mask)
-print "Loading images"
-X = np.zeros((n, p))
-mean_image_data = np.zeros(mask.shape)
-for i, PTID in enumerate(pop.index):
+X = np.zeros((n, 3 + p)) # Intercept + Age + Gender + 311341 voxels
+X[:, 0] = 1 # Intercept
+y = np.zeros((n, 1)) # DX
+
+for i, PTID in enumerate(pop['PTID']):
+    #i, PTID = 0, '011_S_0002'
     #bv_group = m18_clinic_qc['Group.BV'].loc[PTID]
     #adni_group = m18_clinic_qc['Group.ADNI'].loc[PTID]
-    print "Subject #{i} {PTID}, group {group}, {sample}".format(i=i,
-                                                                PTID=PTID,
-                                                                group=pop['Group.num'].loc[PTID],
-                                                                sample=pop['Sample'].loc[PTID])
+    cur = pop[pop.PTID == PTID]
+    print cur
     imagefile_pattern = INPUT_IMAGEFILE_FORMAT.format(PTID=PTID)
     #print imagefile_pattern
-    imagefile_name = glob.glob(imagefile_pattern)[0]
+    imagefile_name = glob.glob(imagefile_pattern)
+    if len(imagefile_name) != 1:
+        raise ValueError("Found %i files" % len(imagefile_name))
+    imagefile_name = imagefile_name[0]
     babel_image = nibabel.load(imagefile_name)
     image_data = babel_image.get_data()
     # Apply mask (returns a flat image)
-    X[i, :] = image_data[mask]
-    # Store in mean image
-    mean_image_data += image_data
+    X[i, 1:3] = np.asarray(cur[["AGE", "PTGENDER.num"]]).ravel()
+    X[i, 3:]  = image_data[mask]
+    y[i, 0] = cur["DX.bl.num"]
 
-# Store X and y
-print "Storing data"
-np.save(OUTPUT_X_FILE, X)
-y = np.array(pop['Group.num'], dtype='float64')
-np.save(OUTPUT_Y_FILE, y)
 
-# Create mean image
-mean_image_data /= n
-mean_im = nibabel.Nifti1Image(mean_image_data, affine=babel_mask.get_affine())
-mean_im.to_filename(OUTPUT_MEAN_IMAGE)
 
-# Create average image (in mask)
-X_mean_masked = np.zeros(mask.shape)
-X_mean_masked[mask] = X.mean(axis=0)
-X_mean_masked_im = nibabel.Nifti1Image(X_mean_masked,
-                                       affine=babel_mask.get_affine())
-X_mean_masked_im.to_filename(OUTPUT_MEAN_MASKED_IMAGE)
+np.save(OUTPUT_X, X)
+fh = open(OUTPUT_X.replace("npy", "txt"), "w")
+fh.write("shape = (270, 311344): Intercept + Age + Gender + 311341 voxels")
+fh.close()
 
-# Split in train-test according to Cuingnet et al. 2010
-print "Splitting in train-test & storing"
-train_subjects = pop['Sample'] == 'training'
-test_subjects = ~train_subjects
-np.save(OUTPUT_TRAIN_INDICES_FILE, train_subjects)
-np.save(OUTPUT_TEST_INDICES_FILE, test_subjects)
-
-# Centering data
-print "Centering images & storing"
-x_scaler = sklp.StandardScaler(with_std=False)
-X_center = x_scaler.fit_transform(X)
-np.save(OUTPUT_X_CENTER_FILE, X_center)
-np.save(OUTPUT_X_MEAN_FILE, x_scaler.mean_)
+np.save(OUTPUT_y, y)
