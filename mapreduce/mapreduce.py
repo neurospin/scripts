@@ -84,20 +84,28 @@ def _build_pbs_jobfiles(options):
     #for nb in xrange(options.pbs_njob):
     params = dict()
     params['job_name'] = '%s' % project_name
-    params['ppn'] = options.ncore
+    params['ppn'] = 12
     params['job_dir'] = job_dir
     params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
-    params['queue'] = options.pbs_queue
+    params['queue'] = "Cati_LowPrio"
     qsub = job_template_pbs % params
-    job_filename = os.path.join(job_dir, 'job.pbs')
+    job_filename = os.path.join(job_dir, 'job_Cati_LowPrio.pbs')
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)
-    run_all = os.path.join(job_dir, 'jobs_all.sh')
-    with open(run_all, 'wb') as f:
-        f.write('for i in `seq 1 %i`; do qsub job.pbs ; done' % options.pbs_njob)
-        #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
-    os.chmod(run_all, 0777)
+    params['ppn'] = 8
+    params['queue'] = "Global_long"
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(job_dir, 'job_Global_long.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
+
+#    run_all = os.path.join(job_dir, 'jobs_all.sh')
+#    with open(run_all, 'wb') as f:
+#        f.write('for i in `seq 1 %i`; do qsub job.pbs ; done' % options.pbs_njob)
+#        #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
+#    os.chmod(run_all, 0777)
     sync_push = os.path.join(job_dir, 'sync_push.sh')
     with open(sync_push, 'wb') as f:
         f.write("rsync -azvu %s gabriel.intra.cea.fr:%s/" %
@@ -116,10 +124,13 @@ def _build_pbs_jobfiles(options):
     print "# 4) Run one Job to test"
     print "qsub -I"
     print "cd %s" % os.path.dirname(options.config)
-    print "./job.pbs"
+    print "./job_Cati_LowPrio.pbs"
     print "# Interrupt afetr a while CTL-C"
     print "exit"
-    print run_all
+    print "# Execute via qsub, run many time "
+    print "qsub job_Cati_LowPrio.pbs"
+    print "# or"
+    print "qsub job_Global_long.pbs"
     print "exit"
     print "# 5) Pull your file from gabriel, run"
     print sync_pull
@@ -296,12 +307,11 @@ if __name__ == "__main__":
     parser.add_argument('--reduce_output', help='Reduce output, csv file.')
 
     # PBD options --------------------------------------------------------
-    parser.add_argument('--pbs_njob', type=int,
-                        help='Build n PBS job file in the '
-                             'same directory than the config file')
-    default_pbs_queue = "Cati_LowPrio"
-    parser.add_argument('--pbs_queue',
-                        help='PBS queue (default %s)' % default_pbs_queue)
+    parser.add_argument('--pbs_job', action='store_true', default=False,
+                        help='Build n PBS job file in the for gabriel')
+#    default_pbs_queue = "Cati_LowPrio"
+#    parser.add_argument('--pbs_queue',
+#                        help='PBS queue (default %s)' % default_pbs_queue)
 
     #print sys.argv
     options = parser.parse_args()
@@ -322,8 +332,8 @@ if __name__ == "__main__":
         setattr(options, "job_file", None)
     if options.ncore is None:
         options.ncore = default_nproc
-    if options.pbs_queue is None:
-        options.pbs_queue = default_pbs_queue
+#    if options.pbs_queue is None:
+#        options.pbs_queue = default_pbs_queue
 
     # import itself to modify global variables (glob.DATA)
     sys.path.append(os.path.dirname(__file__))
@@ -338,7 +348,7 @@ if __name__ == "__main__":
     # == BUILD JOBS TABLE                                                  ==
     # =======================================================================
     # ["params", "resample", "output", "structure", "data"]
-    if options.pbs_njob:
+    if options.pbs_job:
         _build_pbs_jobfiles(options)
 
     # =======================================================================
