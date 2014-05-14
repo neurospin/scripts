@@ -1,0 +1,129 @@
+##############################################################################################################################
+#
+# Read ADNIMERGE and produce a simplefied csv file with one line per subject containing all baseline information +
+# DX.bl: DX @ baseline (==DX)
+# DX.last: last knwon DX
+# CONV_TO_MCI: CONVERTION in days to MCI from bl
+# CONV_TO_AD: CONVERTION in days to AD from bl
+#
+##############################################################################################################################
+
+baseline information and last knwon DX
+# INPUT: "ADNIMERGE_0.0.1.tar.gz"
+if(FALSE){
+install.packages("Hmisc")
+install.packages("lubridate")
+install.packages("ADNIMERGE_0.0.1.tar.gz", repos = NULL, type = "source")
+}
+
+library(lubridate)
+library(ADNIMERGE)
+
+WD = "/neurospin/brainomics/2013_adni/clinic"
+OUTPUT = paste(WD, "adnimerge_baseline.csv", sep="/")
+
+
+setwd(WD)
+# http://adni.bitbucket.org/
+length(adnimerge$PTID) # 11074
+length(unique(adnimerge$PTID)) # 1736
+
+##############################################################################################################################
+## RM NA DX
+##############################################################################################################################
+D = adnimerge
+table(adnimerge$DX)
+#  NL             MCI        Dementia       NL to MCI MCI to Dementia  NL to Dementia       MCI to NL Dementia to MCI  Dementia to NL 
+#2290            3306            1550              76             281               3              57               6               0
+
+D = D[!is.na(D$DX), ]
+levels(D$DX.bl)
+D$DX.bl = as.character(D$DX.bl)
+
+##############################################################################################################################
+## Recoding
+##############################################################################################################################
+#"CN"   "SMC"  "EMCI" "LMCI" "AD"
+# SMC: Subjective memory complaints
+# CN: cognitively normal
+# EMCI early MCI
+# LMCI late MCI
+D$DX.bl <- gsub("EMCI", "MCI", D$DX.bl)
+D$DX.bl <- gsub("LMCI", "MCI", D$DX.bl)
+# CTL = CN + SMC
+D$DX.bl <- gsub("SMC", "CTL", D$DX.bl)
+D$DX.bl <- gsub("CN", "CTL", D$DX.bl)
+unique(D$DX.bl)
+D$DX.bl = as.factor(D$DX.bl)
+table(D$DX.bl)
+#AD   CN  MCI  SMC 
+#1078 2164 4123  202
+
+levels(D$DX)
+#"NL"  "MCI" "Dementia" "NL to MCI"  "MCI to Dementia" "NL to Dementia"  "MCI to NL" "Dementia to MCI" "Dementia to NL" 
+# NL: cognitively normal subjects
+D$DX = as.character(D$DX)
+D$DX <- gsub("NL to ", "", D$DX)
+D$DX <- gsub("MCI to ", "", D$DX)
+D$DX <- gsub("Dementia to ", "", D$DX)
+D$DX <- gsub("NL", "CTL", D$DX)
+D$DX <- gsub("Dementia", "AD", D$DX)
+table(D$DX)
+
+##############################################################################################################################
+## Simplify table: one line per subject: DX.bl + DX.last + CONVERTION in days CONV_TO_MCI and CONV_TO_AD
+##############################################################################################################################
+simple = NULL
+for(id in unique(D$PTID)){
+  #id ="072_S_5207"
+  # id = unique(D$PTID)[1]
+  d = D[D$PTID == id, ]
+  if(nrow(d)>=1){
+  #cat(id)
+  last_idx = which(max(d$EXAMDATE) == d$EXAMDATE)
+  bl_idx =  which(min(d$EXAMDATE) == d$EXAMDATE)
+  ad_idx = sum(d$DX == "AD")[1]
+  #if(d$DX.bl != d[bl_idx, "DX"])cat(id)
+  tuple = data.frame(d[bl_idx, ], DX.last=d[last_idx, "DX"])
+  if(is.na(tuple$DX.bl)) tuple$DX.bl=tuple$DX
+  if(tuple$DX.bl != tuple$DX)cat(id,"\n")
+  # look for convertion
+  CONV_TO_MCI = -1
+  CONV_TO_AD = -1
+  if(length(unique(d$DX)>1)){
+    for(i in 1:nrow(d)){
+      days_since_bl = as.numeric((d$EXAMDATE[i] - d$EXAMDATE[1]))
+      # MCI that goes back to CTL: reset
+      if((CONV_TO_MCI > 0) && (d$DX[i] == "CTL")) CONV_TO_MCI = -1
+      # AD that goes back to MCI: reset
+      if((CONV_TO_AD > 0) && (d$DX[i] != "AD")) CONV_TO_AD = -1
+      if((CONV_TO_MCI < 0) && (d$DX[i] == "MCI")) CONV_TO_MCI = days_since_bl
+      if((CONV_TO_AD < 0) && (d$DX[i] == "AD")) CONV_TO_AD = days_since_bl
+    }
+  }
+  tuple$CONV_TO_MCI = CONV_TO_MCI
+  tuple$CONV_TO_AD = CONV_TO_AD
+  simple = rbind(simple, tuple)
+  }
+}
+
+# QC: remove subject where s$DX.bl != s$DX
+s = simple
+pb = s[s$DX.bl != s$DX, c("PTID", "DX.bl","DX")]
+print(pb)
+# PTID DX.bl  DX
+# 1764  021_S_0332   MCI  AD
+# 7027  094_S_2201   MCI CTL
+# 9336  100_S_4512   MCI CTL
+# 10357 003_S_4892   MCI  AD
+# Remove them
+
+simple = simple[s$DX.bl == s$DX, ]
+write.csv(simple, OUTPUT, row.names = FALSE)
+
+table(simple$DX)
+#AD CTL MCI 
+#339 520 865
+table(simple$DX.last)
+#CTL  AD MCI 
+#495 605 624 
