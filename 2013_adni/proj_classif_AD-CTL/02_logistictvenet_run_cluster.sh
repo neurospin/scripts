@@ -23,6 +23,9 @@ qsub job_Cati_LowPrio.pbs
 # or
 qsub job_Global_long.pbs
 exit
+find results -name "*_lock" | while read f ; do rm -f $f ; done
+find results -name beta.npy | while read f ; do gzip $f ; done
+
 # 5) Pull your file from gabriel, run
 /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv/sync_pull.sh
 
@@ -31,10 +34,10 @@ exit
 mapreduce.py --mode reduce --config /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv/config.json
 
 
-cd /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv
+cd /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv
 # tar gz ones
-find results -name "*_lock" | while read f ; do rm -f $f ; done
-find results -name beta3d.nii | while read f ; do gzip $f ; done
-rsync -avu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/
+
+
+rsync -avu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/
 
 cd /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv/
