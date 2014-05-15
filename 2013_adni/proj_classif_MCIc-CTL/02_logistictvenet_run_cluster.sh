@@ -23,6 +23,7 @@ qsub job_Cati_LowPrio.pbs
 # or
 qsub job_Global_long.pbs
 exit
+find results -name "*_run*" | while read f ; do rm -f $f ; done
 find results -name "*_lock" | while read f ; do rm -f $f ; done
 find results -name beta.npy | while read f ; do gzip $f ; done
 

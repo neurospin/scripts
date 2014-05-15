@@ -40,4 +40,4 @@ cd /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv
 
 rsync -avu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/
 
-cd /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_intercept_5cv/
+cd /neurospin/brainomics/2013_adni/proj_classif_AD-CTL/logistictvenet_5cv/
