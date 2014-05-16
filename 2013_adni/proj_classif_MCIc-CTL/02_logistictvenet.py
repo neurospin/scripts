@@ -127,7 +127,8 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
     # Re-run with 
-    tv_range = np.arange(0, 1., .1)
+    #tv_range = np.arange(0, 1., .1)
+    tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.01, .99, 1], [.5, .5, 1]])    
     alphas = [.01, .05, .1 , .5, 1.]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
