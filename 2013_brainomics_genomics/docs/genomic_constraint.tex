@@ -52,7 +52,18 @@ On pourrait considérer la prise en compte d'une contrainte de type fused lasso 
 \subsection{Contraintes de régions recombinantes}
 Il s'agit de rendre compte de la plus ou moins grande probabilité de recombinaison observée sur le génome. Les zones à faible probabilité pourraient être traitées avec une approche Group-TV : de la cohérence serait demandée dans de telles régions.
 
-La description des données de probabilité de recombinaison est donnée dans 
+les données deprobabilité de recombinaison (ou de distance génétique exprimée en centiMorgan ) ont été élaboré dans les projets HapMap et deCODE. Celle du projet deCODE est plus résolue mais  porte sur des individus islandais et donc ne se rapproche que de l'étnicité CEU de HapMap. On part de cette ressource néanmoins actuellement.
+
+
+\begin{figure}[!!!h]
+    \begin{center}
+        \includegraphics[width=0.9\textwidth]{{{images/recomb}}}
+        \caption{Pour le chrom22 plot de la dynamique du taux de recombinaison normalisé avec la position des snp qui sont disponibles sur la puce Ill660. On peut voir que les constructeurs essaient de densifier les SNPs sur les zones de recombinaisons. L'échelle des x est physique : 1 unité représente une position nucléotidique.}
+        \label{fig:recomb}
+    \end{center}
+\end{figure}
+
+La description des données de probabilité de recombinaison est donnée dans \cite{Kong2010}. Les données ont été déchargée et positionnées dans (neurospin brainomics bioinformaticsresources data deCODE. Dans la figure \ref{fig:recomb} un exemple est donnée pour une région de chr22 et avec les SNPs visités par la puce Illumina610.
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 \section{Travaux en cours}
@@ -89,7 +100,7 @@ Un premier résultat sur les données Websters en régression logistique avec le
 
 \begin{figure}[!!!h]
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{{{images/exampleW10}}}
+        \includegraphics[width=0.8\textwidth]{{{images/c7.go-synaptic.symbols}}}
         \caption{Résultats d'un run de rRidgeGL. }
         \label{fig:fig_group}
     \end{center}
