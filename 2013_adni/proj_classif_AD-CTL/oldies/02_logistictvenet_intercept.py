@@ -1,0 +1,168 @@
+"""
+Created on Fri Feb 21 19:15:48 2014
+
+@author:  edouard.duchesnay@cea.fr
+@license: BSD-3-Clause
+"""
+import os
+import json
+import numpy as np
+from sklearn.cross_validation import StratifiedKFold
+import nibabel
+from sklearn.metrics import precision_recall_fscore_support
+from parsimony.estimators import LogisticRegressionL1L2TV
+import parsimony.functions.nesterov.tv as tv_helper
+
+##############################################################################
+## User map/reduce functions
+def A_from_structure(structure_filepath):
+    # Input: structure_filepath. Output: A, structure
+    STRUCTURE = nibabel.load(structure_filepath)
+    A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
+    return A, STRUCTURE
+
+def mapper(key, output_collector):
+    import mapreduce  as GLOBAL # access to global variables:
+    # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
+    # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
+    # key: list of parameters
+    alpha, ratio_l1, ratio_l2, ratio_tv = key
+    class_weight="auto" # unbiased
+    l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
+                                        class_weight=class_weight)
+    mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
+    y_pred = mod.predict(GLOBAL.DATA["X"][1])
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta=mod.beta)
+    output_collector.collect(key, ret)
+
+def reducer(key, values):
+    # key : string of intermediary key
+    # load return dict correspondning to mapper ouput. they need to be loaded.
+    values = [item.load("*.npy") for item in values]
+    y_true = [item["y_true"].ravel() for item in values]
+    y_pred = [item["y_pred"].ravel() for item in values]
+    y_true = np.concatenate(y_true)
+    y_pred = np.concatenate(y_pred)
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    n_ite = None
+    scores = dict(key=key,
+               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+               support_0=s[0] , support_1=s[1], n_ite=n_ite)
+    return scores
+
+
+if __name__ == "__main__":
+    BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
+    #BASE = "/neurospin/tmp/brainomics/testenettv"
+    WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
+    INPUT_DATA_X = os.path.join(WD, 'X_intercept.npy')
+    INPUT_DATA_y = os.path.join(WD, 'y.npy')
+    INPUT_MASK_PATH = os.path.join(WD, "mask.nii")
+    NFOLDS = 5
+    OUTPUT = os.path.join(WD, 'logistictvenet_intercept_5cv')
+    if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+
+    #############################################################################
+    ## Create dataset on /neurospin/tmp/brainomics
+    ## ADD Intercept
+    if False:
+        X = np.load(os.path.join(BASE, 'X.npy'))
+        X_inter = np.hstack((np.ones((X.shape[0], 1)), X))
+        np.all(X_inter[:, 1:] == X)
+        np.save(os.path.join(BASE, 'X_intercept.npy'), X_inter)
+        X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
+        np.all(X_inter[:, 1:] == X)
+        if not os.path.exists(WD): os.makedirs(WD)
+        import shutil
+        shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
+        shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
+        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
+                        os.path.join(WD, "mask.nii"))
+        # sync data to gabriel
+        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
+        # True
+
+    #############################################################################
+    ## Fit on all
+    if False:
+        #key = "0.01_0.2_0.0_0.8"
+        #key = "0.01_0.9_0.0_0.1"
+        key = "0.01_1.0_0.0_0.0"
+        OUTPUT = os.path.join(BASE, 'logistictvenet_intercept_all', key)
+        if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+        X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
+        y = np.load(INPUT_DATA_y)
+        A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
+        params = np.array([float(p) for p in key.split("_")])
+        l2, l1, tv = params[0] * params[1:]
+        mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1, 
+                                       class_weight="auto")
+        mod.fit(X_inter, y)
+        #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
+        # Wall time: 1937.13 s / 2042.58 s
+        y_pred = mod.predict(X_inter)
+        p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
+        n_ite = mod.algorithm.num_iter
+        scores = dict(
+                   recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+                   precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+                   f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+                   support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
+        beta3d = np.zeros(STRUCTURE.get_data().shape)
+        beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
+        out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
+        ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
+        # run /home/ed203246/bin/mapreduce.py
+        oc = OutputCollector(OUTPUT)
+        oc.collect(key=key, value=ret)
+
+    #############################################################################
+    ## Create config file
+    y = np.load(INPUT_DATA_y)
+    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    # parameters grid
+    # Re-run with 
+    tv_range = np.arange(0, 1., .1)
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.01, .99, 1], [.5, .5, 1]])    
+    alphas = [.01, .05, .1 , .5, 1.]
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv.append(np.array([[0., 0., 1.]]))
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    params = [params.tolist() for params in alphal1l2tv]
+    # User map/reduce function file:
+    try:
+        user_func_filename = os.path.abspath(__file__)
+    except:
+        user_func_filename = os.path.join(os.environ["HOME"],
+        "git", "scripts", "2013_adni", "proj_classif_AD-CTL", 
+        "02_logistictvenet_intercept.py")
+        print "USE", user_func_filename
+
+    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+                  params=params, resample=cv,
+                  structure=INPUT_MASK_PATH,
+                  map_output=os.path.join(OUTPUT, "results"),
+                  user_func=user_func_filename,
+                  ncore=12,
+                  reduce_input=os.path.join(OUTPUT, "results/*/*"),
+                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"),
+                  reduce_output=os.path.join(OUTPUT, "results.csv"))
+    json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
+
+    #############################################################################
+    print "# Start by running Locally with 2 cores, to check that everything os OK)"
+    print "Interrupt after a while CTL-C"
+    print "mapreduce.py --mode map --config %s/config.json --ncore 2" % OUTPUT
+    #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
+    
+    #############################################################################
+    print "# Run on the cluster with 30 PBS Jobs"
+    print "mapreduce.py --pbs_njob 30 --config %s/config.json" % OUTPUT
+    
+    #############################################################################
+    print "# Reduce"
+    print "mapreduce.py --mode reduce --config %s/config.json" % OUTPUT

@@ -16,6 +16,7 @@ OUTPUT = sub(".csv", "", INPUT_NA)
 OUTPUT_PAIRS_SCATTER = paste(OUTPUT, "_descriptive_pairs-scatter.pdf", sep="")
 OUTPUT_EVOL = paste(OUTPUT, "_descriptive_M36=coef*M0.csv")
 OUTPUT_EVOL_PLOT = paste(OUTPUT, "_descriptive_M36xM0.pdf", sep="")
+OUTPUT_POP = paste(sub(".csv", "", INPUT), "_descriptive_population.csv", sep="")
 
 source(paste(SRC,"utils.R",sep="/"))
 
@@ -41,19 +42,28 @@ D$SMOKING = as.factor(sub(1, "Current", sub(2, "Never", sub(3, "Former", round(D
 
 v = "SEX"
 num = NULL
-for(v in colnames(D))
-if(is.numeric(D[,v])){
+cate = NULL
+d = D[, colnames(D)[!(colnames(D) %in% "ID")]]
+for(v in colnames(d))
+if(is.numeric(d[,v])){
   num = rbind(num, data.frame(var=v,
-  N=sum(!is.na(D[, v])),
-  Mean=round(mean(D[, v], na.rm=TRUE),2),
-  Sd=round(sd(D[, v], na.rm=TRUE),2),
-  #median(D[, v], na.rm=TRUE),
-  min=round(min(D[, v], na.rm=TRUE),2),
-  max=round(max(D[, v], na.rm=TRUE),2)))
+  N=sum(!is.na(d[, v])),
+  Mean=round(mean(d[, v], na.rm=TRUE),2),
+  Sd=round(sd(d[, v], na.rm=TRUE),2),
+  #median(d[, v], na.rm=TRUE),
+  min=round(min(d[, v], na.rm=TRUE),2),
+  max=round(max(d[, v], na.rm=TRUE),2)))
 }else{
-  t=table(D[,v])
-  
+  t=table(d[,v])
+  string = ""
+  for(n in names(t)) string = paste(string, n, ":", t[n], " (", round(t[n]/sum(t), 2)*100, "%), ", sep="")
+  string = sub(", $", "", string)
+  cate = rbind(cate, data.frame(var=v, "count"= string))
 }
+num
+cate
+
+write.csv(num, OUTPUT_POP, row.names=F)
 
 Age, years
 Male sex, n (%)

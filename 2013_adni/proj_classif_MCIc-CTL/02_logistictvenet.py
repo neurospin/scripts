@@ -26,10 +26,10 @@ def mapper(key, output_collector):
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
-    alpha, ratio_l2, ratio_l1, ratio_tv = key
+    alpha, ratio_l1, ratio_l2, ratio_tv = key
     class_weight="auto" # unbiased
-    l2, l1, tv = alpha *  np.array((ratio_l2, ratio_l1, ratio_tv))
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
+    l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=3, 
                                         class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["X"][1])
@@ -55,89 +55,93 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
+    BASE = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-CTL"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-    INPUT_DATA_X = os.path.join(WD, 'X_intercept.npy')
+    print "Sync data to %s/ " % os.path.dirname(WD)
+    os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
+    print "Sync data to gabriel.intra.cea.fr:%s/ " % os.path.dirname(WD)
+    os.system('rsync -azvu %s gabriel.intra.cea.fr:%s/' % (WD, os.path.dirname(WD)))
+    INPUT_DATA_X = os.path.join(WD, 'X.npy')
     INPUT_DATA_y = os.path.join(WD, 'y.npy')
     INPUT_MASK_PATH = os.path.join(WD, "mask.nii")
     NFOLDS = 5
-    OUTPUT = os.path.join(WD, 'logistictvenet_intercept_5cv')
+    OUTPUT = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
 
-    #############################################################################
-    ## Create dataset on /neurospin/tmp/brainomics
-    ## ADD Intercept
-    if False:
-        X = np.load(os.path.join(BASE, 'X.npy'))
-        X_inter = np.hstack((np.ones((X.shape[0], 1)), X))
-        np.all(X_inter[:, 1:] == X)
-        np.save(os.path.join(BASE, 'X_intercept.npy'), X_inter)
-        X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
-        np.all(X_inter[:, 1:] == X)
-        if not os.path.exists(WD): os.makedirs(WD)
-        import shutil
-        shutil.copyfile(os.path.join(BASE, 'X_intercept.npy'), os.path.join(WD, 'X_intercept.npy'))
-        shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
-        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
-                        os.path.join(WD, "mask.nii"))
-        # sync data to gabriel
-        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_AD-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
-        # True
+#    #############################################################################
+#    ## Create dataset on /neurospin/tmp/brainomics
+#    ## ADD Intercept
+#    if False:
+#        X = np.load(os.path.join(BASE, 'X.npy'))
+#        X_inter = np.hstack((np.ones((X.shape[0], 1)), X))
+#        np.all(X_inter[:, 1:] == X)
+#        np.save(os.path.join(BASE, 'X.npy'), X_inter)
+#        X_inter = np.load(os.path.join(BASE,  'X.npy'))
+#        np.all(X_inter[:, 1:] == X)
+#        if not os.path.exists(WD): os.makedirs(WD)
+#        import shutil
+#        shutil.copyfile(os.path.join(BASE, 'X.npy'), os.path.join(WD, 'X.npy'))
+#        shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
+#        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
+#                        os.path.join(WD, "mask.nii"))
+#        # sync data to gabriel
+#        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_MCIc-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
+#        # True
 
     #############################################################################
     ## Fit on all
-    #key = "0.01_0.2_0.0_0.8"
-    #key = "0.01_0.9_0.0_0.1"
-    key = "0.01_1.0_0.0_0.0"
-    OUTPUT = os.path.join(BASE, 'logistictvenet_intercept_all', key)
-    if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X_inter = np.load(os.path.join(BASE,  'X_intercept.npy'))
-    y = np.load(INPUT_DATA_y)
-    A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
-    params = np.array([float(p) for p in key.split("_")])
-    l2, l1, tv = params[0] * params[1:]
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1, 
-                                   class_weight="auto")
-    %time mod.fit(X_inter, y)
-    #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
-    # Wall time: 1937.13 s / 2042.58 s
-    y_pred = mod.predict(X_inter)
-    p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
-    n_ite = mod.algorithm.num_iter
-    scores = dict(
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
-               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
-    beta3d = np.zeros(STRUCTURE.get_data().shape)
-    beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
-    out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
-    ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = OutputCollector(OUTPUT)
-    oc.collect(key=key, value=ret)
+    if False:
+        key = "0.01_0.0_0.9_0.1"
+        OUTPUT = os.path.join(BASE, 'logistictvenet_all', key)
+        if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+        X = np.load(os.path.join(BASE,  'X.npy'))
+        y = np.load(INPUT_DATA_y)
+        A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
+        params = np.array([float(p) for p in key.split("_")])
+        l1, l2, tv = params[0] * params[1:]
+        mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=3, 
+                                       class_weight="auto")
+        mod.fit(X, y)
+        #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
+        # Wall time: 1937.13 s / 2042.58 s
+        y_pred = mod.predict(X_inter)
+        p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
+        n_ite = mod.algorithm.num_iter
+        scores = dict(
+                   recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+                   precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+                   f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+                   support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
+        beta3d = np.zeros(STRUCTURE.get_data().shape)
+        beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
+        out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
+        ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
+        # run /home/ed203246/bin/mapreduce.py
+        oc = OutputCollector(OUTPUT)
+        oc.collect(key=key, value=ret)
 
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
+    # Re-run with 
     tv_range = np.arange(0, 1., .1)
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.5, .5, 1]])
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.01, .99, 1], [.5, .5, 1]])    
     alphas = [.01, .05, .1 , .5, 1.]
-    l2l1tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l2l1tv.append(np.array([[0., 0., 1.]]))
-    l2l1tv = np.concatenate(l2l1tv)
-    alphal2l1tv = np.concatenate([np.c_[np.array([[alpha]]*l2l1tv.shape[0]), l2l1tv] for alpha in alphas])
-    params = [params.tolist() for params in alphal2l1tv]
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv.append(np.array([[0., 0., 1.]]))
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    params = [params.tolist() for params in alphal1l2tv]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_AD-CTL", 
-        "02_logistictvenet_intercept.py")
+        "git", "scripts", "2013_adni", "proj_classif_MCIc-CTL", 
+        "02_logistictvenet.py")
         print "USE", user_func_filename
 
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
