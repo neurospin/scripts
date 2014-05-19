@@ -1,6 +1,11 @@
 # Build config file
 python $HOME/git/scripts/2013_adni/proj_classif_MCIc-CTL/02_logistictvenet.py
 
+
+
+
+
+################################################################################
 # Start by running Locally with 2 cores, to check that everything os OK) Interrupt after a while CTL-C
 mapreduce.py --mode map --config /neurospin/tmp/brainomics/2013_adni/proj_classif_MCIc-CTL/logistictvenet_5cv/config.json --ncore 2
 # Run on the cluster with 30 PBS Jobs

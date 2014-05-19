@@ -21,9 +21,9 @@ import gzip
 BASE_PATH = "/neurospin/brainomics/2013_adni"
 #INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_baseline.csv")
 
-WHICH = '0.1_0.009_0.891_0.1'
+#WHICH = '0.1_0.009_0.891_0.1'
 #WHICH = '0.1_0.0_1.0_0.0'
-#WHICH = '0.1_0.0_0.9_0.1'
+WHICH = '0.1_0.0_0.9_0.1'
 
 INPUT_MASK = os.path.join(BASE_PATH, "proj_classif_MCIc-CTL", "mask.nii")
 INPUT_PATTERN = os.path.join(BASE_PATH, "proj_classif_MCIc-CTL",

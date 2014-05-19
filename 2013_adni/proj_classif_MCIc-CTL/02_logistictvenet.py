@@ -53,49 +53,84 @@ def reducer(key, values):
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
     return scores
 
+##############################################################################
+## Cluster utils
+job_template_pbs =\
+"""#!/bin/bash
+#PBS -S /bin/bash
+#PBS -N %(job_name)s
+#PBS -l nodes=1:ppn=%(ppn)s
+#PBS -l walltime=48:00:00
+#PBS -q %(queue)s
+
+%(script)s
+"""
+#PBS -d %(job_dir)s
+
+def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", cmd_path="mapreduce.py"):
+    # Build Sync pull/push utils files
+    push_str = 'rsync -azvu %s gabriel.intra.cea.fr:%s/' % (
+        os.path.dirname(WD),
+        os.path.dirname(os.path.dirname(WD_CLUSTER)))
+    sync_push_filename = os.path.join(WD, "sync_push.sh")
+    with open(sync_push_filename, 'wb') as f:
+        f.write(push_str)
+    os.chmod(sync_push_filename, 0777)
+    pull_str = 'rsync -azvu gabriel.intra.cea.fr:%s %s/' % (
+        os.path.dirname(WD_CLUSTER),
+        os.path.dirname(os.path.dirname(WD)))
+    sync_pull_filename = os.path.join(WD, "sync_pull.sh")
+    with open(sync_pull_filename, 'wb') as f:
+        f.write(pull_str)
+    os.chmod(sync_pull_filename, 0777)
+    project_name = "map"
+    # Build PBS files
+    config_filename = os.path.join(WD_CLUSTER, config_basename)
+    #job_dir = os.path.dirname(config_filename)
+    #for nb in xrange(options.pbs_njob):
+    params = dict()
+    params['job_name'] = '%s' % project_name
+    params['ppn'] = 12
+    #params['job_dir'] = job_dir
+    params['script'] = '%s --mode map --config %s --ncore %i' % (cmd_path, config_filename, params['ppn'])
+    params['queue'] = "Cati_LowPrio"
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(WD, 'job_Cati_LowPrio.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
+    params['ppn'] = 8
+    params['queue'] = "Global_long"
+    params['script'] = '%s --mode map --config %s --ncore %i' % (cmd_path, config_filename, params['ppn'])
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(WD, 'job_Global_long.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
+    return sync_push_filename, sync_pull_filename
 
 if __name__ == "__main__":
-    BASE = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-CTL"
+    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-CTL/logistictvenet_5cv"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
-    WD = BASE.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-    print "Sync data to %s/ " % os.path.dirname(WD)
-    os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    print "Sync data to gabriel.intra.cea.fr:%s/ " % os.path.dirname(WD)
-    os.system('rsync -azvu %s gabriel.intra.cea.fr:%s/' % (WD, os.path.dirname(WD)))
-    INPUT_DATA_X = os.path.join(WD, 'X.npy')
-    INPUT_DATA_y = os.path.join(WD, 'y.npy')
-    INPUT_MASK_PATH = os.path.join(WD, "mask.nii")
+    WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
+    #print "Sync data to %s/ " % os.path.dirname(WD)
+    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
+    INPUT_DATA_X = os.path.join("..", 'X.npy')
+    INPUT_DATA_y = os.path.join("..", 'y.npy')
+    INPUT_MASK_PATH = os.path.join("..", "mask.nii")
     NFOLDS = 5
-    OUTPUT = os.path.join(WD, 'logistictvenet_5cv')
-    if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-
-#    #############################################################################
-#    ## Create dataset on /neurospin/tmp/brainomics
-#    ## ADD Intercept
-#    if False:
-#        X = np.load(os.path.join(BASE, 'X.npy'))
-#        X_inter = np.hstack((np.ones((X.shape[0], 1)), X))
-#        np.all(X_inter[:, 1:] == X)
-#        np.save(os.path.join(BASE, 'X.npy'), X_inter)
-#        X_inter = np.load(os.path.join(BASE,  'X.npy'))
-#        np.all(X_inter[:, 1:] == X)
-#        if not os.path.exists(WD): os.makedirs(WD)
-#        import shutil
-#        shutil.copyfile(os.path.join(BASE, 'X.npy'), os.path.join(WD, 'X.npy'))
-#        shutil.copyfile(os.path.join(BASE, 'y.npy'), os.path.join(WD, 'y.npy'))
-#        shutil.copyfile(os.path.join(BASE, "SPM", "template_FinalQC_CTL_AD", "mask.nii"),
-#                        os.path.join(WD, "mask.nii"))
-#        # sync data to gabriel
-#        os.system('rsync -azvu /neurospin/tmp/brainomics/2013_adni/proj_classif_MCIc-CTL gabriel.intra.cea.fr:/neurospin/tmp/brainomics/2013_adni/')
-#        # True
+    #WD = os.path.join(WD, 'logistictvenet_5cv')
+    if not os.path.exists(WD): os.makedirs(WD)
+    os.chdir(WD)
 
     #############################################################################
     ## Fit on all
     if False:
+        
         key = "0.01_0.0_0.9_0.1"
-        OUTPUT = os.path.join(BASE, 'logistictvenet_all', key)
+        OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
         if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-        X = np.load(os.path.join(BASE,  'X.npy'))
+        X = np.load(os.path.join(os.path.dirname(WD),  'X.npy'))
         y = np.load(INPUT_DATA_y)
         A, STRUCTURE = A_from_structure(INPUT_MASK_PATH)
         params = np.array([float(p) for p in key.split("_")])
@@ -105,7 +140,7 @@ if __name__ == "__main__":
         mod.fit(X, y)
         #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
         # Wall time: 1937.13 s / 2042.58 s
-        y_pred = mod.predict(X_inter)
+        y_pred = mod.predict(X)
         p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
         n_ite = mod.algorithm.num_iter
         scores = dict(
@@ -127,9 +162,9 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
     # Re-run with 
-    #tv_range = np.arange(0, 1., .1)
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.1, .9, 1], [.9, .1, 1], [.01, .99, 1], [.5, .5, 1]])    
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
+                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])    
     alphas = [.01, .05, .1 , .5, 1.]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
@@ -144,28 +179,43 @@ if __name__ == "__main__":
         "git", "scripts", "2013_adni", "proj_classif_MCIc-CTL", 
         "02_logistictvenet.py")
         print "USE", user_func_filename
-
+    # Use relative path from config.json    
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
-                  map_output=os.path.join(OUTPUT, "results"),
+                  map_output="results",#os.path.join(OUTPUT, "results"),
                   user_func=user_func_filename,
                   ncore=12,
-                  reduce_input=os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by=os.path.join(OUTPUT, "results/.*/(.*)"),
-                  reduce_output=os.path.join(OUTPUT, "results.csv"))
-    json.dump(config, open(os.path.join(OUTPUT, "config.json"), "w"))
+                  reduce_input="results/*/*", #os.path.join(OUTPUT, "results/*/*"),
+                  reduce_group_by="results/.*/(.*)",#os.path.join(OUTPUT, "results/.*/(.*)"),
+                  reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
+    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
+    
+    #############################################################################
+    # Build utils files: sync (push/pull) and PBS
+    sync_push_filename, sync_pull_filename = utils_sync_jobs(WD, WD_CLUSTER)
+    #############################################################################
+    # Sync to cluster
+    print "Sync data to gabriel.intra.cea.fr:%s/ " % os.path.dirname(WD)
+    os.system(sync_push_filename)
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py --mode map --config %s/config.json --ncore 2" % OUTPUT
+    print "mapreduce.py --mode map --config %s/config.json --ncore 2" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
-    
-    #############################################################################
-    print "# Run on the cluster with 30 PBS Jobs"
-    print "mapreduce.py --pbs_njob 30 --config %s/config.json" % OUTPUT
-    
+    print "# 1) Log on gabriel:"
+    print 'ssh -t gabriel.intra.cea.fr'
+    print "# 2) Run one Job to test"
+    print "qsub -I"
+    print "cd %s" % WD_CLUSTER
+    print "./job_Global_long.pbs"
+    print "# 3) Run on cluster"
+    print "qsub job_Global_long.pbs"
+    print "# 4) Log out and pull Pull"
+    print "exit"
+    print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --mode reduce --config %s/config.json" % OUTPUT
+    print "mapreduce.py --mode reduce --config %s/config.json" % WD
+    
