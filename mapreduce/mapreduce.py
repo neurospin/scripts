@@ -65,76 +65,6 @@ def _build_job_table(options):
             for params in params_list]
     return jobs
 
-job_template_pbs =\
-"""#!/bin/bash
-#PBS -S /bin/bash
-#PBS -N %(job_name)s
-#PBS -l nodes=1:ppn=%(ppn)s
-#PBS -l walltime=48:00:00
-#PBS -d %(job_dir)s
-#PBS -q %(queue)s
-
-%(script)s
-"""
-
-def _build_pbs_jobfiles(options):
-    cmd_path = os.path.realpath(__file__)
-    project_name = os.path.basename(os.path.dirname(options.config))
-    job_dir = os.path.dirname(options.config)
-    #for nb in xrange(options.pbs_njob):
-    params = dict()
-    params['job_name'] = '%s' % project_name
-    params['ppn'] = 12
-    params['job_dir'] = job_dir
-    params['script'] = '%s --mode map --config %s' % (cmd_path, options.config)
-    params['queue'] = "Cati_LowPrio"
-    qsub = job_template_pbs % params
-    job_filename = os.path.join(job_dir, 'job_Cati_LowPrio.pbs')
-    with open(job_filename, 'wb') as f:
-        f.write(qsub)
-    os.chmod(job_filename, 0777)
-    params['ppn'] = 8
-    params['queue'] = "Global_long"
-    qsub = job_template_pbs % params
-    job_filename = os.path.join(job_dir, 'job_Global_long.pbs')
-    with open(job_filename, 'wb') as f:
-        f.write(qsub)
-    os.chmod(job_filename, 0777)
-
-#    run_all = os.path.join(job_dir, 'jobs_all.sh')
-#    with open(run_all, 'wb') as f:
-#        f.write('for i in `seq 1 %i`; do qsub job.pbs ; done' % options.pbs_njob)
-#        #f.write("ls %s/job_*.pbs|while read f ; do qsub $f ; done" % job_dir)
-#    os.chmod(run_all, 0777)
-    sync_push = os.path.join(job_dir, 'sync_push.sh')
-    with open(sync_push, 'wb') as f:
-        f.write("rsync -azvu %s gabriel.intra.cea.fr:%s/" %
-        (os.path.dirname(options.config), os.path.dirname(os.path.dirname(options.config))))
-    os.chmod(sync_push, 0777)
-    sync_pull = os.path.join(job_dir, 'sync_pull.sh')
-    with open(sync_pull, 'wb') as f:
-        f.write("rsync -azvu gabriel.intra.cea.fr:%s %s/" %
-        (os.path.dirname(options.config), os.path.dirname(os.path.dirname(options.config))))
-    os.chmod(sync_pull, 0777)
-    print "# 1) Push your file to gabriel, run:"
-    print sync_push
-    print "# 2) Log on gabriel:"
-    print 'ssh -t gabriel.intra.cea.fr "cd %s ; bash"' % os.path.dirname(options.config)
-    print "# 3) Run the jobs"
-    print "# 4) Run one Job to test"
-    print "qsub -I"
-    print "cd %s" % os.path.dirname(options.config)
-    print "./job_Cati_LowPrio.pbs"
-    print "# Interrupt afetr a while CTL-C"
-    print "exit"
-    print "# Execute via qsub, run many time "
-    print "qsub job_Cati_LowPrio.pbs"
-    print "# or"
-    print "qsub job_Global_long.pbs"
-    print "exit"
-    print "# 5) Pull your file from gabriel, run"
-    print sync_pull
-
 def _makedirs_safe(path):
     try:
         os.makedirs(path)
@@ -306,9 +236,9 @@ if __name__ == "__main__":
                         help='Regular expression to match the grouping key. Example: MAP_OUTPUT/.*/(.*)  will group by parameters. While (MAP_OUTPUT/.*)/.* will match by resample.')
     parser.add_argument('--reduce_output', help='Reduce output, csv file.')
 
-    # PBD options --------------------------------------------------------
-    parser.add_argument('--pbs_job', action='store_true', default=False,
-                        help='Build n PBS job file in the for gabriel')
+#    # PBD options --------------------------------------------------------
+#    parser.add_argument('--pbs_job', action='store_true', default=False,
+#                        help='Build n PBS job file in the for gabriel')
 #    default_pbs_queue = "Cati_LowPrio"
 #    parser.add_argument('--pbs_queue',
 #                        help='PBS queue (default %s)' % default_pbs_queue)
@@ -320,6 +250,8 @@ if __name__ == "__main__":
         print 'Required arguments --config'
         sys.exit(1)
     config = json.load(open(options.config))
+    # set WD to be the dir on config file, this way all path can be relative
+    os.chdir(os.path.dirname(options.config))
     for k in config:
         if not hasattr(options, k) or getattr(options, k) is None:
             setattr(options, k, config[k])
@@ -348,8 +280,8 @@ if __name__ == "__main__":
     # == BUILD JOBS TABLE                                                  ==
     # =======================================================================
     # ["params", "resample", "output", "structure", "data"]
-    if options.pbs_job:
-        _build_pbs_jobfiles(options)
+#    if options.pbs_job:
+#        _build_pbs_jobfiles(options)
 
     # =======================================================================
     # == MAP                                                               ==
