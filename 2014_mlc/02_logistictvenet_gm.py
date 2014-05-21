@@ -31,8 +31,8 @@ def mapper(key, output_collector):
     l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
     mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=3, 
                                         class_weight=class_weight)
-    mod.fit(GLOBAL.DATA["GMtrain"][0], GLOBAL.DATA["ytrain"][0])
-    y_pred = mod.predict(GLOBAL.DATA["GMtrain"][1])
+    mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
+    y_pred = mod.predict(GLOBAL.DATA["x"][1])
     ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["ytrain"][1], beta=mod.beta)
     output_collector.collect(key, ret)
 
