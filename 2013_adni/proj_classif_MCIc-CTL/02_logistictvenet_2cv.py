@@ -111,7 +111,7 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
     return sync_push_filename, sync_pull_filename
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc/logistictvenet_5cv"
+    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-CTL/logistictvenet_2cv"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -119,76 +119,39 @@ if __name__ == "__main__":
     INPUT_DATA_X = os.path.join("..", 'X.npy')
     INPUT_DATA_y = os.path.join("..", 'y.npy')
     INPUT_MASK_PATH = os.path.join("..", "mask.nii")
-    NFOLDS = 5
+    NFOLDS = 2
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
     os.chdir(WD)
 
     #############################################################################
-    ## Fit on all
-    if False:
-        key = '0.01_0.001_0.999_0.0'
-        OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-        if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-        X = np.load(os.path.join(os.path.dirname(WD),  'X.npy'))
-        y = np.load(os.path.join(os.path.dirname(WD),  'y.npy'))
-        A, STRUCTURE = A_from_structure(os.path.join(os.path.dirname(WD),  "mask.nii"))
-        params = np.array([float(p) for p in key.split("_")])
-        l1, l2, tv = params[0] * params[1:]
-        mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=3, 
-                                       class_weight="auto")
-        mod.fit(X, y)
-        #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
-        # Wall time: 1937.13 s / 2042.58 s
-        y_pred = mod.predict(X)
-        p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
-        n_ite = mod.algorithm.num_iter
-        scores = dict(
-                   recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
-                   precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-                   f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-                   support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
-        beta3d = np.zeros(STRUCTURE.get_data().shape)
-        beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
-        out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
-        ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
-        # run /home/ed203246/bin/mapreduce.py
-        oc = OutputCollector(OUTPUT)
-        oc.collect(key=key, value=ret)
-
-    #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
-    # parameters grid
-    # Re-run with 
-    tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])    
-    alphas = [.01, .05, .1 , .5, 1.]
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv.append(np.array([[0., 0., 1.]]))
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-    params = [params.tolist() for params in alphal1l2tv]
+    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
+    params = \
+    [[0.01, 0.0, 0.999, 0.001],
+    [0.01,  0.000999, 0.998001, 0.001],
+    [0.01,  0.0, 1.0, 0.0],
+    [0.01,  0.001, 0.999, 0.0]]
+
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_MCIc-MCInc", 
-        "02_logistictvenet.py")
-        print "USE", user_func_filename
+        "git", "scripts", "2013_adni", "proj_classif_MCIc-CTL", 
+        "02_logistictvenet_2cv.py")
+    print "USE", user_func_filename
     # Use relative path from config.json    
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
-                  map_output="results",#os.path.join(OUTPUT, "results"),
+                  map_output="results",
                   user_func=user_func_filename,
                   ncore=12,
-                  reduce_input="results/*/*", #os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by="results/.*/(.*)",#os.path.join(OUTPUT, "results/.*/(.*)"),
-                  reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
+                  reduce_input="results/*/*",
+                  reduce_group_by="results/.*/(.*)",
+                  reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     

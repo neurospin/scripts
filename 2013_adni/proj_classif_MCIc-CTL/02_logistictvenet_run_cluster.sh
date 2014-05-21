@@ -21,6 +21,22 @@ exit
 mapreduce.py --mode reduce --config /neurospin/brainomics/2013_adni/proj_classif_MCIc-CTL/logistictvenet_5cv/config.json
 
 
+################################################################################
+# 2 CV 
+python $HOME/git/scripts/2013_adni/proj_classif_MCIc-CTL/02_logistictvenet_2cv.py
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ################################################################################
 # Start by running Locally with 2 cores, to check that everything os OK) Interrupt after a while CTL-C

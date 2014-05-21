@@ -141,7 +141,7 @@ if __name__ == "__main__":
         user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "proj_classif_MCIc-MCInc", 
         "02_logistictvenet_2cv.py")
-        print "USE", user_func_filename
+    print "USE", user_func_filename
     # Use relative path from config.json    
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
