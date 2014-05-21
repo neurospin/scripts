@@ -88,22 +88,6 @@ for i, SID in enumerate(subject_test.SID):
 print "Train", len(images_train)
 print "Test", len(images_test)
 
-##############################################################################
-## Read Test images
-#images_test = list()
-#sid_test = list()
-#for test_filename in glob.glob(INPUT_IMAGEFILE_FORMAT_TEST):
-#    print test_filename
-#    #test_filename = '/neurospin/tmp/mlc2014/processed/binary/Test_Sbj1/mwrc1Test_Sbj1.nii.gz'
-#    babel_image = nibabel.load(test_filename)
-#    images_test.append(babel_image.get_data().ravel())
-#    SID = re.findall("Sbj[0-9]+", test_filename)[0]
-#    sid_test.append(SID)
-#
-#print "Test",  len(images_test)
-
-#    imagefile_pattern_test = INPUT_IMAGEFILE_FORMAT_TEST.format(SID=SID)
-#    imagefile_name_test = glob.glob(imagefile_pattern_test)
 
 #############################################################################
 # Compute mask
