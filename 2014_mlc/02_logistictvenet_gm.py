@@ -29,7 +29,7 @@ def mapper(key, output_collector):
     alpha, ratio_l1, ratio_l2, ratio_tv = key
     class_weight="auto" # unbiased
     l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=3, 
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
                                         class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
     y_pred = mod.predict(GLOBAL.DATA["x"][1])
