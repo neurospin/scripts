@@ -92,7 +92,11 @@ def reducer(key, values):
 
 # Read learning data (french & german subjects)
 #X = np.load(INPUT_DATASET)
-#print "Data loaded: {s[0]}x{s[1]}".format(s=X.shape)
+with open(INPUT_DATASET) as f:
+    magic = np.lib.format.read_magic(f)
+    header = np.lib.format.read_array_header_1_0(f)
+    n, p = shape = header[0]
+print "Data shape: {s[0]}x{s[1]}".format(s=shape)
 
 # Read mask
 babel_mask = nibabel.load(INPUT_MASK)
@@ -101,12 +105,14 @@ binary_mask = mask != 0
 
 ## Create config file
 # parameters grid
-params = [SPARSE_PCA_ALPHA.tolist(), ]
+params = SPARSE_PCA_ALPHA.reshape((-1,1)).tolist()
+resample = [[range(n)]]
 # User map/reduce function file:
 user_func_filename = os.path.abspath(__file__)
 
 config = dict(data=dict(X=INPUT_DATASET),
               params=params,
+              resample=resample,
               map_output=os.path.join(OUTPUT_DIR, "results"),
               user_func=user_func_filename,
               ncore=4,
