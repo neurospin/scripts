@@ -135,3 +135,10 @@ fh = open(OUTPUT_X_TEST.replace("npy", "txt"), "w")
 fh.write('shape = (%i, %i): Intercept +  %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
+
+#############################################################################
+#  Check nans
+Xtrain = np.load(OUTPUT_X_TRAIN)
+print np.sum(np.isnan(Xtrain))
+Xtrain.max()
+Xtrain.min()

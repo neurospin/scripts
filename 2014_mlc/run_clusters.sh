@@ -15,4 +15,11 @@ exit
 /neurospin/brainomics/2014_mlc/GM/sync_pull.sh
 # Reduce
 mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM/config.json
+            print "CONESTA loop", i, "FISTA=",self.fista_info[Info.num_iter], "TOT iter:", self.num_iter
 
+# On gabriel
+mapreduce.py --mode map --config /neurospin/tmp/brainomics/2014_mlc/GM/config.json --ncore 1
+
+# ON NS
+mapreduce.py --mode map --config /neurospin/brainomics/2014_mlc/GM/config.json --ncore 1
+scp /home/ed203246/git/pylearn-parsimony/parsimony/algorithms/explicit.py gabriel:/home/ed203246/git/pylearn-parsimony/parsimony/algorithms/explicit.py

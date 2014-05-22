@@ -32,8 +32,8 @@ def mapper(key, output_collector):
     mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
                                         class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
-    y_pred = mod.predict(GLOBAL.DATA["x"][1])
-    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["ytrain"][1], beta=mod.beta)
+    y_pred = mod.predict(GLOBAL.DATA["X"][1])
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta=mod.beta)
     output_collector.collect(key, ret)
 
 def reducer(key, values):
@@ -52,6 +52,7 @@ def reducer(key, values):
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
     return scores
+
 
 ##############################################################################
 ## Cluster utils
@@ -109,6 +110,40 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
         f.write(qsub)
     os.chmod(job_filename, 0777)
     return sync_push_filename, sync_pull_filename
+
+
+##############################################################################
+## Run all
+def run_all():
+    WD = "/neurospin/brainomics/2014_mlc/GM"
+    key = '0.01_0.01_0.98_0.01'
+    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
+    if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+    X = np.load(os.path.join(WD,  'GMtrain.npy'))
+    y = np.load(os.path.join(WD,  'ytrain.npy'))
+    A, STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
+    params = np.array([float(p) for p in key.split("_")])
+    l1, l2, tv = params[0] * params[1:]
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1, 
+                                   class_weight="auto")
+    mod.fit(X, y)
+    #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
+    # Wall time: 1937.13 s / 2042.58 s
+    y_pred = mod.predict(X)
+    p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
+    n_ite = mod.algorithm.num_iter
+    scores = dict(
+               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+               support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
+    beta3d = np.zeros(STRUCTURE.get_data().shape)
+    beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
+    out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
+    ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
+    # run /home/ed203246/bin/mapreduce.py
+    oc = OutputCollector(OUTPUT)
+    oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2014_mlc/GM"
