@@ -29,11 +29,11 @@ def mapper(key, output_collector):
     alpha, ratio_l1, ratio_l2, ratio_tv = key
     class_weight="auto" # unbiased
     l1, l2, tv = alpha *  np.array((ratio_l1, ratio_l2, ratio_tv))
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=3, 
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, GLOBAL.A, penalty_start=1, 
                                         class_weight=class_weight)
     mod.fit(GLOBAL.DATA["X"][0], GLOBAL.DATA["y"][0])
-    y_pred = mod.predict(GLOBAL.DATA["X"][1])
-    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["y"][1], beta=mod.beta)
+    y_pred = mod.predict(GLOBAL.DATA["x"][1])
+    ret = dict(y_pred=y_pred, y_true=GLOBAL.DATA["ytrain"][1], beta=mod.beta)
     output_collector.collect(key, ret)
 
 def reducer(key, values):
@@ -111,50 +111,18 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
     return sync_push_filename, sync_pull_filename
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc/logistictvenet_5cv"
+    WD = "/neurospin/brainomics/2014_mlc/GM"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
     #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    INPUT_DATA_X = os.path.join("..", 'X.npy')
-    INPUT_DATA_y = os.path.join("..", 'y.npy')
-    INPUT_MASK_PATH = os.path.join("..", "mask.nii")
+    INPUT_DATA_X = os.path.join('GMtrain.npy')
+    INPUT_DATA_y = os.path.join('ytrain.npy')
+    INPUT_MASK_PATH = os.path.join("mask.nii")
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
     os.chdir(WD)
-
-    #############################################################################
-    ## Fit on all
-    if False:
-        key = '0.01_0.001_0.999_0.0'
-        OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-        if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-        X = np.load(os.path.join(os.path.dirname(WD),  'X.npy'))
-        y = np.load(os.path.join(os.path.dirname(WD),  'y.npy'))
-        A, STRUCTURE = A_from_structure(os.path.join(os.path.dirname(WD),  "mask.nii"))
-        params = np.array([float(p) for p in key.split("_")])
-        l1, l2, tv = params[0] * params[1:]
-        mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=3, 
-                                       class_weight="auto")
-        mod.fit(X, y)
-        #CPU times: user 1936.73 s, sys: 0.66 s, total: 1937.39 s
-        # Wall time: 1937.13 s / 2042.58 s
-        y_pred = mod.predict(X)
-        p, r, f, s = precision_recall_fscore_support(y, y_pred, average=None)
-        n_ite = mod.algorithm.num_iter
-        scores = dict(
-                   recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
-                   precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-                   f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-                   support_0=s[0] , support_1=s[1], n_ite=n_ite, intercept=mod.beta[0, 0])
-        beta3d = np.zeros(STRUCTURE.get_data().shape)
-        beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
-        out_im = nibabel.Nifti1Image(beta3d, affine=STRUCTURE.get_affine())
-        ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
-        # run /home/ed203246/bin/mapreduce.py
-        oc = OutputCollector(OUTPUT)
-        oc.collect(key=key, value=ret)
 
     #############################################################################
     ## Create config file
@@ -176,8 +144,8 @@ if __name__ == "__main__":
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_MCIc-MCInc", 
-        "02_logistictvenet.py")
+        "git", "scripts", "2014_mlc", 
+        "02_logistictvenet_gm.py")
         print "USE", user_func_filename
     # Use relative path from config.json    
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
@@ -199,7 +167,7 @@ if __name__ == "__main__":
                                                              jobname=jobname)
     #############################################################################
     # Sync to cluster
-    print "Sync data to gabriel.intra.cea.fr:%s/ " % os.path.dirname(WD)
+    print "Sync data to gabriel.intra.cea.fr: "
     os.system(sync_push_filename)
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"

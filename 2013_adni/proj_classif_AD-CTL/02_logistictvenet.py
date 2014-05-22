@@ -67,7 +67,8 @@ job_template_pbs =\
 """
 #PBS -d %(job_dir)s
 
-def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", cmd_path="mapreduce.py"):
+def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", 
+                    cmd_path="mapreduce.py", jobname="map"):
     # Build Sync pull/push utils files
     push_str = 'rsync -azvu %s gabriel.intra.cea.fr:%s/' % (
         os.path.dirname(WD),
@@ -83,7 +84,7 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", cmd_path="map
     with open(sync_pull_filename, 'wb') as f:
         f.write(pull_str)
     os.chmod(sync_pull_filename, 0777)
-    project_name = "map"
+    project_name = jobname
     # Build PBS files
     config_filename = os.path.join(WD_CLUSTER, config_basename)
     #job_dir = os.path.dirname(config_filename)
@@ -194,7 +195,9 @@ if __name__ == "__main__":
     
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
-    sync_push_filename, sync_pull_filename = utils_sync_jobs(WD, WD_CLUSTER)
+    jobname = os.path.basename(os.path.dirname(WD))
+    sync_push_filename, sync_pull_filename = utils_sync_jobs(WD, WD_CLUSTER,
+                                                             jobname=jobname)
     #############################################################################
     # Sync to cluster
     print "Sync data to gabriel.intra.cea.fr:%s/ " % os.path.dirname(WD)
@@ -218,7 +221,3 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --mode reduce --config %s/config.json" % WD
-    
-    #############################################################################
-    print "# Reduce"
-    print "mapreduce.py --mode reduce --config %s/config.json" % OUTPUT
