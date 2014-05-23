@@ -34,52 +34,56 @@ if not os.path.exists(SHARED_DIR):
 # Read data #
 #############
 # SNPs and BMI
-SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
-BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
-
-# Images
-h5file = tables.openFile(IMAGES_FILE)
-mask = bmi_utils.read_array(h5file,'/standard_mask/mask')   #get the mask applied to the images
-masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")    #images already masked
-print "Data loaded"
-
-X = masked_images
-Y = SNPs
-z = BMI
-
-np.save(os.path.join(SHARED_DIR, "X.npy"), X)
-np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
-np.save(os.path.join(SHARED_DIR, "z.npy"), z)
-
-print "Data saved"
-
-
+def load_data(cache):
+    if not(cache):
+        SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
+        BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
+        
+        # Images
+        h5file = tables.openFile(IMAGES_FILE)
+        masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")    #images already masked
+        print "Data loaded"
+        
+        X = masked_images
+        Y = SNPs
+        z = BMI
+        
+        np.save(os.path.join(SHARED_DIR, "X.npy"), X)
+        np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
+        np.save(os.path.join(SHARED_DIR, "z.npy"), z)
+        h5file.close()
+        
+        print "Data saved"
+    else:
+        X = np.load(os.path.join(SHARED_DIR, "X.npy"))        
+        Y = np.load(os.path.join(SHARED_DIR, "Y.npy"))
+        z = np.load(os.path.join(SHARED_DIR, "z.npy"))        
+        print "Data read from cache"
+    
+    return X, Y, z
 #####################
 # Elastic Net Model #
 #####################        
 
 alpha = 0.5
 l1_ratio = 0.9
+#get data
+X, Y, z = load_data(True)
 
-beta_map = np.zeros(X.shape[1])
+# instance of model and fit
+enet = ElasticNet(alpha, l1_ratio)
+enet.fit(X, z)
 
-debut = range(0, X.shape[1], 10000)
-fin = debut + [X.shape[1]]
-fin = fin[1:]
 
-#Build a beta-map for a set of values (alpha, l1_ratio)
-for d, f in zip(debut, fin):
-    print d,f
-    enet = ElasticNet(alpha, l1_ratio)
-    enet.fit(X[:, d:f], z)
-    beta = enet.coef_
-    beta_map[d:f] = beta[:]
-
+STOP
+#save beta value in an image
+h5file = tables.openFile(IMAGES_FILE)
+mask = bmi_utils.read_array(h5file,'/standard_mask/mask')   #get the mask applied to the images
+h5file.close()
 template_for_size = os.path.join(BASE_PATH, 'data', 'VBM', 'gaser_vbm8/', 'smwp1000074104786s401a1004.nii')
 template_for_size_img = ni.load(template_for_size)
-
 image = np.zeros(template_for_size_img.get_data().shape)    #initialize a 3D volume of shape the initial images' shape
-image[mask != 0] = beta_map     #mask != 0 lists all indices of non-zero values in order to project the beta_coeff in a 3D volume (np.sum(mask !=0) = beta_map.shape)
+image[mask != 0] = enet.coef_     #mask != 0 lists all indices of non-zero values in order to project the beta_coeff in a 3D volume (np.sum(mask !=0) = beta_map.shape)
 pn = os.path.join(BASE_PATH, 'results', 'BMI_beta_map.nii.gz')
 ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()), pn)
 print "The estimators' map has been saved."
