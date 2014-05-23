@@ -13,7 +13,6 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
-import mapreduce  as GLOBAL # access to global variables:
 
 ##############################################################################
 ## User map/reduce functions
@@ -24,6 +23,11 @@ def A_from_structure(structure_filepath):
     return A, STRUCTURE
 
 def mapper(key, output_collector):
+    try:
+        import mapreduce  as GLOBAL # access to global variables:
+    except:
+        pass
+        #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
