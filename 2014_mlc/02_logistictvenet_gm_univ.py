@@ -38,8 +38,8 @@ def mapper(key, output_collector):
     print key
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
-    print "l1:%f, l2:%f, tv:%f, k:%s" % (l1, l2, tv, k)
-    try:
+    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    if k != -1:
         k = int(k)
         aov = SelectKBest(k=k)
         aov.fit(Xtr[..., penalty_start:], ytr.ravel())
@@ -49,7 +49,7 @@ def mapper(key, output_collector):
         A, _ = tv_helper.A_from_mask(mask)
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
-    except:
+    else:
         Xtr_r = Xtr
         Xte_r = Xte
         A = GLOBAL.A
