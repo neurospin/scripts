@@ -32,13 +32,13 @@ def mapper(key, output_collector):
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
     Xtr = GLOBAL.DATA["X"][0]; ytr = GLOBAL.DATA["y"][0];
-    Xte = GLOBAL.DATA["X"][1]; yte = GLOBAL.DATA["y"][1];    
+    Xte = GLOBAL.DATA["X"][1]; yte = GLOBAL.DATA["y"][1];
     STRUCTURE = GLOBAL.STRUCTURE
     alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     penalty_start = 1
     class_weight="auto" # unbiased
-    l1, l2, tv = params[0] * params[1:4]
-    k = int(params[4])
+    l1, l2, tv = key[0] * key[1:4]
+    k = int(key[4])
     #
     aov = SelectKBest(k=k)
     aov.fit(Xtr[..., penalty_start:], ytr.ravel())
@@ -48,7 +48,7 @@ def mapper(key, output_collector):
     A, _ = tv_helper.A_from_mask(mask)
     Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
     Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start, 
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
@@ -90,7 +90,7 @@ job_template_pbs =\
 """
 #PBS -d %(job_dir)s
 
-def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", 
+def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
                     cmd_path="mapreduce.py", jobname="map"):
     # Build Sync pull/push utils files
     push_str = 'rsync -azvu %s gabriel.intra.cea.fr:%s/' % (
@@ -172,10 +172,10 @@ if __name__ == "__main__":
     y = np.load(INPUT_DATA_y)
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
-    # Re-run with 
+    # Re-run with
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])    
+                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
     k_range = [100, 1000, 10000, 100000]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
@@ -189,10 +189,10 @@ if __name__ == "__main__":
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2014_mlc", 
+        "git", "scripts", "2014_mlc",
         "02_logistictvenet_gm_univ.py")
         print "USE", user_func_filename
-    # Use relative path from config.json    
+    # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
@@ -204,7 +204,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
-    
+
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     jobname = os.path.basename(os.path.dirname(WD))
@@ -233,4 +233,3 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --mode reduce --config %s/config.json" % WD
-    
