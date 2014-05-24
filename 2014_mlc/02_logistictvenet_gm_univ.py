@@ -23,10 +23,7 @@ def A_from_structure(structure_filepath):
     return A, STRUCTURE
 
 def mapper(key, output_collector):
-    try:
-        import mapreduce  as GLOBAL # access to global variables:
-    except:
-        pass
+    import mapreduce  as GLOBAL # access to global variables:
         #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
@@ -34,20 +31,26 @@ def mapper(key, output_collector):
     Xtr = GLOBAL.DATA["X"][0]; ytr = GLOBAL.DATA["y"][0];
     Xte = GLOBAL.DATA["X"][1]; yte = GLOBAL.DATA["y"][1];
     STRUCTURE = GLOBAL.STRUCTURE
-    alpha, ratio_l1, ratio_l2, ratio_tv, k = key
+    #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
+    #key = np.array(key)
     penalty_start = 1
     class_weight="auto" # unbiased
     l1, l2, tv = key[0] * key[1:4]
-    k = int(key[4])
-    #
-    aov = SelectKBest(k=k)
-    aov.fit(Xtr[..., penalty_start:], ytr.ravel())
-    mask = STRUCTURE.get_data() != 0
-    mask[mask] = aov.get_support()
-    print mask.sum()
-    A, _ = tv_helper.A_from_mask(mask)
-    Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
-    Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
+    k = key[4]
+    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    if k is not "all":
+        k = int(k)
+        aov = SelectKBest(k=k)
+        aov.fit(Xtr[..., penalty_start:], ytr.ravel())
+        mask = STRUCTURE.get_data() != 0
+        mask[mask] = aov.get_support()
+        #print mask.sum()
+        A, _ = tv_helper.A_from_mask(mask)
+        Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
+        Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
+    else:
+        Xtr_r = Xtr
+        Xte_r = Xte
     mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
@@ -137,18 +140,19 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
 ##############################################################################
 ## Run all
 def run_all():
+    import mapreduce
     WD = "/neurospin/brainomics/2014_mlc/GM_UNIV"
     key = '0.01_0.01_0.98_0.01_10000'
-    class GLOBAL: DATA = dict()
-    GLOBAL.A, GLOBAL.STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
+    #class GLOBAL: DATA = dict()
+    mapreduce.A, mapreduce.STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
     OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_univ_all', key)
     # run /home/ed203246/bin/mapreduce.py
-    oc = OutputCollector(OUTPUT)
+    oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
     X = np.load(os.path.join(WD,  'GMtrain.npy'))
     y = np.load(os.path.join(WD,  'ytrain.npy'))
-    GLOBAL.DATA["X"] = [X, X]
-    GLOBAL.DATA["y"] = [y, y]
+    mapreduce.DATA["X"] = [X, X]
+    mapreduce.DATA["y"] = [y, y]
     params = np.array([float(p) for p in key.split("_")])
     mapper(params, oc)
     #oc.collect(key=key, value=ret)
@@ -177,7 +181,7 @@ if __name__ == "__main__":
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [100, 1000, 10000, 100000]
+    k_range = [100, 1000, 10000, 100000, "all"]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
     l1l2tv = np.concatenate(l1l2tv)

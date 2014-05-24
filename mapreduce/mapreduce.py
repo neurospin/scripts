@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 
 #from parsimony.utils import check_arrays
-
-DATA = "GLOBAL TOTO"
+# Global data
+DATA = dict()
 param_sep = "_"
 
 example = """
@@ -56,7 +56,7 @@ _table_columns = dict(output=0, params=1, resample_nb=2, data=3)
 def _build_job_table(options):
     params_list = json.load(open(options.params)) \
         if isinstance(options.params, str) else options.params
-    jobs = [[os.path.join(options.map_output, str(resample_i), 
+    jobs = [[os.path.join(options.map_output, str(resample_i),
                           param_sep.join([str(p) for p in params])),
             params,
             resample_i,
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         'A_from_structure(structure) method. All format are possible. '
         '"ncore", "reduce_input" and "reduce_output": see command line argument.'
         ""
-        
+
         )
     default_nproc = int(cpu_count() / 2)
     parser.add_argument('--ncore',
@@ -334,7 +334,7 @@ if __name__ == "__main__":
                 resample_nb_cur = job[T["resample_nb"]]
                 resample = options.resample[resample_nb_cur]
                 # Except a list of index, if not
-                try:                
+                try:
                     resample[0][0]
                 except TypeError:
                     resample = [resample]
