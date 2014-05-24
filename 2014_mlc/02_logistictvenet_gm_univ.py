@@ -35,7 +35,7 @@ def mapper(key, output_collector):
     #key = np.array(key)
     penalty_start = 1
     class_weight="auto" # unbiased
-    l1, l2, tv = key[0] * key[1:4]
+    l1, l2, tv = key[0] * np.array(key[1:4])
     k = key[4]
     print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
     if k is not "all":
