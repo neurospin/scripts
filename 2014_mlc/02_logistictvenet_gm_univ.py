@@ -183,7 +183,7 @@ if __name__ == "__main__":
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [100, 1000, 10000, 100000, "all"]
+    k_range = [100, 1000, 10000, 100000, -1]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
     l1l2tv = np.concatenate(l1l2tv)
