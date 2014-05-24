@@ -35,9 +35,10 @@ def mapper(key, output_collector):
     #key = np.array(key)
     penalty_start = 1
     class_weight="auto" # unbiased
-    l1, l2, tv = key[0] * np.array(key[1:4])
-    k = key[4]
-    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    print key
+    alpha = float(key[0])
+    l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
+    print "l1:%f, l2:%f, tv:%f, k:%s" % (l1, l2, tv, k)
     if k is not "all":
         k = int(k)
         aov = SelectKBest(k=k)
