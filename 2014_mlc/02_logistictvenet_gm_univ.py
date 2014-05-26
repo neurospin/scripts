@@ -23,7 +23,7 @@ def A_from_structure(structure_filepath):
     return A, STRUCTURE
 
 def mapper(key, output_collector):
-    import mapreduce  as GLOBAL # access to global variables:
+    import mapreduce as GLOBAL # access to global variables:
         #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
@@ -50,6 +50,7 @@ def mapper(key, output_collector):
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
     else:
+        mask = np.ones(Xtr.shape[0], dtype=bool)
         Xtr_r = Xtr
         Xte_r = Xte
         A = GLOBAL.A
@@ -57,7 +58,7 @@ def mapper(key, output_collector):
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta)
+    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -66,7 +67,13 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
+    # DEBUG
+    #import glob, mapreduce
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
+    # Compute sd; ie.: compute results on each folds
     values = [item.load("*.npy") for item in values]
+    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
+        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
@@ -74,7 +81,7 @@ def reducer(key, values):
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = None
     scores = dict(key=key,
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
