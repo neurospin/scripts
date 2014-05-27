@@ -1,3 +1,10 @@
+## utils
+find results -name "*_lock" | while read f ; do rm $f ; done
+find results -name "*_run*" | while read f ; do rm $f ; done
+find results -name beta.npy | while read f ; do gzip $f ; done
+
+
+##
 python $HOME/git/scripts/2014_mlc/02_logistictvenet_gm.py
 
 Interrupt after a while CTL-C
@@ -20,8 +27,6 @@ mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM/config.jso
 # On gabriel
 mapreduce.py --mode map --config /neurospin/tmp/brainomics/2014_mlc/GM/config.json --ncore 2
 
-find results -name "*_lock" | while read f ; do rm $f ; done
-find results -name "*_run*" | while read f ; do rm $f ; done
 # ON NS
 mapreduce.py --mode map --config /neurospin/brainomics/2014_mlc/GM/config.json --ncore 1
 scp /home/ed203246/git/pylearn-parsimony/parsimony/algorithms/explicit.py gabriel:/home/ed203246/git/pylearn-parsimony/parsimony/algorithms/explicit.py
@@ -41,8 +46,12 @@ cd /neurospin/tmp/brainomics/2014_mlc/GM_UNIV
 # 3) Run on cluster
 qsub job_Global_long.pbs
 # 4) Log out and pull Pull
+mapreduce.py --mode reduce --config /neurospin/tmp/brainomics/2014_mlc/GM_UNIV/config.json
 exit
 /neurospin/brainomics/2014_mlc/GM_UNIV/sync_pull.sh
 # Reduce
 mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_UNIV/config.json
+
+scp gabriel:/neurospin/tmp/brainomics/2014_mlc/GM_UNIV/results.csv .
+
 
