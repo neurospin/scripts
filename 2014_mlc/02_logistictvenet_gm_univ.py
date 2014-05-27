@@ -23,36 +23,42 @@ def A_from_structure(structure_filepath):
     return A, STRUCTURE
 
 def mapper(key, output_collector):
-    try:
-        import mapreduce  as GLOBAL # access to global variables:
-    except:
-        pass
+    import mapreduce as GLOBAL # access to global variables:
         #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
     Xtr = GLOBAL.DATA["X"][0]; ytr = GLOBAL.DATA["y"][0];
-    Xte = GLOBAL.DATA["X"][1]; yte = GLOBAL.DATA["y"][1];    
+    Xte = GLOBAL.DATA["X"][1]; yte = GLOBAL.DATA["y"][1];
     STRUCTURE = GLOBAL.STRUCTURE
-    alpha, ratio_l1, ratio_l2, ratio_tv, k = key
+    #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
+    #key = np.array(key)
     penalty_start = 1
     class_weight="auto" # unbiased
-    l1, l2, tv = params[0] * params[1:4]
-    k = int(params[4])
-    #
-    aov = SelectKBest(k=k)
-    aov.fit(Xtr[..., penalty_start:], ytr.ravel())
-    mask = STRUCTURE.get_data() != 0
-    mask[mask] = aov.get_support()
-    print mask.sum()
-    A, _ = tv_helper.A_from_mask(mask)
-    Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
-    Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start, 
+    print key
+    alpha = float(key[0])
+    l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
+    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    if k != -1:
+        k = int(k)
+        aov = SelectKBest(k=k)
+        aov.fit(Xtr[..., penalty_start:], ytr.ravel())
+        mask = STRUCTURE.get_data() != 0
+        mask[mask] = aov.get_support()
+        #print mask.sum()
+        A, _ = tv_helper.A_from_mask(mask)
+        Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
+        Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
+    else:
+        mask = np.ones(Xtr.shape[0], dtype=bool)
+        Xtr_r = Xtr
+        Xte_r = Xte
+        A = GLOBAL.A
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta)
+    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -61,7 +67,13 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
+    # DEBUG
+    #import glob, mapreduce
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
+    # Compute sd; ie.: compute results on each folds
     values = [item.load("*.npy") for item in values]
+    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
+        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
@@ -69,7 +81,7 @@ def reducer(key, values):
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = None
     scores = dict(key=key,
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
                support_0=s[0] , support_1=s[1], n_ite=n_ite)
@@ -90,7 +102,7 @@ job_template_pbs =\
 """
 #PBS -d %(job_dir)s
 
-def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json", 
+def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
                     cmd_path="mapreduce.py", jobname="map"):
     # Build Sync pull/push utils files
     push_str = 'rsync -azvu %s gabriel.intra.cea.fr:%s/' % (
@@ -137,18 +149,19 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
 ##############################################################################
 ## Run all
 def run_all():
+    import mapreduce
     WD = "/neurospin/brainomics/2014_mlc/GM_UNIV"
     key = '0.01_0.01_0.98_0.01_10000'
-    class GLOBAL: DATA = dict()
-    GLOBAL.A, GLOBAL.STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
+    #class GLOBAL: DATA = dict()
+    mapreduce.A, mapreduce.STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
     OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_univ_all', key)
     # run /home/ed203246/bin/mapreduce.py
-    oc = OutputCollector(OUTPUT)
+    oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
     X = np.load(os.path.join(WD,  'GMtrain.npy'))
     y = np.load(os.path.join(WD,  'ytrain.npy'))
-    GLOBAL.DATA["X"] = [X, X]
-    GLOBAL.DATA["y"] = [y, y]
+    mapreduce.DATA["X"] = [X, X]
+    mapreduce.DATA["y"] = [y, y]
     params = np.array([float(p) for p in key.split("_")])
     mapper(params, oc)
     #oc.collect(key=key, value=ret)
@@ -172,12 +185,12 @@ if __name__ == "__main__":
     y = np.load(INPUT_DATA_y)
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
-    # Re-run with 
+    # Re-run with
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])    
+                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [100, 1000, 10000, 100000]
+    k_range = [100, 1000, 10000, 100000, -1]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
     l1l2tv = np.concatenate(l1l2tv)
@@ -189,10 +202,10 @@ if __name__ == "__main__":
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2014_mlc", 
+        "git", "scripts", "2014_mlc",
         "02_logistictvenet_gm_univ.py")
         print "USE", user_func_filename
-    # Use relative path from config.json    
+    # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
@@ -204,7 +217,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
-    
+
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     jobname = os.path.basename(os.path.dirname(WD))
@@ -233,4 +246,3 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --mode reduce --config %s/config.json" % WD
-    

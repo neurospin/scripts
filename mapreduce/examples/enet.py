@@ -60,9 +60,5 @@ if __name__ == "__main__":
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     
     #############################################################################
-    print "# Run on the cluster with 4 PBS Jobs"
-    print "mapreduce.py --pbs_njob 4 --config %s/config.json" % WD
-    
-    #############################################################################
     print "# Reduce"
     print "mapreduce.py --mode reduce --config %s/config.json" % WD
