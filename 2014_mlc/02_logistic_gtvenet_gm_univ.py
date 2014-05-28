@@ -143,20 +143,19 @@ def utils_sync_jobs(WD, WD_CLUSTER, config_basename="config.json",
     os.chmod(job_filename, 0777)
     return sync_push_filename, sync_pull_filename
 
-
 ##############################################################################
 ## Run all
 def run_all():
     import mapreduce
-    WD = "/neurospin/brainomics/2014_mlc/GM_UNIV"
+    WD = "/neurospin/brainomics/2014_mlc/GM_GTV"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
-    mapreduce.A, mapreduce.STRUCTURE = A_from_structure(os.path.join(WD,  "mask.nii"))
+    mapreduce.A, mapreduce.STRUCTURE = A_from_structure(os.path.join(WD,  "mask_roi.nii"))
     OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_univ_all', key)
     # run /home/ed203246/bin/mapreduce.py
     oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'GMtrain.npy'))
+    X = np.load(os.path.join(WD,  'GMtrain_roi.npy'))
     y = np.load(os.path.join(WD,  'ytrain.npy'))
     mapreduce.DATA["X"] = [X, X]
     mapreduce.DATA["y"] = [y, y]
@@ -165,14 +164,14 @@ def run_all():
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2014_mlc/GM_10CV"
+    WD = "/neurospin/brainomics/2014_mlc/GM_GTV"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
     #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    INPUT_DATA_X = os.path.join('GMtrain.npy')
+    INPUT_DATA_X = os.path.join('GMtrain_roi.npy')
     INPUT_DATA_y = os.path.join('ytrain.npy')
-    INPUT_MASK_PATH = os.path.join("mask.nii")
+    INPUT_MASK_PATH = os.path.join("mask_roi.nii")
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
@@ -181,18 +180,27 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=10)]
+    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     # parameters grid
     # Re-run with
-    params = ["0.05_0.45_0.45_0.1_-1", "0.05_0.08_0.72_0.2_-1"]
-    params = [[float(p) for p in param.split("_")] for param in params]
+    tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
+                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
+    alphas = [.01, .05, .1 , .5, 1.]
+    k_range = [100, 1000, 10000, 100000, -1]
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv.append(np.array([[0., 0., 1.]]))
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
+    params = [params.tolist() for params in alphal1l2tvk]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
     except:
         user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2014_mlc",
-        "02_logistictvenet_gm_10cv.py")
+        "02_logistic_gtvenet_gm_univ.py")
         print "USE", user_func_filename
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
