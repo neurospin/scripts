@@ -3,6 +3,7 @@
 Created on Tue May 27 18:20:11 2014
 
 @author: ed203246
+run scripts/2014_mlc/04_combine.py
 """
 
 import os.path, sys
@@ -29,7 +30,12 @@ import utils
 
 
 GM = "/neurospin/brainomics/2014_mlc/GM"
-WHICH = "0.05_0.45_0.45_0.1"
+#WHICH = "0.05_0.45_0.45_0.1"
+WHICH = "0.05_0.08_0.72_0.2"
+
+print "====================================================================="
+print "enettv:", WHICH
+
 penalty_start = 1
 #/neurospin/brainomics/2014_mlc/GM/results/0/0.05_0.45_0.45_0.1/
 pop_train = pd.read_csv(INPUT_SUBJECT_TRAIN)
@@ -84,7 +90,7 @@ assert np.all(y_true_disk == y_true_csv)  # true test == those in csv
 assert np.all(y_pred_replay == y_pred_disk) # pred == those stored
 
 p, r, f, s = precision_recall_fscore_support(y_true_csv, y_pred_replay, average=None)
-assert r.mean() == 0.67999999999999994
+#assert r.mean() == 0.67999999999999994
 
 
 ###############################################################################
@@ -137,7 +143,7 @@ print summary
 #
 # Compare
 same = np.sum(res.pred_roi == res.pred_gm) / float(len(res.pred_roi))
-assert same == 0.6333333333333333
+#assert same == 0.6333333333333333
 # Mc nemar test
 mcnemar_pval, cont_table = utils.mcnemar_test_prediction(y_pred1=res.pred_roi, y_pred2=res.pred_gm,
                               y_true=res.y_true, cont_table=True)

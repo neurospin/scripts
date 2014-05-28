@@ -55,3 +55,7 @@ mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_UNIV/confi
 scp gabriel:/neurospin/tmp/brainomics/2014_mlc/GM_UNIV/results.csv .
 
 
+################################################################################
+python $HOME/git/scripts/2014_mlc/02_logistictvenet_gm_10cv.py
+
+
