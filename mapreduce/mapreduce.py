@@ -8,6 +8,7 @@ import fcntl
 import errno
 import json
 import sys, os, glob, argparse, re
+import warnings
 import pickle
 import nibabel
 from multiprocessing import Process, cpu_count
@@ -37,7 +38,7 @@ params = [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]]
 # enet_userfunc.py is a python file containing mapper(key, output_collector)
 # and reducer(key, values) functions.
 
-config = dict(data="?.npy", params=params, user_func="enet_userfunc.py",
+config = dict(data=dict(X="X.npy", y="y.npy"), params=params, user_func="enet_userfunc.py",
               map_output="map_results",
               resample=cv,
               ncore=2,
@@ -50,17 +51,16 @@ json.dump(config, open("config.json", "w"))
 def load_data(key_filename):
     return {key:np.load(key_filename[key]) for key in key_filename}
 
-_table_columns = dict(output=0, params=1, resample_nb=2, data=3)
+_table_columns = dict(output=0, params=1, resample_nb=2)
 
-#RESAMPLE_IN_OPTIONS = "<RESAMPLE IS IN options.resample>"
+
 def _build_job_table(options):
     params_list = json.load(open(options.params)) \
         if isinstance(options.params, str) else options.params
     jobs = [[os.path.join(options.map_output, str(resample_i),
                           param_sep.join([str(p) for p in params])),
             params,
-            resample_i,
-            options.data]
+            resample_i]
             for resample_i in xrange(len(options.resample))
             for params in params_list]
     return jobs
@@ -79,6 +79,7 @@ def _import_module_from_filename(filename):
     return user_module
 
 _import_user_func = _import_module_from_filename
+
 
 class OutputCollector:
     """Map output collector
@@ -135,6 +136,7 @@ class OutputCollector:
         for k in value:
             if isinstance(value[k], np.ndarray):
                 np.save(os.path.join(self.output_dir, k + ".npy"), value[k])
+                #np.savez_compressed(os.path.join(self.output_dir, k), value[k])
             elif isinstance(value[k], nibabel.Nifti1Image):
                 value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
             else:
@@ -156,18 +158,21 @@ class OutputCollector:
         for filename in  glob.glob(os.path.join(self.output_dir, pattern)):
             o = None
             try:
-                o = np.load(filename)
+                o = np.load(filename)['arr_0']
             except:
                 try:
-                   o = json.load(open(filename, "r"))
+                    o = np.load(filename)
                 except:
                     try:
-                       o = pickle.load(open(filename, "r"))
+                       o = json.load(open(filename, "r"))
                     except:
                         try:
-                            o = nibabel.load(filename)
+                           o = pickle.load(open(filename, "r"))
                         except:
-                            pass
+                            try:
+                                o = nibabel.load(filename)
+                            except:
+                                pass
             if o is not None:
                 name, ext = os.path.splitext(os.path.basename(filename))
                 res[name] = o
@@ -184,24 +189,23 @@ import atexit
 atexit.register(clean_atexit)
 
 if __name__ == "__main__":
-    #global DATA
     parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description=__doc__, epilog=example)
-    parser.add_argument('--mode',
-        help='Three possible mode: '
-        '(1)"build_job_qsub": build qsub job files '
-           'Required arguments: --data, --params, --map_output, --job_file. '
-           'Optional arguments: --resample, --structure. '
-        '(2)"map": run jobs file. '
-        '(3)"reduce": reduce.')
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__, epilog=example)
+
+    parser.add_argument('--map', action='store_true', default=False,
+                        help="Run mapper: iterate over resamples and "
+                        "parameters, and call mapper (defined in user_func)")
+
+    parser.add_argument('--reduce', action='store_true', default=False,
+                        help="Run reducer: iterate over map_output and call"
+                        "reduce (defined in user_func)")
 
     # Config file
     parser.add_argument('--config', help='Configuration json file that '
-        'contains a dictionary of configuration options. There are 4'
-        'required argument'
-        '(1) "data": (Required) Path (with wildcard) to numpy datasets. '
-        'Ex.: "?.npy" will match X.npy and y.npy. '
+        'contains a dictionary of configuration options. There are 4 '
+        'required arguments:'
+        '(1) "data": (Required) dict(X="/tmp/X.npy", y="/tmp/X.npy").'
         '(2) "params":  (Required) List of list of parameters values. Ex:'
         '[[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]]. '
         '(3) "map_output":  (Required) Mapper output root directory. '
@@ -209,21 +213,18 @@ if __name__ == "__main__":
         'organized as follow: <map_output>/<resample_nb>/<params> and '
         ' <map_output>/0/<params> if no resampling is provided.'
         'override config options.'
-        '(4) "user_func": (Required) Path to python file that contains user defined '
-        ' functions: (i) A_from_structure(structure_filepath) '
-        '(ii) def mapper(key). '
-        'There a ?? optional arguments:'
+        '(4) "user_func": (Required) Path to python file that contains 4 user '
+        ' defined functions: '
+        '(i) load_globals(config): executed ones at the beginning load all the data '
+        '(ii) resample() is executed on each new reample'
+        '(iii) mapper(key) is executed on each parameters x reample item'
+        '(iv) reducer(key, values)'
         '"resample": (Optional) List of list of list of indices. '
         'Ex: [[[0, 2], [1, 3]], [[1, 3], [0, 2]]] for cross-validation like '
         'resampling.'
         'or list of list of indices, ex: [[0, 1, 2, 3], [1, 3, 0, 2]]. for '
         'bootstraping/permuation like resampling. '
-        '"structure": Path to structure file. This file has the structure of the '
-        'original data. it will be provided to user defined '
-        'A_from_structure(structure) method. All format are possible. '
         '"ncore", "reduce_input" and "reduce_output": see command line argument.'
-        ""
-
         )
     default_nproc = cpu_count()
     parser.add_argument('--ncore',
@@ -236,14 +237,7 @@ if __name__ == "__main__":
                         help='Regular expression to match the grouping key. Example: MAP_OUTPUT/.*/(.*)  will group by parameters. While (MAP_OUTPUT/.*)/.* will match by resample.')
     parser.add_argument('--reduce_output', help='Reduce output, csv file.')
 
-#    # PBD options --------------------------------------------------------
-#    parser.add_argument('--pbs_job', action='store_true', default=False,
-#                        help='Build n PBS job file in the for gabriel')
-#    default_pbs_queue = "Cati_LowPrio"
-#    parser.add_argument('--pbs_queue',
-#                        help='PBS queue (default %s)' % default_pbs_queue)
 
-    #print sys.argv
     options = parser.parse_args()
 
     if not options.config:
@@ -264,37 +258,20 @@ if __name__ == "__main__":
         setattr(options, "job_file", None)
     if options.ncore is None:
         options.ncore = default_nproc
-#    if options.pbs_queue is None:
-#        options.pbs_queue = default_pbs_queue
 
     # import itself to modify global variables (glob.DATA)
-    sys.path.append(os.path.dirname(__file__))
-    import mapreduce as GLOBAL  # to access to global variables
-#    glob.DATA = 33
-#    user_func = _import_user_func(options.user_func)
-#    user_func.test()
-#    print "TOTO"
-#    sys.exit(1)
-
-    # =======================================================================
-    # == BUILD JOBS TABLE                                                  ==
-    # =======================================================================
-    # ["params", "resample", "output", "structure", "data"]
-#    if options.pbs_job:
-#        _build_pbs_jobfiles(options)
+    #sys.path.append(os.path.dirname(__file__))
 
     # =======================================================================
     # == MAP                                                               ==
     # =======================================================================
-    if options.mode == "map":
+    if options.map:
         if not options.user_func:
             print 'Required fields in config file: "user_func"'
             sys.exit(1)
         user_func = _import_user_func(options.user_func)
-        #exec(open(options.user_func).read())
-        if hasattr(options, "structure"):
-            GLOBAL.A, GLOBAL.STRUCTURE = user_func.A_from_structure(options.structure)
-        #jobs = pd.read_csv(options.job_file)
+        ## Load globals
+        user_func.load_globals(config)
         if options.job_file:
             jobs = json.load(open(options.job_file))
         else:
@@ -325,27 +302,10 @@ if __name__ == "__main__":
                 output_collectors.append(output_collector)
                 output_collector.set_running(True)
                 output_collector.lock_release()
-            if not data_cur or (data_cur != job[T["data"]]):  # re-load data
-                print "Load", job[T["data"]]
-                dat_orig = load_data(job[T["data"]])
-                data_cur = job[T["data"]]
             if (not resample_nb_cur and job[T["resample_nb"]]) or \
                (resample_nb_cur != job[T["resample_nb"]]):  # Load
                 resample_nb_cur = job[T["resample_nb"]]
-                resample = options.resample[resample_nb_cur]
-                # Except a list of index, if not
-                try:
-                    resample[0][0]
-                except TypeError:
-                    resample = [resample]
-                #DATA X's Resampled look like: [[Xtr, ytr], [Xte, yte]]
-            if resample:
-                GLOBAL.DATA = {k:[dat_orig[k][idx, ...]  for idx in resample] for k in dat_orig}
-            else: # If not resample create {X:[Xtr, ytr], y:[Xte, yte]}
-                # where Xtr == Xte and ytr == yte
-                GLOBAL.DATA = {k:[dat_orig[k]  for i in xrange(2)] for k in dat_orig}
-            # Job ready to be executed
-            #key = (job[P["output"]], params)
+                user_func.resample(config, resample_nb_cur)
             key = job[T["params"]]
             p = Process(target=user_func.mapper, args=(key, output_collector))
             print "Start :", str(p), str(output_collector)
@@ -357,49 +317,30 @@ if __name__ == "__main__":
             workers.remove(p)
             print "Joined:", str(p)
 
-
     # =======================================================================
     # == REDUCE                                                            ==
     # =======================================================================
-    if options.mode == "reduce":
+    if options.reduce:
         if not options.reduce_input:
             print 'Required arguments: --reduce_input'
             sys.exit(1)
         if not options.user_func:
             print 'Required arguments: --user_func'
             sys.exit(1)
-        #print "TOTO"
-        #sys.exit(1)
         user_func = _import_user_func(options.user_func)
         print "** REDUCE **"
         items = glob.glob(options.reduce_input)
         items = [item for item in items if os.path.isdir(item)]
-        #print items
         options.reduce_group_by
         group_keys = set([re.findall(options.reduce_group_by, item)[0] for item
             in items])
-        #print group_keys
-        #print items
         groups = {k:[] for k in group_keys}
-#        groups['0.010 0.25 0.25 0.50']
-#        [{'y_true': [], 'model':, 'y_pred': []},
-#         {'y_true': [], 'model':, 'y_pred': []}]
-        #print groups
-        #print options.reduce_group_by
         for item in items:
-            #print item
             which_group_key = [k for k in groups if re.findall(options.reduce_group_by, item)[0]==k]
-            #print which_group_key
             if len(which_group_key) != 1:
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
-            #print "load", output_collector
-            #groups[which_group_key[0]].append(output_collector.load())
             groups[which_group_key[0]].append(output_collector)
-        #print "\n\n\n"
-        #print groups['0.05_0.45_0.05_0.5']
-        #sys.exit(0)
-        #print groups
         # Do the reduce
         scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
         scores = pd.DataFrame(scores)
