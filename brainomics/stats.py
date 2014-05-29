@@ -5,8 +5,23 @@ Created on Thu May 29 13:41:48 2014
 @author: ed203246
 """
 
-def mcnemar_test_prediction(y_pred1, y_pred2, y_true, cont_table=False):
-    """Compute the mcnemar_test, return """
+def mcnemar_test_classification(y_true, y_pred1, y_pred2, cont_table=False):
+    """Compute the mcnemar_test for two classifiers.
+
+    Input
+    -----
+        y_true: (n,) array, true labels
+
+        y_pred1: (n,) array, first classifier predicted labels
+
+        y_pred2: (n,) array, second classifier predicted labels
+
+        cont_table: boolean, should the function return the contingency table
+
+    Output
+    ------
+        p-value
+    """
     import scipy.stats
     import numpy as np
     ok1 = y_pred1.ravel() == y_true.ravel()
