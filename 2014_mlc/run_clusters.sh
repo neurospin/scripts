@@ -55,3 +55,46 @@ mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_UNIV/confi
 scp gabriel:/neurospin/tmp/brainomics/2014_mlc/GM_UNIV/results.csv .
 
 
+################################################################################
+python $HOME/git/scripts/2014_mlc/02_logistictvenet_gm_10cv.py
+
+# Start by running Locally with 2 cores, to check that everything os OK)
+Interrupt after a while CTL-C
+mapreduce.py --mode map --config /neurospin/brainomics/2014_mlc/GM_10CV/config.json --ncore 2
+# 1) Log on gabriel:
+ssh -t gabriel.intra.cea.fr
+# 2) Run one Job to test
+qsub -I
+cd /neurospin/tmp/brainomics/2014_mlc/GM_10CV
+./job_Global_long.pbs
+# 3) Run on cluster
+qsub job_Global_long.pbs
+# 4) Log out and pull Pull
+exit
+/neurospin/brainomics/2014_mlc/GM_10CV/sync_pull.sh
+# Reduce
+mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_10CV/config.json
+
+
+
+################################################################################
+python $HOME/git/scripts/2014_mlc/02_logistic_gtvenet_gm_univ.py
+
+# Start by running Locally with 2 cores, to check that everything os OK)
+Interrupt after a while CTL-C
+mapreduce.py --mode map --config /neurospin/brainomics/2014_mlc/GM_GTV/config.json --ncore 2
+# 1) Log on gabriel:
+ssh -t gabriel.intra.cea.fr
+# 2) Run one Job to test
+qsub -I
+cd /neurospin/tmp/brainomics/2014_mlc/GM_GTV
+./job_Global_long.pbs
+# 3) Run on cluster
+qsub job_Global_long.pbs
+# 4) Log out and pull Pull
+exit
+/neurospin/brainomics/2014_mlc/GM_GTV/sync_pull.sh
+# Reduce
+mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_GTV/config.json
+
+

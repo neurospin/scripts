@@ -225,7 +225,7 @@ if __name__ == "__main__":
         ""
 
         )
-    default_nproc = int(cpu_count() / 2)
+    default_nproc = cpu_count()
     parser.add_argument('--ncore',
         help='Nb cpu ncore to use (default %i)' % default_nproc, type=int)
 
