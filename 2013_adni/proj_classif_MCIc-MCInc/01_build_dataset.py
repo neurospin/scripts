@@ -20,6 +20,8 @@ import numpy as np
 import glob
 import pandas as pd
 import nibabel
+import brainomics.image_atlas
+
 #import proj_classif_config
 GENDER_MAP = {'Female': 0, 'Male': 1}
 
@@ -38,6 +40,7 @@ INPUT_IMAGEFILE_FORMAT = os.path.join(BASE_PATH,
 
 INPUT_CSV = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "population.csv")
 OUTPUT_MASK = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask.nii")
+OUTPUT_MASK_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask_atlas.nii")
 OUTPUT_X = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "X.npy")
 OUTPUT_y = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "y.npy")
 
@@ -89,6 +92,9 @@ assert np.all(mask == (babel_mask.get_data() != 0).ravel())
 
 #############################################################################
 # Compute atlas mask
+brainomics.image_atlas.resample_atlas_harvard_oxford(
+    ref=imagefile_name,
+    output=OUTPUT_MASK_ATLAS)
 
 #############################################################################
 # X

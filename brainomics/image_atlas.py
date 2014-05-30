@@ -38,8 +38,8 @@ def resample_atlas_harvard_oxford(ref, output,
 
     Example
     -------
-    from brainomics import resample_atlas_harvard_oxford
-    resample_atlas_harvard_oxford("mwrc1Test_Sbj1.nii.gz", "atlas.nii")
+    from brainomics.image_atlas import resample_atlas_harvard_oxford
+    resample_atlas_harvard_oxford("mwrc1Test_Sbj1.nii.gz", "atlas.nii.gz")
     """
     cort_filename = os.path.join(atlas_base_dir, "HarvardOxford-cort-maxprob-thr0-1mm.nii.gz")
     sub_filename = os.path.join(atlas_base_dir, "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz")
@@ -65,7 +65,9 @@ def resample_atlas_harvard_oxford(ref, output,
         atlas_im.to_filename("/tmp/atlas_smoothed.nii.gz")
     if dilation_size is not None:
         atlas_arr = dilation_labels(atlas_arr, size=dilation_size)
-    atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.get_affine())
+    atlas_arr_int = atlas_arr.astype('int16')
+    assert np.all(atlas_arr_int == atlas_arr)
+    atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.get_affine())
     atlas_im.to_filename(output)
     print "Watch everithing is OK"
     print "fslview /tmp/sub.nii.gz /tmp/cort.nii.gz /tmp/atlas.nii.gz \
