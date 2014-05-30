@@ -46,9 +46,9 @@ OUTPUT_MASK_FILE_FORMAT = "mask.npy"
 SHAPE = (100, 100, 1)
 N_SAMPLES = 100
 # Variance of various objects
-STDEV = np.asarray([2, 1, 0.5])
+STDEV = np.asarray([1, 0.5, 0.5])
 # SNR
-ALPHAS = np.asarray([0.01, 0.1, 1, 10])
+ALPHAS = np.linspace(0.1, 1, num=10)
 
 ########
 # Code #
@@ -83,7 +83,7 @@ for i, subset_name in enumerate(["train", "test"]):
     full_filename = os.path.join(OUTPUT_DIR, filename)
     np.save(full_filename, indices)
 
-# Generate mask with the lastest objects since they have the same geometry
+# Generate mask with the last objects since they have the same geometry
 full_mask = np.zeros(SHAPE, dtype=bool)
 for i, o in enumerate(objects):
     mask = o.get_mask()
