@@ -9,10 +9,25 @@ import numpy as np
 import scipy.ndimage
 import nibabel as nib
 
-# adni
-#ref = "/home/ed203246/data/data_sample/adni/mw002_S_0295_S13408_I45109_Nat_dartel_greyProba.nii"
-ref = "/home/ed203246/data/data_sample/adni/Template_6.nii"
-ref = "/home/ed203246/data/data_sample/mlc2014/mwrc1Test_Sbj1.nii.gz"
+
+def smooth_labels(arr, size):
+    def func(buffer):
+        return np.argmax(np.bincount(buffer.astype(int)))
+    arr = scipy.ndimage.generic_filter(arr, func, size=size)
+    return arr
+
+
+def dilation_labels(arr, size):
+    def func(buffer):
+        buffer = buffer.astype(int)
+        if np.any(buffer > 0):
+            buffer = buffer[buffer != 0]
+            return np.argmax(np.bincount(buffer))
+        else:
+            return 0
+    arr = scipy.ndimage.generic_filter(arr, func, size=size)
+    return arr
+
 
 def resample_atlas_harvard_oxford(ref, output,
         atlas_base_dir="/usr/share/data/harvard-oxford-atlases/HarvardOxford",
@@ -23,6 +38,7 @@ def resample_atlas_harvard_oxford(ref, output,
 
     Example
     -------
+    from brainomics import resample_atlas_harvard_oxford
     resample_atlas_harvard_oxford("mwrc1Test_Sbj1.nii.gz", "atlas.nii")
     """
     cort_filename = os.path.join(atlas_base_dir, "HarvardOxford-cort-maxprob-thr0-1mm.nii.gz")
@@ -43,23 +59,13 @@ def resample_atlas_harvard_oxford(ref, output,
     atlas_arr[sub_arr != 0] = sub_arr[sub_arr != 0]
     cort_image.to_filename("/tmp/atlas.nii.gz")
     # smooth labels
-    def smooth_labels(buffer):
-        return np.argmax(np.bincount(buffer.astype(int)))
     if smooth_size is not None:
-        atlas_arr = scipy.ndimage.generic_filter(atlas_arr, smooth_labels, size=smooth_size)
+        atlas_arr = smooth_labels(atlas_arr, size=smooth_size)
         atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.get_affine())
         atlas_im.to_filename("/tmp/atlas_smoothed.nii.gz")
-    # dilation
-    def dilation_labels(buffer):
-        buffer = buffer.astype(int)
-        if np.any(buffer > 0):
-            buffer = buffer[buffer != 0]
-            return np.argmax(np.bincount(buffer))
-        else:
-            return 0
     if dilation_size is not None:
-        atlas_arr = scipy.ndimage.generic_filter(atlas_arr, dilation_labels, size=dilation_size)
-        atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.get_affine())
+        atlas_arr = dilation_labels(atlas_arr, size=dilation_size)
+    atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.get_affine())
     atlas_im.to_filename(output)
     print "Watch everithing is OK"
     print "fslview /tmp/sub.nii.gz /tmp/cort.nii.gz /tmp/atlas.nii.gz \

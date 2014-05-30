@@ -6,10 +6,10 @@ Compute mask, concatenate masked non-smoothed images for all the subjects.
 Build X, y, and mask
 
 INPUT:
-- subject_list.txt: 
+- subject_list.txt:
 - population.csv
 
-OUTPUT: 
+OUTPUT:
 - mask.nii
 - y.npy
 - X.npy = intercept + Age + Gender + Voxel
@@ -71,12 +71,12 @@ for i, PTID in enumerate(pop['PTID']):
 
 #############################################################################
 # Compute mask
-# Implicit Masking involves assuming that a lower than a givent threshold 
+# Implicit Masking involves assuming that a lower than a givent threshold
 # at some voxel, in any of the images, indicates an unknown and is
-# excluded from the analysis. 
+# excluded from the analysis.
 Xtot = np.vstack(images)
 mask = np.min(Xtot, axis=0) > 0.01
-print "nvox =", mask.sum()
+assert mask.sum() == 314172
 # nvox = 314172
 
 shape = babel_image.get_data().shape
@@ -86,6 +86,9 @@ out_im = nibabel.Nifti1Image(mask.astype(int).reshape(shape),
 out_im.to_filename(OUTPUT_MASK)
 babel_mask = nibabel.load(OUTPUT_MASK)
 assert np.all(mask == (babel_mask.get_data() != 0).ravel())
+
+#############################################################################
+# Compute atlas mask
 
 #############################################################################
 # X
