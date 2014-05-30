@@ -135,8 +135,8 @@ class OutputCollector:
         #    os.makedirs(self.output_dir)
         for k in value:
             if isinstance(value[k], np.ndarray):
-                np.save(os.path.join(self.output_dir, k + ".npy"), value[k])
-                #np.savez_compressed(os.path.join(self.output_dir, k), value[k])
+                #np.save(os.path.join(self.output_dir, k + ".npy"), value[k])
+                np.savez_compressed(os.path.join(self.output_dir, k), value[k])
             elif isinstance(value[k], nibabel.Nifti1Image):
                 value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
             else:

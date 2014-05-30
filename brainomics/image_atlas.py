@@ -10,14 +10,14 @@ import scipy.ndimage
 import nibabel as nib
 
 
-def smooth_labels(arr, size):
+def smooth_labels(arr, size=(3, 3, 3)):
     def func(buffer):
         return np.argmax(np.bincount(buffer.astype(int)))
     arr = scipy.ndimage.generic_filter(arr, func, size=size)
     return arr
 
 
-def dilation_labels(arr, size):
+def dilation_labels(arr, size=(3, 3, 3)):
     def func(buffer):
         buffer = buffer.astype(int)
         if np.any(buffer > 0):

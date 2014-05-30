@@ -44,8 +44,9 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None):
         import getpass
         wd_cluster = os.path.join("/neurospin", "tmp", getpass.getuser(),
                                   os.path.basename(wd))
-    # make sure parent dir of wd_cluster exists
+    print "# Make sure parent dir of wd_cluster exists"
     cmd = 'ssh gabriel.intra.cea.fr "mkdir %s"' % os.path.dirname(wd_cluster)
+    print cmd
     os.system(cmd)
     push_str = 'rsync -azvu --modify-window=1 %s gabriel.intra.cea.fr:%s/' % (
         wd, os.path.dirname(wd_cluster))

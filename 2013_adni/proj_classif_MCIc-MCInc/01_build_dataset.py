@@ -40,8 +40,9 @@ INPUT_IMAGEFILE_FORMAT = os.path.join(BASE_PATH,
 
 INPUT_CSV = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "population.csv")
 OUTPUT_MASK = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask.nii.gz")
-OUTPUT_MASK_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask_atlas.nii.gz")
+OUTPUT_MASK_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc_gtvenet", "mask_atlas.nii.gz")
 OUTPUT_X = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "X.npy")
+OUTPUT_X_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc_gtvenet", "X_atlas.npy")
 OUTPUT_y = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "y.npy")
 
 # Read input subjects
@@ -94,15 +95,16 @@ assert np.all(mask == (babel_mask.get_data() != 0))
 
 #############################################################################
 # Compute atlas mask
-brainomics.image_atlas.resample_atlas_harvard_oxford(
+babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(
     ref=imagefile_name[0],
     output=OUTPUT_MASK_ATLAS)
 
-babel_mask_atlas = nibabel.load(OUTPUT_MASK_ATLAS)
 mask_atlas = babel_mask_atlas.get_data()
-assert np.sum(mask_atlas != 0) == 618462
+assert np.sum(mask_atlas != 0) == 638715
 mask_atlas[np.logical_not(mask)] = 0  # apply implicit mask
-assert np.sum(mask_atlas != 0) == 291676
+# smooth
+mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
+assert np.sum(mask_atlas != 0) == 292971#296306
 out_im = nibabel.Nifti1Image(mask_atlas,
                              affine=babel_image.get_affine())
 out_im.to_filename(OUTPUT_MASK_ATLAS)
@@ -112,16 +114,26 @@ assert np.all(mask_atlas == im.get_data())
 
 #############################################################################
 # X
-X = Xtot[:, mask]
+X = Xtot[:, mask.ravel()]
 X = np.hstack([Z, X])
-print "X.shape =", X.shape
-# X.shape = (202, 314175)
+assert X.shape == (159, 320928)
 n, p = X.shape
-
 np.save(OUTPUT_X, X)
 fh = open(OUTPUT_X.replace("npy", "txt"), "w")
 fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
 
+
+X = Xtot[:, (mask_atlas.ravel() != 0)]
+X = np.hstack([Z, X])
+assert X.shape == (159, 292974)
+n, p = X.shape
+np.save(OUTPUT_X_ATLAS, X)
+fh = open(OUTPUT_X_ATLAS.replace("npy", "txt"), "w")
+fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+    (n, p, (mask_atlas.ravel() != 0).sum()))
+fh.close()
+
 np.save(OUTPUT_y, y)
+
