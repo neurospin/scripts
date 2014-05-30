@@ -6,10 +6,10 @@ Compute mask, concatenate masked non-smoothed images for all the subjects.
 Build X, y, and mask
 
 INPUT:
-- subject_list.txt: 
+- subject_list.txt:
 - population.csv
 
-OUTPUT: 
+OUTPUT:
 - mask.nii
 - y.npy
 - X.npy = intercept + Age + Gender + Voxel
@@ -90,8 +90,8 @@ print "Test", len(images_test)
 
 
 #############################################################################
-# Compute mask
-# Implicit Masking involves assuming that a lower than a givent threshold 
+# Compute implicit mask
+# Implicit Masking involves assuming that a lower than a givent threshold
 # at some voxel, in any of the images, indicates an unknown and is
 # excluded from the analysis.
 print ""

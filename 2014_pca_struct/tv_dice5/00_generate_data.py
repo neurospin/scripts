@@ -10,10 +10,15 @@ Generate test data for PCA with various SNR (controlled by INPUT_ALPHAS).
 We split the data into a train and test sets just for future usage.
 Train and test indices are fixed here.
 
+Finally center data.
+
 """
 
 import os
 import numpy as np
+
+from sklearn.preprocessing import StandardScaler
+
 from parsimony import datasets
 
 import dice5_pca
@@ -27,7 +32,9 @@ OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR, "data")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-OUTPUT_DATA_FILE_FORMAT = "{alpha}.npy"
+OUTPUT_DATASET_FILE_FORMAT = "data_{alpha}.npy"
+OUTPUT_STD_DATASET_FILE_FORMAT = "data_{alpha}.std.npy"
+OUTPUT_BETA_FILE_FORMAT = "beta3d_{alpha}.std.npy"
 OUTPUT_INDEX_FILE_FORMAT = "{subset}_indices.npy"
 OUTPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_MASK_FILE_FORMAT = "mask.npy"
@@ -51,12 +58,23 @@ ALPHAS = np.asarray([0.01, 0.1, 1, 10])
 for alpha in ALPHAS:
     std = alpha * STDEV
     objects = dice5_pca.dice_five_with_union_of_pairs(SHAPE, std)
-    X3d, _, _ = datasets.regression.dice5.load(n_samples=2*N_SAMPLES,
-                                               shape=SHAPE,
-                                               objects=objects, random_seed=1)
-    filename = OUTPUT_DATA_FILE_FORMAT.format(alpha=alpha)
+    X3d, y, beta3d = datasets.regression.dice5.load(n_samples=2*N_SAMPLES,
+                                                    shape=SHAPE,
+                                                    objects=objects, random_seed=1)
+    # Save data and scaled data
+    X = X3d.reshape(2*N_SAMPLES, np.prod(SHAPE))
+    filename = OUTPUT_DATASET_FILE_FORMAT.format(alpha=alpha)
     full_filename = os.path.join(OUTPUT_DIR, filename)
-    np.save(full_filename, X3d)
+    np.save(full_filename, X)
+    scaler = StandardScaler(with_mean=True, with_std=False)
+    X_std = scaler.fit_transform(X)
+    filename = OUTPUT_STD_DATASET_FILE_FORMAT.format(alpha=alpha)
+    full_filename = os.path.join(OUTPUT_DIR, filename)
+    np.save(full_filename, X_std)
+    # Save beta
+    filename = OUTPUT_BETA_FILE_FORMAT.format(alpha=alpha)
+    full_filename = os.path.join(OUTPUT_DIR, filename)
+    np.save(full_filename, beta3d)
 
 # Split in train/test
 for i, subset_name in enumerate(["train", "test"]):
