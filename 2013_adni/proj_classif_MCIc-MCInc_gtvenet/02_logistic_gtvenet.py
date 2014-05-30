@@ -157,7 +157,10 @@ if __name__ == "__main__":
         user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "proj_classif_MCIc-MCInc_gtvenet",
         "02_logistic_gtvenet.py")
-        print "USE", user_func_filename
+    #print __file__, os.path.abspath(__file__)
+    print "user_func", user_func_filename
+    #import sys
+    #sys.exit(0)
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
@@ -176,12 +179,10 @@ if __name__ == "__main__":
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map --config %s/config.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    print "TOTO 2"
-
     #############################################################################
     # Sync to cluster
     print "Sync data to gabriel.intra.cea.fr: "
-    #os.system(sync_push_filename)
+    os.system(sync_push_filename)
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
