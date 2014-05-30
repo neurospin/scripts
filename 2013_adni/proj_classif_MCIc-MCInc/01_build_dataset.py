@@ -39,8 +39,8 @@ INPUT_IMAGEFILE_FORMAT = os.path.join(BASE_PATH,
                                     "mw{PTID}*_Nat_dartel_greyProba.nii")
 
 INPUT_CSV = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "population.csv")
-OUTPUT_MASK = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask.nii")
-OUTPUT_MASK_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask_atlas.nii")
+OUTPUT_MASK = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask.nii.gz")
+OUTPUT_MASK_ATLAS = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "mask_atlas.nii.gz")
 OUTPUT_X = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "X.npy")
 OUTPUT_y = os.path.join(BASE_PATH, "proj_classif_MCIc-MCInc", "y.npy")
 
@@ -72,6 +72,8 @@ for i, PTID in enumerate(pop['PTID']):
     Z[i, 1:] = np.asarray(cur[["AGE", "PTGENDER.num"]]).ravel()
     y[i, 0] = cur["DX.num"]
 
+shape = babel_image.get_data().shape
+
 #############################################################################
 # Compute mask
 # Implicit Masking involves assuming that a lower than a givent threshold
@@ -79,22 +81,34 @@ for i, PTID in enumerate(pop['PTID']):
 # excluded from the analysis.
 Xtot = np.vstack(images)
 mask = np.min(Xtot, axis=0) > 0.01
-assert mask.sum() == 314172
-# nvox = 314172
+mask = mask.reshape(shape)
+assert mask.sum() == 320925
 
-shape = babel_image.get_data().shape
+
 # Save mask
-out_im = nibabel.Nifti1Image(mask.astype(int).reshape(shape),
+out_im = nibabel.Nifti1Image(mask.astype("int16"),
                              affine=babel_image.get_affine())
 out_im.to_filename(OUTPUT_MASK)
 babel_mask = nibabel.load(OUTPUT_MASK)
-assert np.all(mask == (babel_mask.get_data() != 0).ravel())
+assert np.all(mask == (babel_mask.get_data() != 0))
 
 #############################################################################
 # Compute atlas mask
 brainomics.image_atlas.resample_atlas_harvard_oxford(
-    ref=imagefile_name,
+    ref=imagefile_name[0],
     output=OUTPUT_MASK_ATLAS)
+
+babel_mask_atlas = nibabel.load(OUTPUT_MASK_ATLAS)
+mask_atlas = babel_mask_atlas.get_data()
+assert np.sum(mask_atlas != 0) == 618462
+mask_atlas[np.logical_not(mask)] = 0  # apply implicit mask
+assert np.sum(mask_atlas != 0) == 291676
+out_im = nibabel.Nifti1Image(mask_atlas,
+                             affine=babel_image.get_affine())
+out_im.to_filename(OUTPUT_MASK_ATLAS)
+im = nibabel.load(OUTPUT_MASK_ATLAS)
+assert np.all(mask_atlas == im.get_data())
+
 
 #############################################################################
 # X
