@@ -297,15 +297,19 @@ if __name__ == "__main__":
                         print "Joined:", str(p)
                 time.sleep(1)
             job = jobs[i]
-            output_collector = OutputCollector(job[T["output"]])
-            output_collector.lock_acquire()
-            if output_collector.is_done() or output_collector.is_running():
-                output_collector.lock_release()
+            try:
+                os.makedirs(job[T["output"]])
+            except :
                 continue
-            else:
-                output_collectors.append(output_collector)
-                output_collector.set_running(True)
-                output_collector.lock_release()
+            output_collector = OutputCollector(job[T["output"]])
+#            output_collector.lock_acquire()
+#            if output_collector.is_done() or output_collector.is_running():
+#                output_collector.lock_release()
+#                continue
+#            else:
+#                output_collectors.append(output_collector)
+#                output_collector.set_running(True)
+#                output_collector.lock_release()
             if (not resample_nb_cur and job[T["resample_nb"]]) or \
                (resample_nb_cur != job[T["resample_nb"]]):  # Load
                 resample_nb_cur = job[T["resample_nb"]]
