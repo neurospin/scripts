@@ -14,7 +14,8 @@ import nibabel
 from multiprocessing import Process, cpu_count
 import numpy as np
 import pandas as pd
-
+from datetime import timedelta
+from flufl.lock import Lock
 #from parsimony.utils import check_arrays
 # Global data
 DATA = dict()
@@ -105,13 +106,16 @@ class OutputCollector:
         _makedirs_safe(os.path.dirname(self.output_dir))
 
     def lock_acquire(self):
-        self.lock_handle = open(self.lock_filename, 'w')
-        fcntl.flock(self.lock_handle, fcntl.LOCK_EX)
+        self.lock = Lock(self.lock_filename)
+        self.lock.lifetime = timedelta(seconds=1)
+        self.lock.lock()
+#        self.lock_handle = open(self.lock_filename, 'w')
+#        fcntl.flock(self.lock_handle, fcntl.LOCK_EX)
 
     def lock_release(self):
-        fcntl.flock(self.lock_handle, fcntl.LOCK_UN)
-        self.lock_handle.close()
-        #os.remove(self.lock_filename)
+        self.lock.unlock()
+#        fcntl.flock(self.lock_handle, fcntl.LOCK_UN)
+#        self.lock_handle.close()
 
     def set_running(self, state):
         if state:
