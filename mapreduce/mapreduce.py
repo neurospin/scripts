@@ -4,18 +4,18 @@ Map reduce for parsimony.
 """
 
 import time
-import fcntl
+#import fcntl
 import errno
 import json
 import sys, os, glob, argparse, re
-import warnings
+#import warnings
 import pickle
 import nibabel
 from multiprocessing import Process, cpu_count
 import numpy as np
 import pandas as pd
-from datetime import timedelta
-from flufl.lock import Lock
+#from datetime import timedelta
+#from flufl.lock import Lock
 #from parsimony.utils import check_arrays
 # Global data
 DATA = dict()
@@ -100,43 +100,41 @@ class OutputCollector:
     """
     def __init__(self, output_dir):
         self.output_dir = output_dir
-        self.lock_filename = output_dir + "_lock"
-        self.running_filename = output_dir + "_run"
+#        self.lock_filename = output_dir + "_lock"
+#        self.running_filename = output_dir + "_run"
         #if not os.path.exists(os.path.dirname(self.output_dir)):
-        _makedirs_safe(os.path.dirname(self.output_dir))
+#        _makedirs_safe(os.path.dirname(self.output_dir))
 
-    def lock_acquire(self):
-        self.lock = Lock(self.lock_filename)
-        self.lock.lifetime = timedelta(seconds=1)
-        self.lock.lock()
-#        self.lock_handle = open(self.lock_filename, 'w')
-#        fcntl.flock(self.lock_handle, fcntl.LOCK_EX)
-
-    def lock_release(self):
-        self.lock.unlock()
-#        fcntl.flock(self.lock_handle, fcntl.LOCK_UN)
-#        self.lock_handle.close()
-
-    def set_running(self, state):
-        if state:
-            of = open(self.running_filename + "_@%s" % os.uname()[1], 'w')
-            of.close()
-        else:
-            files = glob.glob(self.running_filename + "*")
-            if len(files) > 0:
-                [os.remove(f) for f in files]
-        #print state, self.running_filename, os.path.exists(self.running_filename)
-
-    def is_done(self):
-        return os.path.exists(self.output_dir)
-
-    def is_running(self):
-        return len(glob.glob(self.running_filename + "*")) > 0
+#    def lock_acquire(self):
+#        self.lock = Lock(self.lock_filename)
+#        self.lock.lifetime = timedelta(seconds=1)
+#        self.lock.lock()
+##        self.lock_handle = open(self.lock_filename, 'w')
+##        fcntl.flock(self.lock_handle, fcntl.LOCK_EX)
+#
+#    def lock_release(self):
+#        self.lock.unlock()
+##        fcntl.flock(self.lock_handle, fcntl.LOCK_UN)
+##        self.lock_handle.close()
+#
+#    def set_running(self, state):
+#        if state:
+#            of = open(self.running_filename + "_@%s" % os.uname()[1], 'w')
+#            of.close()
+#        else:
+#            files = glob.glob(self.running_filename + "*")
+#            if len(files) > 0:
+#                [os.remove(f) for f in files]
+#        #print state, self.running_filename, os.path.exists(self.running_filename)
+#
+#    def is_done(self):
+#        return os.path.exists(self.output_dir)
+#
+#    def is_running(self):
+#        return len(glob.glob(self.running_filename + "*")) > 0
 
     def collect(self, key, value):
         _makedirs_safe(self.output_dir)
-        #if not os.path.exists(self.output_dir):
-        #    os.makedirs(self.output_dir)
         for k in value:
             if isinstance(value[k], np.ndarray):
                 #np.save(os.path.join(self.output_dir, k + ".npy"), value[k])
@@ -152,7 +150,7 @@ class OutputCollector:
                     of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
                     pickle.dump(value[k], of)
                     of.close()
-        self.set_running(False)
+#        self.set_running(False)
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
@@ -183,14 +181,14 @@ class OutputCollector:
         return res
 
 ## Store output_collectors to do some cleaning if killed
-output_collectors = list()
-
-def clean_atexit():
-    for oc in output_collectors:
-        oc.set_running(False)
-
-import atexit
-atexit.register(clean_atexit)
+#output_collectors = list()
+#
+#def clean_atexit():
+#    for oc in output_collectors:
+#        oc.set_running(False)
+#
+#import atexit
+#atexit.register(clean_atexit)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -299,7 +297,7 @@ if __name__ == "__main__":
             job = jobs[i]
             try:
                 os.makedirs(job[T["output"]])
-            except :
+            except:
                 continue
             output_collector = OutputCollector(job[T["output"]])
 #            output_collector.lock_acquire()
