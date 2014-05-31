@@ -52,8 +52,10 @@ json.dump(config, open("config.json", "w"))
 def load_data(key_filename):
     return {key:np.load(key_filename[key]) for key in key_filename}
 
-_table_columns = dict(output=0, params=1, resample_nb=2)
-
+#_table_columns = dict(output=0, params=1, resample_nb=2)
+_OUTPUT = 0
+_PARAMS = 1
+_RESAMPLE_NB = 2
 
 def _build_job_table(options):
     params_list = json.load(open(options.params)) \
@@ -100,6 +102,12 @@ class OutputCollector:
     """
     def __init__(self, output_dir):
         self.output_dir = output_dir
+
+    def clean(self):
+        if os.path.exists(self.output_dir) \
+            and len(os.listdir(self.output_dir)) == 0:
+            print "clean",self.output_dir
+            os.rmdir(self.output_dir)
 #        self.lock_filename = output_dir + "_lock"
 #        self.running_filename = output_dir + "_run"
         #if not os.path.exists(os.path.dirname(self.output_dir)):
@@ -181,14 +189,14 @@ class OutputCollector:
         return res
 
 ## Store output_collectors to do some cleaning if killed
-#output_collectors = list()
+output_collectors = list()
 #
-#def clean_atexit():
-#    for oc in output_collectors:
-#        oc.set_running(False)
-#
-#import atexit
-#atexit.register(clean_atexit)
+def clean_atexit():
+    for oc in output_collectors:
+        oc.clean()
+
+import atexit
+atexit.register(clean_atexit)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -198,6 +206,11 @@ if __name__ == "__main__":
     parser.add_argument('--map', action='store_true', default=False,
                         help="Run mapper: iterate over resamples and "
                         "parameters, and call mapper (defined in user_func)")
+
+    parser.add_argument('--clean', action='store_true', default=False,
+                        help="Clean execution: remove empty directories "
+                        "in map_output. Use it if you suspect that some "
+                        "mapper where not end not properly.")
 
     parser.add_argument('--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call"
@@ -256,8 +269,8 @@ if __name__ == "__main__":
         setattr(options, "resample", None)
     if not hasattr(options, "user_func"):
         setattr(options, "user_func", None)
-    if not hasattr(options, "job_file"):
-        setattr(options, "job_file", None)
+#    if not hasattr(options, "job_file"):
+#        setattr(options, "job_file", None)
     if options.ncore is None:
         options.ncore = default_nproc
 
@@ -274,16 +287,15 @@ if __name__ == "__main__":
         user_func = _import_user_func(options.user_func)
         ## Load globals
         user_func.load_globals(config)
-        if options.job_file:
-            jobs = json.load(open(options.job_file))
-        else:
-            jobs = _build_job_table(options)
+#        if options.job_file:
+#            jobs = json.load(open(options.job_file))
+#        else:
+        jobs = _build_job_table(options)
         print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
         resamples_file_cur = resample_nb_cur = None
         data_cur = None
         workers = list()
-        T = _table_columns
         for i in xrange(len(jobs)):
             # see if we can create a worker
             while len(workers) == options.ncore:
@@ -296,10 +308,11 @@ if __name__ == "__main__":
                 time.sleep(1)
             job = jobs[i]
             try:
-                os.makedirs(job[T["output"]])
+                os.makedirs(job[_OUTPUT])
             except:
                 continue
-            output_collector = OutputCollector(job[T["output"]])
+            output_collector = OutputCollector(job[_OUTPUT])
+            output_collectors.append(output_collector)
 #            output_collector.lock_acquire()
 #            if output_collector.is_done() or output_collector.is_running():
 #                output_collector.lock_release()
@@ -308,11 +321,11 @@ if __name__ == "__main__":
 #                output_collectors.append(output_collector)
 #                output_collector.set_running(True)
 #                output_collector.lock_release()
-            if (not resample_nb_cur and job[T["resample_nb"]]) or \
-               (resample_nb_cur != job[T["resample_nb"]]):  # Load
-                resample_nb_cur = job[T["resample_nb"]]
+            if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
+               (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
+                resample_nb_cur = job[_RESAMPLE_NB]
                 user_func.resample(config, resample_nb_cur)
-            key = job[T["params"]]
+            key = job[_PARAMS]
             p = Process(target=user_func.mapper, args=(key, output_collector))
             print "Start :", str(p), str(output_collector)
             p.start()
@@ -322,6 +335,12 @@ if __name__ == "__main__":
             p.join()
             workers.remove(p)
             print "Joined:", str(p)
+
+    if options.clean:
+        jobs = _build_job_table(options)
+        for i in xrange(len(jobs)):
+            output_collector = OutputCollector(jobs[i][_OUTPUT])
+            output_collector.clean()
 
     # =======================================================================
     # == REDUCE                                                            ==
