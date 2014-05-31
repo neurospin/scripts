@@ -15,6 +15,8 @@ import os
 import json
 import time
 
+from collections import OrderedDict
+
 import numpy as np
 import scipy
 
@@ -33,6 +35,7 @@ INPUT_SHAPE = (100, 100, 1)
 INPUT_ALPHAS = np.linspace(0.1, 1, num=10)
 INPUT_TRAIN_INDICES = os.path.join(INPUT_DIR, "train_indices.npy")
 INPUT_TEST_INDICES = os.path.join(INPUT_DIR, "test_indices.npy")
+INPUT_BETA_FILE_FORMAT = "beta3d_{alpha}.std.npy"
 
 OUTPUT_DIR = os.path.join(INPUT_BASE_DIR, "struct_pca")
 if not os.path.exists(OUTPUT_DIR):
@@ -65,7 +68,7 @@ def mapper(key, output_collector):
     # A matrices
     X_train = GLOBAL.DATA["X"][0]
     n, p = shape = X_train.shape
-#    print "X_train", shape
+    #print "X_train", shape
     Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(INPUT_SHAPE)
     Al1 = scipy.sparse.eye(p, p)
     model = pca_tv.PCA_SmoothedL1_L2_TV(n_components=N_COMP,
@@ -79,9 +82,10 @@ def mapper(key, output_collector):
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
-#    print "X_test", GLOBAL.DATA["X"][1].shape
+    #print "X_test", GLOBAL.DATA["X"][1].shape
     X_transform = model.transform(GLOBAL.DATA["X"][1])
-    ret = dict(X_transform=X_transform,
+    ret = dict(X_train=X_train,
+               X_transform=X_transform,
                model=model,
                time=t1-t0)
     output_collector.collect(key, ret)
@@ -89,24 +93,50 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.
-    print key
+
     values = [item.load() for item in values]
-    dice5_pca.dice_five_metrics()
-    return None
+    model = values[0]["model"]
+
+    # Read masks & compute geometric metrics
+    V = model.V
+    global INPUT_OBJECT_MASK_FILE_FORMAT, INPUT_BETA_FILE_FORMAT
+    recall = []
+    precision = []
+    corr = []
+    for i in range(3):
+        filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
+        full_filename = os.path.join(INPUT_DIR, filename)
+        print full_filename
+        mask = np.load(full_filename)
+        #masks.append(mask)
+        res = dice5_pca.dice_five_geometric_metrics(mask, V[:, i])
+        recall.append(res[0])
+        precision.append(res[1])
+        corr.append(res[2])
+
+    # Percentage of explained variance
+    X_train = values[0]["X_train"]
+    d = model.d
+    variance = np.sum(X_train**2)
+    evr = d**2/variance
+
+    scores = dict(key=key,
+                  recall_0=recall[0], recall_1=recall[1],
+                  recall_2=recall[2], recall_mean=np.mean(recall),
+                  precision_0=precision[0], precision_1=precision[1],
+                  precision_2=precision[2], precision_mean=np.mean(precision),
+                  corr_0=corr[0], corr_1=corr[1],
+                  corr_2=corr[2], corr_mean=np.mean(corr),
+                  explained_variance_ratio_0=evr[0],
+                  explained_variance_ratio_1=evr[1],
+                  explained_variance_ratio_2=evr[2])
+    return OrderedDict(sorted(scores.items(), key=lambda t: t[0]))
 
 #################
 # Actual script #
 #################
 
 if __name__ == '__main__':
-    # Read objects mask
-    mask_filenames = []
-    for i in range(3):
-        filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-        full_filename = os.path.join(INPUT_DIR, filename)
-        #mask = np.load(full_filename)
-        #masks.append(mask)
-        mask_filenames.append(full_filename)
 
     # Read indices
     train_indices = np.load(INPUT_TRAIN_INDICES).tolist()
