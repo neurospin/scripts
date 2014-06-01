@@ -19,6 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
+import nibabel
 
 IMAGES_PATH = "/neurospin/tmp/mlc2014/processed/binary"
 INPUT_ROI_TRAIN = os.path.join(IMAGES_PATH, "BinaryTrain_data.csv")
@@ -28,13 +29,20 @@ sys.path.append(SRC_PATH)
 import utils
 
 
-
+# 5CV
 GM = "/neurospin/brainomics/2014_mlc/GM"
-#WHICH = "0.05_0.45_0.45_0.1"
-WHICH = "0.05_0.08_0.72_0.2"
+WHICH = "0.05_0.45_0.45_0.1"
+#WHICH = "0.05_0.08_0.72_0.2"
+
+# 10CV
+#GM = "/neurospin/brainomics/2014_mlc/GM_10CV"
+#WHICH = "0.05_0.45_0.45_0.1_-1.0"
+#WHICH = "0.05_0.08_0.72_0.2_-1.0"
+
 
 print "====================================================================="
-print "enettv:", WHICH
+print "== enettv:", WHICH, GM
+print "====================================================================="
 
 penalty_start = 1
 #/neurospin/brainomics/2014_mlc/GM/results/0/0.05_0.45_0.45_0.1/
@@ -43,10 +51,18 @@ pop_train = pd.read_csv(INPUT_SUBJECT_TRAIN)
 cv = json.load(open(os.path.join(GM, "config.json")))['resample']
 #cv = StratifiedKFold(y_train, n_folds=5)
 Xgm_train = np.load(os.path.join(GM,  'GMtrain.npy'))
+Xgm_test = np.load(os.path.join(GM,  'GMtest.npy'))
+y_train = np.load(os.path.join(GM,  'ytrain.npy'))
+assert np.all(pop_train.Label.values  == y_train.ravel())
+
 Xroi_train = pd.read_csv(INPUT_ROI_TRAIN, header=None).values
 
 # enettv for GM
-alpha, l1, l2, tv = [float(p) for p in WHICH.split("_")]
+arg = [float(p) for p in WHICH.split("_")]
+if len(arg) == 4:
+    alpha, l1, l2, tv = arg
+else:
+    alpha, l1, l2, tv, k = arg
 l1, l2, tv = alpha * l1, alpha * l2, alpha * tv
 enettv = LogisticRegressionL1L2TV(l1, l2, tv, 0, penalty_start=penalty_start,
                                    class_weight="auto")
@@ -63,6 +79,8 @@ p_lr_l2 = Pipeline([
 W = list()
 y_true_disk = list()
 y_true_csv = list()
+y_true_train = list()
+y_pred_train = list()
 y_pred_disk = list()
 y_pred_replay = list()
 
@@ -78,12 +96,16 @@ for i, (tr, te) in enumerate(cv):
     y_true_disk.append(np.load(os.path.join(input_path, "y_true.npy")).ravel())
     y_pred_disk.append(np.load(os.path.join(input_path, "y_pred.npy")).ravel())
     y_true_csv.append(pop_train.Label.values[te])
+    y_true_train.append(pop_train.Label.values[tr])
+    y_pred_train.append(enettv.predict(Xgm_train[tr,: ]).ravel())
 
 W = np.vstack(W)
 y_true_disk = np.hstack(y_true_disk)
 y_true_csv = np.hstack(y_true_csv)
 y_pred_disk = np.hstack(y_pred_disk)
 y_pred_replay = np.hstack(y_pred_replay)
+y_true_train = np.hstack(y_true_train)
+y_pred_train = np.hstack(y_pred_train)
 
 # Do some QC
 assert np.all(y_true_disk == y_true_csv)  # true test == those in csv
@@ -91,7 +113,7 @@ assert np.all(y_pred_replay == y_pred_disk) # pred == those stored
 
 p, r, f, s = precision_recall_fscore_support(y_true_csv, y_pred_replay, average=None)
 #assert r.mean() == 0.67999999999999994
-
+_, cv_train_recall, _, _ = precision_recall_fscore_support(y_true_train, y_pred_train, average=None)
 
 ###############################################################################
 ## RUN separatly
@@ -135,12 +157,11 @@ summary = pd.DataFrame([
 columns=["features", "acc", "auc", "recall_0", "recall_1"])
 
 print "Individuals classifiers performances"
-print "===================================="
+print "------------------------------------"
 print summary
 #  feat       acc       auc  recall_0  recall_1
 #0  roi  0.686667  0.765511  0.720000  0.653333
 #1   gm  0.680000  0.708622  0.693333  0.666667
-#
 # Compare
 same = np.sum(res.pred_roi == res.pred_gm) / float(len(res.pred_roi))
 #assert same == 0.6333333333333333
@@ -206,7 +227,7 @@ fpr, tpr, thresholds = roc_curve(res.y_true, res.pred_mix_learn)
 roc_auc_mix_learn = auc(fpr, tpr)
 
 print "Mixer classifiers performances"
-print "=============================="
+print "------------------------------"
 
 summary_mix = pd.DataFrame([
 ["Mean"] + [acc_mix_mean] + [roc_auc_mix_mean] + r_mix_mean.tolist(),
@@ -216,3 +237,46 @@ summary_mix = pd.DataFrame([
 columns=["Mixer", "acc", "auc", "recall_0", "recall_1"])
 
 print summary_mix
+
+
+print "Refit on all data to predict test samples
+print "----------------------------------------"
+GM = "/neurospin/brainomics/2014_mlc/GM"
+OUTPUT = os.path.join(os.path.dirname(GM), 'combine', "gm_all_"+WHICH)
+if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+#Xtr = np.load(os.path.join(GM,  'GMtrain.npy'))
+#Xte = np.load(os.path.join(GM,  'GMtest.npy'))
+#ytr = np.load(os.path.join(GM,  'ytrain.npy'))
+mask_im = nibabel.load(os.path.join(GM,  "mask.nii"))
+A, _ = tv_helper.A_from_mask(mask_im.get_data())
+
+params = np.array([float(p) for p in WHICH.split("_")])
+l1, l2, tv = params[0] * params[1:]
+mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1,
+                               class_weight="auto")
+mod.fit(Xgm_train, y_train)
+
+print "Train scores"
+y_pred_train = mod.predict(Xgm_train).ravel()
+y_pred_prob_train = mod.predict_probability(Xgm_train).ravel()
+# acc
+acc_gm = accuracy_score(ytr, y_pred_train)
+# auc
+fpr, tpr, thresholds = roc_curve(ytr, y_pred_prob_train)
+roc_auc_gm = auc(fpr, tpr)
+# recalls
+_, r_train, _, _ = precision_recall_fscore_support(ytr, y_pred_train, average=None)
+
+
+print "CV recalls on training samples", cv_train_recall
+
+ICI
+
+beta3d = np.zeros(mask_im.get_data().shape)
+beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
+out_im = nibabel.Nifti1Image(beta3d, affine=mask_im.get_affine())
+ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
+# run /home/ed203246/bin/mapreduce.py
+import mapreduce
+oc = mapreduce.OutputCollector(OUTPUT)
+oc.collect(key=key, value=ret)

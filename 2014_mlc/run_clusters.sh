@@ -97,4 +97,23 @@ exit
 # Reduce
 mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/GM_GTV/config.json
 
+###########################
+fslview /tmp/sub.nii.gz /tmp/cort.nii.gz /tmp/merge.nii.gz         /tmp/atlas_smoothed.nii.gz /neurospin/brainomics/2014_mlc/gm_gtvenet/mask_atlas.nii.gz /neurospin/tmp/mlc2014/processed/binary/Train_Sbj100/mwrc1Train_Sbj100.nii.gz
+
+# Start by running Locally with 2 cores, to check that everything os OK)
+Interrupt after a while CTL-C
+mapreduce.py --map --config /neurospin/brainomics/2014_mlc/gm_gtvenet/config.json --ncore 2
+# 1) Log on gabriel:
+ssh -t gabriel.intra.cea.fr
+# 2) Run one Job to test
+qsub -I
+cd /neurospin/tmp/ed203246/gm_gtvenet
+./job_Global_long.pbs
+# 3) Run on cluster
+qsub job_Global_long.pbs
+# 4) Log out and pull Pull
+exit
+/neurospin/brainomics/2014_mlc/gm_gtvenet/sync_pull.sh
+# Reduce
+mapreduce.py --mode reduce --config /neurospin/brainomics/2014_mlc/gm_gtvenet/config.json
 

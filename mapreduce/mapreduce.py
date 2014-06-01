@@ -4,7 +4,6 @@ Map reduce for parsimony.
 """
 
 import time
-#import fcntl
 import errno
 import json
 import sys, os, glob, argparse, re
@@ -14,9 +13,7 @@ import nibabel
 from multiprocessing import Process, cpu_count
 import numpy as np
 import pandas as pd
-#from datetime import timedelta
-#from flufl.lock import Lock
-#from parsimony.utils import check_arrays
+
 # Global data
 DATA = dict()
 param_sep = "_"
@@ -52,7 +49,6 @@ json.dump(config, open("config.json", "w"))
 def load_data(key_filename):
     return {key:np.load(key_filename[key]) for key in key_filename}
 
-#_table_columns = dict(output=0, params=1, resample_nb=2)
 _OUTPUT = 0
 _PARAMS = 1
 _RESAMPLE_NB = 2
@@ -108,44 +104,11 @@ class OutputCollector:
             and len(os.listdir(self.output_dir)) == 0:
             print "clean",self.output_dir
             os.rmdir(self.output_dir)
-#        self.lock_filename = output_dir + "_lock"
-#        self.running_filename = output_dir + "_run"
-        #if not os.path.exists(os.path.dirname(self.output_dir)):
-#        _makedirs_safe(os.path.dirname(self.output_dir))
-
-#    def lock_acquire(self):
-#        self.lock = Lock(self.lock_filename)
-#        self.lock.lifetime = timedelta(seconds=1)
-#        self.lock.lock()
-##        self.lock_handle = open(self.lock_filename, 'w')
-##        fcntl.flock(self.lock_handle, fcntl.LOCK_EX)
-#
-#    def lock_release(self):
-#        self.lock.unlock()
-##        fcntl.flock(self.lock_handle, fcntl.LOCK_UN)
-##        self.lock_handle.close()
-#
-#    def set_running(self, state):
-#        if state:
-#            of = open(self.running_filename + "_@%s" % os.uname()[1], 'w')
-#            of.close()
-#        else:
-#            files = glob.glob(self.running_filename + "*")
-#            if len(files) > 0:
-#                [os.remove(f) for f in files]
-#        #print state, self.running_filename, os.path.exists(self.running_filename)
-#
-#    def is_done(self):
-#        return os.path.exists(self.output_dir)
-#
-#    def is_running(self):
-#        return len(glob.glob(self.running_filename + "*")) > 0
 
     def collect(self, key, value):
         _makedirs_safe(self.output_dir)
         for k in value:
             if isinstance(value[k], np.ndarray):
-                #np.save(os.path.join(self.output_dir, k + ".npy"), value[k])
                 np.savez_compressed(os.path.join(self.output_dir, k), value[k])
             elif isinstance(value[k], nibabel.Nifti1Image):
                 value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
@@ -158,7 +121,6 @@ class OutputCollector:
                     of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
                     pickle.dump(value[k], of)
                     of.close()
-#        self.set_running(False)
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
@@ -188,7 +150,6 @@ class OutputCollector:
                 res[name] = o
         return res
 
-## Store output_collectors to do some cleaning if killed
 output_collectors = list()
 #
 def clean_atexit():
@@ -269,13 +230,8 @@ if __name__ == "__main__":
         setattr(options, "resample", None)
     if not hasattr(options, "user_func"):
         setattr(options, "user_func", None)
-#    if not hasattr(options, "job_file"):
-#        setattr(options, "job_file", None)
     if options.ncore is None:
         options.ncore = default_nproc
-
-    # import itself to modify global variables (glob.DATA)
-    #sys.path.append(os.path.dirname(__file__))
 
     # =======================================================================
     # == MAP                                                               ==
@@ -287,9 +243,6 @@ if __name__ == "__main__":
         user_func = _import_user_func(options.user_func)
         ## Load globals
         user_func.load_globals(config)
-#        if options.job_file:
-#            jobs = json.load(open(options.job_file))
-#        else:
         jobs = _build_job_table(options)
         print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
@@ -313,14 +266,6 @@ if __name__ == "__main__":
                 continue
             output_collector = OutputCollector(job[_OUTPUT])
             output_collectors.append(output_collector)
-#            output_collector.lock_acquire()
-#            if output_collector.is_done() or output_collector.is_running():
-#                output_collector.lock_release()
-#                continue
-#            else:
-#                output_collectors.append(output_collector)
-#                output_collector.set_running(True)
-#                output_collector.lock_release()
             if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
                (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
                 resample_nb_cur = job[_RESAMPLE_NB]
@@ -378,5 +323,3 @@ if __name__ == "__main__":
         print scores.to_string()
         if options.reduce_output is not None:
             scores.to_csv(options.reduce_output, index=False)
-
-
