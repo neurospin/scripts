@@ -367,7 +367,13 @@ if __name__ == "__main__":
             output_collector = OutputCollector(item)
             groups[which_group_key[0]].append(output_collector)
         # Do the reduce
-        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
+        scores = list()
+        for k in groups:
+            try:
+                scores.append(user_func.reducer(key=k, values=groups[k]))
+            except:
+                print "Reducer failed in %s" % k
+        #scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
         scores = pd.DataFrame(scores)
         print scores.to_string()
         if options.reduce_output is not None:
