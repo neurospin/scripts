@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 16 10:37:33 2014
+Created on Wed May 28 10:37:33 2014
 
-@author: fh235918
+@author: md238665
+
+Simple test of the algorithm on the dice 5 data.
+
 """
 
 import os
@@ -20,11 +23,8 @@ import sklearn.decomposition
 
 import parsimony
 import parsimony.functions
-import parsimony.start_vectors as start_vectors
 from parsimony.algorithms import *
-import parsimony.utils.consts as consts
 
-from  parsimony import datasets
 from parsimony.utils import plot_map2d
 
 import pca_tv
@@ -59,7 +59,7 @@ N_COMP = 3
 ########
 
 # Load data
-alpha = INPUT_ALPHAS[-1]
+alpha = 0.3
 filename = INPUT_STD_DATASET_FILE_FORMAT.format(alpha=alpha)
 dataset_full_filename = os.path.join(INPUT_DIR, filename)
 X = np.load(dataset_full_filename)
@@ -87,10 +87,11 @@ V_pca_sklearn = pca_sklearn.components_.transpose()
 del pca_sklearn
 
 # ExcessiveGap
-e_eg_sparse = pca_tv.PCA_SmoothedL1_L2_TV(50*l1, 50*l2, 50*ltv, Atv, Al1,
+e_eg_sparse = pca_tv.PCA_SmoothedL1_L2_TV(l1, l2, ltv, Atv, Al1,
                                           n_components=N_COMP,
                                           criterion="frobenius",
                                           eps=1e-6,
+                                          inner_max_iter=int(1e5),
                                           use_eg=True,
                                           output=True)
 t = timeit.timeit(stmt='e_eg_sparse.fit(X)', setup="from __main__ import e_eg_sparse, X", number=1)
