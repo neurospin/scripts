@@ -173,43 +173,8 @@ def load_bmi_data(cache=False):
 
 
 if __name__ == "__main__":
-#    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet"
-#    #BASE = "/neurospin/tmp/brainomics/testenettv"
-#    #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-#    #print "Sync data to %s/ " % os.path.dirname(WD)
-#    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-#    INPUT_DATA_X = os.path.join('X_atlas.npy')
-#    INPUT_DATA_y = os.path.join('y.npy')
-#    INPUT_MASK_PATH = os.path.join("mask_atlas.nii.gz")
-#    NFOLDS = 5
-#    #WD = os.path.join(WD, 'logistictvenet_5cv')
-#    if not os.path.exists(WD): os.makedirs(WD)
-#    os.chdir(WD)
-#
-#    #############################################################################
-#    ## Create config file
-#    y = np.load(INPUT_DATA_y)
-#    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
-#    # parameters grid
-#    # Re-run with
-#    tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
-#    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-#                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-#    alphas = [.01, .05, .1 , .5, 1.]
-#    k_range = [100, 1000, 10000, 100000, -1]
-#    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-#    l1l2tv.append(np.array([[0., 0., 1.]]))
-#    l1l2tv = np.concatenate(l1l2tv)
-#    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-#    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
-#    params = [params.tolist() for params in alphal1l2tvk]
-#
-#
     ## Set pathes
     WD = "/neurospin/tmp/brainomics/bmi_images_cluster"
-    WD_CLUSTER = WD.replace("/neurospin/tmp/brainomics", "/neurospin/tmp/brainomics2")
-    #print "Sync data to %s/ " % os.path.dirname(WD)
-    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
     if not os.path.exists(WD): os.makedirs(WD)
     
     ## get update and save data in WD for the mapreduce jobs
