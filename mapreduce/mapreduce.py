@@ -53,14 +53,14 @@ _OUTPUT = 0
 _PARAMS = 1
 _RESAMPLE_NB = 2
 
-def _build_job_table(options):
-    params_list = json.load(open(options.params)) \
-        if isinstance(options.params, str) else options.params
-    jobs = [[os.path.join(options.map_output, str(resample_i),
+def _build_job_table(config):
+    params_list = json.load(open(config["params"])) \
+        if isinstance(config["params"], str) else config["params"]
+    jobs = [[os.path.join(config["map_output"], str(resample_i),
                           param_sep.join([str(p) for p in params])),
             params,
             resample_i]
-            for resample_i in xrange(len(options.resample))
+            for resample_i in xrange(len(config["resample"]))
             for params in params_list]
     return jobs
 
@@ -164,21 +164,21 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__, epilog=example)
 
-    parser.add_argument('--map', action='store_true', default=False,
+    parser.add_argument('-m', '--map', action='store_true', default=False,
                         help="Run mapper: iterate over resamples and "
                         "parameters, and call mapper (defined in user_func)")
 
-    parser.add_argument('--clean', action='store_true', default=False,
+    parser.add_argument('-c', '--clean', action='store_true', default=False,
                         help="Clean execution: remove empty directories "
                         "in map_output. Use it if you suspect that some "
                         "mapper where not end not properly.")
 
-    parser.add_argument('--reduce', action='store_true', default=False,
+    parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call"
                         "reduce (defined in user_func)")
 
     # Config file
-    parser.add_argument('--config', help='Configuration json file that '
+    parser.add_argument('config', help='Configuration json file that '
         'contains a dictionary of configuration options. There are 4 '
         'required arguments:'
         '(1) "data": (Required) dict(X="/tmp/X.npy", y="/tmp/X.npy").'
@@ -202,34 +202,23 @@ if __name__ == "__main__":
         'bootstraping/permuation like resampling. '
         '"ncore", "reduce_input" and "reduce_output": see command line argument.'
         )
+
     default_nproc = cpu_count()
     parser.add_argument('--ncore',
         help='Nb cpu ncore to use (default %i)' % default_nproc, type=int)
-
-    # Reducer options --------------------------------------------------------
-    parser.add_argument('--reduce_input', help='Input root dir for reduce. '
-        'Should match  --map_output. Required option for --mode=reduce.')
-    parser.add_argument('--reduce_group_by', type=str,
-                        help='Regular expression to match the grouping key. Example: MAP_OUTPUT/.*/(.*)  will group by parameters. While (MAP_OUTPUT/.*)/.* will match by resample.')
-    parser.add_argument('--reduce_output', help='Reduce output, csv file.')
-
 
     options = parser.parse_args()
 
     if not options.config:
         print 'Required arguments --config'
         sys.exit(1)
-    config = json.load(open(options.config))
-    # set WD to be the dir on config file, this way all path can be relative
-    os.chdir(os.path.dirname(options.config))
-    for k in config:
-        if not hasattr(options, k) or getattr(options, k) is None:
-            setattr(options, k, config[k])
 
-    if not hasattr(options, "resample"):
-        setattr(options, "resample", None)
-    if not hasattr(options, "user_func"):
-        setattr(options, "user_func", None)
+    # Read config file
+    options.config = os.path.abspath(options.config)
+    config = json.load(open(options.config))
+ 
+    # Set WD to be the dir on config file, this way all path can be relative
+    os.chdir(os.path.dirname(options.config))
     if options.ncore is None:
         options.ncore = default_nproc
 
@@ -237,13 +226,13 @@ if __name__ == "__main__":
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
-        if not options.user_func:
+        if not config["user_func"]:
             print 'Required fields in config file: "user_func"'
             sys.exit(1)
-        user_func = _import_user_func(options.user_func)
+        user_func = _import_user_func(config["user_func"])
         ## Load globals
         user_func.load_globals(config)
-        jobs = _build_job_table(options)
+        jobs = _build_job_table(config)
         print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
         resamples_file_cur = resample_nb_cur = None
@@ -282,7 +271,7 @@ if __name__ == "__main__":
             print "Joined:", str(p)
 
     if options.clean:
-        jobs = _build_job_table(options)
+        jobs = _build_job_table(config)
         for i in xrange(len(jobs)):
             output_collector = OutputCollector(jobs[i][_OUTPUT])
             output_collector.clean()
@@ -291,22 +280,22 @@ if __name__ == "__main__":
     # == REDUCE                                                            ==
     # =======================================================================
     if options.reduce:
-        if not options.reduce_input:
+        if not config["reduce_input"]:
             print 'Required arguments: --reduce_input'
             sys.exit(1)
-        if not options.user_func:
-            print 'Required arguments: --user_func'
+        if not config["user_func"]:
+            print 'Attribute "user_func" is required'
             sys.exit(1)
-        user_func = _import_user_func(options.user_func)
+        user_func = _import_user_func(config["user_func"])
         print "** REDUCE **"
-        items = glob.glob(options.reduce_input)
+        items = glob.glob(config["reduce_input"])
         items = [item for item in items if os.path.isdir(item)]
-        options.reduce_group_by
-        group_keys = set([re.findall(options.reduce_group_by, item)[0] for item
+        config["reduce_group_by"]
+        group_keys = set([re.findall(config["reduce_group_by"], item)[0] for item
             in items])
         groups = {k:[] for k in group_keys}
         for item in items:
-            which_group_key = [k for k in groups if re.findall(options.reduce_group_by, item)[0]==k]
+            which_group_key = [k for k in groups if re.findall(config["reduce_group_by"], item)[0]==k]
             if len(which_group_key) != 1:
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
@@ -321,5 +310,5 @@ if __name__ == "__main__":
         #scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
         scores = pd.DataFrame(scores)
         print scores.to_string()
-        if options.reduce_output is not None:
-            scores.to_csv(options.reduce_output, index=False)
+        if config["reduce_output"] is not None:
+            scores.to_csv(config["reduce_output"], index=False)

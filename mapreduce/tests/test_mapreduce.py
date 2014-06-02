@@ -81,8 +81,8 @@ if __name__ == "__main__":
                                       "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
-    map_cmd = "%s --map --config %s/config.json" % (exec_path, WD)
-    reduce_cmd = "%s --reduce --config %s/config.json" % (exec_path, WD)
+    map_cmd = "%s --map %s/config.json" % (exec_path, WD)
+    reduce_cmd = "%s --reduce %s/config.json" % (exec_path, WD)
     os.system(map_cmd)
     os.system(reduce_cmd)
 
