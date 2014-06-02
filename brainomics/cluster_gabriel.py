@@ -47,7 +47,7 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
         wd_cluster = os.path.join("/neurospin", "tmp", user,
                                   os.path.basename(wd))
     print "# Make sure parent dir of wd_cluster exists"
-    cmd = 'ssh gabriel.intra.cea.fr "mkdir %s"' % os.path.dirname(wd_cluster)
+    cmd = 'ssh %s@gabriel.intra.cea.fr "mkdir %s"' % (user, os.path.dirname(wd_cluster))
     print cmd
     os.system(cmd)
     push_str = 'rsync -azvu --modify-window=1 %s %s@gabriel.intra.cea.fr:%s/' % (
@@ -93,6 +93,12 @@ def gabriel_make_qsub_job_files(output_dirname, cmd):
     params['queue'] = "Cati_LowPrio"
     qsub = job_template_pbs % params
     job_filename = os.path.join(output_dirname, 'job_Cati_LowPrio.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
+    params['queue'] = "Cati_long"
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(output_dirname, 'job_Cati_long.pbs')
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)
