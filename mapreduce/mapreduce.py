@@ -126,32 +126,38 @@ class OutputCollector:
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
 
     def load(self, pattern="*"):
+        #print os.path.join(self.output_dir, pattern)
         res = dict()
-        for filename in  glob.glob(os.path.join(self.output_dir, pattern)):
+        for filename in glob.glob(os.path.join(self.output_dir, pattern)):
             o = None
             try:
-                o = np.load(filename)['arr_0']
+                fd = np.load(filename)
+                if hasattr(fd, "keys"):
+                    o = fd['arr_0']
+                    fd.close()
             except:
                 try:
-                    o = np.load(filename)
+                    fd = open(filename, "r")
+                    o = json.load(fd)
+                    fd.close()
                 except:
                     try:
-                       o = json.load(open(filename, "r"))
+                        fd = open(filename, "r")
+                        o = pickle.load(fd)
+                        fd.close()
                     except:
                         try:
-                           o = pickle.load(open(filename, "r"))
+                            o = nibabel.load(filename)
                         except:
-                            try:
-                                o = nibabel.load(filename)
-                            except:
-                                pass
+                            pass
             if o is not None:
                 name, ext = os.path.splitext(os.path.basename(filename))
                 res[name] = o
         return res
 
 output_collectors = list()
-#
+
+
 def clean_atexit():
     for oc in output_collectors:
         oc.clean()
@@ -176,6 +182,8 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call"
                         "reduce (defined in user_func)")
+
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
 
     # Config file
     parser.add_argument('config', help='Configuration json file that '
@@ -212,13 +220,15 @@ if __name__ == "__main__":
     if not options.config:
         print 'Required arguments --config'
         sys.exit(1)
-
+    config_filename = options.config
+    ## TO DEBUG just set config_filename here
+    # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
     # Read config file
-    options.config = os.path.abspath(options.config)
-    config = json.load(open(options.config))
- 
+    config_filename = os.path.abspath(config_filename)
+    config = json.load(open(config_filename)) 
     # Set WD to be the dir on config file, this way all path can be relative
-    os.chdir(os.path.dirname(options.config))
+    os.chdir(os.path.dirname(config_filename))
+
     if options.ncore is None:
         options.ncore = default_nproc
 
@@ -233,7 +243,8 @@ if __name__ == "__main__":
         ## Load globals
         user_func.load_globals(config)
         jobs = _build_job_table(config)
-        print "** MAP WORKERS TO JOBS **"
+        if options.verbose:
+            print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
         resamples_file_cur = resample_nb_cur = None
         data_cur = None
@@ -246,7 +257,8 @@ if __name__ == "__main__":
                     if not p.is_alive():
                         p.join()
                         workers.remove(p)
-                        print "Joined:", str(p)
+                        if options.verbose:
+                            print "Joined:", str(p)
                 time.sleep(1)
             job = jobs[i]
             try:
@@ -261,14 +273,16 @@ if __name__ == "__main__":
                 user_func.resample(config, resample_nb_cur)
             key = job[_PARAMS]
             p = Process(target=user_func.mapper, args=(key, output_collector))
-            print "Start :", str(p), str(output_collector)
+            if options.verbose:
+                print "Start :", str(p), str(output_collector)
             p.start()
             workers.append(p)
 
         for p in workers:  # Join remaining worker
             p.join()
             workers.remove(p)
-            print "Joined:", str(p)
+            if options.verbose:
+                print "Joined:", str(p)
 
     if options.clean:
         jobs = _build_job_table(config)
@@ -287,7 +301,8 @@ if __name__ == "__main__":
             print 'Attribute "user_func" is required'
             sys.exit(1)
         user_func = _import_user_func(config["user_func"])
-        print "** REDUCE **"
+        if options.verbose:
+            print "** REDUCE **"
         items = glob.glob(config["reduce_input"])
         items = [item for item in items if os.path.isdir(item)]
         config["reduce_group_by"]
@@ -301,14 +316,21 @@ if __name__ == "__main__":
             output_collector = OutputCollector(item)
             groups[which_group_key[0]].append(output_collector)
         # Do the reduce
-        scores = list()
-        for k in groups:
-            try:
-                scores.append(user_func.reducer(key=k, values=groups[k]))
-            except:
-                print "Reducer failed in %s" % k
-        #scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
-        scores = pd.DataFrame(scores)
-        print scores.to_string()
+#        import psutil
+#        p = psutil.Process(os.getpid())
+#        print p.get_open_files()
+#        scores = list()
+#        for k in groups:
+#            try:
+#                scores.append(user_func.reducer(key=k, values=groups[k]))
+#            except:
+#                pass
+#                #print "Reducer failed in %s" % k
+        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
+#        print p.get_open_files()
+        scores = pd.DataFrame(scores)       
+        if options.verbose:
+            print scores.to_string()
         if config["reduce_output"] is not None:
+            print "Save reults in to: %s" % config["reduce_output"]
             scores.to_csv(config["reduce_output"], index=False)
