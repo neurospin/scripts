@@ -12,6 +12,14 @@ from parsimony.datasets.utils import Dot, ObjImage
 
 from sklearn.metrics import precision_recall_fscore_support
 
+def ratio_explained_variance(X, V_k):
+    invVkTVk = np.linalg.inv(np.dot(V_k.T, V_k))
+    invVkTVk = np.dot(V_k.T, V_k)
+    invVkTVk_VkT = np.dot(invVkTVk, V_k.T)
+    Vk_invVkTVk_VkT = np.dot(V_k, invVkTVk_VkT)
+    X_k = np.dot(X, Vk_invVkTVk_VkT)
+    return np.trace(np.dot(X_k.T, X_k))/np.sum(X**2)
+
 def dice_five_geometric_metrics(mask, result):
     """
     Compute the recall and precision of the support recovery.
