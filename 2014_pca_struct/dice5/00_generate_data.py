@@ -35,7 +35,7 @@ if not os.path.exists(OUTPUT_DIR):
 OUTPUT_DATASET_FILE_FORMAT = "data_{alpha}.npy"
 OUTPUT_STD_DATASET_FILE_FORMAT = "data_{alpha}.std.npy"
 OUTPUT_BETA_FILE_FORMAT = "beta3d_{alpha}.std.npy"
-OUTPUT_INDEX_FILE_FORMAT = "{subset}_indices.npy"
+OUTPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 OUTPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_MASK_FILE_FORMAT = "mask.npy"
 
@@ -45,6 +45,7 @@ OUTPUT_MASK_FILE_FORMAT = "mask.npy"
 
 SHAPE = (100, 100, 1)
 N_SAMPLES = 100
+N_SUBSETS = 2
 # Variance of various objects
 STDEV = np.asarray([1, 0.5, 0.5])
 # SNR
@@ -58,7 +59,7 @@ ALPHAS = np.linspace(0.1, 1, num=10)
 for alpha in ALPHAS:
     std = alpha * STDEV
     objects = dice5_pca.dice_five_with_union_of_pairs(SHAPE, std)
-    X3d, y, beta3d = datasets.regression.dice5.load(n_samples=2*N_SAMPLES,
+    X3d, y, beta3d = datasets.regression.dice5.load(n_samples=N_SUBSETS*N_SAMPLES,
                                                     shape=SHAPE,
                                                     objects=objects, random_seed=1)
     # Save data and scaled data
@@ -77,9 +78,9 @@ for alpha in ALPHAS:
     np.save(full_filename, beta3d)
 
 # Split in train/test
-for i, subset_name in enumerate(["train", "test"]):
+for i in range(N_SUBSETS):
     indices = np.arange(i*N_SAMPLES, (i+1)*N_SAMPLES)
-    filename = OUTPUT_INDEX_FILE_FORMAT.format(subset=subset_name)
+    filename = OUTPUT_INDEX_FILE_FORMAT.format(subset=i)
     full_filename = os.path.join(OUTPUT_DIR, filename)
     np.save(full_filename, indices)
 

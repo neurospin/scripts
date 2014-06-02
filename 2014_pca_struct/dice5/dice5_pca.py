@@ -14,7 +14,6 @@ from sklearn.metrics import precision_recall_fscore_support
 
 def ratio_explained_variance(X, V_k):
     invVkTVk = np.linalg.inv(np.dot(V_k.T, V_k))
-    invVkTVk = np.dot(V_k.T, V_k)
     invVkTVk_VkT = np.dot(invVkTVk, V_k.T)
     Vk_invVkTVk_VkT = np.dot(V_k, invVkTVk_VkT)
     X_k = np.dot(X, Vk_invVkTVk_VkT)
@@ -22,7 +21,7 @@ def ratio_explained_variance(X, V_k):
 
 def dice_five_geometric_metrics(mask, result):
     """
-    Compute the recall and precision of the support recovery.
+    Compute the recall, precision and f-score of the support recovery.
 
     Examples
     --------
@@ -30,33 +29,38 @@ def dice_five_geometric_metrics(mask, result):
     >>> objects = dice_five_with_union_of_pairs(shape)
     >>> masks = [o.get_mask() for o in objects]
     >>> for mask in masks: \
-        print dice_five_metrics(mask, mask)
+        print dice_five_geometric_metrics(mask, mask)
     (1.0, 1.0, 1.0)
     (1.0, 1.0, 1.0)
     (1.0, 1.0, 1.0)
     >>> empty_masks = [np.zeros(mask.shape, dtype=bool) for mask in masks]
     >>> for mask, empty in zip(masks, empty_masks): \
-        print dice_five_metrics(mask, empty)
-    (0.0, 0.0, nan)
-    (0.0, 0.0, nan)
-    (0.0, 0.0, nan)
+        print dice_five_geometric_metrics(mask, empty)
+    (0.0, 0.0, 0.0)
+    (0.0, 0.0, 0.0)
+    (0.0, 0.0, 0.0)
     >>> full_masks = [np.ones(mask.shape, dtype=bool) for mask in masks]
     >>> for mask, full in zip(masks, full_masks): \
-        print dice_five_metrics(mask, full)
-    (0.0298, 1.0, nan)
-    (0.0149, 1.0, nan)
-    (0.0298, 1.0, nan)
+        print dice_five_geometric_metrics(mask, full)
+    (0.0298, 1.0, 0.057875315595261212)
+    (0.0149, 1.0, 0.029362498768351564)
+    (0.0298, 1.0, 0.057875315595261212)
     """
     bin_result = result.ravel() != 0
     lin_mask = mask.ravel()
     lin_result = bin_result.ravel()
     # Precision and recall rates
-    precision, recall, _, _ = precision_recall_fscore_support(lin_mask, lin_result,
-                                                              pos_label=1,
-                                                              average='micro')
-    # Correlation between the 2 arrays
-    corr = np.corrcoef(lin_mask.astype('float'), lin_result.astype('float'))[1,0]
-    return (precision, recall, corr)
+    precision, recall, fscore, _ = precision_recall_fscore_support(lin_mask, lin_result,
+                                                                   pos_label=1,
+                                                                   average='micro')
+
+    return (precision, recall, fscore)
+
+
+def abs_correlation(x, y):
+    # Correlation between the bsolute values of the 2 arrays
+    corr = np.corrcoef(np.abs(x.ravel()), np.abs(y.ravel()))
+    return corr[1, 0]
 
 
 def dice_five_with_union_of_pairs(shape, std=[1., 1., .5]):
