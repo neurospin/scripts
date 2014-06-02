@@ -116,10 +116,15 @@ def reducer(key, values):
 
     # Percentage of explained variance
     X_train = values[0]["X_train"]
-    d = model.d
+    d2 = model.d**2
     variance = np.sum(X_train**2)
-    evr = d**2/variance
+    evr2 = d2.cumsum()/variance
 
+    evr  = []
+    for i in range(1,4):
+        evr.append(dice5_pca.ratio_explained_variance(X_train, V[:, 0:i]))
+
+    time = values[0]["time"]
     scores = dict(key=key,
                   recall_0=recall[0], recall_1=recall[1],
                   recall_2=recall[2], recall_mean=np.mean(recall),
@@ -127,9 +132,11 @@ def reducer(key, values):
                   precision_2=precision[2], precision_mean=np.mean(precision),
                   corr_0=corr[0], corr_1=corr[1],
                   corr_2=corr[2], corr_mean=np.mean(corr),
-                  explained_variance_ratio_0=evr[0],
-                  explained_variance_ratio_1=evr[1],
-                  explained_variance_ratio_2=evr[2])
+                  evr_witten_0=evr[0], evr_witten_1=evr[1],
+                  evr_witten_2=evr[2],
+                  evr_0=evr2[0],evr_1=evr2[1],
+                  evr_2=evr2[2],
+                  time=time)
     return OrderedDict(sorted(scores.items(), key=lambda t: t[0]))
 
 #################
