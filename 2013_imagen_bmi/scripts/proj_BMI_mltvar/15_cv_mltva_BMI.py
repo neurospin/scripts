@@ -222,7 +222,7 @@ if __name__ == "__main__":
     ## Parameterize the mapreduce 
     ##   1) pathes
     INPUT_DATA_X = os.path.join('X.npy')
-    INPUT_DATA_y = os.path.join('z.npy')
+    INPUT_DATA_z = os.path.join('z.npy')
     NFOLDS = 5
     ## 2) cv idex and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=5)]    
@@ -240,14 +240,14 @@ if __name__ == "__main__":
     #import sys
     #sys.exit(0)
     # Use relative path from config.json
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+    config = dict(data=dict(X=INPUT_DATA_X, z=INPUT_DATA_z),
                   params=params, resample=cv,
                   structure="",
-                  map_output="results",#os.path.join(OUTPUT, "results"),
+                  map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*", #os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by="results/.*/(.*)",#os.path.join(OUTPUT, "results/.*/(.*)"),
-                  reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
+                  reduce_input="results/*/*", 
+                  reduce_group_by="results/.*/(.*)",
+                  reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #############################################################################
