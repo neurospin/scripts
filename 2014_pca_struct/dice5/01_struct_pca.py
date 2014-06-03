@@ -49,9 +49,9 @@ N_COMP = 3
 # Global penalty
 STRUCTPCA_ALPHA = [[1e-1], [5e-1], [1], [5], [10]]
 # Relative penalties
-STRUCTPCA_L1L2TV = [np.array([1, 1e-9, 1e-3]),
-                    np.array([1, 1e-9, 1e-2]),
-                    np.array([1, 1e-9, 1e-1])]
+STRUCTPCA_L1L2TV = [np.array([1, 1e-6, 1e-3]),
+                    np.array([1, 1e-6, 1e-2]),
+                    np.array([1, 1e-6, 1e-1])]
 
 #############
 # Functions #
