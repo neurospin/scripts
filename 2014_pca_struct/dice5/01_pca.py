@@ -97,14 +97,16 @@ def mapper(key, output_collector):
         fscore[i] = res[2]
 
     evr = np.zeros((N_COMP,))
-    for i in range(1, N_COMP+1):
-        evr[i-1] = dice5_pca.ratio_explained_variance(X_train, V[:, 0:i])
+    for i in range(N_COMP):
+        # i first components
+        Vi = V[:, range(i+1)]
+        evr[i] = dice5_pca.ratio_explained_variance(X_train, Vi)
 
     ret = dict(X_transform=X_transform,
                model=model,
                recall=recall,
                precision=precision,
-               correlation=fscore,
+               fscore=fscore,
                evr=evr,
                time=t1-t0)
 
@@ -120,12 +122,14 @@ def reducer(key, values):
     models = [item["model"] for item in values]
     precisions = np.vstack([item["precision"] for item in values])
     recalls = np.vstack([item["recall"] for item in values])
+    fscores = np.vstack([item["fscore"] for item in values])
     evr = np.vstack([item["evr"] for item in values])
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each group
     av_precision = precisions.mean(axis=0)
     av_recall = recalls.mean(axis=0)
+    av_fscore = fscores.mean(axis=0)
     av_evr = evr.mean(axis=0)
 
     # Compute correlations of components between folds
@@ -140,6 +144,8 @@ def reducer(key, values):
                   recall_2=av_recall[2], recall_mean=np.mean(av_recall),
                   precision_0=av_precision[0], precision_1=av_precision[1],
                   precision_2=av_precision[2], precision_mean=np.mean(av_precision),
+                  fscore_0=av_fscore[0], fscore_1=av_fscore[1],
+                  fscore_2=av_fscore[2], fscore_mean=np.mean(av_fscore),
                   correlation_0=correlation[0], correlation_1=correlation[1],
                   correlation_2=correlation[2], correlation_mean=np.mean(correlation),
                   evr_0=av_evr[0], evr_1=av_evr[1],
