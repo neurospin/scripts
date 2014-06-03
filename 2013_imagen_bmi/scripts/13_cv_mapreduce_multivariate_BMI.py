@@ -34,8 +34,8 @@ SNPS_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
 BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 # Shared data
-BASE_SHARED_DIR = "/volatile/lajous/"
-SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'multivariate_analysis')
+BASE_SHARED_DIR = "/neurospin/tmp/brainomics"
+SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'bmi_cache')
 if not os.path.exists(SHARED_DIR):
     os.makedirs(SHARED_DIR)
 
@@ -68,6 +68,8 @@ def load_data(cache):
     if not(cache):
         SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
         BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
+#        covariate = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "covariate.csv")).as_matrix()
+#        BMI_residualized = np.concatenate((covariate, BMI), axis=1) #residualized BMI using gender, age and pds_status covariates
         #images
         h5file = tables.openFile(IMAGES_FILE)
         masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")    #images already masked
@@ -75,6 +77,7 @@ def load_data(cache):
         X = masked_images
         Y = SNPs
         z = BMI
+#        z = BMI_residualized
         np.save(os.path.join(SHARED_DIR, "X.npy"), X)
         np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
         np.save(os.path.join(SHARED_DIR, "z.npy"), z)
@@ -106,8 +109,8 @@ if __name__ == "__main__":
     
     #############################################################################
     ## Create config file
-    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=2)]
-    params = [[alpha, l1_ratio] for alpha in [0.003, 0.007, 0.010] for l1_ratio in np.arange(0.5, 1., .2)]
+    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=5)]
+    params = [[alpha, l1_ratio] for alpha in np.arange(0.0005, 0.0009, 0.0001) for l1_ratio in np.arange(0.1, 0.4, .1)]
     user_func_filename = os.path.abspath(__file__)
 
     config = dict(data=dict(X=os.path.join(WD, "X.npy"),
@@ -115,7 +118,7 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output=os.path.join(WD, "results"),
                   user_func=user_func_filename,
-                  ncore=1,
+                  ncore=2,
                   reduce_input=os.path.join(WD, "results/*/*"),
                   reduce_group_by=os.path.join(WD, "results/.*/(.*)"))
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))

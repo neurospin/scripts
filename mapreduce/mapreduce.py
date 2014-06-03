@@ -135,6 +135,8 @@ class OutputCollector:
                 if hasattr(fd, "keys"):
                     o = fd['arr_0']
                     fd.close()
+                else:
+                    o = fd
             except:
                 try:
                     fd = open(filename, "r")
@@ -214,7 +216,6 @@ if __name__ == "__main__":
     default_nproc = cpu_count()
     parser.add_argument('--ncore',
         help='Nb cpu ncore to use (default %i)' % default_nproc, type=int)
-
     options = parser.parse_args()
 
     if not options.config:
@@ -301,10 +302,11 @@ if __name__ == "__main__":
             print 'Attribute "user_func" is required'
             sys.exit(1)
         user_func = _import_user_func(config["user_func"])
-        if options.verbose:
-            print "** REDUCE **"
         items = glob.glob(config["reduce_input"])
         items = [item for item in items if os.path.isdir(item)]
+        if options.verbose:
+            print "== Items found:"
+            print items
         config["reduce_group_by"]
         group_keys = set([re.findall(config["reduce_group_by"], item)[0] for item
             in items])
@@ -315,22 +317,23 @@ if __name__ == "__main__":
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
             groups[which_group_key[0]].append(output_collector)
+        if options.verbose:
+            print "== Groups found:"
+            print groups
         # Do the reduce
-#        import psutil
-#        p = psutil.Process(os.getpid())
-#        print p.get_open_files()
-#        scores = list()
-#        for k in groups:
-#            try:
-#                scores.append(user_func.reducer(key=k, values=groups[k]))
-#            except:
+        scores = list()
+        for k in groups:
+            try:
+                scores.append(user_func.reducer(key=k, values=groups[k]))
+            except Exception, e:
 #                pass
-#                #print "Reducer failed in %s" % k
-        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
+                print "Reducer failed in %s" % k, groups[k]
+                print "Exception:", e
+#        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
         scores = pd.DataFrame(scores)       
-        if options.verbose:
-            print scores.to_string()
-        if config["reduce_output"] is not None:
+        if "reduce_output" in config:
             print "Save reults in to: %s" % config["reduce_output"]
             scores.to_csv(config["reduce_output"], index=False)
+        else:
+            print scores.to_string()

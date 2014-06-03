@@ -72,8 +72,8 @@ X, Y, z = load_data(True)
 # Maximization of the R2_mean for a set of values (alpha, l1_ratio)
 #alpha = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01]
 #l1_ratio = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
-alpha = 0.01
-l1_ratio = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+alpha = 0.007
+l1_ratio = [0.9, 0.8, 0.7, 0.6, 0.5]
 
 n_samples = X.shape[0]
 R2_moy = []

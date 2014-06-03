@@ -74,7 +74,7 @@ X, Y, z = load_data(False)
 # Maximization of the R2_mean for a set of values (alpha, l1_ratio)
 #alpha = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01]
 #l1_ratio = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
-alpha = [0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01]
+alpha = [0.006, 0.008]
 l1_ratio = [0.9, 0.8, 0.7, 0.6]
 
 n_samples = X.shape[0]
@@ -106,40 +106,40 @@ for i in alpha:
         print "R2 moyen sur un set (%.3f, %.1f) : %.10f" % (i, j, r2_moy)
         R2_moy.append(r2_moy)
 
-R2_max = max(R2_moy)
-
-# Return index of the list in order to get optima alpha and l1_ratio
-m = len(alpha)
-n = len(l1_ratio)
-
-alpha_ind = np.cast[np.int](math.floor(max(R2_moy))/m)
-l1_ratio_ind = np.cast[np.int](math.floor((max(R2_moy))/n))
-
-alpha_opt = alpha[alpha_ind]
-print "alpha_opt = %.3f" %alpha_opt
-l1_ratio_opt = l1_ratio[l1_ratio_ind]
-print "l1_ratio_opt = %.1f" %l1_ratio_opt
-
-
-# Instance of model and fit on the whole set of data via Scikit-Learn:
-enet = ElasticNet(alpha_opt, l1_ratio_opt, fit_intercept = True)
-enet.fit(X, z)
-#via Parcimony:
-#enet = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 1, mean = True)
-#enet.fit(np.hstack((np.ones((z.shape[0],1)),X)), z)
-#enet.fit(np.hstack((np.ones((z.shape[0],1)),X[:,:20000])), z)
-
-
-# Save beta values in an image
-h5file = tables.openFile(IMAGES_FILE)
-mask = bmi_utils.read_array(h5file,'/standard_mask/mask')   #get the mask applied to the images
-h5file.close()
-template_for_size = os.path.join(BASE_PATH, 'data', 'VBM', 'gaser_vbm8/', 'smwp1000074104786s401a1004.nii')
-template_for_size_img = ni.load(template_for_size)
-image = np.zeros(template_for_size_img.get_data().shape)    #initialize a 3D volume of shape the initial images' shape
-image[mask != 0] = enet.coef_     #mask != 0 lists all indices of non-zero values in order to project the beta_coeff in a 3D volume (np.sum(mask !=0) = beta_map.shape)
-#image[mask != 0] = enet.beta[1:,0]
-pn = os.path.join(BASE_PATH, 'results', 'BMI_beta_map_opt.nii.gz')
-ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()), pn)
-print "The estimators' map has been saved."
+#R2_max = max(R2_moy)
+#
+## Return index of the list in order to get optima alpha and l1_ratio
+#m = len(alpha)
+#n = len(l1_ratio)
+#
+#alpha_ind = np.cast[np.int](math.floor(max(R2_moy))/m)
+#l1_ratio_ind = np.cast[np.int](math.floor((max(R2_moy))/n))
+#
+#alpha_opt = alpha[alpha_ind]
+#print "alpha_opt = %.3f" %alpha_opt
+#l1_ratio_opt = l1_ratio[l1_ratio_ind]
+#print "l1_ratio_opt = %.1f" %l1_ratio_opt
+#
+#
+## Instance of model and fit on the whole set of data via Scikit-Learn:
+#enet = ElasticNet(alpha_opt, l1_ratio_opt, fit_intercept = True)
+#enet.fit(X, z)
+##via Parcimony:
+##enet = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 1, mean = True)
+##enet.fit(np.hstack((np.ones((z.shape[0],1)),X)), z)
+##enet.fit(np.hstack((np.ones((z.shape[0],1)),X[:,:20000])), z)
+#
+#
+## Save beta values in an image
+#h5file = tables.openFile(IMAGES_FILE)
+#mask = bmi_utils.read_array(h5file,'/standard_mask/mask')   #get the mask applied to the images
+#h5file.close()
+#template_for_size = os.path.join(BASE_PATH, 'data', 'VBM', 'gaser_vbm8/', 'smwp1000074104786s401a1004.nii')
+#template_for_size_img = ni.load(template_for_size)
+#image = np.zeros(template_for_size_img.get_data().shape)    #initialize a 3D volume of shape the initial images' shape
+#image[mask != 0] = enet.coef_     #mask != 0 lists all indices of non-zero values in order to project the beta_coeff in a 3D volume (np.sum(mask !=0) = beta_map.shape)
+##image[mask != 0] = enet.beta[1:,0]
+#pn = os.path.join(BASE_PATH, 'results', 'BMI_beta_map_opt.nii.gz')
+#ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()), pn)
+#print "The estimators' map has been saved."
 
