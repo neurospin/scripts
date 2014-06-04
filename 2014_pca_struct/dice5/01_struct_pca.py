@@ -47,7 +47,7 @@ OUTPUT_DATASET_DIR = "{alpha}"
 
 N_COMP = 3
 # Global penalty
-STRUCTPCA_ALPHA = [[1e-1], [5e-1], [1], [5], [10]]
+STRUCTPCA_ALPHA = [[1e-1], [5e-1], [1], [5]]
 # Relative penalties
 STRUCTPCA_L1L2TV = [np.array([1, 1e-6, 1e-3]),
                     np.array([1, 1e-6, 1e-2]),
@@ -90,7 +90,8 @@ def mapper(key, output_collector):
                                         Al1=Al1,
                                         criterion="frobenius",
                                         eps=1e-6,
-                                        inner_max_iter=int(1e5),
+                                        max_iter=100,
+                                        inner_max_iter=int(1e4),
                                         output=False)
     t0 = time.clock()
     model.fit(X_train)
@@ -101,14 +102,14 @@ def mapper(key, output_collector):
     X_transform = model.transform(X_test)
 
     # Read masks & compute geometric metrics
-    V = model.components_.T
+    V = model.V
     recall = np.zeros((N_COMP,))
     precision = np.zeros((N_COMP,))
     fscore = np.zeros((N_COMP,))
     for i in range(N_COMP):
         filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
         full_filename = os.path.join(INPUT_DIR, filename)
-        print full_filename
+        #print full_filename
         mask = np.load(full_filename)
         #masks.append(mask)
         res = dice5_pca.dice_five_geometric_metrics(mask, V[:, i])
@@ -157,8 +158,8 @@ def reducer(key, values):
 
     # Compute correlations of components between folds
     correlation = np.zeros((N_COMP,))
-    comp0 = models[0].components_.T
-    comp1 = models[1].components_.T
+    comp0 = models[0].V
+    comp1 = models[1].V
     for i in range(N_COMP):
         correlation[i] = dice5_pca.abs_correlation(comp0[:, i], comp1[:, i])
 
