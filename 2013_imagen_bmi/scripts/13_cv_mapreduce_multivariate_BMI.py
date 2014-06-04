@@ -64,7 +64,7 @@ def mapper(key, output_collector):
     # mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
     print "i am a work that works"
     #mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 1, mean = True)
-    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 5, mean = True)     #since we residualize BMI with 4 cov
+    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 5, mean = True)     #since we residualize BMI with 2 categorical covariables (9 columns) and 2 ordinal variables
     z_pred = mod.fit(GLOBAL.DATA_RESAMPLED["X"][0], GLOBAL.DATA_RESAMPLED["z"][0]).predict(GLOBAL.DATA_RESAMPLED["X"][1])
     output_collector.collect(key, dict(z_pred=z_pred, z_true=GLOBAL.DATA_RESAMPLED["z"][1]), beta=mod.beta)
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Run Locally:"
     print "# Map"   
-    print "mapreduce.py -m %s/config.json" % WD
+    print "mapreduce.py -m %s/config.json --ncore 2" % WD
     
     #############################################################################
     print "# Reduce"
