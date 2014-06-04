@@ -45,7 +45,7 @@ def mapper(key, output_collector):
     print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
     #
     #mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start=1, mean=True)
-    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 5, mean = True)     #since we residualize BMI with 4 cov
+    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 11, mean = True)     #since we residualize BMI with 2 categorical covariables (8 columns) and 2 ordinal variables
     z_pred = mod.fit(Xtr,ztr).predict(Xte)
     ret = dict(z_pred=z_pred, z_true=zte, beta=mod.beta)
     output_collector.collect(key, ret)
