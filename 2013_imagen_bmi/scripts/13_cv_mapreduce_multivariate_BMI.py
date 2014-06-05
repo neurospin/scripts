@@ -20,24 +20,6 @@ import bmi_utils
     
 sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts", "2013_imagen_subdepression", "lib"))
 import utils
-
-
-##############
-# Parameters #
-##############
-
-# Input data
-BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
-DATA_PATH = os.path.join(BASE_PATH, 'data')
-CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
-BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
-        
-# Shared data
-BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache')
-if not os.path.exists(SHARED_DIR):
-    os.makedirs(SHARED_DIR)
         
 
 
@@ -114,20 +96,40 @@ def load_data(cache):
 
 
 if __name__ == "__main__":
-    WD = "/neurospin/tmp/brainomics/bmi_imagesPL"
-    if not os.path.exists(WD): os.makedirs(WD)
+     
+    WD = "/neurospin/tmp/brainomics/residual_bmi_images_cluster"
+    if not os.path.exists(WD):
+        os.makedirs(WD)
+        
+    print "#################"
+    print "# Build dataset #"
+    print "#################"
+    if True:
+        # Pathnames
+        BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+        DATA_PATH = os.path.join(BASE_PATH, 'data')
+        CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+        IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
+        BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
+        
+        # Shared data
+        BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
+        SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache')
+        if not os.path.exists(SHARED_DIR):
+            os.makedirs(SHARED_DIR)
 
     #############################################################################
     ## Get data
-    X, z = load_data(False)   #X, Y, z = load_data(True)
+    X, z = load_data(True)
     n, p = X.shape
-#    X = np.random.rand(n, p)
-#    beta = np.random.rand(p, 1)
-#    y = np.dot(X, beta)
     np.save(os.path.join(WD, 'X.npy'), np.hstack((np.ones((z.shape[0],1)),X)))
     np.save(os.path.join(WD, 'z.npy'), z)
     
     #############################################################################
+    
+    print "#####################"
+    print "# Build config file #"
+    print "#####################"    
     ## Create config file
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=5)]
     params = [[alpha, l1_ratio] for alpha in [0.0009, 0.001] for l1_ratio in np.arange(0.1, 0.4, .1)]
