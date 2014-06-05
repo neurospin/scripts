@@ -149,9 +149,8 @@ if __name__ == "__main__":
     ## Parameterize the mapreduce 
     ##   1) pathes
     NFOLDS = 5
-    ## 2) cv idex and parameters to test
+    ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
-    ## 2) cv idex and parameters to test
     params = [[alpha, l1_ratio] for alpha in np.arange(0.0001, 0.0011, 0.0001) for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
     #try:
@@ -162,8 +161,6 @@ if __name__ == "__main__":
         "15_cv_multivariate_residualized_BMI.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
-    #import sys
-    #sys.exit(0)
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
                   params=params, resample=cv,
