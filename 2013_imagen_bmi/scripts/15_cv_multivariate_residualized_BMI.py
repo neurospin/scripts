@@ -137,7 +137,7 @@ if __name__ == "__main__":
         if not os.path.exists(SHARED_DIR):
             os.makedirs(SHARED_DIR)
         
-        X, z = load_residualized_bmi_data(cache=True)
+        X, z = load_residualized_bmi_data(cache=False)
         #assert X.shape == (1265, 336188)
         n, p = X.shape
         np.save(os.path.join(WD, 'X.npy'), np.hstack((np.ones((z.shape[0],1)),X)))
