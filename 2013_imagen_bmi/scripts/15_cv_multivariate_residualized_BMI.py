@@ -111,7 +111,7 @@ def load_residualized_bmi_data(cache):
     return X, z #X, Y, z
 
 #"""
-#run /home/hl237680/gits/scripts/2013_imagen_bmi/scripts/15_cv_mltva_BMI.py
+#run /home/hl237680/gits/scripts/2013_imagen_bmi/scripts/15_cv_multivariate_residualized_BMI.py
 #"""
 if __name__ == "__main__":
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         if not os.path.exists(SHARED_DIR):
             os.makedirs(SHARED_DIR)
         
-        X, z = load_residualized_bmi_data(cache=False)
+        X, z = load_residualized_bmi_data(cache=True)
         #assert X.shape == (1265, 336188)
         n, p = X.shape
         np.save(os.path.join(WD, 'X.npy'), np.hstack((np.ones((z.shape[0],1)),X)))
