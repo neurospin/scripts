@@ -15,6 +15,9 @@ from sklearn.cross_validation import KFold
 from sklearn.metrics import r2_score
 import parsimony.estimators as estimators
 
+sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts', '2013_imagen_bmi', 'scripts'))
+import bmi_utils
+    
 sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts", "2013_imagen_subdepression", "lib"))
 import utils
 
@@ -46,7 +49,7 @@ def mapper(key, output_collector):
     print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
     #
     #mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start=1, mean=True)
-    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCityCentre - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
+    mod = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
     z_pred = mod.fit(Xtr,ztr).predict(Xte)
     ret = dict(z_pred=z_pred, z_true=zte, beta=mod.beta)
     output_collector.collect(key, ret)
@@ -82,19 +85,16 @@ def load_residualized_bmi_data(cache):
         # Keep only subjects for which we have all data and remove the 1. column containing subject_id from the numpy array design_mat
         subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"), dtype=None, delimiter=',', skip_header=1)
         design_mat = np.delete(np.delete(design_mat, np.where(np.in1d(design_mat[:,0], np.delete(design_mat, np.where(np.in1d(design_mat[:,0], subjects_id)), 0))), 0),0,1)
-        
-        # Residualized BMI for subjects whose data are known        
-        BMI_residualized = np.concatenate((design_mat, BMI), axis=1) #residualized BMI using gender, imaging center city, tiv_gaser and mean pds status covariates
-
-
+               
         # Images
         h5file = tables.openFile(IMAGES_FILE)
         masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")    #images already masked
         print "Data loaded"
         
-        X = masked_images
+        # Concatenate images with covariates gender, imaging city centrr, tiv_gaser and mean pds status in order to do as though BMI had been residualized
+        X = np.concatenate((design_mat, masked_images), axis=1)
         #Y = SNPs
-        z = BMI_residualized    #z = BMI
+        z = BMI
         
         np.save(os.path.join(SHARED_DIR, "X.npy"), X)
         #np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
@@ -114,10 +114,7 @@ def load_residualized_bmi_data(cache):
 #run /home/hl237680/gits/scripts/2013_imagen_bmi/scripts/15_cv_mltva_BMI.py
 #"""
 if __name__ == "__main__":
-    sys.path.append(os.path.join(os.getenv('HOME'),
-                                    'gits','scripts','2013_imagen_bmi', 'scripts'))
-    import bmi_utils
-    
+
     ## Set pathes
     WD = "/neurospin/tmp/brainomics/residual_bmi_images_cluster"
     if not os.path.exists(WD): os.makedirs(WD)
