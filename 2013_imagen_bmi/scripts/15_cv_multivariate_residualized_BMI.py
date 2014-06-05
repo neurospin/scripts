@@ -159,7 +159,7 @@ if __name__ == "__main__":
     #except:
     user_func_filename = os.path.join("/home/vf140245",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
-        "15_cv_mltva_BMI.py")
+        "15_cv_multivariate_residualized_BMI.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
