@@ -96,6 +96,7 @@ def mapper(key, output_collector):
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
+    _time = t1-t0
 
     # Transform data
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
@@ -117,22 +118,28 @@ def mapper(key, output_collector):
         precision[i] = res[1]
         fscore[i] = res[2]
 
-    evr = np.zeros((N_COMP,))
+    evr_shen = np.zeros((N_COMP,))
+    evr_zou = np.zeros((N_COMP,))
     for i in range(N_COMP):
         # i first components
         Vi = V[:, range(i+1)]
         try:
-            evr[i-1] = dice5_pca.ratio_explained_variance(X_train, Vi)
+            evr_shen[i] = dice5_pca.explained_variance_shen(X_train, Vi)
         except:
-            evr[i-1] = np.nan
+            evr_shen[i] = np.nan
+        try:
+            evr_zou[i] = dice5_pca.explained_variance_zou(X_train, Vi)
+        except:
+            evr_zou[i] = np.nan
 
     ret = dict(X_transform=X_transform,
                model=model,
                recall=recall,
                precision=precision,
                fscore=fscore,
-               evr=evr,
-               time=t1-t0)
+               evr_shen=evr_shen,
+               evr_zou=evr_zou,
+               time=_time)
 
     output_collector.collect(key, ret)
 
@@ -147,14 +154,16 @@ def reducer(key, values):
     precisions = np.vstack([item["precision"] for item in values])
     recalls = np.vstack([item["recall"] for item in values])
     fscores = np.vstack([item["fscore"] for item in values])
-    evr = np.vstack([item["evr"] for item in values])
+    evr_shen = np.vstack([item["evr_shen"] for item in values])
+    evr_zou = np.vstack([item["evr_zou"] for item in values])
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each group
     av_precision = precisions.mean(axis=0)
     av_recall = recalls.mean(axis=0)
     av_fscore = fscores.mean(axis=0)
-    av_evr = evr.mean(axis=0)
+    av_evr_shen = evr_shen.mean(axis=0)
+    av_evr_zou = evr_zou.mean(axis=0)
 
     # Compute correlations of components between folds
     correlation = np.zeros((N_COMP,))
@@ -172,8 +181,10 @@ def reducer(key, values):
                   fscore_2=av_fscore[2], fscore_mean=np.mean(av_fscore),
                   correlation_0=correlation[0], correlation_1=correlation[1],
                   correlation_2=correlation[2], correlation_mean=np.mean(correlation),
-                  evr_0=av_evr[0], evr_1=av_evr[1],
-                  evr_2=av_evr[2],
+                  evr_shen_0=av_evr_shen[0], evr_1=av_evr_shen[1],
+                  evr_shen_2=av_evr_shen[2],
+                  evr_zou_0=av_evr_zou[0], evr_zou_1=av_evr_zou[1],
+                  evr_zou_2=av_evr_zou[2],
                   time=np.mean(times))
 
     return OrderedDict(sorted(scores.items(), key=lambda t: t[0]))
