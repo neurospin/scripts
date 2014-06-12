@@ -163,7 +163,7 @@ if __name__ == "__main__":
     params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
     #user_func_filename = os.path.join("/home/hl237680",
-    user_func_filename = os.path.join("/home/vf140245",
+    user_func_filename = os.path.join("/home/hl237680",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
         "test_PP_vs_SL.py")
     #print __file__, os.path.abspath(__file__)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                                 'gits','scripts'))
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="vf140245")
+        clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
     cmd = "mapreduce.py -m %s/config_test_PP_vs_SL.json  --ncore 12" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
