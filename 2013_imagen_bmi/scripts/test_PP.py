@@ -159,7 +159,8 @@ if __name__ == "__main__":
     #try:
     #    user_func_filename = os.path.abspath(__file__)
     #except:
-    user_func_filename = os.path.join("/home/hl237680",
+    #user_func_filename = os.path.join("/home/hl237680",
+    user_func_filename = os.path.join("/home/vf140245",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
         "test_PP.py")
     #print __file__, os.path.abspath(__file__)
@@ -181,7 +182,7 @@ if __name__ == "__main__":
                                 'gits','scripts'))
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
+        clust_utils.gabriel_make_sync_data_files(WD, user="vf140245")
     cmd = "mapreduce.py -m %s/config_test.json  --ncore 12" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
