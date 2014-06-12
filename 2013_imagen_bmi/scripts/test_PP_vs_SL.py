@@ -13,10 +13,12 @@ import json
 import numpy as np
 import pandas as pd
 import tables
+import matplotlib.pyplot as plt
 import parsimony.estimators as estimators
 from sklearn.linear_model import ElasticNet
 from sklearn.cross_validation import KFold
 from sklearn.metrics import r2_score
+
 
 sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts', '2013_imagen_bmi', 'scripts'))
 import bmi_utils
@@ -57,6 +59,10 @@ def mapper(key, output_collector):
     mod_PP = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
     z_pred_PP = mod_PP.fit(Xtr,ztr).predict(Xte)
 
+    t = np.arange(0., 5., 0.1)    
+    plt.plot(t, mod_SL.beta, 'ro', t, mod_PP.beta, 'b^')
+    plt.show()
+    
     ret = dict(z_pred_SL=z_pred_SL, z_pred_PP=z_pred_PP, z_true=zte, beta_SL=mod_SL.beta, beta_PP=mod_PP.beta)
     output_collector.collect(key, ret)
     
@@ -124,7 +130,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/algo_tests_PP_vs_SL"
+    WD = "/neurospin/tmp/brainomics/algo_tests_PP_vs_SL-2"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
@@ -145,7 +151,7 @@ if __name__ == "__main__":
         if not os.path.exists(SHARED_DIR):
             os.makedirs(SHARED_DIR)
         
-        X, z = load_residualized_bmi_data(cache=True)
+        X, z = load_residualized_bmi_data(cache=False)
         #assert X.shape == (1265, 336188)
         n, p = X.shape
         np.save(os.path.join(WD, 'X.npy'), np.hstack((np.ones((z.shape[0],1)),X)))
@@ -163,7 +169,7 @@ if __name__ == "__main__":
     params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
     #user_func_filename = os.path.join("/home/hl237680",
-    user_func_filename = os.path.join("/home/hl237680",
+    user_func_filename = os.path.join("/home/vf140245",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
         "test_PP_vs_SL.py")
     #print __file__, os.path.abspath(__file__)
@@ -176,8 +182,8 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input="results/*/*", 
                   reduce_group_by="results/.*/(.*)",
-                  reduce_output="results_test_PP_vs_SL.csv")
-    json.dump(config, open(os.path.join(WD, "config_test_PP_vs_SL.json"), "w"))
+                  reduce_output="results_test_PP_vs_SL-2.csv")
+    json.dump(config, open(os.path.join(WD, "config_test_PP_vs_SL-2.json"), "w"))
 
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
@@ -185,8 +191,8 @@ if __name__ == "__main__":
                                 'gits','scripts'))
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
-    cmd = "mapreduce.py -m %s/config_test_PP_vs_SL.json  --ncore 12" % WD_CLUSTER
+        clust_utils.gabriel_make_sync_data_files(WD, user="vf140245")
+    cmd = "mapreduce.py -m %s/config_test_PP_vs_SL-2.json  --ncore 12" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
@@ -196,7 +202,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Start by running Locally with 12 cores, to check that everything is OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py -m %s/config_test_PP_vs_SL.json --ncore 12" % WD
+    print "mapreduce.py -m %s/config_test_PP_vs_SL-2.json --ncore 12" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
@@ -211,5 +217,5 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py -r %s/config_test_PP_vs_SL.json" % WD
+    print "mapreduce.py -r %s/config_test_PP_vs_SL-2.json" % WD
     #ATTENTION ! Si envoi sur le cluster, modifier le path de config-2.json : /neurospin/tmp/hl237680/residual_bmi_images_cluster-2/config-2.json
