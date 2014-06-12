@@ -63,11 +63,12 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # key : string of intermediary key
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     z_true = np.concatenate([item["z_true"].ravel() for item in values])
-    z_pred = np.concatenate([item["z_pred"].ravel() for item in values])
-    scores =  dict(param=key, r2=r2_score(z_true, z_pred))
+    z_pred_SL = np.concatenate([item["z_pred_SL"].ravel() for item in values])
+    z_pred_PP = np.concatenate([item["z_pred_PP"].ravel() for item in values])
+    scores =  dict(param=key, r2_SL=r2_score(z_true, z_pred_SL, r2_PP=r2_score(z_true, z_pred_PP)))
     return scores
     
 
@@ -123,7 +124,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/algo_tests"
+    WD = "/neurospin/tmp/brainomics/algo_tests_PP_vs_SL"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
@@ -161,9 +162,6 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS, shuffle=True, random_state=2505)]    
     params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
-    #try:
-    #    user_func_filename = os.path.abspath(__file__)
-    #except:
     #user_func_filename = os.path.join("/home/hl237680",
     user_func_filename = os.path.join("/home/vf140245",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
