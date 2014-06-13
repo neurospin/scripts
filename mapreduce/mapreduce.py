@@ -226,7 +226,7 @@ if __name__ == "__main__":
     # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
     # Read config file
     config_filename = os.path.abspath(config_filename)
-    config = json.load(open(config_filename)) 
+    config = json.load(open(config_filename))
     # Set WD to be the dir on config file, this way all path can be relative
     os.chdir(os.path.dirname(config_filename))
 
@@ -331,9 +331,9 @@ if __name__ == "__main__":
                 print "Exception:", e
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
-        scores = pd.DataFrame(scores)       
+        scores = pd.DataFrame(scores)
         if "reduce_output" in config:
-            print "Save reults in to: %s" % config["reduce_output"]
+            print "Save results into: %s" % config["reduce_output"]
             scores.to_csv(config["reduce_output"], index=False)
         else:
             print scores.to_string()
