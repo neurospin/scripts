@@ -148,7 +148,7 @@ if __name__ == "__main__":
     ##   1) pathes
     NFOLDS = 5
     ## 2) cv index and parameters to test
-    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
+    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS, shuffle=True, random_state=2505)]    
     #params = [[alpha, l1_ratio] for alpha in np.arange(1., 5.5, 0.5) for l1_ratio in np.arange(0.1, 1., .2)]
     alpha = 1
     params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .2)]
