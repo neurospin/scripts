@@ -10,9 +10,18 @@ import numpy as np
 from  parsimony import datasets
 from parsimony.datasets.utils import Dot, ObjImage
 
+import scipy.linalg
+
 from sklearn.metrics import precision_recall_fscore_support
 
-def ratio_explained_variance(X, V_k):
+def adjusted_explained_variance_zou(X, V_k):
+    Y = np.dot(X, V_k)
+    Q, R = scipy.linalg.qr(Y)
+    ev = np.trace(R**2)
+    v = np.sum(X**2)
+    return ev/v
+
+def explained_variance_shen(X, V_k):
     invVkTVk = np.linalg.inv(np.dot(V_k.T, V_k))
     invVkTVk_VkT = np.dot(invVkTVk, V_k.T)
     Vk_invVkTVk_VkT = np.dot(V_k, invVkTVk_VkT)
