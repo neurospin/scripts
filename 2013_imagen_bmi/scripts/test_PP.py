@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jun  5 10:42:35 2014
+Created on Thu Jun  13 10:42:35 2014
 
 @author: hl237680
 """
@@ -49,7 +49,7 @@ def mapper(key, output_collector):
     zte = GLOBAL.DATA_RESAMPLED["z"][1]
     print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
     #
-    mod_PP = estimators.ElasticNet(alpha*l1_ratio, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
+    mod_PP = estimators.ElasticNet(alpha*l1_ratio, penalty_start=1, mean=True)
     z_pred_PP = mod_PP.fit(Xtr,ztr).predict(Xte)
     ret = dict(z_pred_PP=z_pred_PP, z_true=zte, beta_PP=mod_PP.beta)
     output_collector.collect(key, ret)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     ##   1) pathes
     NFOLDS = 5
     ## 2) cv index and parameters to test
-    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
+    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS, shuffle=True, random_state=2505)]    
     #params = [[alpha, l1_ratio] for alpha in np.arange(1., 5.5, 0.5) for l1_ratio in np.arange(0.1, 1., .2)]
     alpha = 1
     params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .2)]
