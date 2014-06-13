@@ -54,13 +54,12 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # key : string of intermediary key
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
-    print values.keys()
-    #    z_true = np.concatenate([item["z_true"].ravel() for item in values])
-    #    z_pred = np.concatenate([item["z_pred_SL"].ravel() for item in values])
-    #    scores =  dict(param=key, r2=r2_score(z_true, z_pred))
-    return {}
+    z_true = np.concatenate([item["z_true"].ravel() for item in values])
+    z_pred = np.concatenate([item["z_pred"].ravel() for item in values])
+    scores =  dict(param=key, r2=r2_score(z_true, z_pred))
+    return scores
 
 
 #############
