@@ -117,7 +117,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/Enet_PP"
+    WD = "/neurospin/tmp/brainomics/Enet_PP_1"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
