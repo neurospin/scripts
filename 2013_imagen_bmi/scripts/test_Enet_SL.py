@@ -114,7 +114,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/Enet_SL"
+    WD = "/neurospin/tmp/brainomics/Enet_SL_1"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS, shuffle=True, random_state=2505)]
     #params = [[alpha, l1_ratio] for alpha in np.arange(1., 5.5, 0.5) for l1_ratio in np.arange(0.1, 1., .2)]
     alpha = 1
-    params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .2)]
+    params = [[alpha, l1_ratio] for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
     #try:
     #    user_func_filename = os.path.abspath(__file__)
@@ -204,5 +204,5 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py -r %s/config.json" % WD
+    print "mapreduce.py -r %s/config.json" % WD     #ATTENTION: WD_clust = "/neurospin/tmp/hl237680/Enet_SL_1" if working directly on the cluster
     #ATTENTION ! Si envoi sur le cluster, modifier le path de config-2.json : /neurospin/tmp/vf140245/residual_bmi_images_cluster-2/config-2.json
