@@ -90,9 +90,9 @@ def load_residualized_bmi_data(cache):
 
         # Concatenate images with covariates gender, imaging city centrr, tiv_gaser and mean pds status in order to do as though BMI had been residualized
 #        X = np.concatenate((design_mat, masked_images), axis=1)
-        X = masked_images[0:100,:]
+        X = masked_images[0:500]
         #Y = SNPs
-        z = BMI[0:100]
+        z = BMI[0:500]
 
         np.save(os.path.join(SHARED_DIR, "X.npy"), X)
         #np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
