@@ -148,7 +148,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS, shuffle=True, random_state=2505)]
-    params = [[alpha, l1_ratio] for alpha in np.arange(3, 10, 1) for l1_ratio in np.arange(0.1, 1., .2)]
+    params = [[alpha, l1_ratio] for alpha in np.arange(2, 11, 1) for l1_ratio in np.arange(0.1, 1., .2)]
     user_func_filename = os.path.join("/home/hl237680",
         "gits", "scripts", "2013_imagen_bmi", "scripts",
         "tests", "Enet_SL_opt_hyperparam.py")
