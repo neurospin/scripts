@@ -23,3 +23,5 @@ export PYTHONPATH=${HOME}/git/scripts/brainomics:${PYTHONPATH}
 
 easy_install nibabel
 
+# scikit-learn 0.14.1
+easy_install scikit-learn==0.14.1
