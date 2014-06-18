@@ -49,11 +49,17 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 
 N_COMP = 3
 # Global penalty
-STRUCTPCA_ALPHA = [[1e-1], [5e-1], [1], [5]]
+STRUCTPCA_ALPHA = np.array([1e-3, 1e-2, 1e-1, 1])
 # Relative penalties
-STRUCTPCA_L1L2TV = [np.array([1, 1e-6, 1e-3]),
-                    np.array([1, 1e-6, 1e-2]),
-                    np.array([1, 1e-6, 1e-1])]
+SRUCTPCA_L1RATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
+SRUCTPCA_TVRATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
+
+STRUCTPCA_PARAMS = [[l1_ratio*alpha*(1-tv_ratio),
+                     (1-l1_ratio)*alpha*(1-tv_ratio),
+                     alpha*tv_ratio]
+                     for alpha in STRUCTPCA_ALPHA
+                     for tv_ratio in SRUCTPCA_TVRATIO
+                     for l1_ratio in SRUCTPCA_L1RATIO]
 
 #############
 # Functions #
@@ -236,12 +242,6 @@ def reducer(key, values):
 #################
 
 if __name__ == '__main__':
-
-    # Parameter grid
-    params = [(alpha * rel_val).tolist()
-              for rel_val in STRUCTPCA_L1L2TV
-              for alpha in STRUCTPCA_ALPHA]
-
     # Create a mapreduce config file for each dataset
     for snr in INPUT_SNRS:
         input_dir = INPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
@@ -272,7 +272,7 @@ if __name__ == '__main__':
         config = dict(data=dict(X=dataset_full_filename),
                       input_dir=input_dir,
                       im_shape=INPUT_SHAPE,
-                      params=params,
+                      params=STRUCTPCA_PARAMS,
                       resample=[indices,
                                 rev_indices],
                       map_output=output_dir,
@@ -283,4 +283,6 @@ if __name__ == '__main__':
                       reduce_output=os.path.join(output_dir, "results.csv"))
         config_full_filename = os.path.join(output_dir, "config.json")
         json.dump(config, open(config_full_filename, "w"))
-        print "mapreduce.py -m %s" % config_full_filename
+
+        cmd = "mapreduce.py -m %s" % config_full_filename
+        print cmd
