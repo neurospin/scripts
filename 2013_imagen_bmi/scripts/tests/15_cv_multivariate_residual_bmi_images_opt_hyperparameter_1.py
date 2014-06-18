@@ -160,7 +160,7 @@ if __name__ == "__main__":
     #    user_func_filename = os.path.abspath(__file__)
     #except:
     user_func_filename = os.path.join("/home/hl237680",
-        "gits", "scripts", "2013_imagen_bmi", "scripts", "tests"
+        "gits", "scripts", "2013_imagen_bmi", "scripts", "tests",
         "15_cv_multivariate_residual_bmi_images_opt_hyperparameter_1.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
