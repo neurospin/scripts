@@ -24,7 +24,7 @@ import scipy
 
 import parsimony.functions.nesterov.tv
 import pca_tv
-
+import brainomics.cluster_gabriel as clust_utils
 import dice5_pca
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
@@ -284,5 +284,5 @@ if __name__ == '__main__':
         config_full_filename = os.path.join(output_dir, "config.json")
         json.dump(config, open(config_full_filename, "w"))
 
-        cmd = "mapreduce.py -m %s" % config_full_filename
-        print cmd
+        cmd = "mapreduce.py -m %s  --ncore 12" % config_full_filename
+        clust_utils.gabriel_make_qsub_job_files(output_dir, cmd)
