@@ -11,12 +11,10 @@ run the model on the whole data.
 """
 
 import os, sys
-import json
 import numpy as np
 import pandas as pd
 import tables
 import nibabel as ni
-
 import parsimony.estimators as estimators
 
 sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts', '2013_imagen_bmi', 'scripts'))
@@ -34,41 +32,9 @@ BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 ORIGIN_IMG_DIR = os.path.join(BASE_PATH, '2013_imagen_bmi', 'data',
                                       'VBM', 'new_segment_spm8')
-
 # Shared data
 BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
 SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache')
-
-
-def load_globals(config):
-    import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
-
-
-def resample(config, resample_nb):
-    import mapreduce as GLOBAL  # access to global variables
-    #GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    resample = config["resample"][resample_nb]
-    print "reslicing %d" %resample_nb
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}                            
-    print "done reslicing %d" %resample_nb
-
-
-def mapper(key, output_collector):
-    import mapreduce as GLOBAL # access to global variables:
-    # key: list of parameters
-    alpha, l1_ratio = key[0], key[1]
-    Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
-    Xte = GLOBAL.DATA_RESAMPLED["X"][1]
-    ztr = GLOBAL.DATA_RESAMPLED["z"][0]
-    zte = GLOBAL.DATA_RESAMPLED["z"][1]
-    print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
-    #
-    mod = estimators.ElasticNet(l1_ratio, alpha, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
-    z_pred = mod.fit(Xtr,ztr).predict(Xte)
-    ret = dict(z_pred=z_pred, z_true=zte, beta=mod.beta)
-    output_collector.collect(key, ret)
 
 
 #############
@@ -118,62 +84,25 @@ if __name__ == "__main__":
     
     WD = "/neurospin/tmp/brainomics/hot_spots"
     if not os.path.exists(WD): os.makedirs(WD)
-
-    print "#################"
-    print "# Build dataset #"
-    print "#################"
+    
+    # Load data
     X_init, X_res, z = load_residualized_bmi_data(cache=False)   #BMI has been residualized when looking for the optimum set of hyperparameters
 
-    print "#####################"
-    print "# Build config file #"
-    print "#####################"
-    ## Parameterize the mapreduce
+    # Initialize beta_map
+    beta_map = np.zeros(X_init.shape[1])
+
+    # Elasticnet algorithm via Pylearn-Parsimony
     alpha = 0.009
     l1_ratio = 0.5
-    user_func_filename = os.path.join("/home/hl237680",
-        "gits", "scripts", "2013_imagen_bmi", "scripts", 
-        "16_hot_spot_mapping.py")
-    print "user_func", user_func_filename
-    # Use relative path from config.json
-    config = dict(data=dict(X_res='X_res.npy', z='z.npy'),
-                  params=[[alpha, l1_ratio]],
-                  structure="",
-                  map_output="results",
-                  user_func=user_func_filename,
-                  reduce_input="results/*/*", 
-                  reduce_group_by="results/.*/(.*)",
-                  reduce_output="results.csv")
-    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
+    mod = estimators.ElasticNet(l1_ratio, alpha, penalty_start = 11, mean = True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
+    beta_map = mod.beta
 
-    #########################################################################
-    # Build utils files: sync (push/pull) and PBS
-    sys.path.append(os.path.join(os.getenv('HOME'),
-                                'gits','scripts'))
-    import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
-    cmd = "mapreduce.py -m %s/config.json  --ncore 12" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    #########################################################################
-    # Sync to cluster
-    print "Sync data to gabriel.intra.cea.fr: "
-    os.system(sync_push_filename)
-    
-    #########################################################################
-    print "mapreduce.py -m %s/config.json --ncore 12" % WD
-    print sync_pull_filename
-    
-    #########################################################################
-#    print "# Reduce"
-#    print "mapreduce.py -r %s/config.json" % WD
-    #########################################################################
-
-    beta_map = np.zeros(X_init.shape[1])
+    # Use mask
     template_for_size_img = ni.load(MASK_PATH)
-    
     mask_data = template_for_size_img.get_data()
     masked_data_index = (mask_data != 0.0)
 
+    # Draw beta map
     image = np.zeros(template_for_size_img.get_data().shape)
     image[masked_data_index] = beta_map
     BMI_beta_map = os.path.join(BASE_PATH, 'results', 'BMI_beta_map.nii.gz')
