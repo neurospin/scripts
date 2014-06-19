@@ -119,7 +119,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter"
+    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_e-3"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         if not os.path.exists(SHARED_DIR):
             os.makedirs(SHARED_DIR)
         
-        X, z = load_residualized_bmi_data(cache=False)
+        X, z = load_residualized_bmi_data(cache=True)
         #assert X.shape == (1265, 336188)
         n, p = X.shape
         np.save(os.path.join(WD, 'X.npy'), np.hstack((np.ones((z.shape[0],1)),X)))
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
-    params = [[alpha, l1_ratio] for alpha in [0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08] for l1_ratio in np.arange(0.1, 1., .1)]
+    params = [[alpha, l1_ratio] for alpha in [0.005, 0.006, 0.007] for l1_ratio in np.arange(0.5, 1., .1)]
     # User map/reduce function file:
     #try:
     #    user_func_filename = os.path.abspath(__file__)
