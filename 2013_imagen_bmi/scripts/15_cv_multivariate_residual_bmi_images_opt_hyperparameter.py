@@ -119,7 +119,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_e-3"
+    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_1-3e-3"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
