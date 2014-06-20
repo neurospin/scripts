@@ -119,7 +119,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_validation-1"
+    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_validation-2"
     if not os.path.exists(WD): os.makedirs(WD)
 
     print "#################"
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
-    params = [[alpha, l1_ratio] for alpha in [0.005, 0.006] for l1_ratio in np.arange(0.5, 1., .1)]
+    params = [[alpha, l1_ratio] for alpha in [0.007, 0.008, 0.009, 0.01] for l1_ratio in np.arange(0.4, 1., .1)]
     # User map/reduce function file:
     #try:
     #    user_func_filename = os.path.abspath(__file__)
