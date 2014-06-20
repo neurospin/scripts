@@ -64,3 +64,5 @@ Rob Taal, H.; van den Hil, Leontine C.L.; Hofman, Albert; va... - Early Human D
 - Association study of nonsynonymous single nucleotide polymorphisms in schizophrenia.
 Carrera N, Arrojo M, Sanjuán J, Ramos-Ríos R, Paz E, Suárez-Rama JJ, Páramo M, Agra S, Brenlla J, Martínez S, Rivero O, Collier DA, Palotie A, Cichon S, Nöthen MM, Rietschel M, Rujescu D, Stefansson H, Steinberg S, Sigurdsson E, St Clair D, Tosato S, Werge T, Stefansson K, González JC, Valero J, Gutiérrez-Zotes A, Labad A, Martorell L, Vilella E, Carracedo Á, Costas J. Biol Psychiatry. 2012 Jan 15;71(2):169-77. doi: 10.1016/j.biopsych.2011.09.032. Epub 2011 Nov 10.
 PMID:  22078303 
+
+

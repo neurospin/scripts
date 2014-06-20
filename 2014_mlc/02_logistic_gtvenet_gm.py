@@ -82,6 +82,7 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
+    print key, values
     values = [item.load("*.npz") for item in values]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))

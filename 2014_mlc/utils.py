@@ -5,6 +5,9 @@ Created on Wed May 28 12:02:11 2014
 @author: ed203246
 """
 
+import numpy as np
+import pandas as pd
+
 def mcnemar_test_prediction(y_pred1, y_pred2, y_true, cont_table=False):
     """Compute the mcnemar_test, return """
     import scipy.stats
@@ -40,3 +43,15 @@ def mcnemar_test_prediction(y_pred1, y_pred2, y_true, cont_table=False):
                           [a+c, b + d, a + b + c + d ]],
         index=["1_Pos", "1_Neg", "Tot"], columns=["2_Pos", "1_Neg", "Tot"])
         return pval_binom, cont_table
+
+def contingency_table(c1, c2):
+    n00 = np.sum((c1 == 0) & (c2 == 0))
+    n01 = np.sum((c1 == 0) & (c2 == 1))
+    n10 = np.sum((c1 == 1) & (c2 == 0))
+    n11 = np.sum((c1 == 1) & (c2 == 1))
+    ret = pd.DataFrame([
+    [n00, n01, n00 + n01],
+    [n10, n11, n10 + n11],
+    [n00 + n10, n01 + n11, n00 + n01 + n10 + n11]],
+    index=["c1_0", "c1_1", "Tot"], columns=["c2_0", "c2_1", "Tot"])
+    return ret

@@ -27,22 +27,36 @@ INPUT_SUBJECT_TRAIN = os.path.join(IMAGES_PATH, "BinaryTrain_sbj_list.csv")
 SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2014_mlc")
 sys.path.append(SRC_PATH)
 import utils
+"""
+run /home/ed203246/git/scripts/2014_mlc/04_combine_cv.py
+"""
 
+#CV = "5CV"
+CV = "10CV"
 
 # 5CV
-GM = "/neurospin/brainomics/2014_mlc/GM"
-WHICH = "0.05_0.45_0.45_0.1"
-#WHICH = "0.05_0.08_0.72_0.2"
+if CV == "5CV":
+    GM = "/neurospin/brainomics/2014_mlc/GM"
+    WHICH = "0.05_0.45_0.45_0.1"
+    print """
+    gm: Grey Matter map processed with Elasticnet TV logistic regression. Maximize:
+    Logistic regression with L1, L2 and TV penalties:
+            f(beta) = - loglik/n_samples +
+                      + l1 * ||beta||_1
+                      + (l2 / 2 * n) * ||beta||²_2
+                      + tv * TV(beta)
+    """
+    print "with parameters l1=%.3f, l2=%.3f, tv=%.3f, found by CV" % (l1, l2, tv)
+    
+    print
+    print "roi: preprocessed features processed with Elasticnet TV logistic regression"
+    print "with parameters  C=%.3f" % C
+    #WHICH = "0.05_0.08_0.72_0.2"
 
-# 10CV
-#GM = "/neurospin/brainomics/2014_mlc/GM_10CV"
-#WHICH = "0.05_0.45_0.45_0.1_-1.0"
-#WHICH = "0.05_0.08_0.72_0.2_-1.0"
-
-
-print "====================================================================="
-print "== enettv:", WHICH, GM
-print "====================================================================="
+if CV == "10CV":
+    GM = "/neurospin/brainomics/2014_mlc/GM_10CV"
+    WHICH = "0.05_0.45_0.45_0.1_-1.0"
+    #WHICH = "0.05_0.08_0.72_0.2_-1.0"
 
 penalty_start = 1
 #/neurospin/brainomics/2014_mlc/GM/results/0/0.05_0.45_0.45_0.1/
@@ -63,15 +77,26 @@ if len(arg) == 4:
     alpha, l1, l2, tv = arg
 else:
     alpha, l1, l2, tv, k = arg
+
+
 l1, l2, tv = alpha * l1, alpha * l2, alpha * tv
 enettv = LogisticRegressionL1L2TV(l1, l2, tv, 0, penalty_start=penalty_start,
                                    class_weight="auto")
-
+C = 0.0022
 # lr l2 for roi
 p_lr_l2 = Pipeline([
     ('scaler', StandardScaler()),
-    ('classifier', LogisticRegression(C=0.005, penalty='l2')),
+   # ('classifier', LogisticRegression(C=0.005, penalty='l2')),
+    ('classifier', LogisticRegression(C=C, penalty='l2')),
 ])
+
+
+print "=========="
+print "== %s ==" % CV
+print "=========="
+
+
+#print "enettv", WHICH, GM
 
 ###############################################################################
 # LOAD W check we retrive same results
@@ -79,8 +104,8 @@ p_lr_l2 = Pipeline([
 W = list()
 y_true_disk = list()
 y_true_csv = list()
-y_true_train = list()
-y_pred_train = list()
+#y_true_train = list()
+#y_pred_train = list()
 y_pred_disk = list()
 y_pred_replay = list()
 
@@ -96,16 +121,16 @@ for i, (tr, te) in enumerate(cv):
     y_true_disk.append(np.load(os.path.join(input_path, "y_true.npy")).ravel())
     y_pred_disk.append(np.load(os.path.join(input_path, "y_pred.npy")).ravel())
     y_true_csv.append(pop_train.Label.values[te])
-    y_true_train.append(pop_train.Label.values[tr])
-    y_pred_train.append(enettv.predict(Xgm_train[tr,: ]).ravel())
+    #y_true_train.append(pop_train.Label.values[tr])
+    #y_pred_train.append(enettv.predict(Xgm_train[tr,: ]).ravel())
 
 W = np.vstack(W)
 y_true_disk = np.hstack(y_true_disk)
 y_true_csv = np.hstack(y_true_csv)
 y_pred_disk = np.hstack(y_pred_disk)
 y_pred_replay = np.hstack(y_pred_replay)
-y_true_train = np.hstack(y_true_train)
-y_pred_train = np.hstack(y_pred_train)
+#y_true_train = np.hstack(y_true_train)
+#y_pred_train = np.hstack(y_pred_train)
 
 # Do some QC
 assert np.all(y_true_disk == y_true_csv)  # true test == those in csv
@@ -113,64 +138,79 @@ assert np.all(y_pred_replay == y_pred_disk) # pred == those stored
 
 p, r, f, s = precision_recall_fscore_support(y_true_csv, y_pred_replay, average=None)
 #assert r.mean() == 0.67999999999999994
-_, cv_train_recall, _, _ = precision_recall_fscore_support(y_true_train, y_pred_train, average=None)
+#_, cv_train_recall, _, _ = precision_recall_fscore_support(y_true_train, y_pred_train, average=None)
 
 ###############################################################################
 ## RUN separatly
-res = list()
-subjects = list()
+print "------------------------------------------"
+print "-- Individuals classifiers performances --" 
+print "------------------------------------------"
+cv_test = list()
+cv_train = list()
+subjects_train = list()
+subjects_test = list()
 for i, (tr, te) in enumerate(cv):
     #i, tr, te = 0, cv[0][0], cv[0][1]
     #Fit
     p_lr_l2.fit(Xroi_train[tr, :], pop_train.Label.values[tr])
     enettv.beta = W[i, :][:, np.newaxis]
     # Predict
-    subjects.append(pop_train.SID.values[te])
-    res.append(np.hstack([
-    pop_train.Label.values[te][:, np.newaxis],
-    p_lr_l2.predict_proba(Xroi_train[te,: ])[:, [1]],
-    p_lr_l2.predict(Xroi_train[te,: ])[:, np.newaxis],
-    enettv.predict_probability(Xgm_train[te,: ]),
-    enettv.predict(Xgm_train[te,: ])]))
+    subjects_test.append(pop_train.SID.values[te])
+    cv_test.append(np.hstack([
+        pop_train.Label.values[te][:, np.newaxis],
+        p_lr_l2.predict_proba(Xroi_train[te,: ])[:, [1]],
+        p_lr_l2.predict(Xroi_train[te,: ])[:, np.newaxis],
+        enettv.predict_probability(Xgm_train[te,: ]),
+        enettv.predict(Xgm_train[te,: ])]))
+    subjects_train.append(pop_train.SID.values[tr])
+    cv_train.append(np.hstack([
+        pop_train.Label.values[tr][:, np.newaxis],
+        p_lr_l2.predict_proba(Xroi_train[tr,: ])[:, [1]],
+        p_lr_l2.predict(Xroi_train[tr,: ])[:, np.newaxis],
+        enettv.predict_probability(Xgm_train[tr,: ]),
+        enettv.predict(Xgm_train[tr,: ])]))
 
-res = np.vstack(res)
-subjects = np.hstack(subjects)
 
-res= pd.DataFrame(res, index=subjects,
+print "~~ TEST performances ~~"
+print "~~~~~~~~~~~~~~~~~~~~~~~"
+cv_test = np.vstack(cv_test)
+subjects_test = np.hstack(subjects_test)
+
+cv_test= pd.DataFrame(cv_test, index=subjects_test,
              columns=["y_true", "prob_roi", "pred_roi", "prob_gm", "pred_gm"])
 
 # acc
-acc_roi = accuracy_score(res.y_true, res.pred_roi)
-acc_gm = accuracy_score(res.y_true, res.pred_gm)
+acc_roi = accuracy_score(cv_test.y_true, cv_test.pred_roi)
+acc_gm = accuracy_score(cv_test.y_true, cv_test.pred_gm)
 # auc
-fpr, tpr, thresholds = roc_curve(res.y_true, res.prob_roi)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.prob_roi)
 roc_auc_roi = auc(fpr, tpr)
-fpr, tpr, thresholds = roc_curve(res.y_true, res.prob_gm)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.prob_gm)
 roc_auc_gm = auc(fpr, tpr)
 # recalls
-_, r_roi, _, _ = precision_recall_fscore_support(res.y_true, res.pred_roi, average=None)
-_, r_gm, _, _ = precision_recall_fscore_support(res.y_true, res.pred_gm, average=None)
+_, r_roi, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_roi, average=None)
+_, r_gm, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_gm, average=None)
 
-summary = pd.DataFrame([
+summary_test_cv = pd.DataFrame([
 ["roi"] + [acc_roi] + [roc_auc_roi] + r_roi.tolist(),
 ["gm"]  + [acc_gm] + [roc_auc_gm] + r_gm.tolist()],
 columns=["features", "acc", "auc", "recall_0", "recall_1"])
 
-print "Individuals classifiers performances"
-print "------------------------------------"
-print summary
-#  feat       acc       auc  recall_0  recall_1
-#0  roi  0.686667  0.765511  0.720000  0.653333
-#1   gm  0.680000  0.708622  0.693333  0.666667
-# Compare
-same = np.sum(res.pred_roi == res.pred_gm) / float(len(res.pred_roi))
+print summary_test_cv
+
+print "~~ Comparison ~~"
+print "~~~~~~~~~~~~~~~~~~"
+print "Cross-classification contingency table c1=gm, c2=roi, c1_0: gm predict 1"
+cross_classif_test = utils.contingency_table(c1=cv_test.pred_gm, c2=cv_test.pred_roi)
+print cross_classif_test
+print "Classifier agreed %.2f" % (np.sum(cv_test.pred_roi == cv_test.pred_gm) / float(len(cv_test.pred_roi)))
 #assert same == 0.6333333333333333
 # Mc nemar test
-mcnemar_pval, cont_table = utils.mcnemar_test_prediction(y_pred1=res.pred_roi, y_pred2=res.pred_gm,
-                              y_true=res.y_true, cont_table=True)
-assert mcnemar_pval == 1
+mcnemar_pval, cont_table = utils.mcnemar_test_prediction(y_pred1=cv_test.pred_roi, y_pred2=cv_test.pred_gm,
+                              y_true=cv_test.y_true, cont_table=True)
+#assert mcnemar_pval == 1
 # No differences
-print "Contingency table"
+print "McNemmar contingency table"
 print cont_table
 #       2_Pos  1_Neg  Tot
 #1_Pos     75     28  103
@@ -178,8 +218,8 @@ print cont_table
 #Tot      102     48  150
 print "Mcnemar pval=", mcnemar_pval
 
-pl.plot(res.prob_roi[res.y_true==0], res.prob_gm[res.y_true==0], "bo",
-         res.prob_roi[res.y_true==1], res.prob_gm[res.y_true==1], "ro")
+pl.plot(cv_test.prob_roi[cv_test.y_true==0], cv_test.prob_gm[cv_test.y_true==0], "bo",
+         cv_test.prob_roi[cv_test.y_true==1], cv_test.prob_gm[cv_test.y_true==1], "ro")
 pl.plot([0.5, 0.5], [0, 1], 'k-')
 pl.plot([0, 1], [0.5, 0.5], 'k-')
 pl.xlabel('Prob(1|ROI)')
@@ -187,47 +227,81 @@ pl.ylabel('Prob(1|GM)')
 pl.title('Posterior probas (Blue: 0, Red:1)')
 pl.show()
 
+
+print "~~ TRAIN performances ~~"
+print "~~~~~~~~~~~~~~~~~~~~~~~~"
+cv_train = np.vstack(cv_train)
+subjects_train = np.hstack(subjects_train)
+
+cv_train= pd.DataFrame(cv_train, index=subjects_train,
+             columns=["y_true", "prob_roi", "pred_roi", "prob_gm", "pred_gm"])
+
+# acc
+acc_roi = accuracy_score(cv_train.y_true, cv_train.pred_roi)
+acc_gm = accuracy_score(cv_train.y_true, cv_train.pred_gm)
+# auc
+fpr, tpr, thcv_trainholds = roc_curve(cv_train.y_true, cv_train.prob_roi)
+roc_auc_roi = auc(fpr, tpr)
+fpr, tpr, thcv_trainholds = roc_curve(cv_train.y_true, cv_train.prob_gm)
+roc_auc_gm = auc(fpr, tpr)
+# recalls
+_, r_roi, _, _ = precision_recall_fscore_support(cv_train.y_true, cv_train.pred_roi, average=None)
+_, r_gm, _, _ = precision_recall_fscore_support(cv_train.y_true, cv_train.pred_gm, average=None)
+
+summary_train_cv = pd.DataFrame([
+["roi"] + [acc_roi] + [roc_auc_roi] + r_roi.tolist(),
+["gm"]  + [acc_gm] + [roc_auc_gm] + r_gm.tolist()],
+columns=["features", "acc", "auc", "recall_0", "recall_1"])
+
+print summary_train_cv
+
+#print "Cross-classification contingency table c1=gm, c2=roi, c1_0: gm predict 1"
+#cross_classif_test = utils.contingency_table(c1=cv_train.pred_gm, c2=cv_train.pred_roi)
+#print cross_classif_test
+#print "Classifier agreed %.2f" % (np.sum(cv_train.pred_roi == cv_train.pred_gm) / float(len(cv_test.pred_roi)))
+
 #############################################################
 # Consensus classif
 # Mean
-res.prob_mix_mean = (res.prob_roi + res.prob_gm) / 2
-res.pred_mix_mean = (res.prob_mix_mean > 0.5).astype(int)
-_, r_mix_mean, _, _ = precision_recall_fscore_support(res.y_true, res.pred_mix_mean, average=None)
-acc_mix_mean = accuracy_score(res.y_true, res.pred_mix_mean)
-fpr, tpr, thresholds = roc_curve(res.y_true, res.pred_mix_mean)
+cv_test.prob_mix_mean = (cv_test.prob_roi + cv_test.prob_gm) / 2
+cv_test.pred_mix_mean = (cv_test.prob_mix_mean > 0.5).astype(int)
+_, r_mix_mean, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_mix_mean, average=None)
+acc_mix_mean = accuracy_score(cv_test.y_true, cv_test.pred_mix_mean)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.pred_mix_mean)
 roc_auc_mix_mean = auc(fpr, tpr)
 
 # prod
-res.prob_mix_prod = (res.prob_roi * res.prob_gm)
-res.pred_mix_prod = (res.prob_mix_prod > 0.25).astype(int)
-_, r_mix_prod, _, _ = precision_recall_fscore_support(res.y_true, res.pred_mix_prod, average=None)
-acc_mix_prod = accuracy_score(res.y_true, res.pred_mix_prod)
-fpr, tpr, thresholds = roc_curve(res.y_true, res.pred_mix_prod)
+cv_test.prob_mix_prod = (cv_test.prob_roi * cv_test.prob_gm)
+cv_test.pred_mix_prod = (cv_test.prob_mix_prod > 0.25).astype(int)
+_, r_mix_prod, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_mix_prod, average=None)
+acc_mix_prod = accuracy_score(cv_test.y_true, cv_test.pred_mix_prod)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.pred_mix_prod)
 roc_auc_mix_prod = auc(fpr, tpr)
 
 # Max
-prob_both = np.vstack([res.prob_roi, res.prob_gm]).T
-res.prob_mix_max = np.max(prob_both, axis=1)
-res.pred_mix_max = (res.prob_mix_max > 0.5).astype(int)
-_, r_mix_max, _, _ = precision_recall_fscore_support(res.y_true, res.pred_mix_max, average=None)
-acc_mix_max = accuracy_score(res.y_true, res.pred_mix_max)
-fpr, tpr, thresholds = roc_curve(res.y_true, res.pred_mix_max)
+prob_both = np.vstack([cv_test.prob_roi, cv_test.prob_gm]).T
+cv_test.prob_mix_max = np.max(prob_both, axis=1)
+cv_test.pred_mix_max = (cv_test.prob_mix_max > 0.5).astype(int)
+_, r_mix_max, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_mix_max, average=None)
+acc_mix_max = accuracy_score(cv_test.y_true, cv_test.pred_mix_max)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.pred_mix_max)
 roc_auc_mix_max = auc(fpr, tpr)
 
 # Learn lr
 s = StandardScaler()
 x = s.fit_transform(prob_both)
 lr = LogisticRegression()
-lr.fit(x, res.y_true)
-res.prob_mix_learn = lr.predict_proba(x)[:, 1]
-res.pred_mix_learn = lr.predict(x)
-_, r_mix_learn, _, _ = precision_recall_fscore_support(res.y_true, res.pred_mix_learn, average=None)
-acc_mix_learn = accuracy_score(res.y_true, res.pred_mix_learn)
-fpr, tpr, thresholds = roc_curve(res.y_true, res.pred_mix_learn)
+lr.fit(x, cv_test.y_true)
+cv_test.prob_mix_learn = lr.predict_proba(x)[:, 1]
+cv_test.pred_mix_learn = lr.predict(x)
+_, r_mix_learn, _, _ = precision_recall_fscore_support(cv_test.y_true, cv_test.pred_mix_learn, average=None)
+acc_mix_learn = accuracy_score(cv_test.y_true, cv_test.pred_mix_learn)
+fpr, tpr, thcv_testholds = roc_curve(cv_test.y_true, cv_test.pred_mix_learn)
 roc_auc_mix_learn = auc(fpr, tpr)
 
-print "Mixer classifiers performances"
-print "------------------------------"
+print "--------------------------------------"
+print "-- Combined classifiers performances --"
+print "--------------------------------------"
 
 summary_mix = pd.DataFrame([
 ["Mean"] + [acc_mix_mean] + [roc_auc_mix_mean] + r_mix_mean.tolist(),
@@ -238,45 +312,3 @@ columns=["Mixer", "acc", "auc", "recall_0", "recall_1"])
 
 print summary_mix
 
-
-print "Refit on all data to predict test samples
-print "----------------------------------------"
-GM = "/neurospin/brainomics/2014_mlc/GM"
-OUTPUT = os.path.join(os.path.dirname(GM), 'combine', "gm_all_"+WHICH)
-if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-#Xtr = np.load(os.path.join(GM,  'GMtrain.npy'))
-#Xte = np.load(os.path.join(GM,  'GMtest.npy'))
-#ytr = np.load(os.path.join(GM,  'ytrain.npy'))
-mask_im = nibabel.load(os.path.join(GM,  "mask.nii"))
-A, _ = tv_helper.A_from_mask(mask_im.get_data())
-
-params = np.array([float(p) for p in WHICH.split("_")])
-l1, l2, tv = params[0] * params[1:]
-mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=1,
-                               class_weight="auto")
-mod.fit(Xgm_train, y_train)
-
-print "Train scores"
-y_pred_train = mod.predict(Xgm_train).ravel()
-y_pred_prob_train = mod.predict_probability(Xgm_train).ravel()
-# acc
-acc_gm = accuracy_score(ytr, y_pred_train)
-# auc
-fpr, tpr, thresholds = roc_curve(ytr, y_pred_prob_train)
-roc_auc_gm = auc(fpr, tpr)
-# recalls
-_, r_train, _, _ = precision_recall_fscore_support(ytr, y_pred_train, average=None)
-
-
-print "CV recalls on training samples", cv_train_recall
-
-ICI
-
-beta3d = np.zeros(mask_im.get_data().shape)
-beta3d[STRUCTURE.get_data() != 0 ] = mod.beta[1:].ravel()
-out_im = nibabel.Nifti1Image(beta3d, affine=mask_im.get_affine())
-ret = dict(y_pred=y_pred, y_true=y, beta=mod.beta, beta3d=out_im, scores=scores)
-# run /home/ed203246/bin/mapreduce.py
-import mapreduce
-oc = mapreduce.OutputCollector(OUTPUT)
-oc.collect(key=key, value=ret)

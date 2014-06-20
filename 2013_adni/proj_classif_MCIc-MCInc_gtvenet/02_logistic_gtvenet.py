@@ -82,7 +82,7 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    values = [item.load("*.npy") for item in values]
+    values = [item.load() for item in values]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
@@ -165,11 +165,11 @@ if __name__ == "__main__":
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
-                  map_output="results",#os.path.join(OUTPUT, "results"),
+                  map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*", #os.path.join(OUTPUT, "results/*/*"),
-                  reduce_group_by="results/.*/(.*)",#os.path.join(OUTPUT, "results/.*/(.*)"),
-                  reduce_output="results.csv")#os.path.join(OUTPUT, "results.csv"))
+                  reduce_input="results/*/*",
+                  reduce_group_by="results/.*/(.*)",
+                  reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #############################################################################
