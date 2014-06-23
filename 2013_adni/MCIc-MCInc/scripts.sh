@@ -1,3 +1,6 @@
+################################################################################
+# MCIc-MCInc_cs
+#
 # Start by running Locally with 2 cores, to check that everything os OK)
 Interrupt after a while CTL-C
 mapreduce.py --map --config /neurospin/brainomics/2013_adni/MCIc-MCInc_cs/config.json --ncore 2
