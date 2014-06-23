@@ -17,7 +17,7 @@ import nibabel as nib
 import numpy as np
 
 INPUT_DIR = "/neurospin/mescog/neuroimaging/original/munich/"
-RESOURCES_DIR = "/neurospin/mescog/neuroimaging/ressources/"
+RESOURCES_DIR = "/neurospin/mescog/neuroimaging_ressources/"
 
 INPUT_MASK = os.path.join(RESOURCES_DIR,
                           "MNI152_T1_1mm_brain_mask.nii.gz")
@@ -74,7 +74,7 @@ subject_list_newline = [str(subject) + "\n" for subject in subject_list]
 fo.writelines(subject_list_newline)
 fo.close()
 
-## QC on first image
-image = nib.load(OUTPUT_DIR+"/MNI152_T1_2mm_brain_mask.nii.gz")
-out_im = nib.Nifti1Image(np.reshape(X[0,:], image.get_data().shape), affine=image.get_affine())
-out_im.to_filename(OUTPUT_DIR+"/QC_CAD-WMH-MNI_%s-M0-WMH-MNI.nii.gz" % subject_list_newline[0].strip())
+### QC on first image
+#image = nib.load(OUTPUT_DIR+"/MNI152_T1_1mm_brain_mask.nii.gz")
+#out_im = nib.Nifti1Image(np.reshape(X[0,:], image.get_data().shape), affine=image.get_affine())
+#out_im.to_filename(OUTPUT_DIR+"/QC_CAD-WMH-MNI_%s-M0-WMH-MNI.nii.gz" % subject_list_newline[0].strip())
