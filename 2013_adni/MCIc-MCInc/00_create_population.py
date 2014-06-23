@@ -22,7 +22,7 @@ INPUT_SUBJECTS_LIST_FILENAME = os.path.join(BASE_PATH,
                                    "subject_list.txt")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,
-                          "proj_classif_MCIc-MCInc",
+                          "MCIc-MCInc",
                           "population.csv")
 
 if not os.path.exists(os.path.dirname(OUTPUT_CSV)):

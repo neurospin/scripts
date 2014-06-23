@@ -4,56 +4,23 @@ Created on Mon Jun  2 13:43:10 2014
 
 @author: hl237680
 """
-
-import os
-import numpy as np
-import pandas as pd
-import csv
-
-
-# Input data
-BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
-DATA_PATH = os.path.join(BASE_PATH, 'data')
-CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-GENETICS_DATA_PATH = os.path.join(DATA_PATH, 'genetics')
+from genim import genibabel
+#from glob import glob
+#from genomics_bioresrql import BioresourcesDB
+#import plinkio as ig
 
 
-##########################################################
-# Read subject list, BMI and covariates for all subjects #
-##########################################################
+# List from graff paper Nature 2012
+bmi_gene_list = ['SEC16B', 'TNNI3K', 'PTBP2', 'NEGR1', 'LYPLAL1', 'LZTR2', 'LRP1B', 'TMEM18',
+ 'POMC', 'FANCL', 'CADM2', 'SLC39A8', 'FLJ3577', 'HMGCR', 'NCR3', 'AIF1',
+ 'BAT2', 'NUDT3', 'TFAP2B', 'MSRA', 'LRRN6C', 'LMX1B', 'BDNF', 'MTCH2',
+ 'RPL27A', 'TUB', 'FAIM2', 'MTIF3', 'NRXN3', 'PRKD1', 'MAP2K5', 'GPRC5B',
+ 'ADCY9', 'SH2B1', 'APOB48', 'FTO', 'MC4R', 'QPCTL', 'KCTD15', 'TMEM160',
+ 'PRL', 'PTER', 'MAF', 'NPC1']
 
-CLINIC_FILE = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH, "1534bmi-vincent2.csv")).as_matrix()
-CLINIC_COV_DIR = os.path.join(CLINIC_DATA_PATH, 'clinical_cov.csv')
-#clinic_subjects_id = CLINIC_FILE[:,0]
-#gender = CLINIC_FILE[:,1]
-#age_in_year = CLINIC_FILE[:,2]
-#pds_status = CLINIC_FILE[:,30]
-#BMI = CLINIC_FILE[:,8]
-
-
-#clinical_cov = np.zeros((CLINIC_FILE.shape[0], 5))
-#clinical_cov[:,0] = CLINIC_FILE[:,0]
-#clinical_cov[:,1] = CLINIC_FILE[:,1]
-#clinical_cov[:,2] = CLINIC_FILE[:,2]
-#clinical_cov[:,3] = CLINIC_FILE[:,30]
-#clinical_cov[:,4] = CLINIC_FILE[:,8]
-
-c = csv.writer(open("(os.path.join(CLINIC_DATA_PATH, 'clinical_cov.csv')", "wb"))
-c.writerow(["ID", "Gender", "Age in year", "PDS", "BMI"])
-for i in np.arange(0, CLINIC_FILE.shape[0]-1, 1):
-    c.writerow([CLINIC_FILE[i,0], CLINIC_FILE[i,1], CLINIC_FILE[i,2], CLINIC_FILE[i,30], CLINIC_FILE[i,8]])
-
-
-    
-
-#GENETICS_FILE = pd.io.parsers.read_csv(os.path.join(GENETICS_DATA_PATH, "bmi_snp.csv")).as_matrix()
-#SNPs_subjects_id = ???
-#
-## We select subjects for which we have:
-##  - genetics data
-##  - an image quality estimated as A or B after quality control
-#subjects_id_gen_image = set(SNPs_subjects_id).intersection(set(clinic_subjects_id))
-##subjects_id = subset(tab, Subjects%in%subjects_id_gen_image & quality_control != 'C')$Subjects
-##subjects_id_char = as.character(subjects_id)
-#
-#
+if __name__ == "__main__":
+    snps_dict, void_gene, df = genibabel.load_from_genes(bmi_gene_list,
+                                                         study='IMAGEN')
+    #examples                         
+    a = df.loc[[u'000037509984', u'000044836688', u'000063400084'],:].values                         
+    b = df.loc[[u'000037509984', u'000063400084', u'000044836688'],:].values
