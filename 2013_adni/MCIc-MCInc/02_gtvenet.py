@@ -45,7 +45,7 @@ def mapper(key, output_collector):
     STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 2
+    penalty_start = 3
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -103,7 +103,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc_cs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc_gtvenet"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -120,7 +120,7 @@ def run_all(config):
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc_cs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc_gtvenet"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -155,8 +155,8 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-MCInc",
-        "02_tvenet_cs.py")
+        "git", "scripts", "2013_adni", "MCIc-MCInc_gtvenet",
+        "02_gtvenet.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
