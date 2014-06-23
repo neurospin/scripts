@@ -27,4 +27,5 @@ https://ida.loni.usc.edu/login.jsp
 ls loni/ABIDE/*/MP-RAGE/*/*/*.nii|wc
 1099
 
-
+ls loni/ABIDE/*/MP-RAGE/*/*/*.nii| while read f ; do echo 
+Trouble obsessionnel compulsif

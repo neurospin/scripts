@@ -61,4 +61,5 @@ do_mesh_cluster_rendering(mesh_file = outputs["mesh_file"],
 bv_env python weigths_maps.py --input=/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/interesting_snp_brain_img/snp_379105_perm_pcorr.nii.gz
 bv_env python weigths_maps.py --input=/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/interesting_snp_brain_img/snp_122664_perm_pcorr.nii.gz
 
+coordi
 """
