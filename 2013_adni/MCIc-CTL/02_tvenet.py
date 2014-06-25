@@ -101,17 +101,17 @@ def reducer(key, values):
 
 ##############################################################################
 ## Run all
-def run_all():
+def run_all(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
-    mapreduce.A, mapreduce.STRUCTURE = A_from_structure(os.path.join(WD,  "mask_atlas.nii.gz"))
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_univ_all', key)
+    load_globals(config)
+    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
     # run /home/ed203246/bin/mapreduce.py
     oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'X_atlas.npy'))
+    X = np.load(os.path.join(WD,  'X.npy'))
     y = np.load(os.path.join(WD,  'y.npy'))
     mapreduce.DATA["X"] = [X, X]
     mapreduce.DATA["y"] = [y, y]
@@ -120,14 +120,14 @@ def run_all():
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
     #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    INPUT_DATA_X = os.path.join('X_atlas.npy')
+    INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
-    INPUT_MASK_PATH = os.path.join("mask_atlas.nii.gz")
+    INPUT_MASK_PATH = os.path.join("mask.nii")
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
@@ -151,12 +151,12 @@ if __name__ == "__main__":
     alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
     params = [params.tolist() for params in alphal1l2tvk]
     # User map/reduce function file:
-    try:
-        user_func_filename = os.path.abspath(__file__)
-    except:
-        user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "proj_classif_MCIc-MCInc_gtvenet",
-        "02_logistic_gtvenet.py")
+#    try:
+#        user_func_filename = os.path.abspath(__file__)
+#    except:
+    user_func_filename = os.path.join(os.environ["HOME"],
+        "git", "scripts", "2013_adni", "MCIc-CTL",
+        "02_tvenet.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map --config %s/config.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py --map --config %s/config.json --ncore 2" % WD
+    print "mapreduce.py --map %s/config.json --ncore 2" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
@@ -201,4 +201,4 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --mode reduce --config %s/config.json" % WD
+    print "mapreduce.py --reduce %s/config.json" % WD

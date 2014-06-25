@@ -155,7 +155,7 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-MCInc_gtvenet",
+        "git", "scripts", "2013_adni", "MCIc-MCInc",
         "02_gtvenet.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
