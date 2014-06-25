@@ -249,6 +249,7 @@ if __name__ == "__main__":
         resamples_file_cur = resample_nb_cur = None
         data_cur = None
         workers = list()
+        job_process_map = {} # This is only valid for a given machine
         for i in xrange(len(jobs)):
             # see if we can create a worker
             while len(workers) == options.ncore:
@@ -274,6 +275,7 @@ if __name__ == "__main__":
             p = Process(target=user_func.mapper, args=(key, output_collector))
             print "Start :", str(p), str(output_collector)
             p.start()
+            job_process_map[p.pid] = job
             workers.append(p)
 
         for p in workers:  # Join remaining worker
