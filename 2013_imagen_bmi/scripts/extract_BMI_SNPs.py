@@ -2,15 +2,16 @@
 """
 Created on Mon Jun  2 13:43:10 2014
 
-@author: hl237680
+@author: vf140245
 """
-from genim import genibabel
-#from glob import glob
-#from genomics_bioresrql import BioresourcesDB
-#import plinkio as ig
+
+import os, sys
+sys.path.append(os.path.join('/home/vf140245', 'gits', 'mycaps/nsap/caps'))
+from genim.genibabel import connect, load_from_genes
 
 
 # List from graff paper Nature 2012
+# qualified name eGene NCBI
 bmi_gene_list = ['SEC16B', 'TNNI3K', 'PTBP2', 'NEGR1', 'LYPLAL1', 'LZTR2', 'LRP1B', 'TMEM18',
  'POMC', 'FANCL', 'CADM2', 'SLC39A8', 'FLJ3577', 'HMGCR', 'NCR3', 'AIF1',
  'BAT2', 'NUDT3', 'TFAP2B', 'MSRA', 'LRRN6C', 'LMX1B', 'BDNF', 'MTCH2',
@@ -19,8 +20,14 @@ bmi_gene_list = ['SEC16B', 'TNNI3K', 'PTBP2', 'NEGR1', 'LYPLAL1', 'LZTR2', 'LRP1
  'PRL', 'PTER', 'MAF', 'NPC1']
 
 if __name__ == "__main__":
-    snps_dict, void_gene, df = genibabel.load_from_genes(bmi_gene_list,
-                                                         study='IMAGEN')
+    bioresDB = connect(server='mart.cea.fr', user='admin', passwd='alpine')
+    
+    snps_dict, void_gene, df = load_from_genes(bmi_gene_list,
+                                               study='IMAGEN', 
+                                               bioresDB = bioresDB)
     #examples                         
     a = df.loc[[u'000037509984', u'000044836688', u'000063400084'],:].values                         
     b = df.loc[[u'000037509984', u'000063400084', u'000044836688'],:].values
+    subj_list = df.index   #subjects 
+    snp_list = df.columns  #snps
+    
