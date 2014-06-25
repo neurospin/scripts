@@ -56,15 +56,47 @@ for model in INPUT_MODELS:
             n, p = df.shape
             print "Reading", full_filename, "(", n, "lines)"
             N += n
-            # Add columns
+            # Add a column for global penalization and tv ratio
+            if model == 'pca':
+                global_pen = pd.Series.from_array(np.zeros(n),
+                                                  name='Global penalization',
+                                                  index=pd.Index(np.arange(n)))
+                tv_ratio = pd.Series.from_array(np.zeros(n),
+                                                name='TV ratio',
+                                                index=pd.Index(np.arange(n)))
+
+
+            if model == 'sparse_pca':
+                param = df['key'].map(float)
+                global_pen = pd.Series.from_array(param,
+                                                  name='Global penalization',
+                                                  index=pd.Index(np.arange(n)))
+                tv_ratio = pd.Series.from_array(np.zeros(n),
+                                                name='TV ratio',
+                                                index=pd.Index(np.arange(n)))
+
+
+            if model == 'struct_pca':
+                params = df['key'].apply(
+                    lambda key: [float(s) for s in key.split('_')])
+                global_pen = pd.Series.from_array(params.map(sum),
+                        name='Global penalization',
+                        index=pd.Index(np.arange(n)))
+                tv_ratio = pd.Series.from_array(params.map(lambda p: p[2]/sum(p)),
+                        name='TV ratio',
+                        index=pd.Index(np.arange(n)))
+
+            df['Global penalization'] = global_pen
+            df['TV ratio'] = tv_ratio
+            # Create multiindex (model, alpha, key) for this file
             snrs = pd.Series.from_array(np.asarray([snr]*n),
                                         name='SNR',
                                         index=pd.Index(np.arange(n)))
             models = pd.Series.from_array(np.asarray([model]*n),
                                           name='model',
                                           index=pd.Index(np.arange(n)))
-            # Create multiindex (model, alpha, key) for this file
             df.index = pd.MultiIndex.from_arrays([models, snrs, df['key']])
+            # Append to large df
             if total_df is None:
                 total_df = df
             else:
