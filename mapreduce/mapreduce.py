@@ -157,15 +157,6 @@ class OutputCollector:
                 res[name] = o
         return res
 
-output_collectors = list()
-
-
-def clean_atexit():
-    for oc in output_collectors:
-        oc.clean()
-
-import atexit
-atexit.register(clean_atexit)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -270,7 +261,6 @@ if __name__ == "__main__":
             except:
                 continue
             output_collector = OutputCollector(job[_OUTPUT])
-            output_collectors.append(output_collector)
             if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
                (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
                 resample_nb_cur = job[_RESAMPLE_NB]
