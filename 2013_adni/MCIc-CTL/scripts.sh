@@ -1,25 +1,6 @@
 python 02_tvenet.py
 user_func /home/ed203246/git/scripts/2013_adni/MCIc-CTL/02_tvenet.py
-# Make sure parent dir of wd_cluster exists
-ssh ed203246@gabriel.intra.cea.fr "mkdir /neurospin/tmp/ed203246"
-mkdir: cannot create directory `/neurospin/tmp/ed203246': File exists
-Sync data to gabriel.intra.cea.fr: 
-sending incremental file list
-MCIc-CTL/
-MCIc-CTL/X.npy
-MCIc-CTL/X.txt
-MCIc-CTL/config.json
-MCIc-CTL/job_Cati_LowPrio.pbs
-MCIc-CTL/job_Cati_long.pbs
-MCIc-CTL/job_Global_long.pbs
-MCIc-CTL/mask.nii
-MCIc-CTL/population.csv
-MCIc-CTL/sync_pull.sh
-MCIc-CTL/sync_push.sh
-MCIc-CTL/y.npy
 
-sent 236094730 bytes  received 225 bytes  5427470.23 bytes/sec
-total size is 466744296  speedup is 1.98
 # Start by running Locally with 2 cores, to check that everything os OK)
 Interrupt after a while CTL-C
 mapreduce.py --map /neurospin/brainomics/2013_adni/MCIc-CTL/config.json --ncore 2
