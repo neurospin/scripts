@@ -103,7 +103,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -120,7 +120,7 @@ def run_all(config):
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-MCInc_cs_gtvenet"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_cs_gtvenet"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-MCInc",
+        "git", "scripts", "2013_adni", "MCIc-CTL",
         "02_gtvenet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
