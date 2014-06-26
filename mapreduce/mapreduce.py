@@ -253,7 +253,10 @@ if __name__ == "__main__":
         for i in xrange(len(jobs)):
             # see if we can create a worker
             while len(workers) == options.ncore:
-                for p in workers:
+                # We use a copy of workers to iterate because
+                # we remove some element in it
+                # See: https://docs.python.org/2/tutorial/datastructures.html#looping-techniques
+                for p in workers[:]:
                     #print "Is alive", str(p), p.is_alive()
                     if not p.is_alive():
                         p.join()
@@ -279,7 +282,9 @@ if __name__ == "__main__":
             p.start()
             workers.append(p)
 
-        for p in workers:  # Join remaining worker
+        for p in workers[:]:  # Join remaining worker
+            # Similarly we create a copy of workers to iterate on it
+            # while removing elements
             p.join()
             workers.remove(p)
             if options.verbose:
