@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 #import proj_classif_config
-GROUP_MAP = {'CTL': 0, 'MCIc': 1}
+GROUP_MAP = {'MCInc': 0, 'MCIc': 1}
 
 BASE_PATH = "/neurospin/brainomics/2013_adni"
 INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_baseline.csv")
@@ -22,7 +22,7 @@ INPUT_SUBJECTS_LIST_FILENAME = os.path.join(BASE_PATH,
                                    "subject_list.txt")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,
-                          "proj_classif_MCIc-CTL",
+                          "MCIc-MCInc",
                           "population.csv")
 
 if not os.path.exists(os.path.dirname(OUTPUT_CSV)):
@@ -49,21 +49,20 @@ mcic_m = (clinic["DX.bl"] == "MCI") &\
        (clinic["DX.last"] == "AD")
 print np.sum(mcic_m)
 # 82
-mcic = clinic[mcic_m][['PTID', 'AGE', 'PTGENDER', "DX.bl"]]
+mcic = clinic[mcic_m][['PTID', 'AGE', 'PTGENDER', "DX.bl", "DX.last", "CONV_TO_AD"]]
 mcic["DX"] = "MCIc"
 
-# CTL: CTL at bl no converion to AD
-ctl_m = (clinic["DX.bl"] == "CTL") &\
-      (clinic["DX.last"] == "CTL")
-print np.sum(ctl_m)
-# 120
-ctl = clinic[ctl_m][['PTID', 'AGE', 'PTGENDER', "DX.bl"]]
-ctl["DX"] = "CTL"
+mcinc_m = (clinic["DX.bl"] == "MCI") &\
+       (clinic["DX.last"] != "AD")
+print np.sum(mcinc_m)
+# 77
+mcinc = clinic[mcinc_m][['PTID', 'AGE', 'PTGENDER', "DX.bl", "DX.last", "CONV_TO_AD"]]
+mcinc["DX"] = "MCInc"
 
-pop = pd.concat([mcic, ctl])
+pop = pd.concat([mcic, mcinc])
 n = len(pop)
 print "Found", n
-#Found 202
+#Found 159
 
 # Map group
 pop['DX.num'] = pop["DX"].map(GROUP_MAP)

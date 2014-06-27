@@ -22,7 +22,7 @@ job_template_pbs =\
 """
 #PBS -d %(job_dir)s
 
-def gabriel_make_sync_data_files(wd, wd_cluster=None):
+def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     """Create sync_pull.sh and sync_push.sh files in the wd.
 
     Input
@@ -40,22 +40,26 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None):
     push, pull, wd_cluster = gabriel_make_sync_data_files("/tmp/toto")
     os.system(push)
     """
+    import getpass
+    if user is None:
+        user = getpass.getuser()
     if wd_cluster is None:
-        import getpass
-        wd_cluster = os.path.join("/neurospin", "tmp", getpass.getuser(),
+        wd_cluster = os.path.join("/neurospin", "tmp", user,
                                   os.path.basename(wd))
     print "# Make sure parent dir of wd_cluster exists"
-    cmd = 'ssh gabriel.intra.cea.fr "mkdir %s"' % os.path.dirname(wd_cluster)
+    cmd = 'ssh %s@gabriel.intra.cea.fr "mkdir %s"' % (user, os.path.dirname(wd_cluster))
     print cmd
     os.system(cmd)
-    push_str = 'rsync -azvu --modify-window=1 %s gabriel.intra.cea.fr:%s/' % (
-        wd, os.path.dirname(wd_cluster))
+    # preserve:
+    # recursive, link, time, group, owner, Devices (scpecial), update, verbose, compress 
+    push_str = 'rsync -rltgoDuvz --modify-window=1 %s %s@gabriel.intra.cea.fr:%s/' % (
+         wd, user, os.path.dirname(wd_cluster))
     sync_push_filename = os.path.join(wd, "sync_push.sh")
     with open(sync_push_filename, 'wb') as f:
         f.write(push_str)
     os.chmod(sync_push_filename, 0777)
-    pull_str = 'rsync -azvu --modify-window=1 gabriel.intra.cea.fr:%s %s/' % (
-        wd_cluster, os.path.dirname(wd))
+    pull_str = 'rsync --rltgoDuvz --modify-window=1 %s@gabriel.intra.cea.fr:%s %s/' % (
+        user, wd_cluster, os.path.dirname(wd))
     sync_pull_filename = os.path.join(wd, "sync_pull.sh")
     with open(sync_pull_filename, 'wb') as f:
         f.write(pull_str)
@@ -91,6 +95,12 @@ def gabriel_make_qsub_job_files(output_dirname, cmd):
     params['queue'] = "Cati_LowPrio"
     qsub = job_template_pbs % params
     job_filename = os.path.join(output_dirname, 'job_Cati_LowPrio.pbs')
+    with open(job_filename, 'wb') as f:
+        f.write(qsub)
+    os.chmod(job_filename, 0777)
+    params['queue'] = "Cati_long"
+    qsub = job_template_pbs % params
+    job_filename = os.path.join(output_dirname, 'job_Cati_long.pbs')
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)

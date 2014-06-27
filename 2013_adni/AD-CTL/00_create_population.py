@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 #import proj_classif_config
-GROUP_MAP = {'CTL': 0, 'MCIc': 1}
+GROUP_MAP = {'CTL': 0, 'AD': 1}
 
 BASE_PATH = "/neurospin/brainomics/2013_adni"
 INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_baseline.csv")
@@ -22,7 +22,7 @@ INPUT_SUBJECTS_LIST_FILENAME = os.path.join(BASE_PATH,
                                    "subject_list.txt")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,
-                          "proj_classif_MCIc-CTL",
+                          "AD-CTL",
                           "population.csv")
 
 if not os.path.exists(os.path.dirname(OUTPUT_CSV)):
@@ -38,32 +38,25 @@ input_subjects = [x[:10] for x in input_subjects[1]]
 
 # intersect with subject with image
 clinic = clinic[clinic["PTID"].isin(input_subjects)]
-print clinic.shape
-# (456, 92)
+assert  clinic.shape == (456, 92)
 
 # Extract sub-population 
-# MCIc = MCI at bl converion to AD within 800 days
-TIME_TO_CONV = 800#365 * 2
-mcic_m = (clinic["DX.bl"] == "MCI") &\
-       (clinic.CONV_TO_AD < TIME_TO_CONV) &\
-       (clinic["DX.last"] == "AD")
-print np.sum(mcic_m)
-# 82
-mcic = clinic[mcic_m][['PTID', 'AGE', 'PTGENDER', "DX.bl"]]
-mcic["DX"] = "MCIc"
+# AD = AD at bl converion to AD within 800 days
+ad_m = (clinic["DX.bl"] == "AD") & (clinic["DX.last"] == "AD")
+assert np.sum(ad_m) == 122
+
+ad = clinic[ad_m][['PTID', 'AGE', 'PTGENDER', "DX.bl"]]
+ad["DX"] = "AD"
 
 # CTL: CTL at bl no converion to AD
-ctl_m = (clinic["DX.bl"] == "CTL") &\
-      (clinic["DX.last"] == "CTL")
-print np.sum(ctl_m)
-# 120
+ctl_m = (clinic["DX.bl"] == "CTL") & (clinic["DX.last"] == "CTL")
+assert np.sum(ctl_m) == 120
+
 ctl = clinic[ctl_m][['PTID', 'AGE', 'PTGENDER', "DX.bl"]]
 ctl["DX"] = "CTL"
 
-pop = pd.concat([mcic, ctl])
-n = len(pop)
-print "Found", n
-#Found 202
+pop = pd.concat([ad, ctl])
+assert len(pop) == 242
 
 # Map group
 pop['DX.num'] = pop["DX"].map(GROUP_MAP)

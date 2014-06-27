@@ -41,6 +41,11 @@ INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
 
 INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
 
+INPUT_CLINIC_DIR = os.path.join(INPUT_BASE_DIR,
+                                "mescog", "proj_predict_cog_decline", "data")
+INPUT_CSV = os.path.join(INPUT_CLINIC_DIR,
+                         "dataset_clinic_niglob_20140121.csv")
+
 OUTPUT_BASE_DIR = "/neurospin/brainomics"
 OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
                           "2014_pca_struct", "mescog")
@@ -90,13 +95,17 @@ def reducer(key, values):
 # Actual script #
 #################
 
-# Read learning data (french & german subjects)
-#X = np.load(INPUT_DATASET)
+# Get size of learning sample
 with open(INPUT_DATASET) as f:
     magic = np.lib.format.read_magic(f)
     header = np.lib.format.read_array_header_1_0(f)
     n, p = shape = header[0]
 print "Data shape: {s[0]}x{s[1]}".format(s=shape)
+
+# Read clinic status (used to split groups)
+clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
+csv_subjects_id = [int(subject_id[4:]) for subject_id in clinic_data.index]
+clinic_data.index = csv_subjects_id
 
 # Read mask
 babel_mask = nibabel.load(INPUT_MASK)

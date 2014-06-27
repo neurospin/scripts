@@ -61,6 +61,7 @@ TemplateMap =  collections.OrderedDict((
 REGRESSOR_MAPPINGS = {
 "group_sub_ctl":     GroupMap,
 "Gender":            GenderMap,
+"Gender de Feuil2":  GenderMap,
 "Scanner_Type":      ScannerMap,
 "ImagingCentreCity": CityMap,
 "Handedness":        HandednessMap,

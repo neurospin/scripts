@@ -94,6 +94,8 @@ p_change_boxplot =
   ggtitle(paste("MMSE.CHANGE", "~", "GROUP")) +
   theme(legend.position="bottom", legend.direction="vertical")
 
+write.csv(ds, paste(OUTPUT, "rpart_MMSE.CHANGE.csv", sep="/"))
+
 pdf(paste(OUTPUT, "rpart_MMSE.CHANGE.pdf", sep="/"))
 plot(rpart_mod1, uniform=TRUE, main=paste("MMSE.CHANGE~MMSE+LLV+BPF"))
 text(rpart_mod1, use.n=TRUE, all=TRUE, cex=.8)

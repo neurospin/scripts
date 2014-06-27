@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
     ###########################################################################
     print "# Run Locally:"
-    print "mapreduce.py --map --config %s/config.json" % WD
+    print "mapreduce.py --map %s/config.json" % WD
 
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --reduce --config %s/config.json" % WD
+    print "mapreduce.py --reduce %s/config.json" % WD
