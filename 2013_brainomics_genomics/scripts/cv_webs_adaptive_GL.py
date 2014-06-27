@@ -21,7 +21,7 @@ import json
 import numpy as np
 
 from sklearn.cross_validation import KFold
-from sklearn.metrics import r2_score
+from sklearn.metrics import precision_recall_fscore_support
 
 import parsimony
 import parsimony.estimators as estimators
@@ -54,7 +54,7 @@ def resample(config, resample_nb):
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}
     print "done reslicing %d" %resample_nb
-    
+
     ###############################
     #weight computation for this fold
     ################################
@@ -87,29 +87,8 @@ def mapper(key, output_collector):
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
-    print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
+    #print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
 
-    ###############################
-    #weight computation
-    ################################
-#    p = Xtr.shape[1]
-#    # Compute A matrix (as penalty_start is 1 we need to only p-1 columns)
-#    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape((p-1,))
-#    eps = 1e-6
-#    max_iter = 600
-##    conts = 2        # will be removed next version current max_iter x cont
-#    info_conf = [Info.fvalue, Info.num_iter]
-#    logr_tv = estimators.LogisticRegressionL1L2TV(
-#                    l1=0, l2=0, tv=1, penalty_start=1,
-#                    A=Atv,
-#                    algorithm=explicit.StaticCONESTA(eps=eps,
-#                                                     max_iter=max_iter,
-#                                                     info=info_conf),
-#                    mean=False)
-#    logr_tv.fit(Xtr, ytr)
-#    beta_w = logr_tv.beta
-#    weights = [1./(np.linalg.norm(beta_w[group[i]])) for i in group]
-#    weights = [np.sqrt(len(group[i])) for i in group]
     p = Xtr.shape[1]
     groups = GLOBAL.groups
     weights = GLOBAL.weights
@@ -135,7 +114,13 @@ def reducer(key, values):
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
-    scores =  dict(param=key, r2=r2_score(y_true, y_pred))
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
+    scores = dict(key=key,
+               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
+               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
+               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
+               support_0=s[0] , support_1=s[1], n_ite=n_ite)
     return scores
 
 
@@ -177,12 +162,14 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]
     params = [[k, l, g, alpha] for alpha in [1, 10] for l in np.arange(0.4, 1., .1)  for k in np.arange(0.4, 1., .1)  for g in np.arange(0.4, 1.)]
     # User map/reduce function file:
-    #try:
-    #    user_func_filename = os.path.abspath(__file__)
-    #except:
-    user_func_filename = os.path.join("/home/fh235918",
-        "git", "scripts", "2013_brainomics_genomics", "scripts",
-        "webs_cv.py")
+    try:
+        user_func_filename = os.path.abspath(__file__)
+    except:
+        user_func_filename = os.path.join("/home/fh235918",
+                                          "git", "scripts",
+                                          "2013_brainomics_genomics",
+                                          "scripts",
+                                          "cv_webs_adaptive_GL.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     # Use relative path from config.json
