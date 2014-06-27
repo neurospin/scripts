@@ -189,12 +189,12 @@ def group_pw_snp2(fic='go_synaptic_snps_gene10', cache=False):
 
     constraint, snpList = pw_gene_snp2(fic=fic, cache=cache)
     group_names = constraint.keys()    
-    group = dict()
+    group = list()
     for ii, i in enumerate(constraint):
         tmp = []
         for j in constraint[i]:
             tmp+=[np.where(snpList==k)[0][0] for k in constraint[i][j]]
-        group[ii] = tmp
+        group.append(tmp)
     f = open(os.path.join(basepath,'data','grouppw_'+fic+'.pickle'), 'w')
     combo = pickle.dump({'group' : group, 'group_names' : group_names,
                          'snpList' : snpList}, f)
