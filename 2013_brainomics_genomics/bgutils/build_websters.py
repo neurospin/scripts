@@ -1,5 +1,5 @@
 #  build_websters.py
-#  
+#
 #  Copyright 2013 Vincent FROUIN <vf140245@is207857>
 #  date : June 13th 2013
 
@@ -54,7 +54,7 @@ def build_websters(gfn, pfn, pafn, gsubset=None, psubset=None):
                                      genotype.getOrderedSubsetIndiv()) ]
    print "Genotype loaded..."
    sys.stdout.flush()
-   
+
    # Phenotype : here gene expression data
    pheno = open(pfn+'.pheno').read().split('\n')[:-1]
    pheno_header = pheno[0].split('\t')
@@ -64,7 +64,7 @@ def build_websters(gfn, pfn, pafn, gsubset=None, psubset=None):
    pheno_data = impute_data_by_med(pheno_data, verbose=True, nan_symbol=-9.)
    print "Phenotype loaded..."
    sys.stdout.flush()
-   
+
    # Patho :
    patho = open(pafn).read().split('\n')[:-1]
    patho_header = patho[0].split()
@@ -73,7 +73,7 @@ def build_websters(gfn, pfn, pafn, gsubset=None, psubset=None):
    patho_data =  np.asarray(patho[:,2:],dtype=int)
    print "Final phenotype loaded..."
    sys.stdout.flush()
-   
+
    # reconcile data index
    keep_id = list(set(patho_id).intersection(set(pheno_id)).intersection(set(snp_id)))
    snp_data = snp_data[np.array([snp_id.index(i) for i in keep_id]),:]
@@ -81,8 +81,8 @@ def build_websters(gfn, pfn, pafn, gsubset=None, psubset=None):
    patho_data = patho_data[np.array([patho_id.index(i) for i in keep_id]),:]
    print "Data realigned..."
    sys.stdout.flush()
-   
-   return(dict(rownames=keep_id, 
+
+   return(dict(rownames=keep_id,
                 snp_data=snp_data, snp_colnames=snp_colnames,
                 pheno_data=pheno_data, pheno_colnames=pheno_header[2:],
                 patho_data=patho_data, patho_colnames=patho_header[2:]))
@@ -97,7 +97,7 @@ def get_websters_linr(gene_name='KIF1B', snp_subset=['rs12120191']):
     ind = blocks['pheno_colnames'].index(gene_name)
     y =blocks['pheno_data'][:,ind].reshape((-1,))
     X =blocks['snp_data']
-    
+
     return y, X
 
 def get_websters_logr(snp_subset=['rs12120191']):
@@ -109,7 +109,7 @@ def get_websters_logr(snp_subset=['rs12120191']):
     y = blocks['patho_data']
     y = y - 1 # code 0/1
     X =blocks['snp_data']
-    
+
     return y, X
 
 
@@ -122,7 +122,7 @@ def pw_gene_snp2(fic='go_synaptic_snps_gene10', cache=False):
         combo = pickle.load(f)
         f.close()
         return combo['constraint2'], combo['snpList']
-    
+
     sys.path.append('/home/vf140245/gits/igutils')
     import igutils as ig
     gfn = '/neurospin/brainomics/2013_brainomics_genomics/data/geno/genetic_control_xpt'
@@ -133,7 +133,7 @@ def pw_gene_snp2(fic='go_synaptic_snps_gene10', cache=False):
     sys.path.append('/home/vf140245/gits/brainomics/bioresource/examples/python')
     from bioresourcesdb import BioresourcesDB
     BioresourcesDB.login('admin', 'admin')
-    
+
     tmp = []
     to_drop =[]
     constraint2 = dict()
@@ -162,7 +162,7 @@ def pw_gene_snp2(fic='go_synaptic_snps_gene10', cache=False):
     f = open(os.path.join(basepath,'data','pw_'+fic+'.pickle'), 'w')
     combo = pickle.dump({'constraint2' : constraint2, 'snpList' : snpList}, f)
     f.close()
-    
+
     return constraint2, snpList
 
 
@@ -174,7 +174,7 @@ def pw_gene_snp(fic='go_synaptic_snps_gene10'):
         for j in constraint[i]:
             tmp+=(constraint[i][j])
     snpList = np.unique(tmp)
-    
+
     return constraint, snpList
 
 def group_pw_snp2(fic='go_synaptic_snps_gene10', cache=False):
@@ -188,7 +188,7 @@ def group_pw_snp2(fic='go_synaptic_snps_gene10', cache=False):
         return combo['group'], combo['group_names'], combo['snpList']
 
     constraint, snpList = pw_gene_snp2(fic=fic, cache=cache)
-    group_names = constraint.keys()    
+    group_names = constraint.keys()
     group = list()
     for ii, i in enumerate(constraint):
         tmp = []
@@ -200,15 +200,15 @@ def group_pw_snp2(fic='go_synaptic_snps_gene10', cache=False):
                          'snpList' : snpList}, f)
     f.close()
 
-    
+
     return group, group_names, snpList
 
-    
+
 def group_pw_snp(fic='go_synaptic_snps_gene10'):
     from os import path
     constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     tmp = []
-    group_names = constraint.keys()    
+    group_names = constraint.keys()
     for i in constraint:
         for j in constraint[i]:
             tmp+=(constraint[i][j])
@@ -219,7 +219,7 @@ def group_pw_snp(fic='go_synaptic_snps_gene10'):
         for j in constraint[i]:
             tmp+=[np.where(snpList==k)[0][0] for k in constraint[i][j]]
         group[ii] = tmp
-    
+
     return group, group_names, snpList
 
 
@@ -227,7 +227,7 @@ def build_constraint(fic='go_synaptic_snps_gene10'):
     from os import path
     constraint = json.load(open(path.join(basepath,'data',fic+'.json')))
     tmp = []
-    constraint_name = constraint.keys()    
+    constraint_name = constraint.keys()
     for i in constraint:
         for j in constraint[i]:
             tmp+=(constraint[i][j])
