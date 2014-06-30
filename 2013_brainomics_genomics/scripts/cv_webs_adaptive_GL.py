@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jun 25 14:52:36 2014
-
 @author: fh235918
-"""
-
-# -*- coding: utf-8 -*-
-"""
 Created on Thu Jun  5 10:42:35 2014
-
 @author: hl237680
 
 Same as 15_cv_multivariate_residualized_BMI but with pathes taking into
