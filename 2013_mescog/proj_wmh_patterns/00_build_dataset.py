@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Create WMH dataset:
- - images are normalized into the MNI
- - due to the large size, we extract only voxels in the
-   MNI brain mask
+INPUT
+Images: /neurospin/mescog/neuroimaging/original/munich/
+clinic: /neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv"
 
-INPUT_DIR = "/neurospin/mescog/neuroimaging/processed"
-OUTPUT_DIR = "/neurospin/mescog/datasets"
-CAD-WMH-MNI.npy
-
+OUTPUT
+/neurospin/mescog/proj_wmh_patterns
+WMH.npy,
+population.csv
+mask.nii
 """
 import os
 import os.path
@@ -22,9 +22,12 @@ RESOURCES_DIR = "/neurospin/mescog/neuroimaging_ressources/"
 INPUT_MASK = os.path.join(RESOURCES_DIR,
                           "MNI152_T1_1mm_brain_mask.nii.gz")
 
-OUTPUT_DIR = "/neurospin/mescog/datasets"
+OUTPUT_DIR = "/neurospin/mescog/proj_wmh_patterns"
 OUTPUT_X = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI.npy")
 OUTPUT_subjects = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI-subjects.txt")
+
+INPUT_CSV = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv"
+# create population file of patients in both image + csv
 
 ##############
 # Parameters #
