@@ -84,8 +84,8 @@ def load_residualized_bmi_data(cache):
         # Concatenate images with covariates gender, imaging city centrr, tiv_gaser and mean pds status in order to do as though BMI had been residualized
         Y = np.concatenate((design_mat, SNPs), axis=1)
         z = BMI
-        np.save(os.path.join(WD, 'Y.npy'), Y)
-        np.save(os.path.join(WD, "z.npy"), z)
+        np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
+        np.save(os.path.join(SHARED_DIR, "z.npy"), z)
         print "Data saved"
     else:
         Y = np.load(os.path.join(SHARED_DIR, "Y.npy"))        
@@ -116,14 +116,14 @@ if __name__ == "__main__":
         
         # Shared data
         BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-        SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_SNPs_cache')
+        SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_SNPs_cache_1')
         if not os.path.exists(SHARED_DIR):
             os.makedirs(SHARED_DIR)
         
-        Y, z = load_residualized_bmi_data(cache=True)
+        Y, z = load_residualized_bmi_data(cache=False)
         #assert X.shape == (1265, 336188)
         n = Y.shape[0]
-        np.save(os.path.join(WD, 'Y.npy'), Y)
+        np.save(os.path.join(WD, "Y.npy"), Y)
         np.save(os.path.join(WD, "z.npy"), z)
 
     print "#####################"
