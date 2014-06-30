@@ -81,7 +81,11 @@ def load_residualized_bmi_data(cache):
         design_mat = np.delete(np.delete(design_mat, np.where(np.in1d(design_mat[:,0], np.delete(design_mat, np.where(np.in1d(design_mat[:,0], subjects_id)), 0))), 0),0,1)               
         # SNPs
         SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs_hl.csv"), index_col=0).as_matrix()
-        # Concatenate images with covariates gender, imaging city centrr, tiv_gaser and mean pds status in order to do as though BMI had been residualized
+        # Center each SNP for all individuals
+        SNPs -= SNPs.mean(axis=0)
+        # Standardize each SNP for all individuals
+        SNPs /= SNPs.std(axis=0)
+        # Concatenate images with covariates gender, imaging city centre, tiv_gaser and mean pds status in order to do as though BMI had been residualized
         Y = np.concatenate((design_mat, SNPs), axis=1)
         z = BMI
         np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
@@ -134,7 +138,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]    
-    params = [[alpha, l1_ratio] for alpha in np.arange(0.1, 0.1, 1.1) for l1_ratio in np.arange(0.4, 1., .1)]
+    params = [[alpha, l1_ratio] for alpha in np.arange(0.001, 0.011, 0.001) for l1_ratio in np.arange(0.1, 1., .1)]
     # User map/reduce function file:
     user_func_filename = os.path.join("/home/hl237680",
         "gits", "scripts", "2013_imagen_bmi", "scripts", 
@@ -144,7 +148,6 @@ if __name__ == "__main__":
     # Use relative path from config.json
     config = dict(data=dict(Y='Y.npy', z='z.npy'),
                   params=params, resample=cv,
-                  structure="",
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_input="results/*/*", 
