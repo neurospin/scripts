@@ -32,6 +32,8 @@ INPUT_MASK = os.path.join(RESOURCES_DIR,
                           "MNI152_T1_1mm_brain_mask.nii.gz")
 
 OUTPUT_DIR = "/neurospin/mescog/proj_wmh_patterns"
+if not(os.path.exists(OUTPUT_DIR)):
+    os.makedirs(OUTPUT_DIR)
 OUTPUT_X = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI.npy")
 OUTPUT_SUBJECTS = os.path.join(OUTPUT_DIR, "CAD-WMH-MNI-subjects.txt")
 OUTPUT_CLINIC = os.path.join(OUTPUT_DIR, "population.csv")
