@@ -38,7 +38,8 @@ if __name__ == "__main__":
         params = pd.DataFrame([[float(p) for p in item.split("_")] for item in data.key],
                                 columns = params_columns)
         data = pd.concat([data, params], axis=1)
-        data.to_csv("/tmp/toto.csv")
+        #data.to_csv("/tmp/toto.csv")
+        data.to_csv(input_filename)
         name = os.path.splitext(os.path.basename(input_filename))[0]
         data.to_excel(writer, sheet_name=name, index=False)
     writer.close()
