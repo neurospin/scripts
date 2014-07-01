@@ -62,7 +62,7 @@ def resample(config, resample_nb):
     max_iter = 600
     info_conf = [Info.fvalue, Info.num_iter]
     logr_tv = estimators.LogisticRegressionL1L2TV(
-                    l1=0, l2=0, tv=1, penalty_start=PENALTY_START,
+                    l1=0, l2=0, tv=0.001, penalty_start=PENALTY_START,
                     A=Atv,
                     algorithm=explicit.StaticCONESTA(eps=eps,
                                                      max_iter=max_iter,
@@ -71,16 +71,22 @@ def resample(config, resample_nb):
     logr_tv.fit(Xtr, ytr)
     beta_w = logr_tv.beta
     weights = [1./(np.linalg.norm(beta_w[group])) for group in groups]
+    GLOBAL.ridge_coef = 1./(np.linalg.norm(beta_w))
     GLOBAL.weights = weights
+    # Store weights
+    output_dir = os.path.join(config['map_output'], str(resample_nb))
+    np.save(os.path.join(output_dir, "weights.npy"), GLOBAL.weights)
+    np.save(os.path.join(output_dir, "ridge_coef.npy"), GLOBAL.ridge_coef)
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL # access to global variables:
     # key: list of parameters
-    k, l, g, alpha = key[0], key[1], key[2], key[3]
+    k, g, alpha = key[0], key[1], key[2]
     Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
+    l = GLOBAL.ridge_coef
     #print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
 
     p = Xtr.shape[1]
@@ -109,12 +115,11 @@ def reducer(key, values):
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
     scores = dict(key=key,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite)
+               support_0=s[0] , support_1=s[1])
     return scores
 
 
@@ -122,7 +127,6 @@ def reducer(key, values):
 #run /home/hl237680/gits/scripts/2013_imagen_bmi/scripts/15_cv_multivariate_residualized_BMI.py
 #"""
 if __name__ == "__main__":
-
     ## Set pathes
     #WD = "/home/fh235918/git/scripts/2013_brainomics_genomics/test"
     WD = OUTPUT_DIR
@@ -153,8 +157,11 @@ if __name__ == "__main__":
     np.save(OUTPUT_CLINIC_FILE, y)
     ## 2) cv index and parameters to test
     NFOLDS = 5
-    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]
-    params = [[k, l, g, alpha] for alpha in [1, 10] for l in np.arange(0.4, 1., .1)  for k in np.arange(0.4, 1., .1)  for g in np.arange(0.4, 1.)]
+    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n,
+                                                        n_folds=NFOLDS)]
+    params = [[k, g, alpha] for alpha in [1,20,50]
+                            for k in [0.8] 
+                            for g in [.0001,.0005,.001, 0.1]]
     # User map/reduce function file:
     try:
         user_func_filename = os.path.abspath(__file__)
