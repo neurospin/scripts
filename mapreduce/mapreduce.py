@@ -71,6 +71,11 @@ def _makedirs_safe(path):
         if exception.errno != errno.EEXIST:
             raise
 
+def _store_exit_code(job, p):
+    exitcode_file = os.path.join(job[_OUTPUT],
+                                 "exitcode.json")
+    json.dump(p.exitcode, open(exitcode_file, "w"))
+
 def _import_module_from_filename(filename):
     sys.path.append(os.path.dirname(filename))
     name, _ = os.path.splitext(os.path.basename(filename))
@@ -252,6 +257,9 @@ if __name__ == "__main__":
                     #print "Is alive", str(p), p.is_alive()
                     if not p.is_alive():
                         p.join()
+                        # Store exit code
+                        finished_job = job_process_map[p.pid]
+                        _store_exit_code(finished_job, p)
                         workers.remove(p)
                         if options.verbose:
                             print "Joined:", str(p)
@@ -278,6 +286,8 @@ if __name__ == "__main__":
             # Similarly we create a copy of workers to iterate on it
             # while removing elements
             p.join()
+            finished_job = job_process_map[p.pid]
+            _store_exit_code(finished_job, p)
             workers.remove(p)
             if options.verbose:
                 print "Joined:", str(p)
