@@ -20,25 +20,24 @@ if __name__ == "__main__":
     if not options.input:
         print 'Required arguments input'
         sys.exit(1)
-    if not options.output:
-        print 'Required arguments input'
-        sys.exit(1)
-    output_filename = options.output
-    writer = pd.ExcelWriter(options.output)
+    if options.output:
+        writer = pd.ExcelWriter(options.output)
     #df1.to_excel(writer, sheet_name='Sheet1')
     #df2.to_excel(writer, sheet_name='Sheet2')
-
     #output_filename = "/home/ed203246/Dropbox/results/adni/MCIc-MCInc_all.xls"
     #input_filenames = options.input
     #input_filename = "/home/ed203246/Dropbox/results/adni/MCIc-MCInc_cs.csv"
     for input_filename in options.input:
-        print output_filename, input_filename
+        print input_filename
         #sys.exit(1)
         data = pd.read_csv(input_filename)
         params = pd.DataFrame([[float(p) for p in item.split("_")] for item in data.key],
                                 columns = params_columns)
         data = pd.concat([data, params], axis=1)
-        data.to_csv("/tmp/toto.csv")
-        name = os.path.splitext(os.path.basename(input_filename))[0]
-        data.to_excel(writer, sheet_name=name, index=False)
-    writer.close()
+        #data.to_csv("/tmp/toto.csv")
+        data.to_csv(input_filename)
+        if options.output:
+            name = os.path.splitext(os.path.basename(input_filename))[0]
+            data.to_excel(writer, sheet_name=name, index=False)
+    if options.output:
+        writer.close()
