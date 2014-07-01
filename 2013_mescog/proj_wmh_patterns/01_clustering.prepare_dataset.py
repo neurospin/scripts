@@ -20,11 +20,8 @@ OUTPUT:
  - OUTPUT_DATASETS: train and test datasets
  - OUTPUT_STD_DATASETS: standardized train and test datasets
  - OUTPUT_SCALER: means used to scale datasets
- - OUTPUT_MASK: mask of selected voxels (subset of INPUT_MASK)
 
 TODO:
- - mask computation should be in 00_build_dataset.
-   By the way the voxel extaction using MNI mask should be done there too.
  - erode and dilate mask?
  - output in the dataset directory?
 
@@ -37,33 +34,22 @@ import numpy as np
 import sklearn
 import sklearn.preprocessing
 
-import nibabel
-
 ##################
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/neurospin/"
-INPUT_DIR = os.path.join(INPUT_BASE_DIR,
-                         "mescog", "datasets")
+BASE_DIR = os.path.join("/neurospin",
+                        "mescog", "proj_wmh_patterns")
+INPUT_DIR = BASE_DIR
 INPUT_DATASET = os.path.join(INPUT_DIR,
                              "CAD-WMH-MNI.npy")
 INPUT_SUBJECTS = os.path.join(INPUT_DIR,
                               "CAD-WMH-MNI-subjects.txt")
 
-INPUT_RESOURCES_DIR = os.path.join(INPUT_BASE_DIR,
-                                   "mescog", "neuroimaging", "ressources")
-INPUT_MASK = os.path.join(INPUT_RESOURCES_DIR,
-                          "MNI152_T1_1mm_brain_mask.nii.gz")
-
-OUTPUT_BASE_DIR = "/neurospin/"
-OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "mescog", "proj_wmh_patterns")
+OUTPUT_DIR = BASE_DIR
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-OUTPUT_FEATURES_MASK = os.path.join(OUTPUT_DIR, "features_mask.nii")
-OUTPUT_WMH_MASK = os.path.join(OUTPUT_DIR, "wmh_mask.nii")
 OUTPUT_SUBJECTS = [os.path.join(OUTPUT_DIR, f) for f in ["french-subjects.txt",
                                                          "germans-subjects.txt"]]
 OUTPUT_DATASETS = [os.path.join(OUTPUT_DIR, f) for f in ["french.npy",
@@ -94,26 +80,6 @@ X = np.load(INPUT_DATASET)
 ORIG_SHAPE = X.shape
 print "Loaded images dataset {s}".format(s=ORIG_SHAPE)
 
-# Open MNI mask
-babel_mni_mask = nibabel.load(INPUT_MASK)
-mni_mask = babel_mni_mask.get_data() != 0
-n_voxels_in_mask = np.count_nonzero(mni_mask)
-print "MNI mask: {n} voxels".format(n=n_voxels_in_mask)
-
-# Extract features (it is a subset of MNI mask)
-features_mask = np.any(X != 0, axis=0)
-mask_index = np.where(features_mask)[0]
-n_features = mask_index.shape[0]
-print "Found {n} features".format(n=n_features)
-
-# Create mask & save it
-wmh_mask = np.zeros(mni_mask.shape, dtype=bool)
-wmh_mask[mni_mask] = features_mask
-wmh_mask_babel = nibabel.Nifti1Image(wmh_mask.astype(np.uint8),
-                                     babel_mni_mask.get_affine(),
-                                     header=babel_mni_mask.get_header())
-nibabel.save(wmh_mask_babel, OUTPUT_WMH_MASK)
-
 # Get indices of French and German subjects.
 # We use np.where so it works even with non-ordered
 # subjects list (and the order of each subset will be the same).
@@ -126,8 +92,8 @@ germans_index = np.where(~inf)[0]
 print "Found", len(germans_index), "german subjects"
 
 # Extract & save subsets
-french = X[french_index][:, mask_index]
-germans = X[germans_index][:, mask_index]
+french = X[french_index]
+germans = X[germans_index]
 del X
 
 np.savetxt(OUTPUT_SUBJECTS[0], subjects_id[french_index], '%s')
