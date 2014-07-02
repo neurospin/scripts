@@ -15,14 +15,20 @@ OUTPUT_DIR = /neurospin/mescog/proj_wmh_patterns
  - X.npy: concatenation of masked images
  - mask_atlas.nii: mask of WMH (with regions)
  - mask_bin.nii: binary mask of WMH
+ - X_center.npy: centerd data
+ - means.npy: means used to center
 
 """
 import os
 import os.path
 import glob
-import nibabel as nib
+
 import numpy as np
+
+import sklearn.preprocessing
+
 import pandas as pd
+import nibabel as nib
 
 import brainomics.image_atlas
 
@@ -41,6 +47,8 @@ OUTPUT_IMPLICIT_MASK = os.path.join(OUTPUT_DIR, "mask_implicit.nii")
 OUTPUT_ATLAS_MASK = os.path.join(OUTPUT_DIR, "mask_atlas.nii")
 OUTPUT_BIN_MASK = os.path.join(OUTPUT_DIR, "mask_bin.nii")
 OUTPUT_X = os.path.join(OUTPUT_DIR, "X.npy")
+OUTPUT_CENTERED_X = os.path.join(OUTPUT_DIR, "X_center.npy")
+OUTPUT_MEANS = os.path.join(OUTPUT_DIR, "means.npy")
 
 ##############
 # Parameters #
@@ -81,9 +89,9 @@ pop = pd.merge(clinic_data, images,
                sort=True)
 pop.to_csv(OUTPUT_CLINIC)
 
-###################################
-# Read images and create WMH mask #
-###################################
+################################
+# Read images and create masks #
+################################
 
 # Open MNI mask
 babel_mni_mask = nib.load(INPUT_MASK)
@@ -92,6 +100,7 @@ n_voxels_in_mni_mask = np.count_nonzero(mni_mask)
 print "MNI mask: {n} voxels".format(n=n_voxels_in_mni_mask)
 
 # Read images and concatenate them
+print "Reading images"
 n = len(subjects_id)
 p = n_voxels_in_mni_mask
 X = np.zeros((n, p))
@@ -113,6 +122,7 @@ for i, ID in enumerate(subjects_id):
     X[i] = im.get_data()[mni_mask].ravel()
 
 # Compute the mask of WMH
+print "Computation of masks"
 flat_implicit_mask = np.any(X != 0, axis=0)
 flat_implicit_mask_index = np.where(flat_implicit_mask)[0]
 n_features = flat_implicit_mask_index.shape[0]
@@ -130,11 +140,9 @@ babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(
     output=OUTPUT_ATLAS_MASK)
 
 mask_atlas = babel_mask_atlas.get_data()
-#assert np.sum(mask_atlas != 0) == 638715
 mask_atlas[~implicit_mask] = 0  # apply implicit mask
 # smooth
 mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
-#assert np.sum(mask_atlas != 0) == 285983
 out_im = nib.Nifti1Image(mask_atlas,
                          affine=babel_mni_mask.get_affine())
 out_im.to_filename(OUTPUT_ATLAS_MASK)
@@ -142,8 +150,8 @@ out_im.to_filename(OUTPUT_ATLAS_MASK)
 # Binarized mask
 bool_mask = mask_atlas != 0
 bool_mask_index = np.where(bool_mask)[0]
-n_voxels = bool_mask.shape[0]
-print "Extracting {n} voxels".format(n=n_features)
+n_voxels_in_bin_mask = np.count_nonzero(bool_mask)
+print "Extracting {n} voxels".format(n=n_voxels_in_bin_mask)
 out_im = nib.Nifti1Image(bool_mask.astype(np.uint8),
                          affine=babel_mni_mask.get_affine())
 out_im.to_filename(OUTPUT_BIN_MASK)
@@ -160,3 +168,13 @@ im_data[bool_mask] = X[im_idx, :]
 out_im = nib.Nifti1Image(im_data,
                          affine=babel_mni_mask.get_affine())
 out_im.to_filename(OUTPUT_DIR+"/%d-QC.nii" % im_id)
+
+###############
+# Center data #
+###############
+
+print "Centering data"
+scaler = sklearn.preprocessing.StandardScaler(with_std=False)
+X_center = scaler.fit_transform(X)
+np.save(OUTPUT_CENTERED_X, X_center)
+np.save(OUTPUT_MEANS, scaler.mean_)
