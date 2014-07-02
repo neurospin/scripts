@@ -29,37 +29,24 @@ import pandas as pd
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/neurospin/"
-
-INPUT_DATASET_DIR = os.path.join(INPUT_BASE_DIR,
-                                 "mescog", "datasets")
+INPUT_DIR = os.path.join("/neurospin/",
+                        "mescog", "proj_wmh_patterns")
 
 #
-INPUT_DATASET = os.path.join(INPUT_DATASET_DIR,
+INPUT_DATASET = os.path.join(INPUT_DIR,
                              "CAD-WMH-MNI.npy")
-INPUT_SUBJECTS = os.path.join(INPUT_DATASET_DIR,
+INPUT_SUBJECTS = os.path.join(INPUT_DIR,
                              "CAD-WMH-MNI-subjects.txt")
+INPUT_MASK = os.path.join(INPUT_DIR, "wmh_mask.nii")
 
-INPUT_MASK = os.path.join(INPUT_DATASET_DIR, "wmh_mask.nii")
+INPUT_CSV = os.path.join(INPUT_DIR,
+                         "population.csv")
 
-INPUT_CLINIC_DIR = os.path.join(INPUT_BASE_DIR,
-                                "mescog", "proj_predict_cog_decline", "data")
-INPUT_CSV = os.path.join(INPUT_CLINIC_DIR,
-                         "dataset_clinic_niglob_20140121.csv")
-
-OUTPUT_BASE_DIR = "/neurospin/brainomics"
-OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
+OUTPUT_BASE_DIR = os.path.join("/neurospin", "brainomics",
                           "2014_pca_struct", "mescog")
+OUTPUT_DIR  = os.path.join(OUTPUT_BASE_DIR, "SparsePCA")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
-OUTPUT_DATASET = os.path.join(OUTPUT_DIR, "dataset.npy")
-
-# Output for scikit-learn sparse PCA: alpha will be replaced by actual value
-OUTPUT_DIR  = os.path.join(OUTPUT_DIR, "SparsePCA")
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
-#OUTPUT_SPARSE_PCA_PRED = os.path.join(OUTPUT_SPARSE_PCA_DIR, "X_pred.npy")
-#OUTPUT_SPARSE_PCA_COMP = os.path.join(OUTPUT_SPARSE_PCA_DIR, "components.npy")
 
 ##############
 # Parameters #
@@ -113,45 +100,22 @@ if __name__ == "__main__":
 
     # Read clinic status (used to split groups)
     clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
-    clinic_subjects_id = [int(subject_id[4:]) for subject_id in clinic_data.index]
-    clinic_data.index = clinic_subjects_id
+    clinic_subjects_id = clinic_data.index
     print "Found", len(clinic_subjects_id), "clinic records"
 
-    # Read ID of subjects
-    with open(INPUT_SUBJECTS) as f:
-        wmh_subjects_id = np.array([int(l) for l in f.readlines()])
-    print "Found", len(wmh_subjects_id), "WMH maps"
-
-    # Intersection of subjects list
-    subjects_id = np.intersect1d(wmh_subjects_id, clinic_subjects_id)
-    lines_to_keep = np.where(np.in1d(wmh_subjects_id, subjects_id))[0]
-    print "Found", len(subjects_id), "correct subjects"
-    subjects_to_remove = np.setdiff1d(wmh_subjects_id, clinic_subjects_id)
-    lines_to_remove = np.where(np.in1d(wmh_subjects_id, subjects_to_remove))[0]
-    print "Should remove subjects", subjects_to_remove, \
-          "corresponding to lines", lines_to_remove
-
-    # Subsample images
-    all_images = np.load(INPUT_DATASET)
-    dataset = all_images[lines_to_keep]
-    np.save(OUTPUT_DATASET, dataset)
-
-    # Subsample clinic data
-    clinic_data_sub = clinic_data.loc[subjects_id]
-
     # Stratification of subjects
-    y = clinic_data_sub['SITE'].map({'FR': 0, 'GE':1})
+    y = clinic_data['SITE'].map({'FR': 0, 'GE': 1})
     skf = StratifiedKFold(y=y, n_folds=2)
     resample = [[tr.tolist(), te.tolist()] for tr, te in skf]
 
-    # parameters grid
+    # Parameters grid
     params = SPARSE_PCA_ALPHA.reshape((-1,1)).tolist()
 
     # User map/reduce function file:
     user_func_filename = os.path.abspath(__file__)
 
     # Create config file
-    config = dict(data=dict(X=OUTPUT_DATASET),
+    config = dict(data=dict(X=INPUT_DATASET),
                   params=params,
                   resample=resample,
                   map_output=os.path.join(OUTPUT_DIR, "results"),
