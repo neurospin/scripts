@@ -114,7 +114,6 @@ if __name__ == "__main__":
         BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
         DATA_PATH = os.path.join(BASE_PATH, 'data')
         CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-        IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
         #SNPS_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
         BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
         
