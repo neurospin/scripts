@@ -52,13 +52,13 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     os.system(cmd)
     # preserve:
     # recursive, link, time, group, owner, Devices (scpecial), update, verbose, compress 
-    push_str = 'rsync -rltgoDuvz --modify-window=1 %s %s@gabriel.intra.cea.fr:%s/' % (
+    push_str = 'rsync -rltgoDuvz %s %s@gabriel.intra.cea.fr:%s/' % (
          wd, user, os.path.dirname(wd_cluster))
     sync_push_filename = os.path.join(wd, "sync_push.sh")
     with open(sync_push_filename, 'wb') as f:
         f.write(push_str)
     os.chmod(sync_push_filename, 0777)
-    pull_str = 'rsync --rltgoDuvz --modify-window=1 %s@gabriel.intra.cea.fr:%s %s/' % (
+    pull_str = 'rsync -rltgoDuvz %s@gabriel.intra.cea.fr:%s %s/' % (
         user, wd_cluster, os.path.dirname(wd))
     sync_pull_filename = os.path.join(wd, "sync_pull.sh")
     with open(sync_pull_filename, 'wb') as f:
