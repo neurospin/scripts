@@ -85,7 +85,6 @@ def resample_atlas_harvard_oxford(ref, output,
     atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.get_affine())
     atlas_im.to_filename(output)
     print "Watch everithing is OK:"
-    print "fslview /tmp/sub.nii.gz /tmp/cort.nii.gz /tmp/merge.nii.gz \
-        /tmp/atlas_smoothed.nii.gz %s %s" % (output, ref)
+    print "fslview %s %s" % (output, ref)
     return atlas_im
 
