@@ -46,8 +46,8 @@ OUTPUT_CS = os.path.join(BASE_PATH,          "MMSE-AD-CTL_cs")
 #OUTPUT_ATLAS = os.path.join(BASE_PATH,       "MMSE-AD-CTL_gtvenet")
 #OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "MMSE-AD-CTL_cs_gtvenet")
 
-os.makedirs(OUTPUT)
-os.makedirs(OUTPUT_CS)
+if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+if not os.path.exists(OUTPUT_CS): os.makedirs(OUTPUT_CS)
 #os.makedirs(OUTPUT_ATLAS)
 #os.makedirs(OUTPUT_CS_ATLAS)
 
@@ -147,7 +147,7 @@ n, p = X.shape
 np.save(os.path.join(OUTPUT_CS, "X.npy"), X)
 fh = open(os.path.join(OUTPUT_CS, "X.npy").replace("npy", "txt"), "w")
 fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' % \
-    (n, p, mask.sum()))
+    (n, p, mask_bool.sum()))
 fh.close()
 
 ## atlas
@@ -174,7 +174,10 @@ fh.close()
 #    (n, p, (mask_atlas.ravel() != 0).sum()))
 #fh.close()
 
+
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+y -= y.mean()
+y /= y.std()
 np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
 #np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
 #np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)

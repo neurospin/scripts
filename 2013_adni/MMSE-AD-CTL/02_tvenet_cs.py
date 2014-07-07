@@ -137,7 +137,7 @@ if __name__ == "__main__":
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-    alphas = [.01, .05, .1 , .5, 1.,  10.]
+    alphas = [0.001, 0.005, .01, .05, .1 , .5, 1.,  10.]
     #k_range = [100, 1000, 10000, 100000, -1]
     k_range = [-1]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
