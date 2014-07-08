@@ -84,7 +84,7 @@ def resample_atlas_harvard_oxford(ref, output,
     assert np.all(atlas_arr_int == atlas_arr)
     atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.get_affine())
     atlas_im.to_filename(output)
-    print "Watch everithing is OK:"
+    print "Watch if everything is OK:"
     print "fslview %s %s" % (output, ref)
     return atlas_im
 
