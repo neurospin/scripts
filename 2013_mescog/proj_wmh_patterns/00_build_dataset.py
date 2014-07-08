@@ -96,18 +96,15 @@ images_subject_id.sort()
 images = pd.DataFrame(data=images_path, index=images_subject_id)
 images.columns=['IMAGE']
 
-# Merge the two subjects list
-subjects_id = np.intersect1d(images_subject_id, clinic_subjects_id)
-subjects_id.sort()
-#lines_to_keep = np.where(np.in1d(wmh_subjects_id, subjects_id))[0]
-print "Found", len(subjects_id), "correct subjects"
-
 # Create population file (merge of both subjects lists)
 pop = pd.merge(clinic_data, images,
                right_index=True, left_index=True,
                sort=True)
 pop.index.name = 'Subject ID'
+subjects_id = pop.index
+print "Found", len(subjects_id), "correct subjects"
 pop.to_csv(OUTPUT_CLINIC)
+
 
 #################################################
 # Read images, create masks and extract dataset #
