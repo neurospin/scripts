@@ -4,7 +4,8 @@ Created on Fri Jul  4 16:29:44 2014
 
 @author: hl237680
 
-Univariate correlation between residualized BMI and images.
+Univariate correlation between residualized BMI and images on normal
+subjects.
 This script aims at checking out whether the crowns that appear on beta maps
 obtained by multivariate analysis should be considered as an artifact due to
 the segmentation process or are to be taken into account.
@@ -43,7 +44,7 @@ def load_residualized_bmi_data(cache):
         COFOUND = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser",
                    "mean_pds"]
         df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
-                                                 "1534bmi-vincent2.csv"),
+                                                 "clinical_data_all.csv"),
                                                  index_col=0)
         df = df[COFOUND]
 
@@ -91,7 +92,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/univariate_residual_bmi_images"
+    WD = "/neurospin/tmp/brainomics/univariate_residual_bmi_images_normal_group"
     if not os.path.exists(WD):
         os.makedirs(WD)
     
@@ -108,7 +109,8 @@ if __name__ == "__main__":
 
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache')
+    SHARED_DIR = os.path.join(BASE_SHARED_DIR,
+                              'residualized_bmi_cache_normal_group')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
@@ -125,7 +127,8 @@ if __name__ == "__main__":
     beta_map = np.zeros(p) 
     bigols = MUOLS()
     bigols.fit(X, Y)
-    s, p = bigols.stats_t_coefficients(X, Y, contrast=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.], pval=True)
+    s, p = bigols.stats_t_coefficients(X, Y,
+                contrast=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.], pval=True)
     beta_map[:] = p[:]
 
     template_for_size = os.path.join(DATA_PATH, 'mask', 'mask.nii')
@@ -135,6 +138,8 @@ if __name__ == "__main__":
     
     image = np.zeros(template_for_size_img.get_data().shape)
     image[masked_data_index] = beta_map
-    filename = os.path.join(BASE_PATH, 'results', 'beta_map_MULM.nii.gz')
-    ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()), filename)
-    print "Beta map obtained with MULM has been saved."
+    filename = os.path.join(BASE_PATH, 'results',
+                            'beta_map_MULM_normal_group.nii.gz')
+    ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()),
+            filename)
+    print "Beta map obtained with MULM on normal grouphas been saved."
