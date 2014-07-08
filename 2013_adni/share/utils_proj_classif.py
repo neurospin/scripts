@@ -81,3 +81,4 @@ def mcnemar_test_prediction(y_pred1, y_pred2, y_true):
     # the p-value of the extreme tail should be multiplied by 2.
     pval_binom = np.minimum(scipy.stats.binom_test(b, n=b + c, p=0.5) * 2, 1.)
     return pval_chi2, pval_binom
+

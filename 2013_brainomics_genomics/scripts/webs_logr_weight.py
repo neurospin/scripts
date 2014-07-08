@@ -82,11 +82,11 @@ def webs_logr_weight(basepath, pw_name, precomp_save=True):
     
         # 6- Interpretation
         beta = logr_gl.beta[1:] 
-        np.savez(os.path.join(basepath,'data',pw+'-unbiased-beta'), beta)
+        np.savez(os.path.join(basepath,'data',pw_name+'-unbiased-beta'), beta)
     
     else:
         print "Now performing adaptive groupLasso"
-        unbiased_beta = np.load(os.path.join(basepath,'data',pw+'-unbiased-beta.npz'))['arr_0']
+        unbiased_beta = np.load(os.path.join(basepath,'data',pw_name+'-unbiased-beta.npz'))['arr_0']
         norme2 = np.linalg.norm(unbiased_beta)
         k = 1./norme2
         weights = [np.linalg.norm(unbiased_beta[group[i]]) for i in group]

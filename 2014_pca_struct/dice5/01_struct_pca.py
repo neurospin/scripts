@@ -7,17 +7,22 @@ Created on Wed May 28 12:08:39 2014
 Process dice5 datasets with our structured PCA.
 We use several values for TV.
 
-We generate a map_reduce configuration file for each dataset.
+We generate a map_reduce configuration file for each dataset and the files
+needed to run on the cluster.
+Due to the cluster setup and the way mapreduce work we need to copy the datsets
+and the masks on the cluster. Therefore we copy them on the output directory
+which is synchronised on the cluster.
 
-The output directory is struct_pca/data_{shape}_{snr}
+The output directory is struct_pca/data_{shape}_{snr}.
 
 """
 
 import os
 import json
 import time
+import shutil
 
-from collections import OrderedDict
+from itertools import product
 
 import numpy as np
 import scipy
@@ -54,12 +59,9 @@ STRUCTPCA_ALPHA = np.array([1e-3, 1e-2, 1e-1, 1])
 SRUCTPCA_L1RATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
 SRUCTPCA_TVRATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
 
-STRUCTPCA_PARAMS = [[l1_ratio*alpha*(1-tv_ratio),
-                     (1-l1_ratio)*alpha*(1-tv_ratio),
-                     alpha*tv_ratio]
-                     for alpha in STRUCTPCA_ALPHA
-                     for tv_ratio in SRUCTPCA_TVRATIO
-                     for l1_ratio in SRUCTPCA_L1RATIO]
+STRUCTPCA_PARAMS = list(product(STRUCTPCA_ALPHA,
+                                SRUCTPCA_TVRATIO,
+                                SRUCTPCA_L1RATIO))
 
 #############
 # Functions #
@@ -68,14 +70,11 @@ STRUCTPCA_PARAMS = [[l1_ratio*alpha*(1-tv_ratio),
 def load_globals(config):
     global INPUT_OBJECT_MASK_FILE_FORMAT
     import mapreduce as GLOBAL
-    input_dir = config["input_dir"]
     # Read masks
     masks = []
     for i in range(N_COMP):
         filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-        full_filename = os.path.join(input_dir, filename)
-        #print full_filename
-        masks.append(np.load(full_filename))
+        masks.append(np.load(filename))
     im_shape = config["im_shape"]
     Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
@@ -95,7 +94,10 @@ def mapper(key, output_collector):
     # GLOBAL.DATA
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
-    ll1, ll2, ltv = key
+    alpha, tv_ratio, l1_ratio = key
+    ltv = alpha*tv_ratio
+    ll1 = l1_ratio*alpha*(1-ltv)
+    ll2 = (1-l1_ratio)*alpha*(1-tv_ratio)
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = shape = X_train.shape
@@ -146,27 +148,27 @@ def mapper(key, output_collector):
         tv[i] = TV.f(V[:, i])
 
     # Compute explained variance ratio
-    evr_shen = np.zeros((N_COMP,))
-    evr_zou = np.zeros((N_COMP,))
+    evr_train = np.zeros((N_COMP,))
+    evr_test = np.zeros((N_COMP,))
     for i in range(N_COMP):
         # i first components
         Vi = V[:, range(i+1)]
         try:
-            evr_shen[i] = dice5_pca.explained_variance_shen(X_train, Vi)
+            evr_train[i] = dice5_pca.adjusted_explained_variance(X_train, Vi)
         except:
-            evr_shen[i] = np.nan
+            evr_train[i] = np.nan
         try:
-            evr_zou[i] = dice5_pca.adjusted_explained_variance_zou(X_train, Vi)
+            evr_test[i] = dice5_pca.adjusted_explained_variance(X_test, Vi)
         except:
-            evr_zou[i] = np.nan
+            evr_test[i] = np.nan
 
     ret = dict(X_transform=X_transform,
                model=model,
                recall=recall,
                precision=precision,
                fscore=fscore,
-               evr_shen=evr_shen,
-               evr_zou=evr_zou,
+               evr_train=evr_train,
+               evr_test=evr_test,
                l0=l0,
                l1=l1,
                l2=l2,
@@ -190,16 +192,16 @@ def reducer(key, values):
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
     tv = np.vstack([item["tv"] for item in values])
-    evr_shen = np.vstack([item["evr_shen"] for item in values])
-    evr_zou = np.vstack([item["evr_zou"] for item in values])
+    evr_train = np.vstack([item["evr_train"] for item in values])
+    evr_test = np.vstack([item["evr_test"] for item in values])
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each component
     av_precision = precisions.mean(axis=0)
     av_recall = recalls.mean(axis=0)
     av_fscore = fscores.mean(axis=0)
-    av_evr_shen = evr_shen.mean(axis=0)
-    av_evr_zou = evr_zou.mean(axis=0)
+    av_evr_train = evr_train.mean(axis=0)
+    av_evr_test = evr_test.mean(axis=0)
     av_l0 = l0.mean(axis=0)
     av_l1 = l1.mean(axis=0)
     av_l2 = l2.mean(axis=0)
@@ -221,10 +223,10 @@ def reducer(key, values):
                   fscore_2=av_fscore[2], fscore_mean=np.mean(av_fscore),
                   correlation_0=correlation[0], correlation_1=correlation[1],
                   correlation_2=correlation[2], correlation_mean=np.mean(correlation),
-                  evr_shen_0=av_evr_shen[0], evr_shen_1=av_evr_shen[1],
-                  evr_shen_2=av_evr_shen[2],
-                  evr_zou_0=av_evr_zou[0], evr_zou_1=av_evr_zou[1],
-                  evr_zou_2=av_evr_zou[2],
+                  evr_train_0=av_evr_train[0], evr_train_1=av_evr_train[1],
+                  evr_train_2=av_evr_train[2],
+                  evr_test_0=av_evr_test[0], evr_test_1=av_evr_test[1],
+                  evr_test_2=av_evr_test[2],
                   l0_0=av_l0[0],l0_1=av_l0[1],
                   l0_2=av_l0[2],
                   l1_0=av_l1[0],l1_1=av_l1[1],
@@ -235,7 +237,7 @@ def reducer(key, values):
                   tv_2=av_tv[2],
                   time=np.mean(times))
 
-    return OrderedDict(sorted(scores.items(), key=lambda t: t[0]))
+    return dict(sorted(scores.items(), key=lambda t: t[0]))
 
 #################
 # Actual script #
@@ -254,35 +256,47 @@ if __name__ == '__main__':
             indices.append(np.load(full_filename).tolist())
         rev_indices = indices[::-1]
 
-        # Read learning data
-        filename = INPUT_STD_DATASET_FILE_FORMAT.format(snr=snr)
-        dataset_full_filename = os.path.join(input_dir, filename)
-
-        # Output directory for this dataset
+        # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
                                   OUTPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
                                                            snr=snr))
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Create config file
-        # User map/reduce function file
-        user_func_filename = os.path.abspath(__file__)
+        # Create a link to the learning data
+        datafile = INPUT_STD_DATASET_FILE_FORMAT.format(snr=snr)
+        src_datafile = os.path.join(input_dir, datafile)
+        dst_datafile = os.path.join(output_dir, datafile)
+        shutil.copy(src_datafile, dst_datafile)
 
-        config = dict(data=dict(X=dataset_full_filename),
-                      input_dir=input_dir,
+        # Create a link to the objects masks
+        for i in range(N_COMP):
+            filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
+            src_filename = os.path.join(input_dir, filename)
+            dst_filename = os.path.join(output_dir, filename)
+            shutil.copy(src_filename, dst_filename)
+
+        # Create files to synchronize with the cluster
+        sync_push_filename, sync_pull_filename, CLUSTER_WD = \
+        clust_utils.gabriel_make_sync_data_files(output_dir)
+
+        # Create config file
+        user_func_filename = os.path.abspath(__file__)
+        cluster_datafile = os.path.join(CLUSTER_WD, datafile)
+
+        config = dict(data=dict(X=cluster_datafile),
                       im_shape=INPUT_SHAPE,
                       params=STRUCTPCA_PARAMS,
-                      resample=[indices,
-                                rev_indices],
-                      map_output=output_dir,
+                      resample=[indices, rev_indices],
+                      map_output="results",
                       user_func=user_func_filename,
                       ncore=4,
-                      reduce_input=os.path.join(output_dir, "*/*"),
-                      reduce_group_by=os.path.join(output_dir, ".*/(.*)"),
-                      reduce_output=os.path.join(output_dir, "results.csv"))
+                      reduce_input="results/*/*",
+                      reduce_group_by="results/.*/(.*)",
+                      reduce_output="results.csv")
         config_full_filename = os.path.join(output_dir, "config.json")
         json.dump(config, open(config_full_filename, "w"))
 
-        cmd = "mapreduce.py -m %s  --ncore 12" % config_full_filename
-        clust_utils.gabriel_make_qsub_job_files(output_dir, cmd)
+        # Create job files
+        cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
+        clust_utils.gabriel_make_qsub_job_files(output_dir, cluster_cmd)
