@@ -8,7 +8,7 @@ Create WMH dataset:
 
 INPUT:
  - images: /neurospin/mescog/neuroimaging/original/munich/
- - clinic: /neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv"
+ - clinic: /neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv
 
 OUTPUT_DIR = /neurospin/mescog/proj_wmh_patterns
  - population.csv: clinical status of subjects
