@@ -106,7 +106,7 @@ print "Found", len(subjects_id), "correct subjects"
 pop = pd.merge(clinic_data, images,
                right_index=True, left_index=True,
                sort=True)
-pop.index.name == 'Subject ID'
+pop.index.name = 'Subject ID'
 pop.to_csv(OUTPUT_CLINIC)
 
 #################################################
