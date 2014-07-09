@@ -6,6 +6,14 @@ Created on Mon Jul  7 16:57:06 2014
 
 1 - This script aims at generating a csv file from various xls files in
 order to gather all useful clinical data.
+"1534bmi-vincent2.xls": initial data file.
+"bmi-tri.xls": data file where the status of subjects is given according to
+their BMI (INSUF, Normal, ob1, ob2).
+Only the 1265 subjects (indexed in the right order in the csv file
+"/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv") for which we
+have neuroimaging data (masked_images) are selected among the total number
+of subjects.
+
 2 - Possibility to select subjects according to their status
 (INSUF, Normal, ob1, ob2)
 """
