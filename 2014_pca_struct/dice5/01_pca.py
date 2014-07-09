@@ -17,8 +17,6 @@ import os
 import json
 import time
 
-from collections import OrderedDict
-
 import numpy as np
 import scipy
 
@@ -120,27 +118,27 @@ def mapper(key, output_collector):
         tv[i] = TV.f(V[:, i])
 
     # Compute explained variance ratio
-    evr_shen = np.zeros((N_COMP,))
-    evr_zou = np.zeros((N_COMP,))
+    evr_train = np.zeros((N_COMP,))
+    evr_test = np.zeros((N_COMP,))
     for i in range(N_COMP):
         # i first components
         Vi = V[:, range(i+1)]
         try:
-            evr_shen[i] = dice5_pca.explained_variance_shen(X_train, Vi)
+            evr_train[i] = dice5_pca.adjusted_explained_variance(X_train, Vi)
         except:
-            evr_shen[i] = np.nan
+            evr_train[i] = np.nan
         try:
-            evr_zou[i] = dice5_pca.adjusted_explained_variance_zou(X_train, Vi)
+            evr_test[i] = dice5_pca.adjusted_explained_variance(X_test, Vi)
         except:
-            evr_zou[i] = np.nan
+            evr_test[i] = np.nan
 
     ret = dict(X_transform=X_transform,
                model=model,
                recall=recall,
                precision=precision,
                fscore=fscore,
-               evr_shen=evr_shen,
-               evr_zou=evr_zou,
+               evr_train=evr_train,
+               evr_test=evr_test,
                l0=l0,
                l1=l1,
                l2=l2,
@@ -164,16 +162,16 @@ def reducer(key, values):
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
     tv = np.vstack([item["tv"] for item in values])
-    evr_shen = np.vstack([item["evr_shen"] for item in values])
-    evr_zou = np.vstack([item["evr_zou"] for item in values])
+    evr_train = np.vstack([item["evr_train"] for item in values])
+    evr_test = np.vstack([item["evr_test"] for item in values])
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each component
     av_precision = precisions.mean(axis=0)
     av_recall = recalls.mean(axis=0)
     av_fscore = fscores.mean(axis=0)
-    av_evr_shen = evr_shen.mean(axis=0)
-    av_evr_zou = evr_zou.mean(axis=0)
+    av_evr_train = evr_train.mean(axis=0)
+    av_evr_test = evr_test.mean(axis=0)
     av_l0 = l0.mean(axis=0)
     av_l1 = l1.mean(axis=0)
     av_l2 = l2.mean(axis=0)
@@ -195,10 +193,10 @@ def reducer(key, values):
                   fscore_2=av_fscore[2], fscore_mean=np.mean(av_fscore),
                   correlation_0=correlation[0], correlation_1=correlation[1],
                   correlation_2=correlation[2], correlation_mean=np.mean(correlation),
-                  evr_shen_0=av_evr_shen[0], evr_shen_1=av_evr_shen[1],
-                  evr_shen_2=av_evr_shen[2],
-                  evr_zou_0=av_evr_zou[0], evr_zou_1=av_evr_zou[1],
-                  evr_zou_2=av_evr_zou[2],
+                  evr_train_0=av_evr_train[0], evr_train_1=av_evr_train[1],
+                  evr_train_2=av_evr_train[2],
+                  evr_test_0=av_evr_test[0], evr_test_1=av_evr_test[1],
+                  evr_test_2=av_evr_test[2],
                   l0_0=av_l0[0],l0_1=av_l0[1],
                   l0_2=av_l0[2],
                   l1_0=av_l1[0],l1_1=av_l1[1],
@@ -209,7 +207,7 @@ def reducer(key, values):
                   tv_2=av_tv[2],
                   time=np.mean(times))
 
-    return OrderedDict(sorted(scores.items(), key=lambda t: t[0]))
+    return dict(sorted(scores.items(), key=lambda t: t[0]))
 
 #################
 # Actual script #
