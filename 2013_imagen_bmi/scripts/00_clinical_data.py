@@ -29,6 +29,7 @@ import pandas as pd
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
 DATA_PATH = os.path.join(BASE_PATH, 'data')
 CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+SHFJ_DATA_PATH = os.path.join(CLINIC_DATA_PATH, 'source_SHFJ')
 IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
 BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
@@ -39,9 +40,9 @@ print '# Generation of a csv file from various xls files #'
 print '###################################################'
 
 # Excel files containing clinical data to be read
-workbook1 = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
+workbook1 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
                                            "1534bmi-vincent2.xls"))
-workbook2 = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
+workbook2 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
                                            "bmi-tri.xls"))
 
 # Dataframes with right indexes
@@ -51,7 +52,8 @@ df2 = pd.io.excel.read_excel(workbook2, sheetname='bmi-tri.xls',
                              engine='xlrd', header=0, index_col=0)
 
 # Cofounds: non interest covariates for each file
-cofound1 = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds"]
+cofound1 = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds",
+            "BMI"]
 cofound2 = ["STATUS"]
 
 # Keep only subjects for which we have all data
@@ -78,6 +80,7 @@ print '###################'
 
 normal_group = all_data[all_data['STATUS'] == 'Normal']
 normal_group_file = pd.DataFrame.to_csv(normal_group,
-                    os.path.join(CLINIC_DATA_PATH, "normal_group.csv"))
+                    os.path.join(CLINIC_DATA_PATH,
+                                 "clinical_data_normal_group.csv"))
 
-print "CSV file containing clinical data from normal status subject has been saved."
+print "CSV file containing clinical data from normal status subjects has been saved."
