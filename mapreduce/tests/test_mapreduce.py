@@ -52,6 +52,7 @@ if __name__ == "__main__":
 
     ###########################################################################
     ## Create dataset
+    np.random.seed(13031981)
     n, p = 50, 100
     X = np.random.rand(n, p)
     beta = np.random.rand(p, 1)
@@ -81,7 +82,7 @@ if __name__ == "__main__":
                                       "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
-    map_cmd = "%s --map %s/config.json" % (exec_path, WD)
+    map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)
     reduce_cmd = "%s --reduce %s/config.json" % (exec_path, WD)
     os.system(map_cmd)
     os.system(reduce_cmd)

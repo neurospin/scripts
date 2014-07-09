@@ -1,0 +1,74 @@
+BIBLIO
+======
+Pannekoeka 2104 NeuroImage: Clinical
+Reduced anterior cingulate gray matter volume in treatment-naïve clinically depressed adolescents
+
+limited number of studies on brain structure in pediatric affective disorders are available
+depression (Ducharme et al., 2013 and Shad et al., 2012). In these studies, differences were found in amygdala, hippocampus, superior temporal gyrus (STG), and prefrontal cortex (PFC) volumes; all areas known to be part of the emotion generating and regulating neurocircuitry (Price and Drevets, 2012 and Shin and Liberzon, 2010). More specifically, studies in adolescent depression reported altered gray matter of the PFC (Botteron et al., 2002, Nolan et al., 2002 and Shad et al., 2012), amygdala (Caetano et al., 2007, MacMillan et al., 2003 and Rosso et al., 2005), and hippocampus (Caetano et al., 2007, MacMaster and Kusumakar, 2004, MacMaster et al., 2008 and MacMillan et al., 2003).
+
+From MULM
+=========
+28 Paracingulate Gyrus 
+29 Cingulate Gyrus, anterior division
+30 Cingulate Gyrus, posterior
+    31 Precuneous Cortex
+
+OK
+
+Central
+-------
+7% Precentral Gyrus *
+17 Postcentral Gyrus *
+
+
+???
+---
+104 Left Thalamus (115 Right Thalamus)
+
+OK
+
+Temporal
+--------
+
+38 Temporal Fusiform Cortex (Left) **
+39 Temporal Occipital Fusiform (Left) **
+13 Middle Temporal Gyrus *
+
+Stella W. Y. Chan, DPhil, "Risk for depression and neural responses to fearful facial expressions of emotion" The British Journal of Psychiatry (2009) 
+=> right fusiform gyrus and left middle temporal gyrus
+
+Altered resting-state functional connectivity in major depression
+
+Ling-Li Zeng 2011 BRAIN Identifying major depression using whole-brain functional connectivity: a multivariate pattern analysis
+=> the default mode network (mainly containing the parahippocampal gyrus, anterior cingulate cortex, hippocampus, thalamus, inferior temporal gyrus, posterior cingulate cortex and medial prefrontal cortex), 
+
+
+Pannekoek JN - Neuroimage Clin. 2014 
+Reduced anterior cingulate gray matter volume in treatment-naïve clinically depressed adolescents.
+voxel-based morphometry study of the hippocampus, amygdala, superior temporal gyrus, and anterior cingulate cortex (ACC) in 26 treatment-naïve
+
+Caetano et al., 2007 Neurosci. Lett., 427 (2007), pp. 142–147
+Medial temporal lobe abnormalities in pediatric unipolar depression
+
+
+De Bellis et al., 2002b Biol. Psychiatry, 51 (2002), pp. 553–562
+M.D. De Bellis, M.S. Keshavan, H. Shifflett, S. Iyengar, R.E. Dahl, D.A. Axelson et al.
+Superior temporal gyrus volumes in pediatric generalized anxiety disorder
+
+
+
+Parieto-occipital
+-----------------
+
+20 Supramarginal Gyrus **
+21 Angular Gyrus **
+
+    22 Lateral Occipital Cortex *
+
+Missing
+=======
+Insula
+Hippocampus
+ParaHippocampus
+Amygdala
+
