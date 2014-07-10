@@ -6,6 +6,14 @@ Created on Mon Jul  7 16:57:06 2014
 
 1 - This script aims at generating a csv file from various xls files in
 order to gather all useful clinical data.
+"1534bmi-vincent2.xls": initial data file.
+"bmi-tri.xls": data file where the status of subjects is given according to
+their BMI (INSUF, Normal, ob1, ob2).
+Only the 1265 subjects (indexed in the right order in the csv file
+"/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv") for which we
+have neuroimaging data (masked_images) are selected among the total number
+of subjects.
+
 2 - Possibility to select subjects according to their status
 (INSUF, Normal, ob1, ob2)
 """
@@ -21,6 +29,7 @@ import pandas as pd
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
 DATA_PATH = os.path.join(BASE_PATH, 'data')
 CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+SHFJ_DATA_PATH = os.path.join(CLINIC_DATA_PATH, 'source_SHFJ')
 IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
 BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
@@ -31,9 +40,9 @@ print '# Generation of a csv file from various xls files #'
 print '###################################################'
 
 # Excel files containing clinical data to be read
-workbook1 = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
+workbook1 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
                                            "1534bmi-vincent2.xls"))
-workbook2 = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
+workbook2 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
                                            "bmi-tri.xls"))
 
 # Dataframes with right indexes
@@ -43,7 +52,8 @@ df2 = pd.io.excel.read_excel(workbook2, sheetname='bmi-tri.xls',
                              engine='xlrd', header=0, index_col=0)
 
 # Cofounds: non interest covariates for each file
-cofound1 = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds"]
+cofound1 = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds",
+            "BMI"]
 cofound2 = ["STATUS"]
 
 # Keep only subjects for which we have all data
@@ -70,6 +80,7 @@ print '###################'
 
 normal_group = all_data[all_data['STATUS'] == 'Normal']
 normal_group_file = pd.DataFrame.to_csv(normal_group,
-                    os.path.join(CLINIC_DATA_PATH, "normal_group.csv"))
+                    os.path.join(CLINIC_DATA_PATH,
+                                 "clinical_data_normal_group.csv"))
 
-print "CSV file containing clinical data from normal status subject has been saved."
+print "CSV file containing clinical data from normal status subjects has been saved."

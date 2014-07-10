@@ -51,38 +51,39 @@ def impute_data_by_med(data, verbose=0, nan_symbol=128):
 
    return data
 
+def get_snp_dict():
+    a = open("/neurospin/brainomics/2013_imagen_bmi/data/genetics/blabla.annot").read().split('\n')[:-1]
+    a = [i.split() for i in a]
+    a = [(i[3], i[7].split('|')[1]) for i in a]
+    snp_dict = dict()
+    gene = list(np.unique([i[1] for i in a]))
+    for i in gene:
+        snp_dict[i] = []
+    
+    for i in a:
+        snp_dict[i[1]].append(i[0])
+    
+    gfn = os.path.join('/neurospin/brainomics',
+                       '2012_imagen_shfj',
+                       'genetics',
+                       'qc_sub_qc_gen_all_snps_common_autosome.bim')
+    tmp = [i.split('\t')[1] for i in open(gfn).read().split('\n')[:-1]]
+    universe = set(tmp)
+    
+    for i in snp_dict:
+        snp_dict[i] = set(snp_dict[i]).intersection(universe)
 
-
-a = open("/neurospin/brainomics/2013_imagen_bmi/data/genetics/blabla.annot").read().split('\n')[:-1]
-a = [i.split() for i in a]
-a = [(i[3], i[7].split('|')[1]) for i in a]
-snp_dict = dict()
-gene = list(np.unique([i[1] for i in a]))
-for i in gene:
-    snp_dict[i] = []
-
-for i in a:
-    snp_dict[i[1]].append(i[0])
-
-gfn = os.path.join('/neurospin/brainomics',
-                   '2012_imagen_shfj',
-                   'genetics',
-                   'qc_sub_qc_gen_all_snps_common_autosome.bim')
-tmp = [i.split('\t')[1] for i in open(gfn).read().split('\n')[:-1]]
-universe = set(tmp)
-
-for i in snp_dict:
-    snp_dict[i] = set(snp_dict[i]).intersection(universe)
+    return snp_dict
     
     
-gfn = os.path.join('/neurospin/brainomics',
-               '2012_imagen_shfj',
-               'genetics',
-               'qc_sub_qc_gen_all_snps_common_autosome')
-genotype = ig.Genotype(gfn)
-snp_data, snp_data_columns, snp_data_rows, snp_dict, void_gene = \
-                                              extract(genotype, snp_dict)
-df = pd.DataFrame(snp_data,index=snp_data_rows,
-                          columns=snp_data_columns)
-
+#gfn = os.path.join('/neurospin/brainomics',
+#               '2012_imagen_shfj',
+#               'genetics',
+#               'qc_sub_qc_gen_all_snps_common_autosome')
+#genotype = ig.Genotype(gfn)
+#snp_dict = get_snp_dict()
+#snp_data, snp_data_columns, snp_data_rows, snp_dict, void_gene = \
+#                                              extract(genotype, snp_dict)
+#df = pd.DataFrame(snp_data,index=snp_data_rows,
+#                          columns=snp_data_columns)
 
