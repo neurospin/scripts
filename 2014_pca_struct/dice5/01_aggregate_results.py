@@ -18,7 +18,7 @@ import matplotlib.pylab as plt
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/results"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR, "data")
 INPUT_DATASET_DIR_FORMAT = "data_{s[0]}_{s[1]}_{snr}"
 
@@ -43,62 +43,33 @@ OUTPUT_RESULTS = os.path.join(OUTPUT_DIR, "consolidated_results.csv")
 input_files = []
 total_df = None
 N = 0
-for model in INPUT_MODELS:
-    model_dir = os.path.join(INPUT_BASE_DIR, model)
-    for snr in INPUT_SNRS:
-        subdir = INPUT_DATASET_DIR_FORMAT.format(s=INPUT_SHAPE,
-                                                 snr=snr)
-        full_filename = os.path.join(model_dir, subdir, INPUT_RESULT_FILE)
-        input_files.append(full_filename)
-        if os.path.exists(full_filename):
-            # Read it without index
-            df = pd.io.parsers.read_csv(full_filename)
-            n, p = df.shape
-            print "Reading", full_filename, "(", n, "lines)"
-            N += n
-            # Add a column for global penalization and tv ratio
-            if model == 'pca':
-                global_pen = pd.Series.from_array(np.zeros(n),
-                                                  name='Global penalization',
-                                                  index=pd.Index(np.arange(n)))
-                tv_ratio = pd.Series.from_array(np.zeros(n),
-                                                name='TV ratio',
-                                                index=pd.Index(np.arange(n)))
-
-
-            if model == 'sparse_pca':
-                param = df['key'].map(float)
-                global_pen = pd.Series.from_array(param,
-                                                  name='Global penalization',
-                                                  index=pd.Index(np.arange(n)))
-                tv_ratio = pd.Series.from_array(np.zeros(n),
-                                                name='TV ratio',
-                                                index=pd.Index(np.arange(n)))
-
-
-            if model == 'struct_pca':
-                params = df['key'].apply(
-                    lambda key: [float(s) for s in key.split('_')])
-                global_pen = pd.Series.from_array(params.map(sum),
-                        name='Global penalization',
-                        index=pd.Index(np.arange(n)))
-                tv_ratio = pd.Series.from_array(params.map(lambda p: p[2]/sum(p)),
-                        name='TV ratio',
-                        index=pd.Index(np.arange(n)))
-
-            df['Global penalization'] = global_pen
-            df['TV ratio'] = tv_ratio
-            # Create multiindex (model, alpha, key) for this file
-            snrs = pd.Series.from_array(np.asarray([snr]*n),
-                                        name='SNR',
-                                        index=pd.Index(np.arange(n)))
-            models = pd.Series.from_array(np.asarray([model]*n),
-                                          name='model',
-                                          index=pd.Index(np.arange(n)))
-            df.index = pd.MultiIndex.from_arrays([models, snrs, df['key']])
-            # Append to large df
-            if total_df is None:
-                total_df = df
-            else:
-                total_df = total_df.append(df)
+for snr in INPUT_SNRS:
+    subdir = INPUT_DATASET_DIR_FORMAT.format(s=INPUT_SHAPE,
+                                             snr=snr)
+    full_filename = os.path.join(INPUT_BASE_DIR, subdir, INPUT_RESULT_FILE)
+    input_files.append(full_filename)
+    if os.path.exists(full_filename):
+        # Read it without index
+        df = pd.io.parsers.read_csv(full_filename)
+        n, p = df.shape
+        print "Reading", full_filename, "(", n, "lines)"
+        N += n
+        # Add a column for model, global penalization, l1 ratio and tv ratio
+        # from the key
+        # Model may contain '_' so I have to use this cryptic form
+        df['model'] = df['key'].map(lambda key: '_'.join(key.split('_')[:-3]))
+        df['global_pen'] = df['key'].map(lambda key: float(key.split('_')[-3]))
+        df['tv_ratio'] = df['key'].map(lambda key: float(key.split('_')[-2]))
+        df['l1_ratio'] = df['key'].map(lambda key: float(key.split('_')[-1]))
+        # Add a column for SNR
+        df['snr'] = pd.Series.from_array(np.asarray([snr]*n),
+                                         name='SNR',
+                                         index=pd.Index(np.arange(n)))
+        # Create multiindex (model, alpha, key) for this file
+        df.index = pd.MultiIndex.from_arrays([df['model'], df['snr'], df['key']])
+        # Append to large df
+        if total_df is None:
+            total_df = df
+        else:
+            total_df = total_df.append(df)
 total_df.to_csv(OUTPUT_RESULTS)
