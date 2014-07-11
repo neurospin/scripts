@@ -17,7 +17,8 @@ BASE_PATH =  "/volatile/share/2014_bd_dwi"
  
 INPUT_TBSS = os.path.join(BASE_PATH, "clinic", "filelist_tbss.txt")
 INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
-INPUT_CSV = os.path.join(BASE_PATH, "clinic", "BD_clinic.csv")
+INPUT_CSV_BASE = os.path.join(BASE_PATH, "clinic", "BD_clinic.csv")
+INPUT_CSV_NEW = os.path.join(BASE_PATH, "bd_dwi_enettv", "population.csv")
 OUTPUT = os.path.join(BASE_PATH, "bd_dwi_enettv")
 OUTPUT_CSV = os.path.join(OUTPUT, "population.csv")
 
@@ -45,7 +46,7 @@ for l in tbss:
     tmp.append(l)
 
 tbss = tmp
-clinic = pd.read_csv(INPUT_CSV)
+clinic = pd.read_csv(INPUT_CSV_BASE)
 
 tbss2 = None
 empty = pd.DataFrame([[0]*6], columns=["ID","BD_HC", "SCANNER", "AGEATMRI", "SEX", "with_clinic"])
@@ -121,17 +122,17 @@ print mask.sum()
 #application of mask on all the images
 
 i = 0
-subject = pd.read_csv(INPUT_CSV, header=0)
+subject = pd.read_csv(INPUT_CSV_NEW, header=0)
 
 ntot = 0
 
 for i, SID in enumerate(subject["ID"]):
     cur = subject.iloc[i]
-    if cur.ID == "C_cn00018" or cur.ID == "MZ150743" or cur.ID == '204776' or cur.ID == '209861' or cur.ID == '211297' or cur.ID == '212485' or cur.ID == '213141':
+    if cur.with_clinic == 0:
         i = i + 1
     else:
         ntot = ntot + 1
-    i = i + 1
+        i = i + 1
 
 Ytot = np.zeros((ntot, 1))
 Xtot = np.zeros((ntot, 507383))
@@ -139,29 +140,26 @@ Xtot = np.zeros((ntot, 507383))
 i = 0
 k = 0
 
-Ztot = np.zeros((ntot, 3))
+Ztot = np.zeros((ntot, 2))
 
-while i < (len(Ytot)):
-    cur = subject.iloc[i]
+while k < len(Ytot) and i < 194:
+    cur = subject.iloc[k]
     print("k = ", k)
-    print("i = ", i)
-    if cur.ID == "C_cn00018" or cur.ID == "MZ150743" or cur.ID == '204776' or cur.ID == '209861' or cur.ID == '211297' or cur.ID == '212485' or cur.ID == '213141':
-        i = i + 1
-    elif k == 17 or k == 36 or k == 189:
+    if cur.with_clinic == 0:
         k = k + 1
     else:
         print("BD_HC = %i",cur.BD_HC)
         image.append(image_arr[:, :, :, k].ravel())
-        Xtot[k, :] = np.vstack(image)[:, mask.ravel()]
+        Xtot[i, :] = np.vstack(image)[:, mask.ravel()]
         del image[0]
-        Ytot[k] = cur.BD_HC
-        Ztot[k, 1:] = np.asarray(cur[["AGEATMRI", "SEX"]]).ravel()
+        Ytot[i] = cur.BD_HC
+        Ztot[:, :] = np.asarray(cur[["AGEATMRI", "SEX"]]).ravel()
         i = i + 1
         k = k + 1
 
 ## sans le cs
 Xtot = np.hstack([Ztot, Xtot])
-assert Xtot.shape == (197, 507386)
+assert Xtot.shape == (194, 507385)
 
 Xtot -= Xtot.mean(axis = 0)
 Xtot /= Xtot.std(axis = 0)
