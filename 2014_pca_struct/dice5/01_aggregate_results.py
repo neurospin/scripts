@@ -65,11 +65,12 @@ for snr in INPUT_SNRS:
         df['snr'] = pd.Series.from_array(np.asarray([snr]*n),
                                          name='SNR',
                                          index=pd.Index(np.arange(n)))
-        # Create multiindex (model, alpha, key) for this file
-        df.index = pd.MultiIndex.from_arrays([df['model'], df['snr'], df['key']])
         # Append to large df
         if total_df is None:
             total_df = df
         else:
             total_df = total_df.append(df)
+# Create multiindex (model, SNR, global_pen, tv_ratio, l1_ratio)
+total_df.set_index(['model', 'snr', 'global_pen', 'tv_ratio', 'l1_ratio'],
+                   inplace=True, drop=True)
 total_df.to_csv(OUTPUT_RESULTS)
