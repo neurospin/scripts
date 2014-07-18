@@ -180,7 +180,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     ## 2) cv index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=NFOLDS)]
-    params = [[alpha, l1_ratio] for alpha in [0.001,0.01,0.1,1] for l1_ratio in np.arange(0.1, 1., .1)]
+    params = [[alpha, l1_ratio] for alpha in [0.001,0.01,0.1] for l1_ratio in np.arange(0.5, 1., .1)]
     # User map/reduce function file:
     user_func_filename = os.path.join("/home/hl237680",
         "gits", "scripts", "2013_imagen_bmi", "scripts",
