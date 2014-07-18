@@ -6,8 +6,13 @@ Created on Wed Jul 16 14:35:13 2014
 
 Extract SNP information (name and position) for each gene with Vincent
 Frouin's recipe.
+
+AIMS:   - check IMAGEN database
+        - get a file with all snps of interest.
+
 The recipe uses shell commands so this script just wraps them in a Python
 script.
+
 Results are stored in files 'reference_genetics/gene_name.snp'.
 """
 
