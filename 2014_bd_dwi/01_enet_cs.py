@@ -14,6 +14,8 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
+import shutil
+
 
 
 def load_globals(config):
@@ -103,7 +105,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/volatile/share/2014_bd_dwi"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -111,8 +113,8 @@ def run_all(config):
     # run /home/ed203246/bin/mapreduce.py
     oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  "bd_dwi_enettv", 'Xtot.npy'))
-    y = np.load(os.path.join(WD,  "bd_dwi_enettv", 'Ytot.npy'))
+    X = np.load(os.path.join(WD, 'Xtot.npy'))
+    y = np.load(os.path.join(WD, 'Ytot.npy'))
     mapreduce.DATA["X"] = [X, X]
     mapreduce.DATA["y"] = [y, y]
     params = np.array([float(p) for p in key.split("_")])
@@ -120,19 +122,26 @@ def run_all(config):
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/volatile/share/2014_bd_dwi"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
     #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    INPUT_DATA_X = os.path.join(WD, "bd_dwi_enettv", 'Xtot.npy')
-    INPUT_DATA_y = os.path.join(WD, "bd_dwi_enettv", 'Ytot.npy')
-    INPUT_MASK_PATH = os.path.join(WD, "all_FA/nii/stats/mask.nii.gz")
+    INPUT_DATA_X = 'Xtot.npy'
+    INPUT_DATA_y = 'Ytot.npy'
+    INPUT_MASK = "mask.nii.gz"
+    INPUT_MASK_PATH = os.path.join("/volatile/share/2014_bd_dwi/all_FA/nii/stats",
+                                   INPUT_MASK)
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
     os.chdir(WD)
 
+    # Copy INPUT_MASK_PATH to WD
+    shutil.copy(INPUT_MASK_PATH,
+                WD)
+    
+    MASK_PATH = "/home/md238665/christophe/scripts/2014_bd_dwi/mask.nii.gz"
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
@@ -154,8 +163,8 @@ if __name__ == "__main__":
 #    try:
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
-    user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", '2014_bd_dwi', 
+    user_func_filename = os.path.join("/home/md238665/christophe",
+        "scripts", '2014_bd_dwi', 
         "01_enet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
@@ -164,24 +173,24 @@ if __name__ == "__main__":
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
-                  structure=INPUT_MASK_PATH,
+                  structure=INPUT_MASK,
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="results/.*/(.*)",
                   reduce_output="results.csv")
-    json.dump(config, open(os.path.join(WD, "bd_dwi_enettv", "config.json"), "w"))
+    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
 #    #############################################################################
-#    # Build utils files: sync (push/pull) and PBS
-#    import brainomics.cluster_gabriel as clust_utils
-#    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-#        clust_utils.gabriel_make_sync_data_files(WD)
-#    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-#    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-#    #############################################################################
-#    # Sync to cluster
-#    print "Sync data to gabriel.intra.cea.fr: "
+    # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(WD, user="md238665")
+    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+    #############################################################################
+    # Sync to cluster
+    print "Sync data to gabriel.intra.cea.fr: "
 #    os.system(sync_push_filename)
 #    #############################################################################
 #    print "# Start by running Locally with 2 cores, to check that everything os OK)"

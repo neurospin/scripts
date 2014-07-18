@@ -32,6 +32,7 @@ import sklearn.decomposition
 
 import parsimony.functions.nesterov.tv
 import pca_tv
+import metrics
 
 import brainomics.cluster_gabriel as clust_utils
 
@@ -186,11 +187,11 @@ def mapper(key, output_collector):
         # i first components
         Vi = V[:, range(i+1)]
         try:
-            evr_train[i] = dice5_pca.adjusted_explained_variance(X_train, Vi)
+            evr_train[i] = metrics.adjusted_explained_variance(X_train, Vi)
         except:
             evr_train[i] = np.nan
         try:
-            evr_test[i] = dice5_pca.adjusted_explained_variance(X_test, Vi)
+            evr_test[i] = metrics.adjusted_explained_variance(X_test, Vi)
         except:
             evr_test[i] = np.nan
 
@@ -244,7 +245,7 @@ def reducer(key, values):
     comp0 = comp_list[0]
     comp1 = comp_list[1]
     for i in range(N_COMP):
-        correlation[i] = dice5_pca.abs_correlation(comp0[:, i], comp1[:, i])
+        correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
     scores = dict(key=key,
                   recall_0=av_recall[0], recall_1=av_recall[1],

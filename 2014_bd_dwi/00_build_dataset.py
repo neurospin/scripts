@@ -20,6 +20,8 @@ INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
 INPUT_CSV_BASE = os.path.join(BASE_PATH, "clinic", "BD_clinic.csv")
 INPUT_CSV_NEW = os.path.join(BASE_PATH, "bd_dwi_enettv", "population.csv")
 OUTPUT = os.path.join(BASE_PATH, "bd_dwi_enettv")
+if not os.path.exists(OUTPUT):
+    os.makedirs(OUTPUT)
 OUTPUT_CSV = os.path.join(OUTPUT, "population.csv")
 
 MASK_FILENAME =  os.path.join(BASE_PATH, "all_FA/nii/stats/mask.nii.gz") #mask use to filtrate our images
@@ -86,8 +88,6 @@ tbss2.to_csv(OUTPUT_CSV)
 # 
 #############################################################################
 ## Build dataset
-
-os.makedirs(OUTPUT)
 
 image = list()
 

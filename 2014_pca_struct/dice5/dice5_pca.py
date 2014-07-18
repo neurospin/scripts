@@ -7,19 +7,11 @@ Created on Tue Mar 18 10:57:39 2014
 """
 
 import numpy as np
-from  parsimony import datasets
-from parsimony.datasets.utils import Dot, ObjImage
-
-import scipy.linalg
 
 from sklearn.metrics import precision_recall_fscore_support
 
-def adjusted_explained_variance(X, V_k):
-    Y = np.dot(X, V_k)
-    Q, R = scipy.linalg.qr(Y)
-    ev = np.trace(R**2)
-    v = np.sum(X**2)
-    return ev/v
+from  parsimony import datasets
+from parsimony.datasets.utils import Dot, ObjImage
 
 def dice_five_geometric_metrics(mask, result):
     """
@@ -57,12 +49,6 @@ def dice_five_geometric_metrics(mask, result):
                                                                    average='micro')
 
     return (precision, recall, fscore)
-
-
-def abs_correlation(x, y):
-    # Correlation between the absolute values of the 2 arrays
-    corr = np.corrcoef(np.abs(x.ravel()), np.abs(y.ravel()))
-    return corr[1, 0]
 
 
 def dice_five_with_union_of_pairs(shape, std=[1., 1., .5]):
