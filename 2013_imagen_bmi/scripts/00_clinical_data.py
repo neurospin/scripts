@@ -4,18 +4,24 @@ Created on Mon Jul  7 16:57:06 2014
 
 @author: hl237680
 
-1 - This script aims at generating a csv file from various xls files in
+This script aims at generating a csv file from various xls files in
 order to gather all useful clinical data.
-"1534bmi-vincent2.xls": initial data file.
-"bmi-tri.xls": data file where the status of subjects is given according to
-their BMI (INSUF, Normal, ob1, ob2).
-Only the 1265 subjects (indexed in the right order in the csv file
-"/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv") for which we
-have neuroimaging data (masked_images) are selected among the total number
-of subjects.
 
-2 - Possibility to select subjects according to their status
-(INSUF, Normal, ob1, ob2)
+INPUT: xls files
+CLINIC_DATA_PATH: /neurospin/brainomics/2013_imagen_bmi/data/clinic/
+SHFJ_DATA_PATH: /neurospin/brainomics/2013_imagen_bmi/data/clinic/source_SHFJ/
+    - SHFJ_DATA_PATH: 1534bmi-vincent2.xls: initial data file.
+    - CLINIC_DATA_PATH: BMI_status.xls: file containing reference values to
+    attribute a weight status (i.e. Insuff, Normal, Overweight, Obese) to
+    subjects according to gender, age and their BMI.
+
+OUTPUT: csv file
+    "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv"
+
+Only the 1265 subjects for which we have neuroimaging data (masked_images)
+are selected among the total number of subjects.
+
+(Possibility to select subjects according to their status.)
 """
 
 
@@ -35,52 +41,123 @@ BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 
 
-print '###################################################'
-print '# Generation of a csv file from various xls files #'
-print '###################################################'
+############################################################################
+# Attribute a status to adolescents according to their gender, age and BMI #
+############################################################################
 
-# Excel files containing clinical data to be read
-workbook1 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
-                                           "1534bmi-vincent2.xls"))
-workbook2 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
-                                           "bmi-tri.xls"))
-
-# Dataframes with right indexes
-df1 = pd.io.excel.read_excel(workbook1, sheetname='1534bmi-gaser.xls',
-                             engine='xlrd', header=0, index_col=0)
-df2 = pd.io.excel.read_excel(workbook2, sheetname='bmi-tri.xls',
-                             engine='xlrd', header=0, index_col=0)
-
-# Cofounds: non interest covariates for each file
-cofound1 = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds",
-            "BMI"]
-cofound2 = ["STATUS"]
-
-# Keep only subjects for which we have all data
-subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"),
-                            dtype=None, delimiter=',', skip_header=1)
-
-# Dataframes containing only non interest covariates for selected subjects                            
-dataframe1 = pd.DataFrame(df1, index=subjects_id, columns=cofound1)
-dataframe2 = pd.DataFrame(df2, index=subjects_id, columns=cofound2)
-
-
-all_data = pd.merge(dataframe1, dataframe2, right_index=True, left_index=True)
-
-clinical_data_all = pd.DataFrame.to_csv(all_data,
-                    os.path.join(CLINIC_DATA_PATH, "clinical_data_all.csv"))
-
-print "CSV file containing all clinical data we are interested in has been saved."
+def status_col(subject, ref_values):
+    # For each subject, read age:
+    age = subject['ageannees']
+    # gender:
+    gender = subject['Gender de Feuil2']
+    # BMI:
+    bmi = subject['BMI']
+    # Knowing  these parameters -to be compared to reference values (OMS)-
+    # determine weight status:
+    index = (age >= ref_values['Min Age']) & (age < ref_values['Max Age']) & (ref_values['Gender'] == gender)
+    LB = ref_values[['Normal', 'Overweight', 'Obese']][index].as_matrix()
+    #print index
+    lb_normal = LB[0, 0]
+    lb_overweight = LB[0, 1]
+    lb_obese = LB[0, 2]
+    if (bmi < lb_normal):
+        return 'Insuff'
+    if (bmi >= lb_normal) & (bmi < lb_overweight):
+        return 'Normal'
+    if (bmi >= lb_overweight) & (bmi < lb_obese):
+        return 'Overweight'
+    if (bmi >= lb_obese):
+        return 'Obese'
 
 
 
-print '###################'
-print '# Group selection #'
-print '###################'
 
-normal_group = all_data[all_data['STATUS'] == 'Normal']
-normal_group_file = pd.DataFrame.to_csv(normal_group,
-                    os.path.join(CLINIC_DATA_PATH,
-                                 "clinical_data_normal_group.csv"))
+if __name__ == "__main__":
+    # Generation of a csv file containing all clinical data available
+    print '###################################################'
+    print '# Generation of a csv file from various xls files #'
+    print '###################################################'
 
-print "CSV file containing clinical data from normal status subjects has been saved."
+    # Excel files containing clinical data to be read
+    workbook = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
+                                               "1534bmi-vincent2.xls"))
+    #workbook2 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
+    #                                           "bmi-tri.xls"))
+
+    # Dataframes with right indexes
+    df = pd.io.excel.read_excel(workbook, sheetname='1534bmi-gaser.xls',
+                                engine='xlrd', header=0, index_col=0)
+    #df2 = pd.io.excel.read_excel(workbook2, sheetname='bmi-tri.xls',
+    #                             engine='xlrd', header=0, index_col=0)
+
+    # Cofounds: non interest covariates for each file
+    cofounds = ['Gender de Feuil2', # Gender: Male or Female (instead of -1/1)
+                'Age...sstartdate',
+                'ageannees',
+                'ImagingCentreID',
+                'ImagingCentreCity',
+                'NI_MASS',
+                'NI_HEIGHT',
+                'BMI',
+                'GE',
+                'PH',
+                'SIE',
+                'quality_control',
+                'bad_cov_gaser',
+                'qc_gaser',
+                'Age.for.timestamp',
+                'total_f',
+                'mean_f',
+                'total_m',
+                'mean_m',
+                'mean_pds',
+                'PDS-cg',
+                'vol_gm_gaser',
+                'vol_wm_gaser',
+                'vol_csf_gaser',
+                'tiv_gaser'
+                ]
+
+    # Keep only subjects for which we have all data
+    subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"),
+                                dtype=None, delimiter=',', skip_header=1)
+
+    # Dataframe containing only non interest covariates for selected subjects
+    dataframe = pd.DataFrame(df, index=subjects_id, columns=cofounds)
+
+    # Excel file with reference BMI status according to age and gender
+    workbook = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
+                                               "BMI_status.xls"))
+
+    # Create a dataframe assigning status to subjects
+    ref_values = pd.io.excel.read_excel(workbook, sheetname='ref_values',
+                                        engine='xlrd', header=0)
+    # Apply function returns a panda.core.series
+    status_series = dataframe.apply(status_col, args=(ref_values,), axis=1)
+    # Conversion to a dataframe
+    status_df = pd.DataFrame(status_series, index=subjects_id)
+    # Rename column giving the weight status
+    status_df = status_df.rename(columns = {0:'Status'})    
+
+    # Merge both dataframes
+    clinical_data = pd.merge(dataframe, status_df,
+                             left_index=True,
+                             right_index=True)
+
+    clinical_data_all = pd.DataFrame.to_csv(clinical_data,
+                            os.path.join(CLINIC_DATA_PATH, "population.csv"))
+
+    print "CSV file containing all clinical data has been saved."
+
+
+
+#print '###################'
+#print '# Group selection #'
+#print '###################'
+#
+#normal_group = df[df['STATUS'] == 'Normal']
+#normal_group_file = pd.DataFrame.to_csv(normal_group,
+#                    os.path.join(CLINIC_DATA_PATH,
+#                                 "clinical_data_normal_group.csv"))
+#
+#print "CSV file containing clinical data from normal status subjects has been saved."
