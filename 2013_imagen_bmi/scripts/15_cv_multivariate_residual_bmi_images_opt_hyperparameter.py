@@ -4,9 +4,25 @@ Created on Thu Jun  5 10:42:35 2014
 
 @author: hl237680
 
-Same as 15_cv_multivariate_residualized_BMI but with pathes taking into
-account hl237680's username instead of vf140245 in order to send jobs on
-Gabriel from my own account.
+CV using mapreduce and ElasticNet between images and BMI.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/standard_mask/residualized_images_gender_center_TIV_pds/smoothed_images.hdf5:
+    masked images (hdf5 format)
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
+        maximizes the correlation between the Linear Model predicted BMI
+        values and true ones using Elastic Net algorithm, mapreduce and
+        cross validation.
+        Computation involves to send jobs to Gabriel (here, connexion
+        directly specified with hl237680's account).
+
+OUTPUT:
+- the Mapper returns predicted and true values of BMI, model estimators.
+- the Reducer returns R2 scores between prediction and truth.
+
 """
 
 import os, sys
@@ -19,21 +35,24 @@ from sklearn.cross_validation import KFold
 from sklearn.metrics import r2_score
 import parsimony.estimators as estimators
 
-sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts', '2013_imagen_bmi', 'scripts'))
+sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts',
+                             '2013_imagen_bmi', 'scripts'))
 import bmi_utils
     
-sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts", "2013_imagen_subdepression", "lib"))
+sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
+                             "2013_imagen_subdepression", "lib"))
 import utils
 
 
 
+
 def load_globals(config):
-    import mapreduce as GLOBAL  # access to global variables
+    import mapreduce as GLOBAL
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
 
 
 def resample(config, resample_nb):
-    import mapreduce as GLOBAL  # access to global variables
+    import mapreduce as GLOBAL
     #GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     print "reslicing %d" %resample_nb
@@ -43,7 +62,7 @@ def resample(config, resample_nb):
 
 
 def mapper(key, output_collector):
-    import mapreduce as GLOBAL # access to global variables:
+    import mapreduce as GLOBAL
     # key: list of parameters
     alpha, l1_ratio = key[0], key[1]
     Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
@@ -51,16 +70,21 @@ def mapper(key, output_collector):
     ztr = GLOBAL.DATA_RESAMPLED["z"][0]
     zte = GLOBAL.DATA_RESAMPLED["z"][1]
     print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
-    #
-    mod = estimators.ElasticNet(l1_ratio, alpha, penalty_start=11, mean=True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
+    # penalty_start since we residualized BMI with 2 categorical covariables
+    # (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables
+    # (tiv_gaser and mean_pds - 2 columns)
+    penalty_start = 11
+    mod = estimators.ElasticNet(l1_ratio,
+                                alpha,
+                                penalty_start=penalty_start,
+                                mean=True)
     z_pred = mod.fit(Xtr,ztr).predict(Xte)
     ret = dict(z_pred=z_pred, z_true=zte, beta=mod.beta)
     output_collector.collect(key, ret)
     
 
 def reducer(key, values):
-    # key : string of intermediary key
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # key: string of intermediary keys
     values = [item.load() for item in values]
     z_true = np.concatenate([item["z_true"].ravel() for item in values])
     z_pred = np.concatenate([item["z_pred"].ravel() for item in values])
@@ -68,59 +92,73 @@ def reducer(key, values):
     return scores
 
 
+
 #############
 # Read data #
 #############
-# SNPs and BMI
+# Masked images and BMI
 def load_residualized_bmi_data(cache):
     if not(cache):
-        #SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
-        BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"), index_col=0).as_matrix()
+        # BMI
+        BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"),
+                                     index_col=0).as_matrix()
 
-        # Dataframe      
-        COFOUND = ["Subject", "Gender de Feuil2", "ImagingCentreCity", "tiv_gaser", "mean_pds"]
-        df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH, "1534bmi-vincent2.csv"), index_col=0)
+        # Dataframe
+        COFOUND = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser",
+                   "mean_pds"]
+        df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
+                                                 "population.csv"),
+                                                 index_col=0)
         df = df[COFOUND]
 
-        # Conversion dummy coding
-        design_mat = utils.make_design_matrix(df, regressors=COFOUND).as_matrix()
+        # Keep only subjects for which we have all data
+        subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"),
+                                    dtype=None,
+                                    delimiter=',',
+                                    skip_header=1)
 
-        # Keep only subjects for which we have all data and remove the 1. column containing subject_id from the numpy array design_mat
-        subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"), dtype=None, delimiter=',', skip_header=1)
-        design_mat = np.delete(np.delete(design_mat, np.where(np.in1d(design_mat[:,0], np.delete(design_mat, np.where(np.in1d(design_mat[:,0], subjects_id)), 0))), 0),0,1)
-               
-        # Images
+        clinic_data = df.loc[subjects_id]
+
+        # Conversion dummy coding
+        covar = utils.make_design_matrix(clinic_data,
+                                         regressors=COFOUND).as_matrix()
+            
+        # Images -that have already been masked-
         h5file = tables.openFile(IMAGES_FILE)
-        masked_images = bmi_utils.read_array(h5file, "/standard_mask/residualized_images_gender_center_TIV_pds")    #images already masked
+        masked_images = bmi_utils.read_array(h5file,
+                        "/standard_mask/residualized_images_gender_center_TIV_pds")
         print "Data loaded"
-        
-        # Concatenate images with covariates gender, imaging city centrr, tiv_gaser and mean pds status in order to do as though BMI had been residualized
-        X = np.concatenate((design_mat, masked_images), axis=1)
-        #Y = SNPs
+
+        # Concatenate images and covariates
+        # (gender, imaging city centre, tiv_gaser and mean pds status)
+        # in order to do as though BMI had been residualized
+        X = np.hstack((covar, masked_images))
         z = BMI
         
         np.save(os.path.join(SHARED_DIR, "X.npy"), X)
-        #np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
         np.save(os.path.join(SHARED_DIR, "z.npy"), z)
+        
         h5file.close()
         
         print "Data saved"
     else:
         X = np.load(os.path.join(SHARED_DIR, "X.npy"))        
-        #Y = np.load(os.path.join(SHARED_DIR, "Y.npy"))
         z = np.load(os.path.join(SHARED_DIR, "z.npy"))        
         print "Data read from cache"
     
-    return X, z #X, Y, z
+    return X, z
+
+
 
 #"""
-#run /home/hl237680/gits/scripts/2013_imagen_bmi/scripts/15_cv_multivariate_residualized_BMI.py
+#run
 #"""
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_validation-2"
-    if not os.path.exists(WD): os.makedirs(WD)
+    WD = "/neurospin/tmp/brainomics/residual_bmi_images_opt_hyperparameter_validation"
+    if not os.path.exists(WD):
+        os.makedirs(WD)
 
     print "#################"
     print "# Build dataset #"
@@ -131,7 +169,6 @@ if __name__ == "__main__":
         DATA_PATH = os.path.join(BASE_PATH, 'data')
         CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
         IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
-        #SNPS_FILE = os.path.join(DATA_PATH, 'SNPs.csv')
         BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
         
         # Shared data
@@ -175,7 +212,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
-    #############################################################################
+    #########################################################################
     # Build utils files: sync (push/pull) and PBS
     sys.path.append(os.path.join(os.getenv('HOME'),
                                 'gits','scripts'))
@@ -184,28 +221,20 @@ if __name__ == "__main__":
         clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
     cmd = "mapreduce.py -m %s/config.json  --ncore 12" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    #############################################################################
+    #########################################################################
     # Sync to cluster
     print "Sync data to gabriel.intra.cea.fr: "
     os.system(sync_push_filename)
 
-    #############################################################################
-    print "# Start by running Locally with 12 cores, to check that everything is OK)"
-    print "Interrupt after a while CTL-C"
+    #########################################################################
+    print "# Map"
     print "mapreduce.py -m %s/config.json --ncore 12" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
-    print "# 2) Run one Job to test"
-    print "qsub -I"
-    print "cd %s" % WD_CLUSTER
-    print "./job_Global_long.pbs"
     print "# 3) Run on cluster"
     print "qsub job_Global_long.pbs"
-    print "# 4) Log out and pull Pull"
-    print "exit"
     print sync_pull_filename
-    #############################################################################
+    #########################################################################
     print "# Reduce"
     print "mapreduce.py -r %s/config.json" % WD_CLUSTER
-    #ATTENTION ! Si envoi sur le cluster, modifier le path de config-2.json : /neurospin/tmp/hl237680/residual_bmi_images_cluster-2/config-2.json
