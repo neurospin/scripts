@@ -10,7 +10,7 @@ import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
@@ -31,7 +31,48 @@ def resample(config, resample_nb):
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}
 
+
 def mapper(key, output_collector):
+    """This mapper do not fit, re-use the precomputed stored beta and compute
+    proba of test samples. Call it using mapreduce.py -m -f config.json
+    """
+    import mapreduce as GLOBAL # access to global variables:
+        #raise ImportError("could not import ")
+    # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
+    # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
+    # key: list of parameters
+    Xte = GLOBAL.DATA_RESAMPLED["X"][1]
+    #print output_collector,
+    STRUCTURE = GLOBAL.STRUCTURE
+    penalty_start = 2
+    class_weight="auto" # unbiased
+    alpha = float(key[0])
+    l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
+    values = output_collector.load()
+    if k != -1:
+        k = int(k)
+        mask3d_to_1d = STRUCTURE.get_data() != 0
+        mask3d_to_1dr = values["mask"]
+        mask_1d_to_1dr = mask3d_to_1dr[mask3d_to_1d]
+        A, _ = tv_helper.A_from_shape((3, 3, 3))  # dummy A
+        Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, mask_1d_to_1dr]])
+    else:
+        Xte_r = Xte
+        A = GLOBAL.A
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
+                                   class_weight=class_weight)
+    mod.beta = values["beta"]
+    # check prevously predicted equals new predictions
+    assert np.all(mod.predict(Xte_r) == values["y_pred"])
+    proba_pred = mod.predict_probability(Xte_r)
+    ret = dict(proba_pred=proba_pred)
+    if output_collector:
+        output_collector.collect(key, ret)
+    else:
+        return ret
+
+
+def mapper2(key, output_collector):
     import mapreduce as GLOBAL # access to global variables:
         #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
@@ -69,7 +110,8 @@ def mapper(key, output_collector):
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask)
+    proba_pred = mod.predict_probability(Xte_r)
+    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte, beta=mod.beta,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -80,23 +122,35 @@ def reducer(key, values):
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
     #import glob, mapreduce
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/AD-CTL/results/*/0.1_0.0_0.0_1.0_-1.0/")]
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-MCInc_cs/results/*/0.1_0.0_0.0_1.0_-1.0/")]
     # Compute sd; ie.: compute results on each folds
     values = [item.load() for item in values]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
+    prob_pred = [item["proba_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
+    prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    fpr, tpr, testholds = roc_curve(y_true, prob_pred)
+    auc_ = auc(fpr, tpr)
     n_ite = None
-    scores = dict(key=key,
+    betas = np.hstack([item["beta"] for item in values]).T
+    R = np.corrcoef(betas)
+    beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
+    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+    print a, l1, l2, tv, k, beta_cor_mean
+    scores = dict(key=key, a=a, l1=l1, l2=l2, tv=tv, k=k,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite)
+               support_0=s[0] , support_1=s[1], n_ite=n_ite,
+               beta_cor_mean=beta_cor_mean, auc=auc_)
     return scores
+
 
 
 ##############################################################################
@@ -169,7 +223,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="results/.*/(.*)",
-                  reduce_output="results.csv")
+                  reduce_output="MCIc-MCInc_cs.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #############################################################################

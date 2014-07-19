@@ -6,7 +6,7 @@ Reduced anterior cingulate gray matter volume in treatment-naïve clinically dep
 limited number of studies on brain structure in pediatric affective disorders are available
 depression (Ducharme et al., 2013 and Shad et al., 2012). In these studies, differences were found in amygdala, hippocampus, superior temporal gyrus (STG), and prefrontal cortex (PFC) volumes; all areas known to be part of the emotion generating and regulating neurocircuitry (Price and Drevets, 2012 and Shin and Liberzon, 2010). More specifically, studies in adolescent depression reported altered gray matter of the PFC (Botteron et al., 2002, Nolan et al., 2002 and Shad et al., 2012), amygdala (Caetano et al., 2007, MacMillan et al., 2003 and Rosso et al., 2005), and hippocampus (Caetano et al., 2007, MacMaster and Kusumakar, 2004, MacMaster et al., 2008 and MacMillan et al., 2003).
 
-From MULM
+
 =========
 28 Paracingulate Gyrus 
 29 Cingulate Gyrus, anterior division
@@ -65,10 +65,18 @@ Parieto-occipital
 
     22 Lateral Occipital Cortex *
 
+
+
 Missing
 =======
+Cingulaire 
+
+
 Insula
 Hippocampus
 ParaHippocampus
 Amygdala
+
+Strita
+
 
