@@ -176,6 +176,9 @@ if __name__ == "__main__":
                         help="Run reducer: iterate over map_output and call"
                         "reduce (defined in user_func)")
 
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help="Force mapper call even output is present")
+
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
 
     # Config file
@@ -193,7 +196,7 @@ if __name__ == "__main__":
         '(4) "user_func": (Required) Path to python file that contains 4 user '
         ' defined functions: '
         '(i) load_globals(config): executed ones at the beginning load all the data '
-        '(ii) resample() is executed on each new reample'
+        '(ii) resample() is executed on each new resampling'
         '(iii) mapper(key) is executed on each parameters x reample item'
         '(iv) reducer(key, values)'
         '"resample": (Optional) List of list of list of indices. '
@@ -259,7 +262,8 @@ if __name__ == "__main__":
             try:
                 os.makedirs(job[_OUTPUT])
             except:
-                continue
+                if not options.force:
+                    continue
             output_collector = OutputCollector(job[_OUTPUT])
             if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
                (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
