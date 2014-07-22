@@ -54,7 +54,7 @@ clinic = pd.merge(clinic, subjects_images)
 
 assert clinic.shape == (1082, 25)
 
-
+# Verifier items positi varie dans meme sens
 clinic["adrs"] = clinic.adrs1 + clinic.adrs2 + clinic.adrs3 + clinic.adrs4 +\
     clinic.adrs5 + clinic.adrs5 + clinic.adrs7 + clinic.adrs8 + clinic.adrs9 +\
     clinic.adrs10
