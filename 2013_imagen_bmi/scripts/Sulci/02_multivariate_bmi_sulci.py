@@ -187,17 +187,17 @@ def load_residualized_bmi_data(cache):
         skl = StandardScaler()
         X = skl.fit_transform(X)
 
-        Y = BMI
+        z = BMI
 
-        np.save(os.path.join(SHARED_DIR, "X.npy"), X)
-        np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
+        np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
+        np.save(os.path.join(SHARED_DIR, 'z.npy'), z)
 
         print "Data saved"
     else:
-        X = np.load(os.path.join(SHARED_DIR, "X.npy"))
-        Y = np.load(os.path.join(SHARED_DIR, "Y.npy"))
+        X = np.load(os.path.join(SHARED_DIR, 'X.npy'))
+        z = np.load(os.path.join(SHARED_DIR, 'z.npy'))
         print "Data read from cache"
-    return X, Y
+    return X, z
 
 
 #"""#
@@ -229,10 +229,10 @@ if __name__ == "__main__":
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
-    X, Y = load_residualized_bmi_data(cache=False)
+    X, z = load_residualized_bmi_data(cache=False)
     n, p = X.shape
     np.save(os.path.join(WD, 'X.npy'), X)
-    np.save(os.path.join(WD, 'Y.npy'), Y)
+    np.save(os.path.join(WD, 'z.npy'), z)
 
     print "#####################"
     print "# Build config file #"
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     print "user_func", user_func_filename
 
     # Use relative path from config.json
-    config = dict(data=dict(X='X.npy', Y='Y.npy'),
+    config = dict(data=dict(X='X.npy', z='z.npy'),
                   params=params, resample=cv,
                   structure="",
                   map_output="results",
