@@ -105,7 +105,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -113,8 +113,8 @@ def run_all(config):
     # run /home/ed203246/bin/mapreduce.py
     oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD, 'Xtot.npy'))
-    y = np.load(os.path.join(WD, 'Ytot.npy'))
+    X = np.load(os.path.join(WD, 'X.npy'))
+    y = np.load(os.path.join(WD, 'Y.npy'))
     mapreduce.DATA["X"] = [X, X]
     mapreduce.DATA["y"] = [y, y]
     params = np.array([float(p) for p in key.split("_")])
@@ -122,16 +122,20 @@ def run_all(config):
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
     #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
-    INPUT_DATA_X = 'Xtot.npy'
-    INPUT_DATA_y = 'Ytot.npy'
+    INPUT_DATA_X = 'X.npy'
+    INPUT_DATA_y = 'Y.npy'
     INPUT_MASK = "mask.nii.gz"
-    INPUT_MASK_PATH = os.path.join("/volatile/share/2014_bd_dwi/all_FA/nii/stats",
+    INPUT_MASK_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
                                    INPUT_MASK)
+    INPUT_DATA_X_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
+                                     INPUT_DATA_X)
+    INPUT_DATA_y_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
+                                     INPUT_DATA_y)
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)
@@ -140,7 +144,10 @@ if __name__ == "__main__":
     # Copy INPUT_MASK_PATH to WD
     shutil.copy(INPUT_MASK_PATH,
                 WD)
-    
+    shutil.copy(INPUT_DATA_y_PATH,
+                WD)
+    shutil.copy(INPUT_DATA_X_PATH,
+                WD)    
     MASK_PATH = "/home/md238665/christophe/scripts/2014_bd_dwi/mask.nii.gz"
     #############################################################################
     ## Create config file
@@ -165,7 +172,7 @@ if __name__ == "__main__":
 #    except:
     user_func_filename = os.path.join("/home/md238665/christophe",
         "scripts", '2014_bd_dwi', 
-        "01_enet_cs.py")
+        "02_enet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
