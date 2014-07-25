@@ -39,6 +39,7 @@ import sys
 import numpy as np
 import pandas as pd
 import json
+from glob import glob
 
 from sklearn.preprocessing import StandardScaler
 
@@ -119,7 +120,10 @@ def load_residualized_bmi_data(cache):
         #sulci_feature = ['depthMean']
         features = ['GM_thickness']
         # List all files containing information on sulci
-        sulci_file_list = os.listdir(SULCI_PATH)
+        sulci_file_list = []
+        for file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
+            sulci_file_list.append(file[:][83:-4])
+
         # Initialize dataframe that will contain data from all .csv sulci files
         all_sulci_df = None
         # Iterate along sulci files
