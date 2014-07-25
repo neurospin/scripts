@@ -122,13 +122,13 @@ def load_residualized_bmi_data(cache):
         # List all files containing information on sulci
         sulci_file_list = []
         for file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
-            sulci_file_list.append(file[:][83:-4])
+            sulci_file_list.append(file)
 
         # Initialize dataframe that will contain data from all .csv sulci files
         all_sulci_df = None
         # Iterate along sulci files
         for i, s in enumerate(sulci_file_list):
-            sulc_name = s[11:-4]
+            sulc_name = s[83:-4]
             colname = ['_'.join((sulc_name, feature)) for feature in features]
             # Read each .csv file and select column with features of interest
             sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH, s),
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     # CV index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
     params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001,
-               0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
+               0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100]
                for l1_ratio in np.arange(0.4, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
