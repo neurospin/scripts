@@ -21,7 +21,9 @@ NIGLOB_WMHV_PATH = paste(NIGLOBVOL_DIRPATH, "CAD_M0_WMHV.txt", sep="/")
 # OUTPUT ---
 #OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140128"
 #OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140204"
-OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205"
+# OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140205"
+OUTPUT_PATH = "/neurospin/mescog/proj_predict_cog_decline/data/dataset_clinic_niglob_20140728"
+
 ################################################################################################
 ## Names mapping
 ################################################################################################
