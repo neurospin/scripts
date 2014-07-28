@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-@author: md238665
+@author: edouard.duchesnay@cea.fr
 
 Creates a CSV file for the population.
 => intersection of subject_list.txt and adnimerge_baseline.csv of in CTL or AD
