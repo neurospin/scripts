@@ -52,8 +52,23 @@ for i in xrange(tris.shape[0]):
     connect_edge_to_node(tri[0], tri[2], nodes_with_edges)
     connect_edge_to_node(tri[1], tri[2], nodes_with_edges)
 
-
+"""
+# count neighbors (arrity) for each node
 n_neighbors = np.array([len(n) for n in nodes_with_edges])
 print np.sum(n_neighbors)
 print np.sum(n_neighbors) / float(len(nodes_with_edges))
 print [[n, np.sum(n_neighbors == n)] for n in np.unique(n_neighbors)]
+# 491520
+#2.99996337935
+#[[0, 95], [1, 399], [2, 11319], [3, 140357], [4, 11060], [5, 500], [6, 112]]
+
+# count nb time a node is in a vertex
+count = np.zeros(len(nodes_with_edges))
+for n in nodes_with_edges:
+    for v in n:
+        for e in v:
+            count[e] += 1
+
+print count.min(), count.max(), count.mean()
+# (5.0, 6.0, 5.9999267587065583)
+"""
