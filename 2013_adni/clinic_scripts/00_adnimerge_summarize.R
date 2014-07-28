@@ -69,6 +69,8 @@ D$DX <- gsub("Dementia to ", "", D$DX)
 D$DX <- gsub("NL", "CTL", D$DX)
 D$DX <- gsub("Dementia", "AD", D$DX)
 table(D$DX)
+# AD  CTL  MCI 
+# 1834 2347 3388 
 
 ##############################################################################################################################
 ## Simplify table: one line per subject: DX.bl + DX.last + CONVERTION in days CONV_TO_MCI and CONV_TO_AD
@@ -80,25 +82,29 @@ for(id in unique(D$PTID)){
   d = D[D$PTID == id, ]
   if(nrow(d)>=1){
   #cat(id)
-  last_idx = which(max(d$EXAMDATE) == d$EXAMDATE)
-  bl_idx =  which(min(d$EXAMDATE) == d$EXAMDATE)
-  ad_idx = sum(d$DX == "AD")[1]
-  #if(d$DX.bl != d[bl_idx, "DX"])cat(id)
-  tuple = data.frame(d[bl_idx, ], DX.last=d[last_idx, "DX"])
+  idx_last = which(max(d$EXAMDATE) == d$EXAMDATE)
+  idx_bl =  which(min(d$EXAMDATE) == d$EXAMDATE)
+  days_since_bl = as.numeric((d$EXAMDATE - d$EXAMDATE.bl[1]))
+  idx_2yrs = which(min(abs(days_since_bl - 2 * 365)) == abs(days_since_bl - 2 * 365) )
+  idx_800days = which(min(abs(days_since_bl - 800)) == abs(days_since_bl - 800) )
+  #idx_3yr = which(min(abs(days_since_bl - 3 * 365)) == abs(days_since_bl - 3 * 365) )
+  #idx_ad = sum(d$DX == "AD")[1]
+  #if(d$DX.bl != d[idx_bl, "DX"])cat(id)
+  tuple = data.frame(d[idx_bl, ], DX.last=d[idx_last, "DX"], MMSE.2yrs=d[idx_2yrs, "MMSE"],  MMSE.800days=d[idx_800days, "MMSE"])
   if(is.na(tuple$DX.bl)) tuple$DX.bl=tuple$DX
-  if(tuple$DX.bl != tuple$DX)cat(id,"\n")
+  if(tuple$DX.bl != tuple$DX)cat(id,"baseline DX mismatch\n")
   # look for convertion
   CONV_TO_MCI = -1
   CONV_TO_AD = -1
   if(length(unique(d$DX)>1)){
     for(i in 1:nrow(d)){
-      days_since_bl = as.numeric((d$EXAMDATE[i] - d$EXAMDATE[1]))
+      #days_since_bl = as.numeric((d$EXAMDATE[i] - d$EXAMDATE[1]))
       # MCI that goes back to CTL: reset
       if((CONV_TO_MCI > 0) && (d$DX[i] == "CTL")) CONV_TO_MCI = -1
       # AD that goes back to MCI: reset
       if((CONV_TO_AD > 0) && (d$DX[i] != "AD")) CONV_TO_AD = -1
-      if((CONV_TO_MCI < 0) && (d$DX[i] == "MCI")) CONV_TO_MCI = days_since_bl
-      if((CONV_TO_AD < 0) && (d$DX[i] == "AD")) CONV_TO_AD = days_since_bl
+      if((CONV_TO_MCI < 0) && (d$DX[i] == "MCI")) CONV_TO_MCI = days_since_bl[i]
+      if((CONV_TO_AD < 0) && (d$DX[i] == "AD")) CONV_TO_AD = days_since_bl[i]
     }
   }
   tuple$CONV_TO_MCI = CONV_TO_MCI
