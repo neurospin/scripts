@@ -29,6 +29,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+from glob import glob
+
 from mulm.models import MUOLS
 
 from sklearn.preprocessing import StandardScaler
@@ -42,7 +44,7 @@ import utils
 # Read data #
 #############
 # Sulci and BMI
-def load_residualized_bmi_data(sulci_filename, cache):
+def load_residualized_bmi_data(sulcus_file, cache):
     if not(cache):
 
         # BMI
@@ -52,7 +54,7 @@ def load_residualized_bmi_data(sulci_filename, cache):
 
         # Sulcus: dataframe for study of sulci
         sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH,
-                                                       sulci_filename),
+                                                       sulcus_file),
                                           sep=';',
                                           index_col=0)
 
@@ -147,7 +149,6 @@ if __name__ == "__main__":
     CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
     BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
     SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
-    SULCI_FILENAMES = os.listdir(SULCI_PATH)
 
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
@@ -159,9 +160,11 @@ if __name__ == "__main__":
     stat = []
     proba = []
 
-    for i in SULCI_FILENAMES:
-        print "Sulcus considered:", i
-        X, Y = load_residualized_bmi_data(i, cache=False)
+    sulci_file_list = []
+    for sulcus_file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
+        sulci_file_list.append(sulcus_file)
+        print "Sulcus considered:", sulcus_file[83:-4]
+        X, Y = load_residualized_bmi_data(sulcus_file, cache=False)
 
 #    n, p = Y.shape
 #    np.save(os.path.join(WD, 'X.npy'), X)
@@ -184,6 +187,6 @@ if __name__ == "__main__":
         proba.append(p)
 
     print "The minimum probability is:", min(min(proba))
-    sulcus_name = SULCI_FILENAMES[proba.index(min(proba))]
+    sulcus_name = sulci_file_list[proba.index(min(proba))]
     print ("Therefore, the sulcus whose mean geodesic depth is significant"
-           " in regard to BMI is:"), sulcus_name
+           " in regard to BMI is:"), sulcus_name[83:-4]
