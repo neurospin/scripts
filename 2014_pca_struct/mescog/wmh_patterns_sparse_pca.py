@@ -34,10 +34,7 @@ INPUT_DIR = os.path.join("/neurospin/",
 
 #
 INPUT_DATASET = os.path.join(INPUT_DIR,
-                             "CAD-WMH-MNI.npy")
-INPUT_SUBJECTS = os.path.join(INPUT_DIR,
-                             "CAD-WMH-MNI-subjects.txt")
-INPUT_MASK = os.path.join(INPUT_DIR, "wmh_mask.nii")
+                             "X_center.npy")
 
 INPUT_CSV = os.path.join(INPUT_DIR,
                          "population.csv")
