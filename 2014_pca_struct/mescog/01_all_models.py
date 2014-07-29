@@ -34,6 +34,8 @@ import pandas as pd
 import sklearn.decomposition
 from sklearn.cross_validation import StratifiedKFold
 
+import nibabel
+
 import parsimony.functions.nesterov.tv
 import pca_tv
 import metrics
@@ -49,7 +51,8 @@ INPUT_DIR = os.path.join("/neurospin/",
 
 INPUT_DATASET = os.path.join(INPUT_DIR,
                              "X.npy")
-
+INPUT_MASK = os.path.join(INPUT_DIR,
+                          "mask_bin.nii")
 INPUT_CSV = os.path.join(INPUT_DIR,
                          "population.csv")
 
@@ -91,9 +94,10 @@ PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 
 def load_globals(config):
     import mapreduce as GLOBAL
-    im_shape = config["im_shape"]
-    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
+    babel_mask = nibabel.load(config["mask_file"])
+    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_mask(babel_mask.get_data())
     GLOBAL.Atv = Atv
+    GLOBAL.MASK = babel_mask
 
 
 def resample(config, resample_nb):
@@ -175,8 +179,17 @@ def mapper(key, output_collector):
         X_test_predict = model.predict(X_test)
 
     # Compute Frobenius norm between original and recontructed datasets
-    frobenius_train = np.linalg.norm(X_train, X_train_predict, 'fro')
-    frobenius_test = np.linalg.norm(X_test, X_test_predict, 'fro')
+    frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
+    frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
+
+    # Compute explained variance ratio
+    evr_train = metrics.adjusted_explained_variance(X_train_transform)
+    evr_train /= np.var(X_train, axis=0).sum()
+    evr_test = metrics.adjusted_explained_variance(X_test_transform)
+    evr_test /= np.var(X_test, axis=0).sum()
+
+    # Remove predicted values (they are huge)
+    del X_train_predict, X_test_predict
 
     # Compute geometric metrics and norms of components
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
@@ -191,19 +204,11 @@ def mapper(key, output_collector):
         l2[i] = np.linalg.norm(V[:, i], 2)
         tv[i] = TV.f(V[:, i])
 
-    # Compute explained variance ratio
-    evr_train = metrics.adjusted_explained_variance(X_train_transform)
-    evr_train /= np.var(X_train, axis=0).sum()
-    evr_test = metrics.adjusted_explained_variance(X_test_transform)
-    evr_test /= np.var(X_test, axis=0).sum()
-
     ret = dict(frobenius_train=frobenius_train,
                frobenius_test=frobenius_test,
                components=V,
                X_train_transform=X_train_transform,
                X_test_transform=X_test_transform,
-               X_train_predict=X_train_predict,
-               X_test_predict=X_test_predict,
                evr_train=evr_train,
                evr_test=evr_test,
                l0=l0,
@@ -264,6 +269,22 @@ def reducer(key, values):
 
     return dict(sorted(scores.items(), key=lambda t: t[0]))
 
+def run_test(wd, config):
+    print "In run_test"
+    import mapreduce
+    os.chdir(wd)
+    params = config['params'][0]
+    key = '_'.join([str(p) for p in params])
+    load_globals(config)
+#    OUTPUT = os.path.join(wd, 'test', key)
+    OUTPUT = os.path.join('test', key)
+    oc = mapreduce.OutputCollector(OUTPUT)
+#    X = np.load(os.path.join(wd, config['data']['X']))
+    X = np.load(config['data']['X'])
+    mapreduce.DATA_RESAMPLED = {}
+    mapreduce.DATA_RESAMPLED["X"] = [X, X]
+    mapper(params, oc)
+
 #################
 # Actual script #
 #################
@@ -280,8 +301,9 @@ if __name__ == "__main__":
     skf = StratifiedKFold(y=y, n_folds=2)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
 
-    # Copy the learning data
+    # Copy the learning data & mask
     shutil.copy(INPUT_DATASET, OUTPUT_DIR)
+    shutil.copy(INPUT_MASK, OUTPUT_DIR)
 
     # Create files to synchronize with the cluster
     sync_push_filename, sync_pull_filename, CLUSTER_WD = \
@@ -291,7 +313,7 @@ if __name__ == "__main__":
     user_func_filename = os.path.abspath(__file__)
 
     config = dict(data=dict(X=os.path.basename(INPUT_DATASET)),
-                  im_shape=INPUT_SHAPE,
+                  mask_file=os.path.basename(INPUT_MASK),
                   params=PARAMS,
                   resample=resample_index,
                   map_output="results",
@@ -306,3 +328,7 @@ if __name__ == "__main__":
     # Create job files
     cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
     clust_utils.gabriel_make_qsub_job_files(OUTPUT_DIR, cluster_cmd)
+
+    DEBUG = False
+    if DEBUG:
+        run_test(OUTPUT_DIR, config)
