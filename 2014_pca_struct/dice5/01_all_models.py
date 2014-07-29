@@ -62,8 +62,9 @@ N_COMP = 3
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
 # Relative penalties
-SRUCTPCA_L1RATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
-SRUCTPCA_TVRATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
+# 0.33 ensures that there is a case with TV = L1 = L2
+TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
+L1RATIO = np.array([1, 0.5, 1e-1, 1e-2, 1e-3, 0])
 
 PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
 SPARSE_PCA_PARAMS = list(product(['sparse_pca'],
@@ -72,8 +73,8 @@ SPARSE_PCA_PARAMS = list(product(['sparse_pca'],
                                  [1.0]))
 STRUCT_PCA_PARAMS = list(product(['struct_pca'],
                                  GLOBAL_PENALTIES,
-                                 SRUCTPCA_TVRATIO,
-                                 SRUCTPCA_L1RATIO))
+                                 TVRATIO,
+                                 L1RATIO))
 
 PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 
@@ -124,6 +125,7 @@ def mapper(key, output_collector):
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = shape = X_train.shape
+    X_test = GLOBAL.DATA_RESAMPLED["X"][1]
 
     # A matrices
     Atv = GLOBAL.Atv
@@ -151,14 +153,30 @@ def mapper(key, output_collector):
     _time = t1-t0
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
+    # Save the projectors
     if (model_name == 'pca') or (model_name == 'sparse_pca'):
         V = model.components_.T
     if model_name == 'struct_pca':
         V = model.V
 
-    # Transform data
-    X_test = GLOBAL.DATA_RESAMPLED["X"][1]
-    X_transform = model.transform(X_test)
+    # Project train & test data
+    X_train_transform = model.transform(X_train)
+    X_test_transform = model.transform(X_test)
+
+    # Reconstruct train & test data
+    # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
+    # For StructPCA this is implemented in the predict method (which uses
+    # transform)
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+        X_train_predict = np.dot(X_train_transform, V.T)
+        X_test_predict = np.dot(X_test_transform, V.T)
+    if (model_name == 'struct_pca'):
+        X_train_predict = model.predict(X_train)
+        X_test_predict = model.predict(X_test)
+
+    # Compute Frobenius norm between original and recontructed datasets
+    frobenius_train = np.linalg.norm(X_train, X_train_predict, 'fro')
+    frobenius_test = np.linalg.norm(X_test, X_test_predict, 'fro')
 
     # Compute geometric metrics and norms of components
     masks = GLOBAL.masks
@@ -181,22 +199,18 @@ def mapper(key, output_collector):
         tv[i] = TV.f(V[:, i])
 
     # Compute explained variance ratio
-    evr_train = np.zeros((N_COMP,))
-    evr_test = np.zeros((N_COMP,))
-    for i in range(N_COMP):
-        # i first components
-        Vi = V[:, range(i+1)]
-        try:
-            evr_train[i] = metrics.adjusted_explained_variance(X_train, Vi)
-        except:
-            evr_train[i] = np.nan
-        try:
-            evr_test[i] = metrics.adjusted_explained_variance(X_test, Vi)
-        except:
-            evr_test[i] = np.nan
+    evr_train = metrics.adjusted_explained_variance(X_train_transform)
+    evr_train /= np.var(X_train, axis=0).sum()
+    evr_test = metrics.adjusted_explained_variance(X_test_transform)
+    evr_test /= np.var(X_test, axis=0).sum()
 
-    ret = dict(X_transform=X_transform,
+    ret = dict(frobenius_train=frobenius_train,
+               frobenius_test=frobenius_test,
                components=V,
+               X_train_transform=X_train_transform,
+               X_test_transform=X_test_transform,
+               X_train_predict=X_train_predict,
+               X_test_predict=X_test_predict,
                recall=recall,
                precision=precision,
                fscore=fscore,
