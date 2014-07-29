@@ -175,8 +175,8 @@ def mapper(key, output_collector):
         X_test_predict = model.predict(X_test)
 
     # Compute Frobenius norm between original and recontructed datasets
-    frobenius_train = np.linalg.norm(X_train, X_train_predict, 'fro')
-    frobenius_test = np.linalg.norm(X_test, X_test_predict, 'fro')
+    frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
+    frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
 
     # Compute geometric metrics and norms of components
     masks = GLOBAL.masks
