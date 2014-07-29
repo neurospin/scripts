@@ -6,12 +6,26 @@ Created on Mon Jul 21 09:49:41 2014
 
 Univariate correlation between residualized BMI and sulci features (mean
 geodesic depth, gray matter thickness, fold opening) on IMAGEN subjects.
+
 The resort to sulci -instead of considering images of anatomical structures-
 should prevent us from the artifacts that may be induced by the normalization
 step of the segmentation process.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry:
+    one .csv file for each sulcus containing relevant features
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: MUOLS
+
+OUTPUT: returns a probability for each sulcus file that the feature of
+        interest for this sulcus is significantly correlated to BMI.
+
 """
 
-import os, sys
+import os
+import sys
 import numpy as np
 import pandas as pd
 
@@ -24,11 +38,10 @@ sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
 import utils
 
 
-
 #############
 # Read data #
 #############
-# SNPs and BMI
+# Sulci and BMI
 def load_residualized_bmi_data(sulci_filename, cache):
     if not(cache):
 
@@ -45,8 +58,8 @@ def load_residualized_bmi_data(sulci_filename, cache):
 
         # Sulci feature of interest among geodesic depth mean ('depthMean'),
         # gray matter thickness ('GM_thickness') and opening ('opening')
-        sulci_feature = ['depthMean']
-        #sulci_feature = ['GM_thickness']
+        #sulci_feature = ['depthMean']
+        sulci_feature = ['GM_thickness']
         #sulci_feature = ['opening']
 
         sulci_df = sulci_df[sulci_feature]
@@ -56,8 +69,15 @@ def load_residualized_bmi_data(sulci_filename, cache):
                                                           'population.csv'),
                                              index_col=0)
 
+#        # Cofounds
+#        clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
+#                             'tiv_gaser', 'mean_pds']
+
+        # Add one cofound since sulci follows a power law
+        clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
+
         clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
-                             'tiv_gaser', 'mean_pds']
+                             'tiv_gaser', 'tiv2', 'mean_pds']
 
         clinical_df = clinical_df[clinical_cofounds]
 
@@ -107,7 +127,6 @@ def load_residualized_bmi_data(sulci_filename, cache):
     return X, Y
 
 
-
 #"""#
 #run#
 #"""#
@@ -148,18 +167,23 @@ if __name__ == "__main__":
 #    np.save(os.path.join(WD, 'X.npy'), X)
 #    np.save(os.path.join(WD, "Y.npy"), Y)
 
-        print "########################################################################"
-        print "# Perform Mass-Univariate Linear Modeling based Ordinary Least Squares #"
-        print "########################################################################"
-    
+        print "##############################################################"
+        print ("# Perform Mass-Univariate Linear Modeling "
+               "based Ordinary Least Squares #")
+        print "##############################################################"
+
         #MUOLS
         bigols = MUOLS()
         bigols.fit(X, Y)
         s, p = bigols.stats_t_coefficients(X, Y,
-                            contrast=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.],
-                            pval=True)
+#                contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
+                # if add one more cofound
+                contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
+                pval=True)
         #stat.append(s)
         proba.append(p)
-    
-    sulcus = SULCI_FILENAMES[proba.index(max(proba))]
-    print "Sulcus whose mean geodesic depth is the most associated to BMI:", sulcus
+
+    print "The minimum probability is:", min(min(proba))
+    sulcus_name = SULCI_FILENAMES[proba.index(min(proba))]
+    print ("Therefore, the sulcus whose mean geodesic depth is significant"
+           " in regard to BMI is:"), sulcus_name

@@ -109,7 +109,7 @@ to the putamen.
 
 #############################################################################
 
-21_cv_mult#############################################################################ivariate_bmi_SNPs_opt_hyperparameter.py:
+21_cv_multivariate_bmi_SNPs_opt_hyperparameter.py:
 CV using mapreduce and ElasticNet between SNPs and BMI to check out whether
 the selected SNPs (from Graff - 2012 - Nature, Speliotes - 2011 - Nature,
 Guo - 2013 - Human Molecular Genetics) are relevant and strongly associated

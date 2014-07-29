@@ -22,15 +22,15 @@ from subprocess import Popen, PIPE, STDOUT
 
 
 # Pathnames
-INPUT_DIR = "/neurospin/brainomics/bioinformatics_resources/data/"
+INPUT_DIR = '/neurospin/brainomics/bioinformatics_resources/data/'
 INPUT_REFGENE_META = os.path.join(INPUT_DIR,
-                                  "genetics",
-                                  "hg19.refGene.meta")
+                                  'genetics',
+                                  'hg19.refGene.meta')
 INPUT_SNP138 = os.path.join(INPUT_DIR,
-                            "snps",
-                            "cleaned_snp138Common.txt")
+                            'snps',
+                            'cleaned_snp138Common.txt')
 
-OUTPUT_DIR = "reference_genetics"
+OUTPUT_DIR = 'reference_genetics'
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
@@ -56,7 +56,7 @@ SNP_CMD_PATTERN = "awk '{{if (($2==\"{chrom}\") && ($4>={start}) && ($4<={stop})
 # Get snps' info for each gene
 gene_filenames = []
 for gene in TEST_GENES:
-    print "Gene:", gene
+    print 'Gene:', gene
     # Find chromosome and position for each gene
     cmd = CHR_CMD_PATTERN.format(gene=gene,
                                  meta=INPUT_REFGENE_META)
@@ -81,8 +81,8 @@ for gene in TEST_GENES:
     snp_info = output.split('\n')[:-1]
 
     # Write results for each gene in a txt file
-    snp_file_path = os.path.join(OUTPUT_DIR, "%s.snp" % gene)
-    with open(snp_file_path, "w") as f:
+    snp_file_path = os.path.join(OUTPUT_DIR, '%s.snp' % gene)
+    with open(snp_file_path, 'w') as f:
         for snp in snp_info:
             print >> f, snp
     gene_filenames.append(snp_file_path)
