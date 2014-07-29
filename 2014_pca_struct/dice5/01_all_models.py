@@ -42,7 +42,7 @@ INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
 INPUT_BASE_DATA_DIR = os.path.join(INPUT_BASE_DIR, "data")
 INPUT_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
                                 "data_{s[0]}_{s[1]}_{snr}")
-INPUT_STD_DATASET_FILE_FORMAT = "data.std.npy"
+INPUT_STD_DATASET_FILE = "data.std.npy"
 INPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 
@@ -310,13 +310,11 @@ if __name__ == '__main__':
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Create a link to the learning data
-        datafile = INPUT_STD_DATASET_FILE_FORMAT.format(snr=snr)
-        src_datafile = os.path.join(input_dir, datafile)
-        dst_datafile = os.path.join(output_dir, datafile)
-        shutil.copy(src_datafile, dst_datafile)
+        # Copy the learning data
+        src_datafile = os.path.join(input_dir, INPUT_STD_DATASET_FILE)
+        shutil.copy(src_datafile, output_dir)
 
-        # Create a link to the objects masks
+        # Copy the objects masks
         for i in range(N_COMP):
             filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
             src_filename = os.path.join(input_dir, filename)
@@ -329,9 +327,8 @@ if __name__ == '__main__':
 
         # Create config file
         user_func_filename = os.path.abspath(__file__)
-        cluster_datafile = os.path.join(CLUSTER_WD, datafile)
 
-        config = dict(data=dict(X=cluster_datafile),
+        config = dict(data=dict(X=INPUT_STD_DATASET_FILE),
                       im_shape=INPUT_SHAPE,
                       params=PARAMS,
                       resample=[indices, rev_indices],
