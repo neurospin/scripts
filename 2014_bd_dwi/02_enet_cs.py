@@ -11,6 +11,7 @@ import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import roc_auc_score
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
@@ -30,7 +31,11 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
 def mapper(key, output_collector):
@@ -71,11 +76,15 @@ def mapper(key, output_collector):
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask)
+    y_post = mod.predict_probability(Xte_r) # probability posteriori
+    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask, 
+               y_post=y_post)
     if output_collector:
         output_collector.collect(key, ret)
     else:
         return ret
+        
+    
 
 def reducer(key, values):
     # key : string of intermediary key
@@ -84,20 +93,20 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    values = [item.load() for item in values]
+    values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
-    y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]
-    y_true = np.concatenate(y_true)
-    y_pred = np.concatenate(y_pred)
+    y_true = np.concatenate([item["y_true"].ravel() for item in values])
+    y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
+    y_post = np.concatenate([item["y_post"].ravel() for item in values])
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = None
+    area = roc_auc_score(y_true, y_post) #area under curve score. 
     scores = dict(key=key,
                recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
                precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
                f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite)
+               support_0=s[0] , support_1=s[1], n_ite=n_ite, area=area)
     return scores
 
 
@@ -106,17 +115,18 @@ def reducer(key, values):
 def run_all(config):
     import mapreduce
     WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
-    key = '0.01_0.01_0.98_0.01_10000'
+    key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
+    OUTPUT = os.path.join(WD, 'test', key)
     # run /home/ed203246/bin/mapreduce.py
     oc = mapreduce.OutputCollector(OUTPUT)
     #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
     X = np.load(os.path.join(WD, 'X.npy'))
     y = np.load(os.path.join(WD, 'Y.npy'))
-    mapreduce.DATA["X"] = [X, X]
-    mapreduce.DATA["y"] = [y, y]
+    mapreduce.DATA_RESAMPLED = {}
+    mapreduce.DATA_RESAMPLED["X"] = [X, X]
+    mapreduce.DATA_RESAMPLED["y"] = [y, y]
     params = np.array([float(p) for p in key.split("_")])
     mapper(params, oc)
     #oc.collect(key=key, value=ret)
@@ -153,6 +163,7 @@ if __name__ == "__main__":
     ## Create config file
     y = np.load(INPUT_DATA_y)
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    cv.insert(0, None)  # first fold is None
     # parameters grid
     # Re-run with
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
