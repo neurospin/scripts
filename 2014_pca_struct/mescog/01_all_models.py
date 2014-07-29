@@ -4,17 +4,19 @@ Created on Wed May 28 12:08:39 2014
 
 @author: md238665
 
-Process dice5 datasets with standard PCA, sklearn SparsePCA and our
-structured PCA.
+Process mescog/proj_wmh_patterns datasets with standard PCA, sklearn SparsePCA
+and our structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
-We generate a map_reduce configuration file for each dataset and the files
-needed to run on the cluster.
-Due to the cluster setup and the way mapreduce work we need to copy the datsets
-and the masks on the cluster. Therefore we copy them on the output directory
-which is synchronised on the cluster.
+We generate a map_reduce configuration file and the files needed to run on the
+cluster.
+Due to the cluster setup and the way mapreduce work we need to copy the datset
+on the cluster. Therefore we copy them on the output directory which is
+synchronised on the cluster.
 
-The output directory is results/data_{shape}_{snr}.
+The output directory is results.
+
+This file was copied from scripts/2014_pca_struct/dice5/01_all_models.py.
 
 """
 
@@ -27,8 +29,10 @@ from itertools import product
 
 import numpy as np
 import scipy
+import pandas as pd
 
 import sklearn.decomposition
+from sklearn.cross_validation import StratifiedKFold
 
 import parsimony.functions.nesterov.tv
 import pca_tv
@@ -36,27 +40,30 @@ import metrics
 
 import brainomics.cluster_gabriel as clust_utils
 
-import dice5_pca
+##################
+# Input & output #
+##################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
-INPUT_BASE_DATA_DIR = os.path.join(INPUT_BASE_DIR, "data")
-INPUT_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
-                                "data_{s[0]}_{s[1]}_{snr}")
-INPUT_STD_DATASET_FILE = "data.std.npy"
-INPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
-INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
+INPUT_DIR = os.path.join("/neurospin/",
+                         "mescog", "proj_wmh_patterns")
 
-INPUT_SHAPE = (100, 100, 1)
-INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.5, 1.0]
+INPUT_DATASET = os.path.join(INPUT_DIR,
+                             "X.npy")
 
-OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
-OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
-                                 "data_{s[0]}_{s[1]}_{snr}")
+INPUT_CSV = os.path.join(INPUT_DIR,
+                         "population.csv")
+
+OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
+                          "2014_pca_struct", "mescog")
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
 
 ##############
 # Parameters #
 ##############
+
+# Real shape of images
+INPUT_SHAPE = (182, 218, 182)
 
 N_COMP = 3
 # Global penalty
@@ -83,17 +90,10 @@ PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 #############
 
 def load_globals(config):
-    global INPUT_OBJECT_MASK_FILE_FORMAT
     import mapreduce as GLOBAL
-    # Read masks
-    masks = []
-    for i in range(N_COMP):
-        filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-        masks.append(np.load(filename))
     im_shape = config["im_shape"]
     Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
-    GLOBAL.masks = masks
 
 
 def resample(config, resample_nb):
@@ -179,19 +179,12 @@ def mapper(key, output_collector):
     frobenius_test = np.linalg.norm(X_test, X_test_predict, 'fro')
 
     # Compute geometric metrics and norms of components
-    masks = GLOBAL.masks
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
     l0 = np.zeros((N_COMP,))
     l1 = np.zeros((N_COMP,))
     l2 = np.zeros((N_COMP,))
     tv = np.zeros((N_COMP,))
-    recall = np.zeros((N_COMP,))
-    precision = np.zeros((N_COMP,))
-    fscore = np.zeros((N_COMP,))
     for i in range(N_COMP):
-        #masks.append(mask)
-        precision[i], recall[i], fscore[i] = \
-          dice5_pca.dice_five_geometric_metrics(masks[i], V[:, i])
         # Norms
         l0[i] = np.linalg.norm(V[:, i], 0)
         l1[i] = np.linalg.norm(V[:, i], 1)
@@ -211,9 +204,6 @@ def mapper(key, output_collector):
                X_test_transform=X_test_transform,
                X_train_predict=X_train_predict,
                X_test_predict=X_test_predict,
-               recall=recall,
-               precision=precision,
-               fscore=fscore,
                evr_train=evr_train,
                evr_test=evr_test,
                l0=l0,
@@ -232,9 +222,6 @@ def reducer(key, values):
     values = [item.load() for item in values]
 
     comp_list = [item["components"] for item in values]
-    precisions = np.vstack([item["precision"] for item in values])
-    recalls = np.vstack([item["recall"] for item in values])
-    fscores = np.vstack([item["fscore"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
@@ -244,9 +231,6 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each component
-    av_precision = precisions.mean(axis=0)
-    av_recall = recalls.mean(axis=0)
-    av_fscore = fscores.mean(axis=0)
     av_evr_train = evr_train.mean(axis=0)
     av_evr_test = evr_test.mean(axis=0)
     av_l0 = l0.mean(axis=0)
@@ -262,12 +246,6 @@ def reducer(key, values):
         correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
     scores = dict(key=key,
-                  recall_0=av_recall[0], recall_1=av_recall[1],
-                  recall_2=av_recall[2], recall_mean=np.mean(av_recall),
-                  precision_0=av_precision[0], precision_1=av_precision[1],
-                  precision_2=av_precision[2], precision_mean=np.mean(av_precision),
-                  fscore_0=av_fscore[0], fscore_1=av_fscore[1],
-                  fscore_2=av_fscore[2], fscore_mean=np.mean(av_fscore),
                   correlation_0=correlation[0], correlation_1=correlation[1],
                   correlation_2=correlation[2], correlation_mean=np.mean(correlation),
                   evr_train_0=av_evr_train[0], evr_train_1=av_evr_train[1],
@@ -290,57 +268,41 @@ def reducer(key, values):
 # Actual script #
 #################
 
-if __name__ == '__main__':
-    # Create a mapreduce config file for each dataset
-    for snr in INPUT_SNRS:
-        input_dir = INPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
-                                            snr=snr)
-        # Read indices
-        indices = []
-        for i in range(INPUT_N_SUBSETS):
-            filename = INPUT_INDEX_FILE_FORMAT.format(subset=i)
-            full_filename = os.path.join(input_dir, filename)
-            indices.append(np.load(full_filename).tolist())
-        rev_indices = indices[::-1]
+if __name__ == "__main__":
 
-        # Local output directory for this dataset
-        output_dir = os.path.join(OUTPUT_BASE_DIR,
-                                  OUTPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
-                                                           snr=snr))
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    # Read clinic status (used to split groups)
+    clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
+    clinic_subjects_id = clinic_data.index
+    print "Found", len(clinic_subjects_id), "clinic records"
 
-        # Copy the learning data
-        src_datafile = os.path.join(input_dir, INPUT_STD_DATASET_FILE)
-        shutil.copy(src_datafile, output_dir)
+    # Stratification of subjects
+    y = clinic_data['SITE'].map({'FR': 0, 'GE': 1})
+    skf = StratifiedKFold(y=y, n_folds=2)
+    resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
 
-        # Copy the objects masks
-        for i in range(N_COMP):
-            filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-            src_filename = os.path.join(input_dir, filename)
-            dst_filename = os.path.join(output_dir, filename)
-            shutil.copy(src_filename, dst_filename)
+    # Copy the learning data
+    shutil.copy(INPUT_DATASET, OUTPUT_DIR)
 
-        # Create files to synchronize with the cluster
-        sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-        clust_utils.gabriel_make_sync_data_files(output_dir)
+    # Create files to synchronize with the cluster
+    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
+    clust_utils.gabriel_make_sync_data_files(OUTPUT_DIR)
 
-        # Create config file
-        user_func_filename = os.path.abspath(__file__)
+    # Create config file
+    user_func_filename = os.path.abspath(__file__)
 
-        config = dict(data=dict(X=INPUT_STD_DATASET_FILE),
-                      im_shape=INPUT_SHAPE,
-                      params=PARAMS,
-                      resample=[indices, rev_indices],
-                      map_output="results",
-                      user_func=user_func_filename,
-                      ncore=4,
-                      reduce_input="results/*/*",
-                      reduce_group_by="results/.*/(.*)",
-                      reduce_output="results.csv")
-        config_full_filename = os.path.join(output_dir, "config.json")
-        json.dump(config, open(config_full_filename, "w"))
+    config = dict(data=dict(X=os.path.basename(INPUT_DATASET)),
+                  im_shape=INPUT_SHAPE,
+                  params=PARAMS,
+                  resample=resample_index,
+                  map_output="results",
+                  user_func=user_func_filename,
+                  ncore=4,
+                  reduce_input="results/*/*",
+                  reduce_group_by="results/.*/(.*)",
+                  reduce_output="results.csv")
+    config_full_filename = os.path.join(OUTPUT_DIR, "config.json")
+    json.dump(config, open(config_full_filename, "w"))
 
-        # Create job files
-        cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
-        clust_utils.gabriel_make_qsub_job_files(output_dir, cluster_cmd)
+    # Create job files
+    cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
+    clust_utils.gabriel_make_qsub_job_files(OUTPUT_DIR, cluster_cmd)
