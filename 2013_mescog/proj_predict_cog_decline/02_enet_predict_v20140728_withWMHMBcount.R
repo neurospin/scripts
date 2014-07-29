@@ -1,24 +1,18 @@
-require(ggplot2)
+#require(ggplot2)
 require(glmnet)
-require(reshape)
-library(RColorBrewer)
-library(plyr)
-
-#display.brewer.pal(6, "Paired")
-palette = brewer.pal(6, "Paired")[c(1, 2, 5, 6)][c(1, 3, 2, 4)]
+#require(reshape)
+#library(RColorBrewer)
+#library(plyr)
 
 SRC = paste(Sys.getenv("HOME"),"git/scripts/2013_mescog/proj_predict_cog_decline",sep="/")
 BASE_DIR = "/neurospin/mescog/proj_predict_cog_decline"
 
 # INPUT ---
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140128_imputed_lm.csv", sep="/")
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140204_nomissing_BPF-LLV_imputed_lm.csv", sep="/")
-#INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140205_nomissing_BPF-LLV_imputed.csv", sep="/")
 INPUT_DATA = paste(BASE_DIR, "data", "dataset_clinic_niglob_20140728_nomissing_BPF-LLV_imputed.csv", sep="/")
 
 # OUTPUT ---
-OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "M36", sep="/")
-#OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "CHANGE", sep="/")
+#OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "M36", sep="/")
+OUTPUT = paste(BASE_DIR, sub(".csv", "", sub("dataset_clinic_niglob_", "", basename(INPUT_DATA))), "enet", "CHANGE", sep="/")
 
 if (!file.exists(OUTPUT)) dir.create(OUTPUT)
 VALIDATION = "CV"
@@ -45,7 +39,7 @@ db$DB$MMSE.CHANGE = (db$DB$MMSE.M36 - db$DB$MMSE)
 ## SIMPLE ENET PREDICTION NO PLOT/PERM etc.
 ################################################################################################
 # M36 ~ M0
-if(TRUE){
+if(FALSE){
 PNZEROS = 0.5# c(.1, .25 , .5, .75)
 ALPHAS = 0.25# seq(0, 1, .25)
 #SEEDS = seq(1, 100)
@@ -53,7 +47,7 @@ if(VALIDATION == "CV") SEEDS = 11
 if(VALIDATION == "FR-GE") SEEDS = 50
 TARGETS = db$col_targets
 }
-if(FALSE){
+if(TRUE){
 # CHANGES ~ M0
 PNZEROS = 0.5# c(.1, .25 , .5, .75)
 ALPHAS = 0.25# seq(0, 1, .25)
