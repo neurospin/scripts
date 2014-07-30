@@ -4,23 +4,18 @@ Created on Tue Jul 29 17:48:18 2014
 
 @author: hl237680
 
-Multivariate correlation between residualized BMI and one feature of interest
-(mean geodesic depth, gray matter thickness, fold opening) along all sulci on
-IMAGEN subjects:
+Multivariate correlation between residualized BMI and one subcortical feature
+of interest:
    CV using mapreduce and ElasticNet between the feature of interest and BMI.
 
-The resort to sulci -instead of considering images of anatomical structures-
-should prevent us from the artifacts that may be induced by the normalization
-step of the segmentation process.
-
+The resort to Freesurfer should prevent us from the artifacts that may be
+induced by the normalization step of the SPM segmentation process.
 
 INPUT:
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry:
-    .csv files containing relevant features for each sulcus of interest
-    that are merged into one single dataframe (subject_id vs. same feature
-    along all sulci)
+- /neurospin/brainomics/2013_imagen_bmi/data/Freesurfer:
+   .csv file containing volume of subcortical structures obtained by Freesurfer
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
-    BMI of the 1265 subjects for which we also have neuroimaging data
+   BMI of the 1265 subjects for which we also have neuroimaging data
 
 METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         maximizes the correlation between predicted BMI values via the Linear
