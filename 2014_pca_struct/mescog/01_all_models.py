@@ -58,8 +58,6 @@ INPUT_CSV = os.path.join(INPUT_DIR,
 
 OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
                           "2014_pca_struct", "mescog")
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
 
 ##############
 # Parameters #
@@ -164,8 +162,12 @@ def mapper(key, output_collector):
         V = model.V
 
     # Project train & test data
-    X_train_transform = model.transform(X_train)
-    X_test_transform = model.transform(X_test)
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+        X_train_transform = model.transform(X_train)
+        X_test_transform = model.transform(X_test)
+    if (model_name == 'struct_pca'):
+        X_train_transform, _ = model.transform(X_train)
+        X_test_transform, _ = model.transform(X_test)
 
     # Reconstruct train & test data
     # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
@@ -269,17 +271,16 @@ def reducer(key, values):
 
     return dict(sorted(scores.items(), key=lambda t: t[0]))
 
+
 def run_test(wd, config):
     print "In run_test"
     import mapreduce
     os.chdir(wd)
-    params = config['params'][0]
+    params = config['params'][-1]
     key = '_'.join([str(p) for p in params])
     load_globals(config)
-#    OUTPUT = os.path.join(wd, 'test', key)
     OUTPUT = os.path.join('test', key)
     oc = mapreduce.OutputCollector(OUTPUT)
-#    X = np.load(os.path.join(wd, config['data']['X']))
     X = np.load(config['data']['X'])
     mapreduce.DATA_RESAMPLED = {}
     mapreduce.DATA_RESAMPLED["X"] = [X, X]
@@ -290,6 +291,8 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
 
     # Read clinic status (used to split groups)
     clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
