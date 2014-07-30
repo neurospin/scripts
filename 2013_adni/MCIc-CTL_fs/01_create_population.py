@@ -61,7 +61,7 @@ assert input_subjects_fs.shape == (455, 3)
 
 # intersect with subject with image
 clinic = clinic.merge(input_subjects_fs, on="PTID")
-assert  clinic.shape == (455, 94)
+assert  clinic.shape == (455, 96)
 
 # Extract sub-population 
 # MCIc = MCI at bl converion to AD within 800 days
