@@ -53,8 +53,7 @@ def load_residualized_bmi_data(sulcus_file, cache):
                                      index_col=0)
 
         # Sulcus: dataframe for study of sulci
-        sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH,
-                                                       sulcus_file),
+        sulci_df = pd.io.parsers.read_csv(sulcus_file,
                                           sep=';',
                                           index_col=0)
 
