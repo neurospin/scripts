@@ -85,7 +85,7 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    values = [item.load() for item in values]
+    values = [item.load() for item in values[1:]]
     #recall_mean_std = np.std([np.mean(r2_score(
     #    item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
