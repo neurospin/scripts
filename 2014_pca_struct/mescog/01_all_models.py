@@ -58,8 +58,6 @@ INPUT_CSV = os.path.join(INPUT_DIR,
 
 OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
                           "2014_pca_struct", "mescog")
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
 
 ##############
 # Parameters #
@@ -293,6 +291,8 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
 
     # Read clinic status (used to split groups)
     clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
