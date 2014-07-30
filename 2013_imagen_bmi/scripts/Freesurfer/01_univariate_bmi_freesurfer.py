@@ -81,7 +81,7 @@ def load_residualized_bmi_data(cache):
         freesurfer_df = freesurfer_df.set_index(freesurfer_index)
 
         # Parameters of subcortical structure of interest
-        freesurfer_feature = ['SubCortGrayVol']
+        freesurfer_feature = ['lhCortexVol']
         # Other parameters to be considered
         #'ICV', 'lhCortexVol', 'rhCortexVol', 'CortexVol', 'SubCortGrayVol',
         #'TotalGrayVol', 'SupraTentorialVol', 'lhCorticalWhiteMatterVol',
