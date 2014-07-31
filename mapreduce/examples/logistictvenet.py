@@ -9,7 +9,7 @@ import nibabel
 from sklearn.metrics import precision_recall_fscore_support
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
-
+from collections import OrderedDict
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
@@ -37,13 +37,16 @@ def mapper(key, output_collector):
     k, l, g = alpha * np.array((ratio_k, ratio_l, ratio_g))
     mod = LogisticRegressionL1L2TV(k, l, g, GLOBAL.A, class_weight="auto")
     y_pred = mod.fit(Xtrain, ytrain).predict(Xtest)
-    ret = dict(model=mod, y_pred=y_pred, y_true=ytest, beta=mod.beta)
+    ret = OrderedDict((('model', mod),
+                       ('y_pred', y_pred),
+                       ('y_true', ytest),
+                       ('beta', mod.beta)))
     output_collector.collect(key, ret)
 
 
 def reducer(key, values):
     # key : string of intermediary key
-    # values are OutputCollerctors containing a path to the results.
+    # values are OutputCollectors containing a path to the results.
     # load return dict correspondning to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]

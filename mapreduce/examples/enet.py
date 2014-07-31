@@ -6,7 +6,7 @@ import tempfile
 from sklearn.cross_validation import KFold
 from sklearn.linear_model import ElasticNet
 from sklearn.metrics import r2_score
-
+from collections import OrderedDict
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
@@ -33,12 +33,12 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
-    # values are OutputCollerctors containing a path to the results.
+    # values are OutputCollectors containing a path to the results.
     # load return dict correspondning to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
-    return dict(param=key, r2=r2_score(y_true, y_pred))
+    return OrderedDict((('param', key), ('r2', r2_score(y_true, y_pred))))
 
 
 if __name__ == "__main__":

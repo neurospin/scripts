@@ -13,6 +13,7 @@ import nibabel
 from multiprocessing import Process, cpu_count
 import numpy as np
 import pandas as pd
+from collections import OrderedDict
 
 # Global data
 DATA = dict()
@@ -320,10 +321,19 @@ if __name__ == "__main__":
             print "== Groups found:"
             print groups
         # Do the reduce
-        scores = list()
+        scores = None  # Dict of all the results
         for k in groups:
             try:
-                scores.append(user_func.reducer(key=k, values=groups[k]))
+                # Results for this key
+                score = user_func.reducer(key=k, values=groups[k])
+                # Append those results to scores
+                if scores is None:  # Init
+                    scores = OrderedDict.fromkeys(score.keys())
+                for key, value in score.items():
+                    if scores[key] is None:  # On first insert we have None
+                        scores[key] = [value]
+                    else:  # Append to the list of values
+                        scores[key].append(value)
             except Exception, e:
 #                pass
                 print "Reducer failed in %s" % k, groups[k]
