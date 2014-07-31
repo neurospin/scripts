@@ -40,7 +40,7 @@ import utils
 #############
 # Read data #
 #############
-# Sulci and BMI
+# Subcortical features and BMI
 def load_residualized_bmi_data(cache):
     if not(cache):
         # BMI
@@ -192,6 +192,8 @@ if __name__ == "__main__":
     s, p = bigols.stats_t_coefficients(X, Y,
                     contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
                     pval=True)
+    if (p > 0.95):
+        p = 1 - p
     #stat.append(s)
     proba.append(p)
 
