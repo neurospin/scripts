@@ -40,28 +40,28 @@ D$ALCOHOL = as.factor(sub(1, "None", sub(2, '2 drink/day', sub(3, '>2 drink/day'
 # cada={1:"current", 2:"never", 3:"former"}
 D$SMOKING = as.factor(sub(1, "Current", sub(2, "Never", sub(3, "Former", round(D$SMOKING)))))
 
-v = "SEX"
-num = NULL
-cate = NULL
-d = D[, colnames(D)[!(colnames(D) %in% "ID")]]
-for(v in colnames(d))
-if(is.numeric(d[,v])){
-  num = rbind(num, data.frame(var=v,
-  N=sum(!is.na(d[, v])),
-  Mean=round(mean(d[, v], na.rm=TRUE),2),
-  Sd=round(sd(d[, v], na.rm=TRUE),2),
-  #median(d[, v], na.rm=TRUE),
-  min=round(min(d[, v], na.rm=TRUE),2),
-  max=round(max(d[, v], na.rm=TRUE),2)))
-}else{
-  t=table(d[,v])
-  string = ""
-  for(n in names(t)) string = paste(string, n, ":", t[n], " (", round(t[n]/sum(t), 2)*100, "%), ", sep="")
-  string = sub(", $", "", string)
-  cate = rbind(cate, data.frame(var=v, "count"= string))
-}
-num
-cate
+# v = "SEX"
+# num = NULL
+# cate = NULL
+# d = D[, colnames(D)[!(colnames(D) %in% "ID")]]
+# for(v in colnames(d))
+# if(is.numeric(d[,v])){
+#   num = rbind(num, data.frame(var=v,
+#   N=sum(!is.na(d[, v])),
+#   Mean=round(mean(d[, v], na.rm=TRUE),2),
+#   Sd=round(sd(d[, v], na.rm=TRUE),2),
+#   #median(d[, v], na.rm=TRUE),
+#   min=round(min(d[, v], na.rm=TRUE),2),
+#   max=round(max(d[, v], na.rm=TRUE),2)))
+# }else{
+#   t=table(d[,v])
+#   string = ""
+#   for(n in names(t)) string = paste(string, n, ":", t[n], " (", round(t[n]/sum(t), 2)*100, "%), ", sep="")
+#   string = sub(", $", "", string)
+#   cate = rbind(cate, data.frame(var=v, "count"= string))
+# }
+# num
+# cate
 
 write.csv(num, OUTPUT_POP, row.names=F)
 
