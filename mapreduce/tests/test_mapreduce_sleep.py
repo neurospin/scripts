@@ -46,7 +46,7 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
-    # values are OutputCollerctors containing a path to the results.
+    # values are OutputCollectors containing a path to the results.
     # load return dict correspondning to mapper ouput. they need to be loaded.
     return dict(param=key)
 
