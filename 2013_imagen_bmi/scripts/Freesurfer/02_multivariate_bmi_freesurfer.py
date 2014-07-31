@@ -101,73 +101,73 @@ def reducer(key, values):
 # Read data #
 #############
 # Load data on BMI
-# Load dataframe containing sulci .csv files horizontally (i.e. row-wise)
-# merged
+# Load dataframe containing features of subcortical structures extracted by
+# Freesurfer
 def load_residualized_bmi_data(cache):
     if not(cache):
         # BMI
-        BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"),
-                                     sep=',',
-                                     index_col=0)
+        BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
+                                        sep=',',
+                                        index_col=0)
 
-        # Sulci feature of interest among geodesic depth mean ('depthMean'),
-        # gray matter thickness ('GM_thickness') and opening ('opening')
-        #sulci_feature = ['depthMean']
-        features = ['GM_thickness']
-        # List all files containing information on sulci
-        sulci_file_list = []
-        for file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
-            sulci_file_list.append(file)
+        # Freesurfer
+        labels = np.genfromtxt(os.path.join(FREESURFER_PATH,
+                                    'IMAGEN_Freesurfer_data_29juil2014.csv'),
+                                dtype=None,
+                                delimiter=',',
+                                skip_header=1,
+                                usecols=1)
 
-        # Initialize dataframe that will contain data from all .csv sulci files
-        all_sulci_df = None
-        # Iterate along sulci files
-        for i, s in enumerate(sulci_file_list):
-            sulc_name = s[83:-4]
-            colname = ['_'.join((sulc_name, feature)) for feature in features]
-            # Read each .csv file and select column with features of interest
-            sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH, s),
-                                              sep=';',
-                                              index_col=0)[features]
-            # Rename columns according to the sulcus considered
-            sulci_df.columns = colname
-            if all_sulci_df is None:
-                all_sulci_df = sulci_df
-            else:
-                all_sulci_df = all_sulci_df.join(sulci_df)
+        subject_labels = []
+        for i, s in enumerate(labels):
+            subject_labels.append(int(s[25:]))
+
+        freesurfer_index = pd.Index(subject_labels)
+
+        # Freesurfer's spreadsheet from IMAGEN database
+        freesurfer_df = pd.io.parsers.read_csv(os.path.join(FREESURFER_PATH,
+                                    'IMAGEN_Freesurfer_data_29juil2014.csv'),
+                                        sep=',',
+                                        usecols=['ICV',
+                                                 'lhCortexVol',
+                                                 'rhCortexVol',
+                                                 'CortexVol',
+                                                 'SubCortGrayVol',
+                                                 'TotalGrayVol',
+                                                 'SupraTentorialVol',
+                                                 'lhCorticalWhiteMatterVol',
+                                                 'rhCorticalWhiteMatterVol',
+                                                 'CorticalWhiteMatterVol'])
+
+        # Set the new dataframe index: subjects ID in the right format
+        freesurfer_df = freesurfer_df.set_index(freesurfer_index)
 
         # Dataframe for picking out only clinical cofounds of non interest
         clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
                                                           'population.csv'),
                                              index_col=0)
 
-       # Cofounds
-#        clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
-#                             'tiv_gaser', 'mean_pds']
-
-        # Add one cofound since sulci follows a power law
-        clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
-
+        # Cofounds
         clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
-                             'tiv_gaser', 'tiv2', 'mean_pds']
+                             'tiv_gaser', 'mean_pds']
 
         clinical_df = clinical_df[clinical_cofounds]
 
         # Consider subjects for which we have neuroimaging and genetic data
         subjects_id = np.genfromtxt(os.path.join(DATA_PATH,
-                                                 "subjects_id.csv"),
+                                                 'subjects_id.csv'),
                                     dtype=None,
                                     delimiter=',',
                                     skip_header=1)
 
-        sulci_data = all_sulci_df.loc[subjects_id]
+        freesurfer_data = freesurfer_df.loc[subjects_id]
 
         # Drop rows that have any NaN values
-        sulci_data = sulci_data.dropna()
+        freesurfer_data = freesurfer_data.dropna()
 
         # Get indices of subjects fot which we have both neuroimaging and
         # genetic data, but also sulci features
-        index = sulci_data.index
+        index = freesurfer_data.index
 
         # Keep only subjects for which we have ALL data (neuroimaging,
         # genetic data, sulci features)
@@ -179,7 +179,7 @@ def load_residualized_bmi_data(cache):
                                     regressors=clinical_cofounds).as_matrix()
 
         # Concatenate BMI and covariates
-        design_mat = np.hstack((covar, sulci_data))
+        design_mat = np.hstack((covar, freesurfer_data))
 
         X = design_mat
         # Center & scale X
@@ -218,13 +218,12 @@ if __name__ == "__main__":
     DATA_PATH = os.path.join(BASE_PATH, 'data')
     CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
     BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
-    SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
-    SULCI_FILENAMES = os.listdir(SULCI_PATH)
+    FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
 
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_sulci_cache_IMAGEN')
+                              'bmi_Freesurfer_cache_IMAGEN')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
@@ -242,7 +241,7 @@ if __name__ == "__main__":
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
     params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001,
                0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100]
-               for l1_ratio in np.arange(0.4, 1., .1)])
+               for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
                                       '2013_imagen_bmi', "scripts", 'Sulci',
