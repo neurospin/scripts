@@ -12,52 +12,28 @@ cd /neurospin/brainomics/2013_adni/freesurfer_template
 mris_convert /i2bm/local/freesurfer/subjects/fsaverage/surf/lh.pial ./lh.pial.gii
 mris_convert /i2bm/local/freesurfer/subjects/fsaverage/surf/rh.pial ./rh.pial.gii
 
-Concat l & r mesh
-=================
 
-import brainomics.mesh_processing as mesh_utils
-BASE_PATH = "/neurospin/brainomics/2013_adni/"
-TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
-cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lh.pial.gii"))
-cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "rh.pial.gii"))
-cor = np.vstack([cor_l, cor_r])
-tri_r += cor_l.shape[0]
-tri = np.vstack([tri_l, tri_r])
-mesh_utils.mesh_from_arrays(cor, tri, path=os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
 
 """
 import os
 import numpy as np
+import scipy.sparse as sparse
 
 BASE_PATH = "/neurospin/brainomics/2013_adni/"
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
 OUTPUT = os.path.join(BASE_PATH, "MCIc-CTL_fs")
 
 import numpy as np
-
 import brainomics.mesh_processing as mesh_utils
-cor, tri = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
+mesh_coord, mesh_triangles = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
 
-nodes_with_edges = [[] for i in xrange(cor.shape[0])]
+# params
+
 mask = np.load(os.path.join(OUTPUT, "mask.npy"))
-assert mask.shape[0] ==  cor.shape[0]
 
-def connect_edge_to_node(node_idx1, node_idx2, nodes_with_edges):
-        if np.sum(cor[node_idx1] - cor[node_idx2]) >= 0: # attach edge to first node
-            edge = [node_idx1, node_idx2]
-            if not edge in nodes_with_edges[node_idx1]:
-                nodes_with_edges[node_idx1].append(edge)
-        else:  # attach edge to second node
-            edge = [node_idx2, node_idx1]
-            if not edge in nodes_with_edges[node_idx2]:
-                nodes_with_edges[node_idx2].append(edge)
+import parsimony.functions.nesterov.tv as tv_helper
+A, _ = tv_helper.nesterov_linear_operator_from_mesh(mesh_coord, mesh_triangles, mask=mask)
 
-#tri = tris[0, :]
-for i in xrange(tri.shape[0]):
-    t = tri[i, :]
-    connect_edge_to_node(t[0], t[1], nodes_with_edges)
-    connect_edge_to_node(t[0], t[2], nodes_with_edges)
-    connect_edge_to_node(t[1], t[2], nodes_with_edges)
 
 """
 # count neighbors (arrity) for each node
