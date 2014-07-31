@@ -197,10 +197,12 @@ if __name__ == "__main__":
                 # if add one more cofound
                 contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
                 pval=True)
+        if (p > 0.95):
+            p = 1 - p
         #stat.append(s)
         proba.append(p)
 
     print "The minimum probability is:", min(min(proba))
     sulcus_name = sulci_file_list[proba.index(min(proba))]
-    print ("Therefore, the sulcus whose mean geodesic depth is significant"
-           " in regard to BMI is:"), sulcus_name[83:-4]
+    print ("Therefore, the sulcus whose GM thickness is significant"
+           " in regard to BMI is:"), sulcus_name[94:-4]
