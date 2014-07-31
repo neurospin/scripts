@@ -1,26 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 21 09:49:41 2014
+Created on Wed Jul 30 11:48:40 2014
 
 @author: hl237680
 
-Univariate correlation between residualized BMI and sulci features (mean
-geodesic depth, gray matter thickness, fold opening) on IMAGEN subjects.
+Univariate correlation between residualized BMI and one sulcus of interest
+on IMAGEN subjects.
+Here, we select the central sulcus.
 
 The resort to sulci -instead of considering images of anatomical structures-
 should prevent us from the artifacts that may be induced by the normalization
 step of the segmentation process.
 
 INPUT:
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry:
-    one .csv file for each sulcus containing relevant features
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+   mainmorpho_S.C._left.csv
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
     BMI of the 1265 subjects for which we also have neuroimaging data
 
 METHOD: MUOLS
 
-OUTPUT: returns a probability for each sulcus file that the feature of
-        interest for this sulcus is significantly correlated to BMI.
+OUTPUT: returns a probability that the feature of interest of the central
+        sulcus is significantly associated to BMI.
 
 """
 
@@ -28,8 +29,6 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-
-from glob import glob
 
 from mulm.models import MUOLS
 
@@ -44,7 +43,7 @@ import utils
 # Read data #
 #############
 # Sulci and BMI
-def load_residualized_bmi_data(sulcus_file, cache):
+def load_residualized_bmi_data(cache):
     if not(cache):
 
         # BMI
@@ -53,7 +52,8 @@ def load_residualized_bmi_data(sulcus_file, cache):
                                      index_col=0)
 
         # Sulcus: dataframe for study of sulci
-        sulci_df = pd.io.parsers.read_csv(sulcus_file,
+        sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH,
+                                                'mainmorpho_S.C._left.csv'),
                                           sep=';',
                                           index_col=0)
 
@@ -134,7 +134,7 @@ def load_residualized_bmi_data(sulcus_file, cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/univariate_bmi_sulci_IMAGEN"
+    WD = "/neurospin/tmp/brainomics/univariate_bmi_central_sulcus_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -152,40 +152,29 @@ if __name__ == "__main__":
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_sulci_cache_IMAGEN')
+                              'bmi_central_sulcus_cache_IMAGEN')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
     stat = []
     proba = []
 
-    sulci_file_list = []
-    for sulcus_file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
-        sulci_file_list.append(sulcus_file)
-        print "Sulcus considered:", sulcus_file[83:-4]
-        X, Y = load_residualized_bmi_data(sulcus_file, cache=False)
+    X, Y = load_residualized_bmi_data(cache=False)
 
-#    n, p = Y.shape
-#    np.save(os.path.join(WD, 'X.npy'), X)
-#    np.save(os.path.join(WD, "Y.npy"), Y)
+    print "##############################################################"
+    print ("# Perform Mass-Univariate Linear Modeling "
+           "based Ordinary Least Squares #")
+    print "##############################################################"
 
-        print "##############################################################"
-        print ("# Perform Mass-Univariate Linear Modeling "
-               "based Ordinary Least Squares #")
-        print "##############################################################"
-
-        #MUOLS
-        bigols = MUOLS()
-        bigols.fit(X, Y)
-        s, p = bigols.stats_t_coefficients(X, Y,
+    #MUOLS
+    bigols = MUOLS()
+    bigols.fit(X, Y)
+    s, p = bigols.stats_t_coefficients(X, Y,
 #                contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                # if add one more cofound
-                contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                pval=True)
-        #stat.append(s)
-        proba.append(p)
+            # if add one more cofound
+            contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
+            pval=True)
+    #stat.append(s)
+    proba.append(p)
 
     print "The minimum probability is:", min(min(proba))
-    sulcus_name = sulci_file_list[proba.index(min(proba))]
-    print ("Therefore, the sulcus whose mean geodesic depth is significant"
-           " in regard to BMI is:"), sulcus_name[83:-4]

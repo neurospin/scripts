@@ -5,9 +5,25 @@ Created on Fri Jul 25 19:09:38 2014
 @author:  edouard.duchesnay@cea.fr
 @license: BSD-3-Clause
 
+fs to gifti
+===========
+
 cd /neurospin/brainomics/2013_adni/freesurfer_template
 mris_convert /i2bm/local/freesurfer/subjects/fsaverage/surf/lh.pial ./lh.pial.gii
 mris_convert /i2bm/local/freesurfer/subjects/fsaverage/surf/rh.pial ./rh.pial.gii
+
+Concat l & r mesh
+=================
+
+import brainomics.mesh_processing as mesh_utils
+BASE_PATH = "/neurospin/brainomics/2013_adni/"
+TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
+cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lh.pial.gii"))
+cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "rh.pial.gii"))
+cor = np.vstack([cor_l, cor_r])
+tri_r += cor_l.shape[0]
+tri = np.vstack([tri_l, tri_r])
+mesh_utils.mesh_from_arrays(cor, tri, path=os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
 
 """
 import os
@@ -18,25 +34,16 @@ TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
 OUTPUT = os.path.join(BASE_PATH, "MCIc-CTL_fs")
 
 import numpy as np
-from nibabel.gifti import giftiio as gio
 
+import brainomics.mesh_processing as mesh_utils
+cor, tri = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
+
+nodes_with_edges = [[] for i in xrange(cor.shape[0])]
 mask = np.load(os.path.join(OUTPUT, "mask.npy"))
-
-# cd /home/ed203246/Dropbox/python/pylearn-parsimony/datasets/surf
-g  = gio.read(os.path.join(TEMPLATE_PATH, "lh.pial.gii"))
-
-# Build a nodes graph with edges attached to nodes
-# points
-pts = g.darrays[0].data
-nodes_with_edges = [[] for i in xrange(pts.shape[0])]
-
-# TRIANGLE
-tris = g.darrays[1].data
-
-assert mask.shape[0] ==  pts.shape[0] * 2
+assert mask.shape[0] ==  cor.shape[0]
 
 def connect_edge_to_node(node_idx1, node_idx2, nodes_with_edges):
-        if np.sum(pts[node_idx1] - pts[node_idx2]) >= 0: # attach edge to first node
+        if np.sum(cor[node_idx1] - cor[node_idx2]) >= 0: # attach edge to first node
             edge = [node_idx1, node_idx2]
             if not edge in nodes_with_edges[node_idx1]:
                 nodes_with_edges[node_idx1].append(edge)
@@ -46,11 +53,11 @@ def connect_edge_to_node(node_idx1, node_idx2, nodes_with_edges):
                 nodes_with_edges[node_idx2].append(edge)
 
 #tri = tris[0, :]
-for i in xrange(tris.shape[0]):
-    tri = tris[i, :]
-    connect_edge_to_node(tri[0], tri[1], nodes_with_edges)
-    connect_edge_to_node(tri[0], tri[2], nodes_with_edges)
-    connect_edge_to_node(tri[1], tri[2], nodes_with_edges)
+for i in xrange(tri.shape[0]):
+    t = tri[i, :]
+    connect_edge_to_node(t[0], t[1], nodes_with_edges)
+    connect_edge_to_node(t[0], t[2], nodes_with_edges)
+    connect_edge_to_node(t[1], t[2], nodes_with_edges)
 
 """
 # count neighbors (arrity) for each node
@@ -58,9 +65,9 @@ n_neighbors = np.array([len(n) for n in nodes_with_edges])
 print np.sum(n_neighbors)
 print np.sum(n_neighbors) / float(len(nodes_with_edges))
 print [[n, np.sum(n_neighbors == n)] for n in np.unique(n_neighbors)]
-# 491520
+# 983040
 #2.99996337935
-#[[0, 95], [1, 399], [2, 11319], [3, 140357], [4, 11060], [5, 500], [6, 112]]
+#[[0, 264], [1, 992], [2, 22115], [3, 281155], [4, 21724], [5, 1147], [6, 287]]
 
 # count nb time a node is in a vertex
 count = np.zeros(len(nodes_with_edges))

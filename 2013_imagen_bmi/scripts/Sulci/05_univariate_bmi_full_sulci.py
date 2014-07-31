@@ -1,26 +1,40 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 21 09:49:41 2014
+Created on Wed Jul 30 17:29:01 2014
 
 @author: hl237680
 
-Univariate correlation between residualized BMI and sulci features (mean
-geodesic depth, gray matter thickness, fold opening) on IMAGEN subjects.
+Univariate correlation between residualized BMI and some sulci of interest
+on IMAGEN subjects.
+The selected sulci are particularly studied because of their robustness to
+the segmentation process. These sulci are respectively split into various
+subsamples by the segmentation process. As a results, they have previously
+been gathered again.
+Here, we select the central, precentral, collateral sulci and the calloso-
+marginal fissure.
 
 The resort to sulci -instead of considering images of anatomical structures-
 should prevent us from the artifacts that may be induced by the normalization
 step of the segmentation process.
 
 INPUT:
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry:
-    one .csv file for each sulcus containing relevant features
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/full_sulci/
+    mainmorpho_S.C._left.csv
+    mainmorpho_S.C._right.csv
+    mainmorpho_S.Pe.C._left.csv
+    mainmorpho_S.Pe.C._right.csv
+    mainmorpho_F.Coll._left.csv
+    mainmorpho_F.Coll._right.csv
+    mainmorpho_F.C.M._left.csv
+    mainmorpho_F.C.M._right.csv
+
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
     BMI of the 1265 subjects for which we also have neuroimaging data
 
 METHOD: MUOLS
 
-OUTPUT: returns a probability for each sulcus file that the feature of
-        interest for this sulcus is significantly correlated to BMI.
+OUTPUT: returns a probability that the feature of interest of the selected
+        sulci is significantly associated to BMI.
 
 """
 
@@ -134,7 +148,7 @@ def load_residualized_bmi_data(sulcus_file, cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/univariate_bmi_sulci_IMAGEN"
+    WD = "/neurospin/tmp/brainomics/univariate_bmi_full_sulci_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -148,11 +162,12 @@ if __name__ == "__main__":
     CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
     BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
     SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
+    FULL_SULCI_PATH = os.path.join(SULCI_PATH, 'full_sulci')
 
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_sulci_cache_IMAGEN')
+                              'bmi_full_sulci_cache_IMAGEN')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
@@ -160,7 +175,7 @@ if __name__ == "__main__":
     proba = []
 
     sulci_file_list = []
-    for sulcus_file in glob(os.path.join(SULCI_PATH, 'mainmorpho_*.csv')):
+    for sulcus_file in glob(os.path.join(FULL_SULCI_PATH, 'mainmorpho_*.csv')):
         sulci_file_list.append(sulcus_file)
         print "Sulcus considered:", sulcus_file[83:-4]
         X, Y = load_residualized_bmi_data(sulcus_file, cache=False)
@@ -182,10 +197,12 @@ if __name__ == "__main__":
                 # if add one more cofound
                 contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
                 pval=True)
+        if (p > 0.95):
+            p = 1 - p
         #stat.append(s)
         proba.append(p)
 
     print "The minimum probability is:", min(min(proba))
     sulcus_name = sulci_file_list[proba.index(min(proba))]
-    print ("Therefore, the sulcus whose mean geodesic depth is significant"
-           " in regard to BMI is:"), sulcus_name[83:-4]
+    print ("Therefore, the sulcus whose GM thickness is significant"
+           " in regard to BMI is:"), sulcus_name[94:-4]

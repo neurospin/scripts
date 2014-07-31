@@ -47,6 +47,12 @@ METHOD: MUOLS
 OUTPUT: returns a probability for each sulcus file that the feature of
         interest for this sulcus is significantly correlated to BMI.
 
+NB: Since some sulci are split into various parts during the segmentation
+    process, Clara Fischer helped us to re-assemble the main sulci before
+    processing our data.
+    This leads to scripts 04_univariate_bmi_central_sulcus.py and
+    05_univariate_bmi_full_sulci.py.
+
 #############################################################################
 
 02_multivariate_bmi_sulci:
@@ -77,5 +83,62 @@ METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
 OUTPUT:
 - the Mapper returns predicted and true values of BMI, model estimators.
 - the Reducer returns R2 scores between prediction and true values.
+
+#############################################################################
+
+04_univariate_bmi_central_sulcus:
+Univariate correlation between residualized BMI and one sulcus of interest
+on IMAGEN subjects.
+Here, we select the central sulcus.
+
+The resort to sulci -instead of considering images of anatomical structures-
+should prevent us from the artifacts that may be induced by the normalization
+step of the segmentation process.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+   mainmorpho_S.C._left.csv
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: MUOLS
+
+OUTPUT: returns a probability that the feature of interest of the central
+        sulcus is significantly associated to BMI.
+
+#############################################################################
+
+05_univariate_bmi_full_sulci.py:
+Univariate correlation between residualized BMI and some sulci of interest
+on IMAGEN subjects.
+The selected sulci are particularly studied because of their robustness to
+the segmentation process. These sulci are respectively split into various
+subsamples by the segmentation process. As a results, they have previously
+been gathered again.
+Here, we select the central, precentral, collateral sulci and the calloso-
+marginal fissure.
+
+The resort to sulci -instead of considering images of anatomical structures-
+should prevent us from the artifacts that may be induced by the normalization
+step of the segmentation process.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/full_sulci/
+    mainmorpho_S.C._left.csv
+    mainmorpho_S.C._right.csv
+    mainmorpho_S.Pe.C._left.csv
+    mainmorpho_S.Pe.C._right.csv
+    mainmorpho_F.Coll._left.csv
+    mainmorpho_F.Coll._right.csv
+    mainmorpho_F.C.M._left.csv
+    mainmorpho_F.C.M._right.csv
+
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: MUOLS
+
+OUTPUT: returns a probability that the feature of interest of the selected
+        sulci is significantly associated to BMI.
 
 #############################################################################

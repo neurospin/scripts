@@ -40,7 +40,6 @@ IMAGES_FILE = os.path.join(DATA_PATH, 'smoothed_images.hdf5')
 BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 
 
-
 ############################################################################
 # Attribute a status to adolescents according to their gender, age and BMI #
 ############################################################################
@@ -54,7 +53,8 @@ def status_col(subject, ref_values):
     bmi = subject['BMI']
     # Knowing  these parameters -to be compared to reference values (OMS)-
     # determine weight status:
-    index = (age >= ref_values['Min Age']) & (age < ref_values['Max Age']) & (ref_values['Gender'] == gender)
+    index = ((age >= ref_values['Min Age']) & (age < ref_values['Max Age'])
+                & (ref_values['Gender'] == gender))
     LB = ref_values[['Normal', 'Overweight', 'Obese']][index].as_matrix()
     #print index
     lb_normal = LB[0, 0]
@@ -68,8 +68,6 @@ def status_col(subject, ref_values):
         return 'Overweight'
     if (bmi >= lb_obese):
         return 'Obese'
-
-
 
 
 if __name__ == "__main__":
@@ -91,7 +89,7 @@ if __name__ == "__main__":
     #                             engine='xlrd', header=0, index_col=0)
 
     # Cofounds: non interest covariates for each file
-    cofounds = ['Gender de Feuil2', # Gender: Male or Female (instead of -1/1)
+    cofounds = ['Gender de Feuil2',  # Gender: Male or Female (instead of -1/1)
                 'Age...sstartdate',
                 'ageannees',
                 'ImagingCentreID',
@@ -130,14 +128,16 @@ if __name__ == "__main__":
                                                "BMI_status.xls"))
 
     # Create a dataframe assigning status to subjects
-    ref_values = pd.io.excel.read_excel(workbook, sheetname='ref_values',
-                                        engine='xlrd', header=0)
+    ref_values = pd.io.excel.read_excel(workbook,
+                                        sheetname='ref_values_OMS_2007',
+                                        engine='xlrd',
+                                        header=0)
     # Apply function returns a panda.core.series
     status_series = dataframe.apply(status_col, args=(ref_values,), axis=1)
     # Conversion to a dataframe
     status_df = pd.DataFrame(status_series, index=subjects_id)
     # Rename column giving the weight status
-    status_df = status_df.rename(columns = {0:'Status'})    
+    status_df = status_df.rename(columns={0: 'Status'})
 
     # Merge both dataframes
     clinical_data = pd.merge(dataframe, status_df,
