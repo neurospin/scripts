@@ -165,12 +165,12 @@ def load_residualized_bmi_data(cache):
         # Drop rows that have any NaN values
         freesurfer_data = freesurfer_data.dropna()
 
-        # Get indices of subjects fot which we have both neuroimaging and
-        # genetic data, but also sulci features
+        # Get indices of subjects for which we have both neuroimaging and
+        # genetic data, but also Freesurfer subcortical features
         index = freesurfer_data.index
 
         # Keep only subjects for which we have ALL data (neuroimaging,
-        # genetic data, sulci features)
+        # genetic data, subcortical features)
         clinical_data = clinical_df.loc[index]
         BMI = BMI_df.loc[index]
 
@@ -205,7 +205,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_sulci_IMAGEN"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_freesurfer_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -244,8 +244,9 @@ if __name__ == "__main__":
                for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
-                                      '2013_imagen_bmi', "scripts", 'Sulci',
-                                      '02_multivariate_bmi_sulci.py')
+                                      '2013_imagen_bmi', 'scripts',
+                                      'Freesurfer',
+                                      '02_multivariate_bmi_freesurfer.py')
 
     print "user_func", user_func_filename
 
