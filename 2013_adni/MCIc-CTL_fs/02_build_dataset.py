@@ -10,6 +10,7 @@ import os
 import numpy as np
 import pandas as pd
 import nibabel as nb
+import shutil
 
 #import proj_classif_config
 GENDER_MAP = {'Female': 0, 'Male': 1}
@@ -36,6 +37,7 @@ cor = np.vstack([cor_l, cor_r])
 tri_r += cor_l.shape[0]
 tri = np.vstack([tri_l, tri_r])
 mesh_utils.mesh_from_arrays(cor, tri, path=os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
+shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT, "lrh.pial.gii"))
 
 #############################################################################
 # Read images
@@ -104,6 +106,8 @@ fh = open(os.path.join(OUTPUT, "X.npy").replace("npy", "txt"), "w")
 fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i surface points' % \
     (n, p, mask.sum()))
 fh.close()
+
+np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 #############################################################################
 # MULM

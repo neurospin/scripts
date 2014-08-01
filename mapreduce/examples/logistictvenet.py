@@ -37,10 +37,7 @@ def mapper(key, output_collector):
     k, l, g = alpha * np.array((ratio_k, ratio_l, ratio_g))
     mod = LogisticRegressionL1L2TV(k, l, g, GLOBAL.A, class_weight="auto")
     y_pred = mod.fit(Xtrain, ytrain).predict(Xtest)
-    ret = OrderedDict((('model', mod),
-                       ('y_pred', y_pred),
-                       ('y_true', ytest),
-                       ('beta', mod.beta)))
+    ret = dict(model=mod, y_pred=y_pred, y_true=ytest, beta=mod.beta)
     output_collector.collect(key, ret)
 
 
@@ -55,11 +52,20 @@ def reducer(key, values):
     y_pred = np.concatenate(y_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
-    scores = dict(key=key,
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(),
-               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite)
+    scores = OrderedDict((
+        ('key', key),
+        ('recall_0', r[0]),
+        ('recall_1', r[1]),
+        ('recall_mean', r.mean()),
+        ('precision_0', p[0]),
+        ('precision_1', p[1]),
+        ('precision_mean', p.mean()),
+        ('f1_0', f[0]),
+        ('f1_1', f[1]),
+        ('f1_mean', f.mean()),
+        ('support_0', s[0]),
+        ('support_1', s[1]),
+        ('n_ite', n_ite)))
     return scores
 
 if __name__ == "__main__":

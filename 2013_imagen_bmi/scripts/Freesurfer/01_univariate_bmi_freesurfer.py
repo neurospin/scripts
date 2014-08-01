@@ -18,6 +18,8 @@ INPUT:
 
 METHOD: MUOLS
 
+NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
+
 OUTPUT: returns a probability for each subcortical structure to be
         significantly associated to BMI.
 
@@ -25,6 +27,7 @@ OUTPUT: returns a probability for each subcortical structure to be
 
 import os
 import sys
+import csv
 import numpy as np
 import pandas as pd
 
@@ -66,8 +69,7 @@ def load_residualized_bmi_data(cache):
         freesurfer_df = pd.io.parsers.read_csv(os.path.join(FREESURFER_PATH,
                                     'IMAGEN_Freesurfer_data_29juil2014.csv'),
                                         sep=',',
-                                        usecols=['ICV',
-                                                 'lhCortexVol',
+                                        usecols=['lhCortexVol',
                                                  'rhCortexVol',
                                                  'CortexVol',
                                                  'SubCortGrayVol',
@@ -79,15 +81,6 @@ def load_residualized_bmi_data(cache):
 
         # Set the new dataframe index: subjects ID in the right format
         freesurfer_df = freesurfer_df.set_index(freesurfer_index)
-
-        # Parameters of subcortical structure of interest
-        freesurfer_feature = ['SubCortGrayVol']
-        # Other parameters to be considered
-        #'ICV', 'lhCortexVol', 'rhCortexVol', 'CortexVol', 'SubCortGrayVol',
-        #'TotalGrayVol', 'SupraTentorialVol', 'lhCorticalWhiteMatterVol',
-        #'rhCorticalWhiteMatterVol', 'CorticalWhiteMatterVol'
-
-        freesurfer_df = freesurfer_df[freesurfer_feature]
 
         # Dataframe for picking out only clinical cofounds of non interest
         clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
@@ -125,14 +118,24 @@ def load_residualized_bmi_data(cache):
         covar = utils.make_design_matrix(clinical_data,
                                     regressors=clinical_cofounds).as_matrix()
 
-        # Concatenate BMI and covariates
-        design_mat = np.hstack((covar, BMI))
+        # Center and scale covariates, but not constant regressor's column
+        cov = covar[:, 0:-1]
+        skl = StandardScaler()
+        cov = skl.fit_transform(cov)
+
+        # Center & scale BMI
+        BMI = skl.fit_transform(BMI)
+
+        # Center & scale freesurfer_data
+        freesurfer_data = skl.fit_transform(freesurfer_data)
+
+        # Constant regressor to mimick the fit intercept
+        constant_regressor = np.ones((freesurfer_data.shape[0], 1))
+
+        # Concatenate BMI, constant regressor and covariates
+        design_mat = np.hstack((cov, constant_regressor, BMI))
 
         X = design_mat
-        # Center & scale X
-        skl = StandardScaler()
-        X = skl.fit_transform(X)
-
         Y = freesurfer_data
 
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
@@ -167,6 +170,11 @@ if __name__ == "__main__":
     BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
     FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
 
+    # Output results
+    OUTPUT_DIR = os.path.join(FREESURFER_PATH, 'Results')
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
@@ -178,8 +186,16 @@ if __name__ == "__main__":
     np.save(os.path.join(WD, 'X.npy'), X)
     np.save(os.path.join(WD, 'Y.npy'), Y)
 
-    stat = []
-    proba = []
+    # Parameters of subcortical structure of interest
+    freesurfer_features = ['lhCortexVol',
+                           'rhCortexVol',
+                           'CortexVol',
+                           'SubCortGrayVol',
+                           'TotalGrayVol',
+                           'SupraTentorialVol',
+                           'lhCorticalWhiteMatterVol',
+                           'rhCorticalWhiteMatterVol',
+                           'CorticalWhiteMatterVol']
 
     print "##############################################################"
     print ("# Perform Mass-Univariate Linear Modeling "
@@ -192,9 +208,21 @@ if __name__ == "__main__":
     s, p = bigols.stats_t_coefficients(X, Y,
                     contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
                     pval=True)
-    if (p > 0.95):
-        p = 1 - p
-    #stat.append(s)
-    proba.append(p)
 
-    print "The minimum probability is:", min(min(proba))
+    proba = []
+    for i in np.arange(0, p.shape[0]):
+        if (p[i] > 0.95):
+            p[i] = 1 - p[i]
+
+        proba.append('%f' % p[i])
+
+    # Write results of MULM computation for each feature of interest in a
+    # csv file
+    MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_freesurfer.txt')
+    with open(MULM_file_path, 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+        for i in np.arange(0, len(proba)):
+            spamwriter.writerow(['The probability of MULM computation is:']
+                                + [proba[i]] + ['for']
+                                + [freesurfer_features[i]]
+                                + ['extracted by Freesurfer.'])
