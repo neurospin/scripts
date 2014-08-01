@@ -13,13 +13,16 @@ BASE_PATH =  "/volatile/share/2014_bd_dwi"
 
 INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
 INPUT_CSV = os.path.join(BASE_PATH, "population.csv")
-OUTPUT_DIR = os.path.join(BASE_PATH, "bd_dwi_cs")
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
-OUTPUT_X = os.path.join(OUTPUT_DIR, "X.npy")
+OUTPUT_CS = os.path.join(BASE_PATH, "bd_dwi_cs")
+if not os.path.exists(OUTPUT_CS):
+    os.makedirs(OUTPUT_CS)
+OUTPUT_CSI = os.path.join(BASE_PATH, "bd_dwi_csi")
+if not os.path.exists(OUTPUT_CSI):
+    os.makedirs(OUTPUT_CSI)
+OUTPUT_X ="X.npy"
 OUTPUT_X_DESC = OUTPUT_X.replace("npy", "txt")
-OUTPUT_Y = os.path.join(OUTPUT_DIR, "Y.npy")
-OUTPUT_MASK_FILENAME =  os.path.join(OUTPUT_DIR, "mask.nii.gz") #mask use to filtrate our images
+OUTPUT_Y = "Y.npy"
+OUTPUT_MASK_FILENAME =  "mask.nii.gz" #mask use to filtrate our images
 
 FA_THRESHOLD = 0.05
 ATLAS_FILENAME = "/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz" # Image use to improve our mask
@@ -51,41 +54,64 @@ for label_rm in ATLAS_LABELS_RM:
 
 #registration of mask
 out_im = nib.Nifti1Image(mask.astype(int), affine=images4d.get_affine())
-out_im.to_filename(OUTPUT_MASK_FILENAME)
-# Check that the stored image is the same than mask
-babel_mask = nib.load(OUTPUT_MASK_FILENAME)
-assert np.all(mask == (babel_mask.get_data() != 0))
 print "Number of voxels in mask:", mask.sum()
 
 n_voxel_in_mask = np.count_nonzero(mask)
 assert(n_voxel_in_mask == 507383)
 
-print "Application of mask on all the images"
+# Create Y (same for all the cases)
 Ytot = np.asarray(population.BD_HC, dtype='float64').reshape(n, 1)
-Ztot = population[["AGEATMRI", "SEX"]].as_matrix()
 
-Xtot = np.zeros((n, n_voxel_in_mask))
+# Apply mask to images & center
+print "Application of mask on all the images & centering"
+masked_images = np.zeros((n, n_voxel_in_mask))
 for i, ID in enumerate(population.index):
     cur = population.iloc[i]
     slice_index = cur.SLICE
     image = image_arr[:, :, :, slice_index]
-    Xtot[i, :] = image[mask]
+    masked_images[i, :] = image[mask]
+    
+masked_images -= masked_images.mean(axis = 0)
+masked_images /= masked_images.std(axis = 0)
 
-Xtot = np.hstack([Ztot, Xtot])
-assert Xtot.shape == (n, n_voxel_in_mask+2)
+# Create & center covariates
+covar = population[["AGEATMRI", "SEX"]].as_matrix()
+covar -= covar.mean(axis = 0)
+covar /= covar.std(axis = 0)
 
-print "Centering and scaling data"
-Xtot -= Xtot.mean(axis = 0)
-Xtot /= Xtot.std(axis = 0)
-
-print "Saving data"
+# Case CS
+print "Saving CS data"
+Xtot = np.hstack([covar, masked_images])
 n, p = Xtot.shape
-np.save(OUTPUT_X, Xtot)
-fh = open(OUTPUT_X_DESC, "w")
+assert Xtot.shape == (n, n_voxel_in_mask+2)
+# X
+np.save(os.path.join(OUTPUT_CS, OUTPUT_X), Xtot)
+# X_DESC
+fh = open(os.path.join(OUTPUT_CS, OUTPUT_X_DESC), "w")
 fh.write('shape = (%i, %i): Age + Gender + %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
+# Y
+np.save(os.path.join(OUTPUT_CS, OUTPUT_Y), Ytot)
+# Mask
+out_im.to_filename(os.path.join(OUTPUT_CS, OUTPUT_MASK_FILENAME))
 
-np.save(OUTPUT_Y, Ytot)
+
+# Case CS + Intercept
+print "Saving CSI data"
+Xtot = np.hstack([np.ones((covar.shape[0], 1)), covar, masked_images])
+n, p = Xtot.shape
+assert Xtot.shape == (n, n_voxel_in_mask+3)
+# X
+np.save(os.path.join(OUTPUT_CSI, OUTPUT_X), Xtot)
+# X_DESC
+fh = open(os.path.join(OUTPUT_CSI, OUTPUT_X_DESC), "w")
+fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+    (n, p, mask.sum()))
+fh.close()
+# Y
+np.save(os.path.join(OUTPUT_CSI, OUTPUT_Y), Ytot)
+# Mask
+out_im.to_filename(os.path.join(OUTPUT_CSI, OUTPUT_MASK_FILENAME))
 
 #############################################################################
