@@ -9,7 +9,7 @@ import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import roc_curve, auc, roc_auc_score, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
@@ -120,24 +120,25 @@ def reducer(key, values):
 
 ##############################################################################
 ## Run all
-def run_all(config):
+def debug(config):
     import mapreduce
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
-    key = '0.01_0.01_0.98_0.01_10000'
+    key = '0.01_0.999_0.0_0.001_-1.0'
+    os.chdir(WD)
+    config = json.load(open("config_5cv.json"))
+    import mapreduce
+    GLOBAL = mapreduce
     #class GLOBAL: DATA = dict()
     load_globals(config)
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = mapreduce.OutputCollector(OUTPUT)
-    #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'X.npy'))
-    y = np.load(os.path.join(WD,  'y.npy'))
-    mapreduce.DATA["X"] = [X, X]
-    mapreduce.DATA["y"] = [y, y]
+    resample(config, resample_nb=0)
+    oc = mapreduce.OutputCollector(os.path.join('5cv', key))
     params = np.array([float(p) for p in key.split("_")])
     mapper(params, oc)
-    #oc.collect(key=key, value=ret)
-
+    alpha = np.load("/tmp/alpha.npy")
+    A = GLOBAL.A
+    import pickle
+    a = pickle.load(open("/tmp/a.pkl"))
+    
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
@@ -163,7 +164,7 @@ if __name__ == "__main__":
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
     alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [100, 1000, 10000, 100000, -1]
+    k_range = [-1]#[100, 1000, 10000, 100000, -1]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
     l1l2tv = np.concatenate(l1l2tv)

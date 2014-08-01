@@ -27,12 +27,13 @@ write.csv(m36, "/neurospin/mescog/proj_predict_cog_decline/20140728_nomissing_BP
 #d$GROUP = factor(attr(y_pred_rtree, "group"), levels=as.integer(names(label)), labels=label)
 
 m36p = ggplot(m36, aes(x = PREDICTORS, y = r2_te, fill=PREDICTORS)) +
-  geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
+  geom_bar(stat = "identity", position="dodge", limits=c(.4, 1)) +
   geom_errorbar(aes(ymin=r2_te-r2_te_se, ymax=r2_te+r2_te_se), width=.1) +
-  scale_y_continuous(expand=c(.1, 0))+
+  #scale_y_continuous(expand=c(.1, 0))+
+  scale_y_continuous(limits = c(0.4, .8), oob = scales::rescale_none)+
   facet_wrap(~TARGET) + scale_fill_manual(values=palette) + ggtitle("CV") + theme(legend.position="none")
 
-#x11(); print(m36p)
+x11(); print(m36p)
 
 svg("/neurospin/mescog/proj_predict_cog_decline/20140728_nomissing_BPF-LLV_imputed/enet/M36/RESULTS_TAB_CV_SUMMARY.svg")
 print(m36p)
