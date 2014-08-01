@@ -23,6 +23,8 @@ METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         cross validation.
 --NB: Computation involves to send jobs to Gabriel.--
 
+NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
+
 OUTPUT:
 - the Mapper returns predicted and true values of BMI, model estimators.
 - the Reducer returns R2 scores between prediction and true values.
@@ -34,7 +36,6 @@ import sys
 import numpy as np
 import pandas as pd
 import json
-from glob import glob
 
 from sklearn.preprocessing import StandardScaler
 
@@ -128,8 +129,7 @@ def load_residualized_bmi_data(cache):
         freesurfer_df = pd.io.parsers.read_csv(os.path.join(FREESURFER_PATH,
                                     'IMAGEN_Freesurfer_data_29juil2014.csv'),
                                         sep=',',
-                                        usecols=['ICV',
-                                                 'lhCortexVol',
+                                        usecols=['lhCortexVol',
                                                  'rhCortexVol',
                                                  'CortexVol',
                                                  'SubCortGrayVol',
@@ -178,14 +178,24 @@ def load_residualized_bmi_data(cache):
         covar = utils.make_design_matrix(clinical_data,
                                     regressors=clinical_cofounds).as_matrix()
 
-        # Concatenate BMI and covariates
-        design_mat = np.hstack((covar, freesurfer_data))
+        # Center and scale covariates, but not constant regressor's column
+        cov = covar[:, 0:-1]
+        skl = StandardScaler()
+        cov = skl.fit_transform(cov)
+
+        # Center & scale sulci_data
+        freesurfer_data = skl.fit_transform(freesurfer_data)
+
+        # Center & scale BMI
+        BMI = skl.fit_transform(BMI)
+
+        # Constant regressor to mimick the fit intercept
+        constant_regressor = np.ones((freesurfer_data.shape[0], 1))
+
+        # Concatenate BMI, constant regressor and covariates
+        design_mat = np.hstack((cov, constant_regressor, freesurfer_data))
 
         X = design_mat
-        # Center & scale X
-        skl = StandardScaler()
-        X = skl.fit_transform(X)
-
         z = BMI
 
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
