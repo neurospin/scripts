@@ -1,10 +1,11 @@
 #############################################################################
 
-00_quality_control?
+NB: Quality control not necessary here since NaN rows are dropped when reading
+    the csv file.
 
 #############################################################################
 
-01_univariate_bmi_sulci:
+01_univariate_bmi_freesurfer:
 Univariate correlation between residualized BMI and volume of subcortical
 structures (Freesurfer) on IMAGEN subjects.
 
@@ -19,12 +20,14 @@ INPUT:
 
 METHOD: MUOLS
 
+NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
+
 OUTPUT: returns a probability for each subcortical structure to be
         significantly associated to BMI.
 
 #############################################################################
 
-02_multivariate_bmi_sulci:
+02_multivariate_bmi_freesurfer:
 Multivariate correlation between residualized BMI and one subcortical feature
 of interest:
    CV using mapreduce and ElasticNet between the feature of interest and BMI.
@@ -43,6 +46,8 @@ METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         Model  and true ones using Elastic Net algorithm, mapreduce and
         cross validation.
 --NB: Computation involves to send jobs to Gabriel.--
+
+NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
 
 OUTPUT:
 - the Mapper returns predicted and true values of BMI, model estimators.
