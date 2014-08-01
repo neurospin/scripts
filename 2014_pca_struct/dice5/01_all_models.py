@@ -238,6 +238,8 @@ def reducer(key, values):
     values = [item.load() for item in values]
 
     comp_list = [item["components"] for item in values]
+    frobenius_train = np.vstack([item["frobenius_train"] for item in values])
+    frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     precisions = np.vstack([item["precision"] for item in values])
     recalls = np.vstack([item["recall"] for item in values])
     fscores = np.vstack([item["fscore"] for item in values])
@@ -250,6 +252,8 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each component
+    av_frobenius_train = frobenius_train.mean(axis=0)
+    av_frobenius_test = frobenius_test.mean(axis=0)
     av_precision = precisions.mean(axis=0)
     av_recall = recalls.mean(axis=0)
     av_fscore = fscores.mean(axis=0)
@@ -269,6 +273,8 @@ def reducer(key, values):
 
     scores = OrderedDict((
         ('key', key),
+        ('frobenius_train', av_frobenius_train[0]),
+        ('frobenius_test', av_frobenius_test[0]),
         ('recall_0', av_recall[0]),
         ('recall_1', av_recall[1]),
         ('recall_2', av_recall[2]),
