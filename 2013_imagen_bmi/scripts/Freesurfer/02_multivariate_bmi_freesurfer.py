@@ -23,6 +23,8 @@ METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         cross validation.
 --NB: Computation involves to send jobs to Gabriel.--
 
+NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
+
 OUTPUT:
 - the Mapper returns predicted and true values of BMI, model estimators.
 - the Reducer returns R2 scores between prediction and true values.
@@ -34,7 +36,6 @@ import sys
 import numpy as np
 import pandas as pd
 import json
-from glob import glob
 
 from sklearn.preprocessing import StandardScaler
 
@@ -128,8 +129,7 @@ def load_residualized_bmi_data(cache):
         freesurfer_df = pd.io.parsers.read_csv(os.path.join(FREESURFER_PATH,
                                     'IMAGEN_Freesurfer_data_29juil2014.csv'),
                                         sep=',',
-                                        usecols=['ICV',
-                                                 'lhCortexVol',
+                                        usecols=['lhCortexVol',
                                                  'rhCortexVol',
                                                  'CortexVol',
                                                  'SubCortGrayVol',
@@ -178,14 +178,24 @@ def load_residualized_bmi_data(cache):
         covar = utils.make_design_matrix(clinical_data,
                                     regressors=clinical_cofounds).as_matrix()
 
-        # Concatenate BMI and covariates
-        design_mat = np.hstack((covar, freesurfer_data))
+        # Center and scale covariates, but not constant regressor's column
+        cov = covar[:, 0:-1]
+        skl = StandardScaler()
+        cov = skl.fit_transform(cov)
+
+        # Center & scale sulci_data
+        freesurfer_data = skl.fit_transform(freesurfer_data)
+
+        # Center & scale BMI
+        BMI = skl.fit_transform(BMI)
+
+        # Constant regressor to mimick the fit intercept
+        constant_regressor = np.ones((freesurfer_data.shape[0], 1))
+
+        # Concatenate BMI, constant regressor and covariates
+        design_mat = np.hstack((cov, constant_regressor, freesurfer_data))
 
         X = design_mat
-        # Center & scale X
-        skl = StandardScaler()
-        X = skl.fit_transform(X)
-
         z = BMI
 
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
@@ -239,8 +249,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     # CV index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
-    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001,
-               0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100]
+    params = ([[alpha, l1_ratio] for alpha in np.arange(0.00001, 0.0001, 0.00001)
                for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
@@ -258,7 +267,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="results/.*/(.*)",
-                  reduce_output="results.csv")
+                  reduce_output="results-2.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #########################################################################
