@@ -16,7 +16,9 @@ from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
 import shutil
+from collections import OrderedDict
 
+import brainomics.cluster_gabriel as clust_utils
 
 
 def load_globals(config):
@@ -25,6 +27,7 @@ def load_globals(config):
     STRUCTURE = nibabel.load(config["structure"])
     A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
+    GLOBAL.penalty_start = config['penalty_start']
 
 
 def resample(config, resample_nb):
@@ -52,7 +55,7 @@ def mapper(key, output_collector):
     STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 2
+    penalty_start = GLOBAL.penalty_start
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -76,15 +79,15 @@ def mapper(key, output_collector):
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    y_post = mod.predict_probability(Xte_r) # probability posteriori
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask, 
+    y_post = mod.predict_probability(Xte_r) # a posteriori probability
+    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask,
                y_post=y_post)
     if output_collector:
         output_collector.collect(key, ret)
     else:
         return ret
-        
-    
+
+
 
 def reducer(key, values):
     # key : string of intermediary key
@@ -93,7 +96,10 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
+
+    # Avoid taking account the fold 0
     values = [item.load() for item in values[1:]]
+
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
@@ -101,12 +107,30 @@ def reducer(key, values):
     y_post = np.concatenate([item["y_post"].ravel() for item in values])
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = None
-    area = roc_auc_score(y_true, y_post) #area under curve score. 
-    scores = dict(key=key,
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
-               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite, area=area)
+    auc = roc_auc_score(y_true, y_post) #area under curve score.
+    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+    scores = OrderedDict()
+    scores['key'] = key
+    scores['recall_0'] = r[0]
+    scores['recall_1'] = r[1]
+    scores['recall_mean'] = r.mean()
+    scores['recall_mean_std'] = recall_mean_std
+    scores['precision_0'] = p[0]
+    scores['precision_1'] = p[1]
+    scores['precision_mean'] = p.mean()
+    scores['f1_0'] = f[0]
+    scores['f1_1'] = f[1]
+    scores['f1_mean'] = f.mean()
+    scores['support_0'] = s[0]
+    scores['support_1'] = s[1]
+    scores['n_ite'] = n_ite
+    scores['auc'] = auc
+    scores['a'] = a
+    scores['l1'] = l1
+    scores['l2'] = l2
+    scores['k'] = k
+    scores['tv'] = tv
+
     return scores
 
 
@@ -114,7 +138,10 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
+
+# CS with Intercept
+
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
     key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -131,41 +158,52 @@ def run_all(config):
     mapper(params, oc)
     #oc.collect(key=key, value=ret)
 
-if __name__ == "__main__":
+# CS without Intercept
+
     WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
-    #BASE = "/neurospin/tmp/brainomics/testenettv"
-    #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-    #print "Sync data to %s/ " % os.path.dirname(WD)
-    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
+    key = '_'.join(str(p) for p in config['params'][0])
+    #class GLOBAL: DATA = dict()
+    load_globals(config)
+    OUTPUT = os.path.join(WD, 'test', key)
+    # run /home/ed203246/bin/mapreduce.py
+    oc = mapreduce.OutputCollector(OUTPUT)
+    #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
+    X = np.load(os.path.join(WD, 'X.npy'))
+    y = np.load(os.path.join(WD, 'Y.npy'))
+    mapreduce.DATA_RESAMPLED = {}
+    mapreduce.DATA_RESAMPLED["X"] = [X, X]
+    mapreduce.DATA_RESAMPLED["y"] = [y, y]
+    params = np.array([float(p) for p in key.split("_")])
+    mapper(params, oc)
+
+if __name__ == "__main__":
+
+    # Relative filenames
     INPUT_DATA_X = 'X.npy'
     INPUT_DATA_y = 'Y.npy'
     INPUT_MASK = "mask.nii.gz"
-    INPUT_MASK_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
-                                   INPUT_MASK)
-    INPUT_DATA_X_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
-                                     INPUT_DATA_X)
-    INPUT_DATA_y_PATH = os.path.join("/volatile/share/2014_bd_dwi/bd_dwi_cs",
-                                     INPUT_DATA_y)
-    NFOLDS = 5
-    #WD = os.path.join(WD, 'logistictvenet_5cv')
-    if not os.path.exists(WD): os.makedirs(WD)
-    os.chdir(WD)
 
-    # Copy INPUT_MASK_PATH to WD
-    shutil.copy(INPUT_MASK_PATH,
-                WD)
-    shutil.copy(INPUT_DATA_y_PATH,
-                WD)
-    shutil.copy(INPUT_DATA_X_PATH,
-                WD)    
-    MASK_PATH = "/home/md238665/christophe/scripts/2014_bd_dwi/mask.nii.gz"
-    #############################################################################
-    ## Create config file
-    y = np.load(INPUT_DATA_y)
+    # Directory
+    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi"
+    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
+
+    INPUT_DIR_CS = "/volatile/share/2014_bd_dwi/bd_dwi_cs"
+    WD_CS = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_cs"
+
+    NFOLDS = 5
+    INPUT_PENALTY_START_CSI = 3
+    INPUT_PENALTY_START_CS = 2
+
+    #####################
+    # Common parameters #
+    #####################
+
+    # Resampling (Y is the same for both cases)
+    y = np.load(os.path.join(INPUT_DIR_CSI, INPUT_DATA_y))
     cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
     cv.insert(0, None)  # first fold is None
-    # parameters grid
-    # Re-run with
+
+    # Parameters grid
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
@@ -177,55 +215,68 @@ if __name__ == "__main__":
     alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
     alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
     params = [params.tolist() for params in alphal1l2tvk]
+
     # User map/reduce function file:
-#    try:
-#        user_func_filename = os.path.abspath(__file__)
-#    except:
     user_func_filename = os.path.join("/home/md238665/christophe",
-        "scripts", '2014_bd_dwi', 
+        "scripts", '2014_bd_dwi',
         "02_enet_cs.py")
-    #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
-    #import sys
-    #sys.exit(0)
-    # Use relative path from config.json
+
+    #####################
+    # CS with Intercept #
+    #####################
+
+    # Copy input data
+    # Since we use copytree, the target directory should not exist
+    if os.path.exists(WD_CSI):
+        raise IOError("Directory %s exists" % WD_CSI)
+    shutil.copytree(INPUT_DIR_CSI, WD_CSI)
+
+    # Config file with Intercept
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK,
-                  map_output="results",
+                  penalty_start=INPUT_PENALTY_START_CSI,
+                  map_output="results_CSI",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
-                  reduce_output="results.csv")
-    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
+                  reduce_input="results_CSI/*/*",
+                  reduce_group_by="results_CSI/.*/(.*)",
+                  reduce_output="results_CSI.csv")
+    json.dump(config, open(os.path.join(WD_CSI, "config_CSI.json"), "w"))
 
-#    #############################################################################
-    # Build utils files: sync (push/pull) and PBS
-    import brainomics.cluster_gabriel as clust_utils
+    # Utils files with intercept
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="md238665")
-    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    #############################################################################
-    # Sync to cluster
-    print "Sync data to gabriel.intra.cea.fr: "
-#    os.system(sync_push_filename)
-#    #############################################################################
-#    print "# Start by running Locally with 2 cores, to check that everything os OK)"
-#    print "Interrupt after a while CTL-C"
-#    print "mapreduce.py --map %s/config.json --ncore 2" % WD
-#    #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
-#    print "# 1) Log on gabriel:"
-#    print 'ssh -t gabriel.intra.cea.fr'
-#    print "# 2) Run one Job to test"
-#    print "qsub -I"
-#    print "cd %s" % WD_CLUSTER
-#    print "./job_Global_long.pbs"
-#    print "# 3) Run on cluster"
-#    print "qsub job_Global_long.pbs"
-#    print "# 4) Log out and pull Pull"
-#    print "exit"
-#    print sync_pull_filename
-#    #############################################################################
-#    print "# Reduce"
-#    print "mapreduce.py --reduce %s/config.json" % WD
+        clust_utils.gabriel_make_sync_data_files(WD_CSI, user="md238665")
+    cmd = "mapreduce.py --map  %s/config_CSI.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD_CSI, cmd)
+
+    del INPUT_DIR_CSI, WD_CSI, INPUT_PENALTY_START_CSI
+
+    ########################
+    # CS without Intercept #
+    ########################
+
+    # Copy input data
+    # Since we use copytree, the target directory should not exist
+    if os.path.exists(WD_CS):
+        raise IOError("Directory %s exists" % WD_CS)
+    shutil.copytree(INPUT_DIR_CS, WD_CS)
+
+    # Config file without intercept
+    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+                  params=params, resample=cv,
+                  structure=INPUT_MASK,
+                  penalty_start=INPUT_PENALTY_START_CS,
+                  map_output="results_CS",
+                  user_func=user_func_filename,
+                  reduce_input="results_CS/*/*",
+                  reduce_group_by="results_CS/.*/(.*)",
+                  reduce_output="results_CS.csv")
+    json.dump(config, open(os.path.join(WD_CS, "config_CS.json"), "w"))
+
+    # Utils files without intercept
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(WD_CS, user="md238665")
+    cmd = "mapreduce.py --map  %s/config_CS.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD_CS, cmd)
+
