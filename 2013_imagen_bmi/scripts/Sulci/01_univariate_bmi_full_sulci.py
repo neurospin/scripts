@@ -127,13 +127,13 @@ def load_residualized_bmi_data(cache):
         X = design_mat
         Y = sulci_data
 
-        np.save(os.path.join(SHARED_DIR, "X.npy"), X)
-        np.save(os.path.join(SHARED_DIR, "Y.npy"), Y)
+        np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
+        np.save(os.path.join(SHARED_DIR, 'Y.npy'), Y)
 
         print "Data saved"
     else:
-        X = np.load(os.path.join(SHARED_DIR, "X.npy"))
-        Y = np.load(os.path.join(SHARED_DIR, "Y.npy"))
+        X = np.load(os.path.join(SHARED_DIR, 'X.npy'))
+        Y = np.load(os.path.join(SHARED_DIR, 'Y.npy'))
         print "Data read from cache"
     return X, Y, colnames
 
@@ -208,4 +208,5 @@ if __name__ == "__main__":
                                 + [sulcus_name]
                                 + ['is']
                                 + [proba[i]]
-                                + ['\n'])
+                                #+ ['\n']
+                                )
