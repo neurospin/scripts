@@ -141,7 +141,7 @@ def load_residualized_bmi_data(cache):
                                        #'mainmorpho_S.C._left.GM_thickness',
                                        #'mainmorpho_S.C._right.GM_thickness',
                                        #'mainmorpho_F.Coll._left.GM_thickness',
-                                       'mainmorpho_F.Coll._right.GM_thickness'
+                                       #'mainmorpho_F.Coll._right.GM_thickness'
                                        'mainmorpho_F.C.M._left.depthMean',
                                        'mainmorpho_F.C.M._right.depthMean',
                                        'mainmorpho_S.Pe.C._left.depthMean',
