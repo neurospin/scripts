@@ -122,20 +122,29 @@ def load_residualized_bmi_data(cache):
                                      index_col=0)
 
         # Sulci features
-        sulci_df_qco = pd.io.parsers.read_csv(os.path.join(QC_PATH,
-                                                           'sulci_df_qc.csv'),
-                                              sep=',',
-                                              index_col=0)
-        colnames = ['F.C.M._left.depthMean',
-                    'F.C.M._right.depthMean',
-                    'S.Pe.C._left.depthMean',
-                    'S.Pe.C._right.depthMean',
-                    'S.C._left.depthMean',
-                    'S.C._right.depthMean',
-                    'F.Coll._left.depthMean',
-                    'F.Coll._right.depthMean']
+        labels = np.genfromtxt(os.path.join(QC_PATH, 'sulci_df_qc.csv'),
+                                dtype=None,
+                                delimiter=',',
+                                skip_header=1,
+                                usecols=0).tolist()
 
-        sulci_df_qc = sulci_df_qco[colnames]
+        sulci_index = pd.Index(labels)
+
+        # Sulci features
+        sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
+                                                          'sulci_df_qc.csv'),
+                              sep=',',
+                              usecols=['mainmorpho_F.C.M._left.depthMean',
+                                       'mainmorpho_F.C.M._right.depthMean',
+                                       'mainmorpho_S.Pe.C._left.depthMean',
+                                       'mainmorpho_S.Pe.C._right.depthMean',
+                                       'mainmorpho_S.C._left.depthMean',
+                                       'mainmorpho_S.C._right.depthMean',
+                                       'mainmorpho_F.Coll._left.depthMean',
+                                       'mainmorpho_F.Coll._right.depthMean'])
+
+        # Set the new dataframe index: subjects ID in the right format
+        sulci_df_qc = sulci_df_qc.set_index(sulci_index)
 
         # Dataframe for picking out only clinical cofounds of non interest
         clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
