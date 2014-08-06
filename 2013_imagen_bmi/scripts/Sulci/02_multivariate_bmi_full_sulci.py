@@ -202,7 +202,7 @@ def load_residualized_bmi_data(cache):
         design_mat = np.hstack((cov, constant_regressor, sulci_data))
 
         X = design_mat
-        z = sulci_data
+        z = BMI
 
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
         np.save(os.path.join(SHARED_DIR, 'z.npy'), z)
