@@ -12,20 +12,46 @@ import nibabel, numpy as np
 from nsap.use_cases.utils.brainvisa_map_cluster_analysis import *
 from nsap.plugins.nipype import set_environment
 #
-SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "proj_classif_AD-CTL")
+SRC_PATH = os.path.join(os.environ["HOME"], "git", "scripts", "2013_adni", "share")
 sys.path.append(SRC_PATH)
 import utils_proj_classif
+BASE_PATH = "/neurospin/brainomics/2013_adni/MMSE-MCIc-CTL"
+INPUT_MASK = os.path.join(BASE_PATH, "mask.nii.gz")
+keys = [
+"0.001_0.9_0.0_0.1_-1.0",
+"0.001_0.45_0.45_0.1_-1.0",
+"0.001_0.5_0.5_0.0_-1.0",
+"0.001_1.0_0.0_0.0_-1.0"]
+penalty_start = 2
 
+mask_image = nibabel.load(INPUT_MASK)
+mask = mask_image.get_data() != 0
+outfilenames = list()
+for key in keys:
+    #key = keys[0]
+    beta = np.load(os.path.join(BASE_PATH, "results/0", key, "beta.npz"))['arr_0']
+    arr = np.zeros(mask.shape)
+    arr[mask] = beta[penalty_start:].ravel()
+    out_im = nibabel.Nifti1Image(arr,affine=mask_image.get_affine())
+    outfilename = os.path.join(BASE_PATH, "results/0", key, "beta_%s.nii.gz" % key)
+    out_im.to_filename(outfilename)
+    outfilenames.append(outfilename)
 
-BASE_PATH = "/neurospin/brainomics/2013_adni/proj_classif_AD-CTL"
-INPUT_MASK = os.path.join(BASE_PATH,"SPM", "template_FinalQC_CTL_AD", "mask.nii")
+outfilenames
+ ['/neurospin/brainomics/2013_adni/MMSE-MCIc-CTL/results/0/0.001_0.9_0.0_0.1_-1.0/beta_0.001_0.9_0.0_0.1_-1.0.nii.gz',
+ '/neurospin/brainomics/2013_adni/MMSE-MCIc-CTL/results/0/0.001_0.45_0.45_0.1_-1.0/beta_0.001_0.45_0.45_0.1_-1.0.nii.gz',
+ '/neurospin/brainomics/2013_adni/MMSE-MCIc-CTL/results/0/0.001_0.5_0.5_0.0_-1.0/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz',
+ '/neurospin/brainomics/2013_adni/MMSE-MCIc-CTL/results/0/0.001_1.0_0.0_0.0_-1.0/beta_0.001_1.0_0.0_0.0_-1.0.nii.gz']
+ 
+#############################################################################
+## beta => image
+#############################################################################
+
 OUTPUT_DIR = "/tmp/mesh"
 # set image of wheights and taget volume
-mask_im = nibabel.load(INPUT_MASK)
-mask = mask_im.get_data() != 0
 
 
-#INPUT_IMAGE = os.path.join(BASE_PATH, "tv/split_vizu/1-0.1-0.1-0.8_beta.nii")
+INPUT_IMAGE = os.path.join(BASE_PATH, "tv/split_vizu/1-0.1-0.1-0.8_beta.nii")
 
 #############################################################################
 ## READ INPUT IMAGE
