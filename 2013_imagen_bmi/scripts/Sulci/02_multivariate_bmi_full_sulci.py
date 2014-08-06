@@ -134,22 +134,22 @@ def load_residualized_bmi_data(cache):
         sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                                           'sulci_df_qc.csv'),
                               sep=',',
-                              usecols=['mainmorpho_F.C.M._left.GM_thickness',
-                                       'mainmorpho_F.C.M._right.GM_thickness',
-                                       'mainmorpho_S.Pe.C._left.GM_thickness',
-                                       'mainmorpho_S.Pe.C._right.GM_thickness',
-                                       'mainmorpho_S.C._left.GM_thickness',
-                                       'mainmorpho_S.C._right.GM_thickness',
-                                       'mainmorpho_F.Coll._left.GM_thickness',
+                              usecols=[#'mainmorpho_F.C.M._left.GM_thickness',
+                                       #'mainmorpho_F.C.M._right.GM_thickness',
+                                       #'mainmorpho_S.Pe.C._left.GM_thickness',
+                                       #'mainmorpho_S.Pe.C._right.GM_thickness',
+                                       #'mainmorpho_S.C._left.GM_thickness',
+                                       #'mainmorpho_S.C._right.GM_thickness',
+                                       #'mainmorpho_F.Coll._left.GM_thickness',
                                        'mainmorpho_F.Coll._right.GM_thickness'
-                                       #'mainmorpho_F.C.M._left.depthMean',
-                                       #'mainmorpho_F.C.M._right.depthMean',
-                                       #'mainmorpho_S.Pe.C._left.depthMean',
-                                       #'mainmorpho_S.Pe.C._right.depthMean',
-                                       #'mainmorpho_S.C._left.depthMean',
-                                       #'mainmorpho_S.C._right.depthMean',
-                                       #'mainmorpho_F.Coll._left.depthMean',
-                                       #'mainmorpho_F.Coll._right.depthMean'
+                                       'mainmorpho_F.C.M._left.depthMean',
+                                       'mainmorpho_F.C.M._right.depthMean',
+                                       'mainmorpho_S.Pe.C._left.depthMean',
+                                       'mainmorpho_S.Pe.C._right.depthMean',
+                                       'mainmorpho_S.C._left.depthMean',
+                                       'mainmorpho_S.C._right.depthMean',
+                                       'mainmorpho_F.Coll._left.depthMean',
+                                       'mainmorpho_F.Coll._right.depthMean'
                                        ])
 
         # Set the new dataframe index: subjects ID in the right format
@@ -230,7 +230,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_GM_thickness"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMean"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -284,7 +284,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input='results/*/*',
                   reduce_group_by='results/.*/(.*)',
-                  reduce_output='results-GM_thickness.csv')
+                  reduce_output='results-depthMean.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
