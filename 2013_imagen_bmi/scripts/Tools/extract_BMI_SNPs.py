@@ -3,6 +3,10 @@
 Created on Mon Jun  2 13:43:10 2014
 
 @author: vf140245
+
+This script returns the list of all SNPs extracted from genes known to be
+associated to BMI.
+
 """
 
 import os
@@ -28,8 +32,17 @@ if __name__ == "__main__":
     snps_dict, void_gene, df = load_from_genes(bmi_gene_list,
                                                study='IMAGEN',
                                                bioresDB=bioresDB)
-    #examples
-    a = df.loc[[u'000037509984', u'000044836688', u'000063400084'], :].values
-    b = df.loc[[u'000037509984', u'000063400084', u'000044836688'], :].values
-    subj_list = df.index    # subjects
-    snp_list = df.columns   # snps
+    # Pathnames
+    BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+    DATA_PATH = os.path.join(BASE_PATH, 'data')
+
+    # Write results in a single txt file for all genes
+
+    # SNPs considered: SNPs from genes known to be associated to BMI
+    BMI_SNPs = df.columns
+
+#    #examples
+#    a = df.loc[[u'000037509984', u'000044836688', u'000063400084'], :].values
+#    b = df.loc[[u'000037509984', u'000063400084', u'000044836688'], :].values
+#    subj_list = df.index    # subjects
+#    snp_list = df.columns   # snps
