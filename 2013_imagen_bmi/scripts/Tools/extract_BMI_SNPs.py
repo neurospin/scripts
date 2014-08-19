@@ -39,13 +39,10 @@ if __name__ == "__main__":
     BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
     DATA_PATH = os.path.join(BASE_PATH, 'data')
 
+    # Write results in a single txt file for all genes
+
     # SNPs considered: SNPs from genes known to be associated to BMI
     BMI_SNPs = df.columns
-
-    # Write SNPs in a .csv file
-    BMI_SNPs.to_csv(os.path.join(DATA_PATH, 'BMI_SNPs.csv'))
-    print "SNPs_IMAGEN saved to BMI_SNPs.csv"
-
 
 #    #examples
 #    a = df.loc[[u'000037509984', u'000044836688', u'000063400084'], :].values
