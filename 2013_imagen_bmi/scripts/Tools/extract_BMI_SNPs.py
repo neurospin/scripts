@@ -7,9 +7,6 @@ Created on Mon Jun  2 13:43:10 2014
 This script returns the list of all SNPs extracted from genes known to be
 associated to BMI.
 
-OUTPUT: csv file
-    "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs.csv"
-
 """
 
 import os
