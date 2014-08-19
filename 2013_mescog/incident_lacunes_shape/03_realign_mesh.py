@@ -33,11 +33,11 @@ for filename in filenames:
     m = data[data["lacune_id"] == lacune_id]
     if len(m) == 0:
         continue
-    inerties = m[["Orientation_Inerty_0", "Orientation_Inerty_1", "Orientation_Inerty_2"]].values.ravel()
-    mass_center = m[["Center_of_Mass_0", "Center_of_Mass_1", "Center_of_Mass_2"]].values.ravel()
-    v1 = m[["Orientation_V1_0", "Orientation_V1_1", "Orientation_V1_2"]].values.T
-    v2 = m[["Orientation_V2_0", "Orientation_V2_1", "Orientation_V2_2"]].values.T
-    v3 = m[["Orientation_V3_0", "Orientation_V3_1", "Orientation_V3_2"]].values.T
+    inerties = m[["orientation_inertia_0", "orientation_inertia_1", "orientation_inertia_2"]].values.ravel()
+    mass_center = m[["center_of_mass_0", "center_of_mass_1", "center_of_mass_2"]].values.ravel()
+    v1 = m[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]].values.T
+    v2 = m[["orientation_v2_0", "orientation_v2_1", "orientation_v2_2"]].values.T
+    v3 = m[["orientation_v3_0", "orientation_v3_1", "orientation_v3_2"]].values.T
     # 1) QC check center_of_mass == the one computed by AimsMoments
     import scipy.ndimage as ndimage
     from soma import aims
@@ -82,30 +82,3 @@ for filename in filenames:
     from brainomics import mesh_processing
     mesh_processing.mesh_from_arrays(coord_new, triangles, path=filename_mesh_reorient)
 
-#area_vol = pd.DataFrame(area_vol_all, columns=["lacune_id", "area_mesh", "vol_mesh"])
-#area_vol["lacune_id"] = area_vol.lacune_id
-#data["lacune_id"] = data["lacune_id"]
-#moments_with_area = data.merge(area_vol)
-#moments_with_area.to_csv(OUTPUT_AREA_CSV, index=False)
-#INPUT_MOMENTS_CSV = "/home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_moments.csv"
-#moments = pd.read_csv(INPUT_MOMENTS_CSV, index_col=0)
-
-    #ndimage.find_objects(arr)
-#    label, num_features = ndimage.label(arr)
-#    voxel_size = np.array(  [ 0.898425996303558, 1.20071411132812, 0.898452758789062 ])
-#    voxel_size * arr.shape
-#    center = ndimage.measurements.center_of_mass(arr)
-#    center = np.array([arr.shape[0] - center[0], arr.shape[1] - center[1], arr.shape[2] - center[2]])
-#    center * voxel_size
-#    np.array([center[0], arr.shape[1] - 1 - center[1], arr.shape[2] - 1 - center[2]])* voxel_size
-#    mass_center
-
-    #nzeros = np.where(arr == 1)
-    #[np.sum(nzeros[i] * voxel_size[i])/len(nzeros[i]) for i in xrange(len(voxel_size))]
-"""
-cd /home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_images
-anatomist 018/*.gii 075/*.gii 035/*.gii 033/*.gii 021/*.gii
-    'volume_dimension' : [ 256, 160, 256 ],
-'volume_dimension' : [ 256, 160, 256 ],
-
-"""

@@ -10,67 +10,116 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 import sklearn.decomposition
+from matplotlib.backends.backend_pdf import PdfPages
+
 #from sklearn import preprocessing
 
 BASE_PATH = "/home/ed203246/data/mescog/incident_lacunes_shape"
 INPUT_CSV = os.path.join(BASE_PATH, "incident_lacunes_moments.csv")
-OUTPUT_clusters = os.path.join(BASE_PATH, "pc1-pc2_clusters")
-OUTPUT_PCs =      os.path.join(BASE_PATH, "pc1-pc2")
+OUTPUT_MOMENT_INVARIANT = os.path.join(BASE_PATH, "results_moments_invariant")
+if not os.path.exists(OUTPUT_MOMENT_INVARIANT):
+        os.makedirs(OUTPUT_MOMENT_INVARIANT)
+OUTPUT_MOMENT_INVARIANT_CLUST = os.path.join(OUTPUT_MOMENT_INVARIANT, "pc1-pc2_clusters")
+OUTPUT_MOMENT_INVARIANT_PC = os.path.join(OUTPUT_MOMENT_INVARIANT, "pc1-pc2")
 
-data = pd.read_csv(INPUT_CSV, index_col=0)
-col_invar = [col for col in data.columns if col.count('Moment_Invariant')]
-X = data[col_invar]
+OUTPUT_TENSOR_INVARIANT = os.path.join(BASE_PATH, "results_tensor_invariant")
+if not os.path.exists(OUTPUT_TENSOR_INVARIANT):
+        os.makedirs(OUTPUT_TENSOR_INVARIANT)
+OUTPUT_TENSOR_INVARIANT_PC = os.path.join(OUTPUT_TENSOR_INVARIANT, "pc1-pc2")
 
+OUTPUT_ANISOTROPY_LIN_SPHE = os.path.join(BASE_PATH, "results_tensor_anisotropy_linear_spherical")
+if not os.path.exists(OUTPUT_ANISOTROPY_LIN_SPHE):
+        os.makedirs(OUTPUT_ANISOTROPY_LIN_SPHE)
+OUTPUT_ANISOTROPY_LIN_SPHE_2D = os.path.join(OUTPUT_ANISOTROPY_LIN_SPHE, "tensor_anisotropy_linear_spherical")
+
+moments = pd.read_csv(INPUT_CSV)
+
+##############################################################################
+## PCA + clustering on Moment invariants
+
+col_invar = [col for col in moments.columns if col.count('moment_invariant')]
+col_tensor = [col for col in moments.columns if col.count('tensor_invariant')]
+
+## PCA
+X = moments[col_invar]
 X -= X.mean(axis=0)
 #X /= X.std(axis=0)
 #X = preprocessing.scale(X)
 pca = sklearn.decomposition.PCA()
 pca.fit(X)
-# loadings:
-#array([[-0.14294875, -0.17968673,  0.34669576,  0.18669825,  0.07634929,
-#         0.52263794, -0.13544378,  0.17125881, -0.08050099, -0.64151083,
-#         0.16133586, -0.14671097],
-#       [ 0.14622265,  0.21200114, -0.76158041, -0.08229445, -0.06692794,
-#         0.40739309,  0.07199359, -0.18035649,  0.06434588, -0.3293737 ,
-#        -0.10317077,  0.12436119]])
-
-pca.explained_variance_ratio_
-#array([  4.71084943e-01,   2.20964783e-01,   1.31906872e-01,
-#         9.03439692e-02,   4.61621312e-02,   1.69554256e-02,
-#         1.21359995e-02,   7.20014382e-03,   1.71798089e-03,
-#         1.34157115e-03,   1.66670657e-04,   1.95096354e-05])
-#         1.50674947e-03,   1.61369200e-04,   2.01564868e-05])
-
-np.sum(pca.explained_variance_ratio_[:2])
-# 0.69204972634390094
+outtxt = open(OUTPUT_MOMENT_INVARIANT_PC+".txt","wb")
+outtxt.write("Loadings:\n")
+outtxt.write(str(pca.components_))
+outtxt.write("explained_variance_ratio_:\n")
+outtxt.write(str(pca.explained_variance_ratio_))
+outtxt.write("np.sum(pca.explained_variance_ratio_[:2]):\n")
+outtxt.write(str(np.sum(pca.explained_variance_ratio_[:2])))
+outtxt.close()
 
 # Project training subjects onto PC
 # scikit-learn projects on min(n_samples, n_features)
 PCs = pca.transform(X)
 
+pdf = PdfPages(OUTPUT_MOMENT_INVARIANT_PC+".pdf")
+
+# Annotated
 fig = plt.figure()
 plt.plot(PCs[:, 0], PCs[:, 1], "ob")
-for i in xrange(len(data.index)):
-    plt.text(PCs[i, 0], PCs[i, 1], data.index[i])
+for i in xrange(len(moments["lacune_id"])):
+    plt.text(PCs[i, 0], PCs[i, 1], moments["lacune_id"][i])
 
-plt.title("Invariant of Moments (pure shape descriptors)")
+plt.title("PC1, PC2 Annotated")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
-#plt.show()
-fig.savefig(OUTPUT_PCs+"_annotated.svg")
+pdf.savefig()  # saves the current figure into a pdf page
 
+# Color by
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_fa, s=50)
+plt.title("Tensor invariant: FA"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
 
-# ==============================================================
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_mode, s=50)
+plt.title("Tensor invariant: Mode"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cl, s=50)
+plt.title("Tensor invariant: CL (linear anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cp, s=50)
+plt.title("Tensor invariant: CP (planar anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cs, s=50)
+plt.title("Tensor invariant: CS (spherical anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.compactness, s=50)
+plt.title("Compactness: Vol^(2/3) / Surface"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_max, s=50)
+plt.title("Angle maximum inertie axis - perforator"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+## Clustering
 # 4 patterns defined by 4 lines
 # Manual clustering:
 # fit 4 affines, classify points to best fit
 # 4 lines extremities, [x1, y1, x2, y2]
 
 extremities = np.vstack([
-np.hstack([PCs[data.index == 18, [0, 1]], PCs[data.index == 32, [0, 1]]]),
-np.hstack([PCs[data.index == 75, [0, 1]], PCs[data.index == 21, [0, 1]]]),
-np.hstack([PCs[data.index == 35, [0, 1]], PCs[data.index == 94, [0, 1]]]),
-np.hstack([PCs[data.index == 33, [0, 1]], PCs[data.index == 77, [0, 1]]])])
+np.hstack([PCs[(moments["lacune_id"] == 18).values, [0, 1]], PCs[(moments["lacune_id"] == 32).values, [0, 1]]]),
+np.hstack([PCs[(moments["lacune_id"] == 75).values, [0, 1]], PCs[(moments["lacune_id"] == 21).values, [0, 1]]]),
+np.hstack([PCs[(moments["lacune_id"] == 35).values, [0, 1]], PCs[(moments["lacune_id"] == 94).values, [0, 1]]]),
+np.hstack([PCs[(moments["lacune_id"] == 33).values, [0, 1]], PCs[(moments["lacune_id"] == 77).values, [0, 1]]])])
 
 
 def get_affine(x1, y1, x2, y2):
@@ -86,40 +135,132 @@ err = (y - y_hat) ** 2
 label = np.argmin(err, axis=1)
 
 fig = plt.figure()
-plt.plot(PCs[label==0, 0], PCs[label==0, 1], "ob",
-        PCs[label==1, 0], PCs[label==1, 1], "or",
-        PCs[label==2, 0], PCs[label==2, 1], "og",
-        PCs[label==3, 0], PCs[label==3, 1], "oy")
-plt.title("Invariant of Moments (pure shape descriptors)")
-plt.xlabel("PC1")
-plt.ylabel("PC2")
-fig.savefig(OUTPUT_clusters+".svg")
-
-for i in xrange(len(data.index)):
-    plt.text(PCs[i, 0], PCs[i, 1], data.index[i])
-
-
-fig.savefig(OUTPUT_clusters+"_annotated.svg")
-
+plt.scatter(PCs[:, 0], PCs[:, 1], c=label, s=50)
+plt.title("4 patterns defined by 4 lines"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()
 
 clusters = pd.DataFrame(np.hstack([PCs[:, [0, 1]], label[:, np.newaxis]]),
-                        columns=("PC1", "PC2", "label"), index=data.index)
-clusters.to_csv(OUTPUT_clusters+".csv")
+                        columns=("PC1", "PC2", "label"), index=moments["lacune_id"])
+clusters.to_csv(OUTPUT_MOMENT_INVARIANT_CLUST+".csv")
+
+
+#
+import statsmodels.api as sm
+y = moments["compactness"].values
+X = moments[col_tensor].values
+X = sm.add_constant(X)
+model = sm.OLS(y, X)
+results = model.fit()
+print results
+#results.params
+#print results.t_test([-1, 0])
+#print results.f_test(np.identity(2))
+#plt.plot(moments["fa"], moments["compactness"], "o")
+moments["compactness_resid_tensor_invarient"] = results.resid
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments["compactness_resid_tensor_invarient"], s=50)
+plt.title("Compactness residual (regression on tens. invar.)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()
+
+pdf.close()
+
 
 ##############################################################################
-## Color by
-# inertie_max_norm
-fig = plt.figure()
-plt.plot(PCs[:, 0], PCs[:, 1], "o")#, color=data.inertie_max_norm)
-#for i in xrange(len(data.index)):
-#    plt.text(PCs[i, 0], PCs[i, 1], data.index[i])
+## PCA + clustering on Tensor invariants
+X = moments[col_tensor]
+X -= X.mean(axis=0)
+#X /= X.std(axis=0)
+#X = preprocessing.scale(X)
+pca = sklearn.decomposition.PCA()
+pca.fit(X)
+outtxt = open(OUTPUT_TENSOR_INVARIANT_PC+".txt","wb")
+outtxt.write("Loadings:\n")
+outtxt.write(str(pca.components_))
+outtxt.write("explained_variance_ratio_:\n")
+outtxt.write(str(pca.explained_variance_ratio_))
+outtxt.write("np.sum(pca.explained_variance_ratio_[:2]):\n")
+outtxt.write(str(np.sum(pca.explained_variance_ratio_[:2])))
+outtxt.close()
 
-plt.title("Invariant of Moments (pure shape descriptors)")
+# Project training subjects onto PC
+# scikit-learn projects on min(n_samples, n_features)
+PCs = pca.transform(X)
+
+pdf = PdfPages(OUTPUT_TENSOR_INVARIANT_PC+".pdf")
+
+# Annotated
+fig = plt.figure()
+plt.plot(PCs[:, 0], PCs[:, 1], "ob")
+for i in xrange(len(moments["lacune_id"])):
+    plt.text(PCs[i, 0], PCs[i, 1], moments["lacune_id"][i])
+
+plt.title("PC1, PC2 Annotated")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
-#plt.show()
-fig.savefig(OUTPUT_PCs+"_color-by-inertie_max_norm.svg")
+pdf.savefig()  # saves the current figure into a pdf page
 
-"""
+# Color by
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_fa, s=50)
+plt.title("Tensor invariant: FA"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
 
-"""
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_mode, s=50)
+plt.title("Tensor invariant: Mode"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cl, s=50)
+plt.title("Tensor invariant: CL (linear anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cp, s=50)
+plt.title("Tensor invariant: CP (planar anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_cs, s=50)
+plt.title("Tensor invariant: CS (spherical anisotropy)"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.compactness, s=50)
+plt.title("Compactness: Vol^(2/3) / Surface "); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+fig = plt.figure()
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_max, s=50)
+plt.title("Angle maximum inertia axis - perforator"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()  # saves the current figure into a pdf page
+
+pdf.close()
+
+##############################################################################
+## 2D linear x spherical
+pdf = PdfPages(OUTPUT_ANISOTROPY_LIN_SPHE_2D+".pdf")
+
+# Annotated
+fig = plt.figure()
+plt.plot(moments.tensor_invariant_cl, moments.tensor_invariant_cs, "ob")
+for i in xrange(len(moments["lacune_id"])):
+    plt.text(moments.tensor_invariant_cl[i], moments.tensor_invariant_cs[i], moments["lacune_id"][i])
+
+plt.title("linear vs spherical anisotropy")
+plt.xlabel("Linear"); plt.ylabel("Spherical")
+pdf.savefig()
+
+fig = plt.figure()
+plt.scatter(moments.tensor_invariant_cl, moments.tensor_invariant_cs, c=moments.tensor_invariant_fa, s=50)
+plt.title("FA")
+plt.xlabel("Linear"); plt.ylabel("Spherical")
+pdf.savefig()
+
+fig = plt.figure()
+plt.scatter(moments.tensor_invariant_cl, moments.tensor_invariant_cs, c=moments.perfo_angle_inertia_max, s=50)
+plt.title("Angle maximum inertia axis - perforator")
+plt.xlabel("Linear"); plt.ylabel("Spherical")
+pdf.savefig()
+
+pdf.close()

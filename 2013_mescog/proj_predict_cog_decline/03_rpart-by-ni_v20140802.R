@@ -94,23 +94,61 @@ p_change_boxplot =
   ggtitle(paste("MMSE.CHANGE", "~", "GROUP")) +
   theme(legend.position="bottom", legend.direction="vertical")
 
+# write.csv(ds, paste(OUTPUT, "rpart_MMSE.CHANGE.csv", sep="/"))
+# 
+# pdf(paste(OUTPUT, "rpart_MMSE.CHANGE.pdf", sep="/"))
+# plot(rpart_mod1, uniform=TRUE, main=paste("MMSE.CHANGE~MMSE+LLV+BPF"))
+# text(rpart_mod1, use.n=TRUE, all=TRUE, cex=.8)
+# plot(rpart_mod2, uniform=TRUE, main=paste("MMSE.CHANGE~LLV+BPF"))
+# text(rpart_mod2, use.n=TRUE, all=TRUE, cex=.8)
+# plot(rpart_mod, uniform=TRUE, main=paste("MMSE.CHANGE~MMSE+LLV+BPF"))
+# text(rpart_mod, use.n=TRUE, all=TRUE, cex=.8)
+# print(p_true_m36_m0)
+# print(p_pred_m36_m0)
+# print(p_change_boxplot)
+# dev.off()
+
+#svg(paste(OUTPUT, "rpart_MMSE.CHANGE.svg", sep="/"))
+#print(p_change_boxplot)
+#dev.off()
+
+
+# Simplfy rule
+# ------------
+groups = rep(NA, length(d$GROUP))
+
+m0 = d$LLV>=1964
+m1 = (d$LLV< 1964 & d$MMSE>=27.5) | (d$LLV<1964 & d$MMSE< 27.5 & d$BPF< 0.7645)
+m2 = (d$LLV< 1964 & d$MMSE< 27.5 & d$BPF>=0.7645)
+
+
+groups[m0] = 0
+groups[m1] = 1 
+groups[m2] = 2
+
+groups = factor(groups, labels=c("LLV>=1964", "/LLV< 1964/MMSE>=27.5 OR /LLV< 1964/MMSE< 27.5/BPF< 0.7645", 
+                                 "/LLV< 1964/MMSE< 27.5/BPF>=0.7645"))
+
+d$GROUP2 = groups
+
+ds = summarySE(data=d, "MMSE.CHANGE", "GROUP2")
+p_change_boxplot_simple = 
+  ggplot(d, aes(x = GROUP2, y = MMSE.CHANGE, fill=GROUP2))+#, colour=GROUP, group=GROUP)) +
+  geom_boxplot(alpha=.5)+#alpha=1, aes(colour=GROUP)) +
+  geom_point(data=ds, alpha=1, size=3, colour="black") +
+  ggtitle(paste("MMSE.CHANGE", "~", "GROUP simplified")) + theme(legend.position="bottom", legend.direction="vertical")
+
 write.csv(ds, paste(OUTPUT, "rpart_MMSE.CHANGE.csv", sep="/"))
-
-pdf(paste(OUTPUT, "rpart_MMSE.CHANGE.pdf", sep="/"))
-plot(rpart_mod1, uniform=TRUE, main=paste("MMSE.CHANGE~MMSE+LLV+BPF"))
-text(rpart_mod1, use.n=TRUE, all=TRUE, cex=.8)
-plot(rpart_mod2, uniform=TRUE, main=paste("MMSE.CHANGE~LLV+BPF"))
-text(rpart_mod2, use.n=TRUE, all=TRUE, cex=.8)
-plot(rpart_mod, uniform=TRUE, main=paste("MMSE.CHANGE~MMSE+LLV+BPF"))
-text(rpart_mod, use.n=TRUE, all=TRUE, cex=.8)
-print(p_true_m36_m0)
-print(p_pred_m36_m0)
-print(p_change_boxplot)
-dev.off()
-
 svg(paste(OUTPUT, "rpart_MMSE.CHANGE.svg", sep="/"))
-print(p_change_boxplot)
+print(p_change_boxplot_simple)
 dev.off()
+
+
+
+
+
+
+
 
 
 ## ---------------------------------------------------------------------------------------------

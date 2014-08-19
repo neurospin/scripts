@@ -40,7 +40,7 @@ for filename in filenames:
     # 2) AimsMoment
     out = os.popen('AimsMoment -i %s' % filename)
     #lacune = None
-    Moment_invariant = False
+    moment_invariant = False
     #lacunes = list()
     found_cc = 0
     for line in out:
@@ -55,7 +55,7 @@ for filename in filenames:
                 print "More than one object found by AimsMoment", filename
                 continue
             #lacune_id = str(item[1])
-            Moment_invariant = False
+            moment_invariant = False
     #    if len(item) == 1 and item[0] == '':
     #        lacune_cols = ["lacune_id"] + lacune_cols
     #        lacune_values = [lacune_id] + lacune_values
@@ -67,48 +67,48 @@ for filename in filenames:
            item[0] == 'Orientation':
                continue
         if item[0] == 'Number of points':
-            lacune_keys_values.append(['Number_of_points', int(item[1])])
+            lacune_keys_values.append(['number_of_points', int(item[1])])
         elif item[0] == 'Volume (mm3)':
-            lacune_keys_values.append(['Vol(mm3)', float(item[1])])
+            lacune_keys_values.append(['vol_mm3', float(item[1])])
         elif item[0] == 'Order 1 moments':
             values = [float(v) for v in item[1].split(" ")]
             lacune_keys_values += \
-                [['Order_1_Monent_%i' % i, values[i]] for i in xrange(len(values))]
+                [['order_1_monent_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'Order 2 moments':
             values = [float(v) for v in item[1].split(" ")]
             lacune_keys_values += \
-                [['Order_2_Monent_%i' % i, values[i]] for i in xrange(len(values))]
+                [['order_2_monent_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'Order 3 moments':
             values = [float(v) for v in item[1].split(" ")]
             lacune_keys_values += \
-                [['Order_3_Monent_%i' % i, values[i]] for i in xrange(len(values))]
+                [['order_3_monent_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'Center of Mass':
             values = [float(v) for v in item[1].strip("()").split(",")]
             lacune_keys_values += \
-                [['Center_of_Mass_%i' % i, values[i]] for i in xrange(len(values))]
+                [['center_of_mass_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'Inerty':
             values = [float(v) for v in item[1].split(";")]
             lacune_keys_values += \
-                [['Orientation_Inerty_%i' % i, values[i]] for i in xrange(len(values))]
+                [['orientation_inertia_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'V1':
             values = [float(v) for v in item[1].strip("()").split(",")]
             lacune_keys_values += \
-                [['Orientation_V1_%i' % i, values[i]] for i in xrange(len(values))]
+                [['orientation_v1_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'V2':
             values = [float(v) for v in item[1].strip("()").split(",")]
             lacune_keys_values += \
-                [['Orientation_V2_%i' % i, values[i]] for i in xrange(len(values))]
+                [['orientation_v2_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == 'V3':
             values = [float(v) for v in item[1].strip("()").split(",")]
             lacune_keys_values += \
-                [['Orientation_V3_%i' % i, values[i]] for i in xrange(len(values))]
+                [['orientation_v3_%i' % i, values[i]] for i in xrange(len(values))]
         elif item[0] == "Moment invariant":
-            Moment_invariant = True
-        elif Moment_invariant:
+            moment_invariant = True
+        elif moment_invariant:
             values = [float(v) for v in item[0].split(" ")]
             lacune_keys_values += \
-                [['Moment_Invariant_%i' % i, values[i]] for i in xrange(len(values))]
-            Moment_invariant = False
+                [['moment_invariant_%i' % i, values[i]] for i in xrange(len(values))]
+            moment_invariant = False
     cols, values = zip(*lacune_keys_values)
     #if columns is None:
     #    columns = cols
@@ -131,7 +131,7 @@ for filename in filenames:
     perfo_zyx = np.asarray(np.where(arr == 2)).squeeze() - np.asarray(np.where(arr == 1)).squeeze()
     voxel_size = vol_aims.header()['voxel_size'].arraydata()
     perfo_xyz = (perfo_zyx * voxel_size[::-1])[::-1]
-    columns += ['Orientation_Perfo_%i' % i for i in xrange(len(perfo_xyz))]
+    columns += ['perfo_orientation_%i' % i for i in xrange(len(perfo_xyz))]
     moments += perfo_xyz.tolist()
     if columns_assert is None:
         columns_assert = columns
@@ -140,29 +140,60 @@ for filename in filenames:
     data.append(moments)
 
 moments = pd.DataFrame(data, columns=columns)
+moments.to_csv(OUPUT_CSV, index=False)
 
 ## Compute some additional moments
+moments = pd.read_csv(OUPUT_CSV)
 # compactness
 # moments = pd.read_csv(OUPUT_CSV)
 moments["compactness"] = moments["vol_mesh"] ** (2. / 3) / moments["area_mesh"]
-# Inerties
-I = np.array(moments[["Orientation_Inerty_0", "Orientation_Inerty_1", "Orientation_Inerty_2"]])
-Im = I.mean(axis=1)
-moments["fa"] = np.sqrt(3. / 2.) * \
-np.sqrt(((I[:, 0] - Im) ** 2 + (I[:, 1] - Im) ** 2 + (I[:, 2] - Im) ** 2) /
-np.sum(I ** 2, axis=1))
-moments["inertie_max_norm"] = I[:, 0] ** 2 / np.sum(I ** 2, axis=1)
-moments["inertie_min_norm"] = I[:, 2] ** 2 / np.sum(I ** 2, axis=1)
+
+# Shape's moments base on  inerties
+# Magn Reson Med. 2006 Jan;55(1):136-46.
+# Orthogonal tensor invariants and the analysis of diffusion tensor magnetic resonance images.
+# Ennis DB, Kindlmann G.
+
+# Tensor Invariants:
+# - FA: fractional anisotropy (FA),
+# - CL linear anisotropy,
+# - CP: planar anisotropy (CP)
+# - CS: spherical anisotropy()
+# - Mode: diffusion tensor mode
+
+A = np.array(moments[["orientation_inertia_0", "orientation_inertia_1", "orientation_inertia_2"]])
+Am = A.mean(axis=1)
+Atilde = A - Am[:, None]
+FA = np.sqrt(3. / 2.) * \
+    np.sqrt(np.sum(Atilde ** 2, axis=1)) / \
+    np.sqrt(np.sum(A ** 2, axis=1))
+
+# mode
+mode = np.prod(A, axis=1) / \
+(np.sqrt(np.sum(Atilde ** 2, axis=1)) ** 3)
+
+CL = (A[:, 0] - A[:, 1]) / np.sum(A, axis=1)
+CP = 2 * (A[:, 1] - A[:, 2]) / np.sum(A, axis=1)
+CS = 3 * A[:, 2] / np.sum(A, axis=1)
+assert np.allclose(CL + CP + CS, 1)
+
+moments["tensor_invariant_fa"] = FA
+moments["tensor_invariant_mode"] = mode
+moments["tensor_invariant_cl"] = CL
+moments["tensor_invariant_cp"] = CP
+moments["tensor_invariant_cs"] = CS
 #
-I = np.array(moments[["Orientation_V1_0", "Orientation_V1_1", "Orientation_V1_2"]])
+#moments["inertia_max_norm"] = I[:, 0] ** 2 / np.sum(A ** 2, axis=1)
+#moments["inertia_min_norm"] = I[:, 2] ** 2 / np.sum(A ** 2, axis=1)
+#
+I = np.array(moments[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]])
 I /= np.sqrt(np.sum(I ** 2, axis=1)[:, np.newaxis])
 #np.sum(I ** 2, axis=1)
 
-P = np.array(moments[["Orientation_Perfo_0", "Orientation_Perfo_1", "Orientation_Perfo_2"]])
+P = np.array(moments[["perfo_orientation_0", "perfo_orientation_1", "perfo_orientation_2"]])
 P /= np.sqrt(np.sum(P ** 2, axis=1)[:, np.newaxis])
 IP = np.sum(I * P, axis=1)
 IP[IP < 0] = 1 + IP[IP < 0]
-moments["angle_inertie_max_perf"] = np.arccos(IP)
+moments["perfo_angle_inertia_max"] = np.arccos(IP)
 
 moments.to_csv(OUPUT_CSV, index=False)
 
