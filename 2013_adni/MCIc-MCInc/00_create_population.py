@@ -4,7 +4,7 @@
 @author: md238665
 
 Creates a CSV file for the population.
-=> intersection of subject_list.txt and adnimerge_baseline.csv of in CTL or AD
+=> intersection of subject_list.txt and adnimerge_simplified.csv of in CTL or AD
 
 """
 import os
@@ -15,7 +15,7 @@ import pandas as pd
 GROUP_MAP = {'MCInc': 0, 'MCIc': 1}
 
 BASE_PATH = "/neurospin/brainomics/2013_adni"
-INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_baseline.csv")
+INPUT_CLINIC_FILENAME = os.path.join(BASE_PATH, "clinic", "adnimerge_simplified.csv")
 INPUT_SUBJECTS_LIST_FILENAME = os.path.join(BASE_PATH,
                                    "templates",
                                    "template_FinalQC",
