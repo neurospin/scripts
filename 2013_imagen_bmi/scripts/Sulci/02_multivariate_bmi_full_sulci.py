@@ -303,7 +303,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     # CV index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
-    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.001, 0.01, 0.1, 1]
+    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10, 100]
                for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
