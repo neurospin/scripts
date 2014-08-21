@@ -27,7 +27,7 @@ Only 978 subjects among the 1265 for who we have neuroimaging data
 import os
 import numpy as np
 import pandas as pd
-
+import xlrd
 
 # Pathnames
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
@@ -80,9 +80,54 @@ colnames = ['Gender de Feuil2', 'ageannees', 'BMI', 'Status']
 
 # Dataframe containing data of interest covariates for the selected subjects
 full_sulci_clinic_df = pd.DataFrame(population_df,
-                         index=subjects_index_list,
-                         columns=colnames)
+                                    index=subjects_index_list,
+                                    columns=colnames)
 
-full_sulci_clinic_df = pd.DataFrame.to_csv(full_sulci_clinic_df,
-                                           os.path.join(FULL_SULCI_PATH,
+full_sulci_clinics = pd.DataFrame.to_csv(full_sulci_clinic_df,
+                                         os.path.join(FULL_SULCI_PATH,
                                                     'full_sulci_clinics.csv'))
+
+
+# Demographics
+insuff_group = full_sulci_clinic_df[full_sulci_clinic_df['Status'] == 'Insuff']
+normal_group = full_sulci_clinic_df[full_sulci_clinic_df['Status'] == 'Normal']
+overweight_group = full_sulci_clinic_df[full_sulci_clinic_df
+                                            ['Status'] == 'Overweight']
+obese_group = full_sulci_clinic_df[full_sulci_clinic_df['Status'] == 'Obese']
+
+male_group = full_sulci_clinic_df[full_sulci_clinic_df
+                                            ['Gender de Feuil2'] == 'Male']
+female_group = full_sulci_clinic_df[full_sulci_clinic_df
+                                            ['Gender de Feuil2'] == 'Female']
+
+print "There are ", insuff_group.shape[0], "thick people."
+print "There are ", normal_group.shape[0], "normal people."
+print "There are ", overweight_group.shape[0], "overweight people."
+print "There are ", obese_group.shape[0], "obese people."
+
+print "There are ", male_group.shape[0], "male people."
+print "There are ", female_group.shape[0], "female people."
+
+
+# Demographics of all subjects for whom we have both neuroimaging and genetic
+# data
+clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
+                                                  'population.csv'),
+                                      sep=',',
+                                      index_col=0)
+
+insuff_group_orig = clinical_df[clinical_df['Status'] == 'Insuff']
+normal_group_orig = clinical_df[clinical_df['Status'] == 'Normal']
+overweight_group_orig = clinical_df[clinical_df['Status'] == 'Overweight']
+obese_group_orig = clinical_df[clinical_df['Status'] == 'Obese']
+
+male_group_orig = clinical_df[clinical_df['Gender de Feuil2'] == 'Male']
+female_group_orig = clinical_df[clinical_df['Gender de Feuil2'] == 'Female']
+
+print "There are ", insuff_group_orig.shape[0], "thick people in original data."
+print "There are ", normal_group_orig.shape[0], "normal people in original data."
+print "There are ", overweight_group_orig.shape[0], "overweight people in original data."
+print "There are ", obese_group_orig.shape[0], "obese people in original data."
+
+print "There are ", male_group_orig.shape[0], "male people in original data."
+print "There are ", female_group_orig.shape[0], "female people in original data."
