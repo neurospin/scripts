@@ -20,9 +20,9 @@ import parsimony.functions.nesterov.tv as tv_helper
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = nibabel.load(config["structure"])
+    STRUCTURE = nibabel.load(config["mask_filename"])
     A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
-    GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
+    GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
 
 
 def resample(config, resample_nb):
@@ -50,7 +50,7 @@ def mapper(key, output_collector):
     STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 3
+    penalty_start = GLOBAL.CONFIG["penalty_start"]
     #class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     tv_range = np.array([0., 1e-3, 5e-3, 1e-2, 5e-2, .1, .2, .3, .333, .4, .5, .6, .7, .8, .9])
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
                        [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-    alphas = [0.001, 0.005, .01, .05, .1 , .5, 1.,  10.]
+    alphas = [0.0001, 0.0005, 0.001, 0.005, .01, .05, .1 , .5, 1.,  10.]
     #k_range = [100, 1000, 10000, 100000, -1]
     k_range = [-1]
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
@@ -181,7 +181,8 @@ if __name__ == "__main__":
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
-                  structure=INPUT_MASK_PATH,
+                  mask_filename=INPUT_MASK_PATH,
+                  penalty_start = 3,
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_input="results/*/*",

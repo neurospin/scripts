@@ -214,7 +214,7 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     if not options.config:
-        print 'Required arguments --config'
+        print 'Required config file'
         sys.exit(1)
     config_filename = options.config
     ## TO DEBUG just set config_filename here

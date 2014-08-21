@@ -1,14 +1,16 @@
 ##############################################################################################################################
 #
-# Read ADNIMERGE and produce a simplefied csv file with one line per subject containing all baseline information +
-# DX.bl: DX @ baseline (==DX)
-# DX.last: last knwon DX
-# CONV_TO_MCI: CONVERTION in days to MCI from bl
-# CONV_TO_AD: CONVERTION in days to AD from bl
+# Read ADNIMERGE and produce a simplified csv file with one line per subject containing:
+# - all baseline information (suffix .bl and no suffix should be the same)
+# - 2 years (suffix .m24)
+# - 800 days (suffix .d800)
+# - last known information (suffix .last)
+# - CONV_TO_MCI: CONVERTION in days to MCI from bl
+# - CONV_TO_AD: CONVERTION in days to AD from bl
 #
 ##############################################################################################################################
 
-baseline information and last knwon DX
+
 # INPUT: "ADNIMERGE_0.0.1.tar.gz"
 if(FALSE){
 install.packages("Hmisc")
@@ -20,7 +22,7 @@ library(lubridate)
 library(ADNIMERGE)
 
 WD = "/neurospin/brainomics/2013_adni/clinic"
-OUTPUT = paste(WD, "adnimerge_baseline.csv", sep="/")
+OUTPUT = paste(WD, "adnimerge_simplified.csv", sep="/")
 
 
 setwd(WD)
@@ -72,8 +74,10 @@ table(D$DX)
 # AD  CTL  MCI 
 # 1834 2347 3388 
 
+cols_not_bl = colnames(D)[grep(".bl", colnames(D), invert=TRUE)]
 ##############################################################################################################################
-## Simplify table: one line per subject: DX.bl + DX.last + CONVERTION in days CONV_TO_MCI and CONV_TO_AD
+## Simplify table: one line per subject: all bl + 2 years (suffix .m24) + 800 days (suffix .d800) + last known (suffix .last)
+## CONVERTION in days CONV_TO_MCI and CONV_TO_AD
 ##############################################################################################################################
 simple = NULL
 for(id in unique(D$PTID)){
@@ -90,7 +94,14 @@ for(id in unique(D$PTID)){
   #idx_3yr = which(min(abs(days_since_bl - 3 * 365)) == abs(days_since_bl - 3 * 365) )
   #idx_ad = sum(d$DX == "AD")[1]
   #if(d$DX.bl != d[idx_bl, "DX"])cat(id)
-  tuple = data.frame(d[idx_bl, ], DX.last=d[idx_last, "DX"], MMSE.2yrs=d[idx_2yrs, "MMSE"],  MMSE.800days=d[idx_800days, "MMSE"])
+  d_2yrs = d[idx_2yrs, cols_not_bl]
+  colnames(d_2yrs) = paste(colnames(d_2yrs), "m24", sep=".")
+  d_800days = d[idx_800days, cols_not_bl]
+  colnames(d_800days) = paste(colnames(d_800days), "d800", sep=".")
+  d_last = d[idx_last, cols_not_bl]
+  colnames(d_last) = paste(colnames(d_last), "last", sep=".")
+  tuple = cbind(d[idx_bl, ], d_2yrs, d_800days, d_last)
+  #tuple = data.frame(d[idx_bl, ], DX.last=d[idx_last, "DX"], MMSE.2yrs=d[idx_2yrs, "MMSE"],  MMSE.800days=d[idx_800days, "MMSE"])
   if(is.na(tuple$DX.bl)) tuple$DX.bl=tuple$DX
   if(tuple$DX.bl != tuple$DX)cat(id,"baseline DX mismatch\n")
   # look for convertion

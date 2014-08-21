@@ -7,6 +7,7 @@ Created on Fri May 30 20:03:12 2014
 
 import os
 import json
+from collections import OrderedDict
 import numpy as np
 from sklearn.cross_validation import KFold
 import nibabel
@@ -94,14 +95,27 @@ def reducer(key, values):
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
     r2 = r2_score(y_true, y_pred)
+    corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
     betas = np.hstack([item["beta"] for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
     n_ite = None
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-    print a, l1, l2, tv, k, beta_cor_mean
-    scores = dict(key=key, a=a, l1=l1, l2=l2, tv=tv, k=k, r2=r2, support=len(y_true), 
-                  n_ite=n_ite, beta_cor_mean=beta_cor_mean)
+    #print a, l1, l2, tv, k, beta_cor_mean
+    scores = OrderedDict()
+    scores['a'] = a
+    scores['l1'] = l1
+    scores['l2'] = l2
+    scores['tv'] = tv
+    scores['r2']= r2
+    scores['corr']= corr
+    scores['beta_cor_mean'] = beta_cor_mean
+    scores['support'] = len(y_true)
+    scores['n_ite'] = n_ite
+    scores['key'] = key
+    scores['k'] = k
+#    scores = dict(key=key, a=a, l1=l1, l2=l2, tv=tv, k=k, r2=r2, corr=corr, support=len(y_true), 
+#                  n_ite=n_ite, beta_cor_mean=beta_cor_mean)
     return scores
 
 
