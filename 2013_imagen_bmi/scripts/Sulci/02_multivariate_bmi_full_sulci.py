@@ -159,7 +159,7 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_S.C._left.depthMean',
                                        'mainmorpho_S.C._right.depthMean',
                                        'mainmorpho_F.Coll._left.depthMean',
-                                       'mainmorpho_F.Coll._right.depthMean'
+                                       'mainmorpho_F.Coll._right.depthMean',
                                        #
                                        'mainmorpho_F.C.M._left.length',
                                        'mainmorpho_F.C.M._right.length',
@@ -177,7 +177,7 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_S.C._left.GM_thickness',
                                        'mainmorpho_S.C._right.GM_thickness',
                                        'mainmorpho_F.Coll._left.GM_thickness',
-                                       'mainmorpho_F.Coll._right.GM_thickness'
+                                       'mainmorpho_F.Coll._right.GM_thickness',
                                        #
                                        'mainmorpho_F.C.M._left.opening',
                                        'mainmorpho_F.C.M._right.opening',
@@ -310,7 +310,7 @@ if __name__ == "__main__":
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
                                       '02_multivariate_bmi_full_sulci.py')
 
-    print "user_func", user_func_filename
+    #print "user_func", user_func_filename
 
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
@@ -320,7 +320,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input='results/*/*',
                   reduce_group_by='results/.*/(.*)',
-                  reduce_output='results-depthMean.csv')
+                  reduce_output='results_mltv.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
