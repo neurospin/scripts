@@ -239,7 +239,7 @@ def load_residualized_bmi_data(cache):
 
         # Center & scale sulci_data
         sulci_data = skl.fit_transform(sulci_data)
-        print "sulci_data loaded"
+        print "Sulci_data loaded"
 
         # Constant regressor to mimick the fit intercept
         constant_regressor = np.ones((sulci_data.shape[0], 1))
@@ -267,7 +267,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMean"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_full_sulci_cache_IMAGEN')
+                              'bmi_full_sulci_all_features_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
@@ -320,7 +320,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input='results/*/*',
                   reduce_group_by='results/.*/(.*)',
-                  reduce_output='results_mltv.csv')
+                  reduce_output='results_full_sulci_all_features.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
@@ -338,7 +338,6 @@ if __name__ == "__main__":
     #########################################################################
     print "# Map"
     print "mapreduce.py -m %s/config.json --ncore 12" % WD
-    #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# Run on cluster Gabriel"
     print "qsub job_Global_long.pbs"
     #########################################################################
