@@ -24,7 +24,7 @@ step of the segmentation process.
 INPUT:
 - /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
   full_sulci/Quality_control/sulci_df_qc.csv:
-    sulci features after quality control
+    sulci features after quality control for all sulci of interest
 
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
     BMI of the 1265 subjects for which we also have neuroimaging data
