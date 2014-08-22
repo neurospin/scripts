@@ -177,16 +177,16 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_S.C._left.GM_thickness',
                                        'mainmorpho_S.C._right.GM_thickness',
                                        'mainmorpho_F.Coll._left.GM_thickness',
-                                       'mainmorpho_F.Coll._right.GM_thickness',
+                                       'mainmorpho_F.Coll._right.GM_thickness'
                                        #
-                                       'mainmorpho_F.C.M._left.opening',
-                                       'mainmorpho_F.C.M._right.opening',
-                                       'mainmorpho_S.Pe.C._left.opening',
-                                       'mainmorpho_S.Pe.C._right.opening',
-                                       'mainmorpho_S.C._left.opening',
-                                       'mainmorpho_S.C._right.opening',
-                                       'mainmorpho_F.Coll._left.opening',
-                                       'mainmorpho_F.Coll._right.opening'
+#                                       'mainmorpho_F.C.M._left.opening',
+#                                       'mainmorpho_F.C.M._right.opening',
+#                                       'mainmorpho_S.Pe.C._left.opening',
+#                                       'mainmorpho_S.Pe.C._right.opening',
+#                                       'mainmorpho_S.C._left.opening',
+#                                       'mainmorpho_S.C._right.opening',
+#                                       'mainmorpho_F.Coll._left.opening',
+#                                       'mainmorpho_F.Coll._right.opening'
                                        ])
 
         # Set the new dataframe index: subjects ID in the right format
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     ## Set pathes
     #WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean_surface_GMthickness_opening"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean_surface_GMthickness"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
