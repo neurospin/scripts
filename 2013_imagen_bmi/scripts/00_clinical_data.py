@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Excel files containing clinical data to be read
     workbook = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
-                                               "1534bmi-vincent2.xls"))
+                                               '1534bmi-vincent2.xls'))
     #workbook2 = xlrd.open_workbook(os.path.join(SHFJ_DATA_PATH,
     #                                           "bmi-tri.xls"))
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 ]
 
     # Keep only subjects for which we have all data
-    subjects_id = np.genfromtxt(os.path.join(DATA_PATH, "subjects_id.csv"),
+    subjects_id = np.genfromtxt(os.path.join(DATA_PATH, 'subjects_id.csv'),
                                 dtype=None, delimiter=',', skip_header=1)
 
     # Dataframe containing only non interest covariates for selected subjects
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     # Excel file with reference BMI status according to age and gender
     workbook = xlrd.open_workbook(os.path.join(CLINIC_DATA_PATH,
-                                               "BMI_status.xls"))
+                                               'BMI_status.xls'))
 
     # Create a dataframe assigning status to subjects
     ref_values = pd.io.excel.read_excel(workbook,
@@ -145,7 +145,7 @@ if __name__ == "__main__":
                              right_index=True)
 
     clinical_data_all = pd.DataFrame.to_csv(clinical_data,
-                            os.path.join(CLINIC_DATA_PATH, "population.csv"))
+                            os.path.join(CLINIC_DATA_PATH, 'population.csv'))
 
     print "CSV file containing all clinical data has been saved."
 

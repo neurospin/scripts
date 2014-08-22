@@ -24,7 +24,7 @@ step of the segmentation process.
 INPUT:
 - /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
   full_sulci/Quality_control/sulci_df_qc.csv:
-    sulci features after quality control
+    sulci features after quality control for all sulci of interest
 
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
     BMI of the 1265 subjects for which we also have neuroimaging data
@@ -134,14 +134,24 @@ def load_residualized_bmi_data(cache):
         sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                                           'sulci_df_qc.csv'),
                               sep=',',
-                              usecols=[#'mainmorpho_F.C.M._left.GM_thickness',
-                                       #'mainmorpho_F.C.M._right.GM_thickness',
-                                       #'mainmorpho_S.Pe.C._left.GM_thickness',
-                                       #'mainmorpho_S.Pe.C._right.GM_thickness',
-                                       #'mainmorpho_S.C._left.GM_thickness',
-                                       #'mainmorpho_S.C._right.GM_thickness',
-                                       #'mainmorpho_F.Coll._left.GM_thickness',
-                                       #'mainmorpho_F.Coll._right.GM_thickness'
+                              usecols=['mainmorpho_F.C.M._left.surface',
+                                       'mainmorpho_F.C.M._right.surface',
+                                       'mainmorpho_S.Pe.C._left.surface',
+                                       'mainmorpho_S.Pe.C._right.surface',
+                                       'mainmorpho_S.C._left.surface',
+                                       'mainmorpho_S.C._right.surface',
+                                       'mainmorpho_F.Coll._left.surface',
+                                       'mainmorpho_F.Coll._right.surface',
+                                       #
+                                       'mainmorpho_F.C.M._left.depthMax',
+                                       'mainmorpho_F.C.M._right.depthMax',
+                                       'mainmorpho_S.Pe.C._left.depthMax',
+                                       'mainmorpho_S.Pe.C._right.depthMax',
+                                       'mainmorpho_S.C._left.depthMax',
+                                       'mainmorpho_S.C._right.depthMax',
+                                       'mainmorpho_F.Coll._left.depthMax',
+                                       'mainmorpho_F.Coll._right.depthMax',
+                                       #
                                        'mainmorpho_F.C.M._left.depthMean',
                                        'mainmorpho_F.C.M._right.depthMean',
                                        'mainmorpho_S.Pe.C._left.depthMean',
@@ -149,7 +159,34 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_S.C._left.depthMean',
                                        'mainmorpho_S.C._right.depthMean',
                                        'mainmorpho_F.Coll._left.depthMean',
-                                       'mainmorpho_F.Coll._right.depthMean'
+                                       'mainmorpho_F.Coll._right.depthMean',
+                                       #
+                                       'mainmorpho_F.C.M._left.length',
+                                       'mainmorpho_F.C.M._right.length',
+                                       'mainmorpho_S.Pe.C._left.length',
+                                       'mainmorpho_S.Pe.C._right.length',
+                                       'mainmorpho_S.C._left.length',
+                                       'mainmorpho_S.C._right.length',
+                                       'mainmorpho_F.Coll._left.length',
+                                       'mainmorpho_F.Coll._right.length',
+                                       #
+                                       'mainmorpho_F.C.M._left.GM_thickness',
+                                       'mainmorpho_F.C.M._right.GM_thickness',
+                                       'mainmorpho_S.Pe.C._left.GM_thickness',
+                                       'mainmorpho_S.Pe.C._right.GM_thickness',
+                                       'mainmorpho_S.C._left.GM_thickness',
+                                       'mainmorpho_S.C._right.GM_thickness',
+                                       'mainmorpho_F.Coll._left.GM_thickness',
+                                       'mainmorpho_F.Coll._right.GM_thickness',
+                                       #
+                                       'mainmorpho_F.C.M._left.opening',
+                                       'mainmorpho_F.C.M._right.opening',
+                                       'mainmorpho_S.Pe.C._left.opening',
+                                       'mainmorpho_S.Pe.C._right.opening',
+                                       'mainmorpho_S.C._left.opening',
+                                       'mainmorpho_S.C._right.opening',
+                                       'mainmorpho_F.Coll._left.opening',
+                                       'mainmorpho_F.Coll._right.opening'
                                        ])
 
         # Set the new dataframe index: subjects ID in the right format
@@ -202,7 +239,7 @@ def load_residualized_bmi_data(cache):
 
         # Center & scale sulci_data
         sulci_data = skl.fit_transform(sulci_data)
-        print "sulci_data loaded"
+        print "Sulci_data loaded"
 
         # Constant regressor to mimick the fit intercept
         constant_regressor = np.ones((sulci_data.shape[0], 1))
@@ -230,7 +267,7 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMean"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -250,7 +287,7 @@ if __name__ == "__main__":
     # Shared data
     BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
     SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_full_sulci_cache_IMAGEN')
+                              'bmi_full_sulci_all_features_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
@@ -266,15 +303,14 @@ if __name__ == "__main__":
     NFOLDS = 5
     # CV index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
-    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001,
-               0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100]
+    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10, 100]
                for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
                                       '02_multivariate_bmi_full_sulci.py')
 
-    print "user_func", user_func_filename
+    #print "user_func", user_func_filename
 
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
@@ -284,7 +320,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input='results/*/*',
                   reduce_group_by='results/.*/(.*)',
-                  reduce_output='results-depthMean.csv')
+                  reduce_output='results_full_sulci_all_features.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
@@ -302,7 +338,6 @@ if __name__ == "__main__":
     #########################################################################
     print "# Map"
     print "mapreduce.py -m %s/config.json --ncore 12" % WD
-    #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# Run on cluster Gabriel"
     print "qsub job_Global_long.pbs"
     #########################################################################
