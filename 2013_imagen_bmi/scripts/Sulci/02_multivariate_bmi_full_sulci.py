@@ -150,7 +150,7 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_S.C._left.depthMean',
                                        'mainmorpho_S.C._right.depthMean',
                                        'mainmorpho_F.Coll._left.depthMean',
-                                       'mainmorpho_F.Coll._right.depthMean',
+                                       'mainmorpho_F.Coll._right.depthMean'
                                        #
 #                                       'mainmorpho_F.C.M._left.length',
 #                                       'mainmorpho_F.C.M._right.length',
@@ -161,14 +161,14 @@ def load_residualized_bmi_data(cache):
 #                                       'mainmorpho_F.Coll._left.length',
 #                                       'mainmorpho_F.Coll._right.length',
                                        #
-                                       'mainmorpho_F.C.M._left.surface',
-                                       'mainmorpho_F.C.M._right.surface',
-                                       'mainmorpho_S.Pe.C._left.surface',
-                                       'mainmorpho_S.Pe.C._right.surface',
-                                       'mainmorpho_S.C._left.surface',
-                                       'mainmorpho_S.C._right.surface',
-                                       'mainmorpho_F.Coll._left.surface',
-                                       'mainmorpho_F.Coll._right.surface',
+#                                       'mainmorpho_F.C.M._left.surface',
+#                                       'mainmorpho_F.C.M._right.surface',
+#                                       'mainmorpho_S.Pe.C._left.surface',
+#                                       'mainmorpho_S.Pe.C._right.surface',
+#                                       'mainmorpho_S.C._left.surface',
+#                                       'mainmorpho_S.C._right.surface',
+#                                       'mainmorpho_F.Coll._left.surface',
+#                                       'mainmorpho_F.Coll._right.surface',
                                        #
 #                                       'mainmorpho_F.C.M._left.GM_thickness',
 #                                       'mainmorpho_F.C.M._right.GM_thickness',
@@ -177,7 +177,7 @@ def load_residualized_bmi_data(cache):
 #                                       'mainmorpho_S.C._left.GM_thickness',
 #                                       'mainmorpho_S.C._right.GM_thickness',
 #                                       'mainmorpho_F.Coll._left.GM_thickness',
-#                                       'mainmorpho_F.Coll._right.GM_thickness'
+#                                       'mainmorpho_F.Coll._right.GM_thickness',
                                        #
 #                                       'mainmorpho_F.C.M._left.opening',
 #                                       'mainmorpho_F.C.M._right.opening',
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     ## Set pathes
     #WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean_surface"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
