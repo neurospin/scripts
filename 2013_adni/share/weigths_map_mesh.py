@@ -78,12 +78,14 @@ set_environment(set_matlab=False, set_brainvisa=True)
 target = get_sample_data("mni_1mm").brain
 
 outputs = {}
-outputs.update( do_brainvisa_mesh_cluster(OUTPUT_DIR,
+outputs.update(do_brainvisa_mesh_cluster(OUTPUT_DIR,
                                           INPUT_IMAGE,
+                                          #thresh_size=0,
 #                                              outputs["register_map_image"],
                                               thresh_neg_bound=(-np.inf,-THRESH),
                                               thresh_pos_bound=(THRESH, np.inf)) )
                                               
+print outputs
 # run render
 do_mesh_cluster_rendering(mesh_file = outputs["mesh_file"],
                              texture_file = outputs["cluster_file"],
