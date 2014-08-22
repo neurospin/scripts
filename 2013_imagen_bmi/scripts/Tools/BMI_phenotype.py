@@ -64,10 +64,10 @@ cw.writerow(['FID', 'IID', 'BMI'])
 for i, s in enumerate(subjects_id_list):
     tmp = []
     # Family ID (FID)
-    tmp.append("%012d" % (int(s)))
+    tmp.append('%012d' % (int(s)))
     # Individual ID (IID)
-    tmp.append("%012d" % (int(s)))
+    tmp.append('%012d' % (int(s)))
     # BMI
-    tmp.append("%.2f" % (dataframe.loc[s]))
+    tmp.append('%.2f' % (dataframe.loc[s]))
     cw.writerow(tmp)
 fp.close()
