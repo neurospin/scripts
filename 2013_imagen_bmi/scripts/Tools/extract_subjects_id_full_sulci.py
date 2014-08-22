@@ -27,7 +27,7 @@ Only 978 subjects among the 1265 for who we have neuroimaging data
 import os
 import numpy as np
 import pandas as pd
-import xlrd
+
 
 # Pathnames
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
