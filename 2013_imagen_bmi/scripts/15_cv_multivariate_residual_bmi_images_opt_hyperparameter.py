@@ -106,12 +106,15 @@ def load_residualized_bmi_data(cache):
                                      index_col=0).as_matrix()
 
         # Dataframe
-        COFOUND = ['Gender de Feuil2', 'ImagingCentreCity', 'tiv_gaser',
-                   'mean_pds']
+        COFOUNDS = ['Gender de Feuil2',
+                    'ImagingCentreCity',
+                    'tiv_gaser',
+                    'mean_pds']
+
         df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
                                                  'population.csv'),
                                                  index_col=0)
-        df = df[COFOUND]
+        df = df[COFOUNDS]
 
         # Keep only subjects for which we have all data
         subjects_id = np.genfromtxt(os.path.join(DATA_PATH, 'subjects_id.csv'),
@@ -123,7 +126,7 @@ def load_residualized_bmi_data(cache):
 
         # Conversion dummy coding
         covar = utils.make_design_matrix(clinic_data,
-                                         regressors=COFOUND).as_matrix()
+                                         regressors=COFOUNDS).as_matrix()
 
         # Images -that have already been masked-
         h5file = tables.openFile(IMAGES_FILE)
