@@ -134,16 +134,7 @@ def load_residualized_bmi_data(cache):
         sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                                           'sulci_df_qc.csv'),
                               sep=',',
-                              usecols=['mainmorpho_F.C.M._left.surface',
-                                       'mainmorpho_F.C.M._right.surface',
-                                       'mainmorpho_S.Pe.C._left.surface',
-                                       'mainmorpho_S.Pe.C._right.surface',
-                                       'mainmorpho_S.C._left.surface',
-                                       'mainmorpho_S.C._right.surface',
-                                       'mainmorpho_F.Coll._left.surface',
-                                       'mainmorpho_F.Coll._right.surface',
-                                       #
-                                       'mainmorpho_F.C.M._left.depthMax',
+                              usecols=['mainmorpho_F.C.M._left.depthMax',
                                        'mainmorpho_F.C.M._right.depthMax',
                                        'mainmorpho_S.Pe.C._left.depthMax',
                                        'mainmorpho_S.Pe.C._right.depthMax',
@@ -161,14 +152,23 @@ def load_residualized_bmi_data(cache):
                                        'mainmorpho_F.Coll._left.depthMean',
                                        'mainmorpho_F.Coll._right.depthMean',
                                        #
-                                       'mainmorpho_F.C.M._left.length',
-                                       'mainmorpho_F.C.M._right.length',
-                                       'mainmorpho_S.Pe.C._left.length',
-                                       'mainmorpho_S.Pe.C._right.length',
-                                       'mainmorpho_S.C._left.length',
-                                       'mainmorpho_S.C._right.length',
-                                       'mainmorpho_F.Coll._left.length',
-                                       'mainmorpho_F.Coll._right.length',
+#                                       'mainmorpho_F.C.M._left.length',
+#                                       'mainmorpho_F.C.M._right.length',
+#                                       'mainmorpho_S.Pe.C._left.length',
+#                                       'mainmorpho_S.Pe.C._right.length',
+#                                       'mainmorpho_S.C._left.length',
+#                                       'mainmorpho_S.C._right.length',
+#                                       'mainmorpho_F.Coll._left.length',
+#                                       'mainmorpho_F.Coll._right.length',
+                                       #
+                                       'mainmorpho_F.C.M._left.surface',
+                                       'mainmorpho_F.C.M._right.surface',
+                                       'mainmorpho_S.Pe.C._left.surface',
+                                       'mainmorpho_S.Pe.C._right.surface',
+                                       'mainmorpho_S.C._left.surface',
+                                       'mainmorpho_S.C._right.surface',
+                                       'mainmorpho_F.Coll._left.surface',
+                                       'mainmorpho_F.Coll._right.surface',
                                        #
                                        'mainmorpho_F.C.M._left.GM_thickness',
                                        'mainmorpho_F.C.M._right.GM_thickness',
@@ -267,7 +267,8 @@ def load_residualized_bmi_data(cache):
 if __name__ == "__main__":
 
     ## Set pathes
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
+    #WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean_surface_GMthickness_opening"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
