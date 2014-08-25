@@ -20,8 +20,8 @@ OUTPUT: .csv file
     "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
     full_sulci/full_sulci_clinics.csv"
 
-Only 978 subjects among the 1265 for who we have neuroimaging data
-(masked_images) have passed the quality control step.
+Only 978 subjects among the 1265 for who we have both genetic and neuroimaging
+data (masked_images) have passed the quality control step.
 """
 
 import os
@@ -52,7 +52,7 @@ subjects_id = np.genfromtxt(os.path.join(DATA_PATH,
                             delimiter=',',
                             skip_header=1)
 
-# Keep only subjects for which we have neuroimaging, genetics and sulcal
+# Keep only subjects for whom we have neuroimaging, genetics and sulcal
 # data: get the intercept of indices of subjects for whom we have
 # neuroimaging and genetic data, but also sulci features
 subjects_index = np.intersect1d(subjects_id, sulci_df_qc.index.values)
