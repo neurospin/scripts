@@ -11,7 +11,8 @@ This time, we have determined the optimum hyperparameters, so that we can
 run the model on the whole dataset.
 """
 
-import os, sys
+import os
+import sys
 import numpy as np
 import pandas as pd
 import tables
@@ -23,8 +24,8 @@ sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts',
                              '2013_imagen_bmi', 'scripts'))
 import bmi_utils
 
-sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
-                             "2013_imagen_subdepression", "lib"))
+sys.path.append(os.path.join(os.environ['HOME'], 'gits', 'scripts',
+                             '2013_imagen_subdepression', 'lib'))
 import utils
 
 # Pathnames
@@ -39,7 +40,8 @@ ORIGIN_IMG_DIR = os.path.join(BASE_PATH, '2013_imagen_bmi', 'data',
                                       'VBM', 'new_segment_spm8')
 # Shared data
 BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache_normal_group')
+SHARED_DIR = os.path.join(BASE_SHARED_DIR,
+                          'residualized_bmi_cache_normal_group')
 
 
 #############
@@ -47,20 +49,24 @@ SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'residualized_bmi_cache_normal_group'
 #############
 def load_residualized_bmi_data(cache):
     if not(cache):
-        #SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "SNPs.csv"), dtype='float64', index_col=0).as_matrix()
-        BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"),
+#        SNPs = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'SNPs.csv'),
+#                                      dtype='float64',
+#                                      index_col=0).as_matrix()
+        BMI = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
                                      index_col=0).as_matrix()
 
         # Dataframe
         df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
-                                                 "normal_group.csv"),
+                                                 'normal_group.csv'),
                                     index_col=0)
-        
-        COFOUND = ["Gender de Feuil2", "ImagingCentreCity", "tiv_gaser",
-                   "mean_pds"]
+
+        COFOUND = ['Gender de Feuil2',
+                   'ImagingCentreCity',
+                   'tiv_gaser',
+                   'mean_pds']
 
         df = df[COFOUND]
-        
+
         # Conversion dummy coding
         covar = utils.make_design_matrix(df, regressors=COFOUND).as_matrix()
 
@@ -70,10 +76,10 @@ def load_residualized_bmi_data(cache):
                 "/standard_mask/residualized_images_gender_center_TIV_pds")
                  #images already masked
 
-        masked_images = images_file[df.shape[0],:]
+        masked_images = images_file[???????????, :]
 
         print "Data loaded - Processing"
-        
+
         z = BMI
         # Concatenate images and covariates
         # (gender, imaging city centre, tiv_gaser and mean pds status)
@@ -82,13 +88,13 @@ def load_residualized_bmi_data(cache):
 
         np.save(os.path.join(SHARED_DIR, "X_res.npy"), X_res)
         np.save(os.path.join(SHARED_DIR, "z.npy"), z)
-        
+
         h5file.close()
         print "Data saved"
     else:
         X_res = np.load(os.path.join(SHARED_DIR, "X_res.npy"))
-        z = np.load(os.path.join(SHARED_DIR, "z.npy"))    
-        print "Data read from cache"    
+        z = np.load(os.path.join(SHARED_DIR, "z.npy"))
+        print "Data read from cache"
     return X_res, z
 
 
@@ -96,26 +102,31 @@ def load_residualized_bmi_data(cache):
 # Run #
 #######
 if __name__ == "__main__":
-    
+
     # Load data
-    X_res, z = load_residualized_bmi_data(cache=False)   #BMI has been residualized when looking for the optimum set of hyperparameters
+    # BMI has been residualized when looking for the optimum set of
+    # hyperparameters
+    X_res, z = load_residualized_bmi_data(cache=False)
+    # Since we residualized BMI with 2 categorical covariables (Gender and
+    # ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and
+    # mean_pds - 2 columns), penalty_start = 11
     penalty_start = 11
-    
+
     # Initialize beta_map
-    beta_map = np.zeros(X_res.shape[1]-penalty_start)
+    beta_map = np.zeros(X_res.shape[1] - penalty_start)
 
     # Elasticnet algorithm via Pylearn-Parsimony
-    print "Elasticnet algorithm"    
+    print "Elasticnet algorithm"
     alpha = 0.006
     l1_ratio = 0.8
     #l1_ratio = 0
     mod = estimators.ElasticNet(l1_ratio, alpha, penalty_start=penalty_start,
-                                mean=True)     #since we residualized BMI with 2 categorical covariables (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables (tiv_gaser and mean_pds - 2 columns)
-    mod.fit(X_res,z)
+                                mean=True)
+    mod.fit(X_res, z)
     print "Compute beta values"
     beta_map = mod.beta
-    print "Compute R2"    
-    r2 = r2_score(z, mod.fit(X_res,z))
+    print "Compute R2"
+    r2 = r2_score(z, mod.predict(X_res))
     print r2
 
     # Use mask
@@ -126,7 +137,7 @@ if __name__ == "__main__":
     # Draw beta map
     print "Draw beta map"
     image = np.zeros(template_for_size_img.get_data().shape)
-    image[masked_data_index] = beta_map[11:,0]
+    image[masked_data_index] = beta_map[11:, 0]
     BMI_beta_map = os.path.join(BASE_PATH, 'results',
                                 'BMI_beta_map_0.006_0.8_normal_group.nii.gz')
     ni.save(ni.Nifti1Image(image, template_for_size_img.get_affine()),
