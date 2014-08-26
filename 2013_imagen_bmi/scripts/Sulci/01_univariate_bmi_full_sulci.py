@@ -201,8 +201,10 @@ if __name__ == "__main__":
     # Write results of MULM computation for each feature of interest in a
     # csv file
     MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_full_sulci.txt')
+
     with open(MULM_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
         for i in np.arange(0, len(proba)):
             sulcus_name = colnames[proba.index(proba[i])][11:]
             spamwriter.writerow(['The MULM probability for the feature:']
@@ -213,3 +215,29 @@ if __name__ == "__main__":
                                 + [proba[i]]
                                 #+ ['\n']
                                 )
+
+    # Since we focus here on 85 sulci (after QC), and for each of them on
+    # 6 features, we only keep the probability p < (0.05 / (6 * 85)) that
+    # meet a significance threshold of 0.05 after Bonferroni correction.
+    # Write results of MULM computation for each feature of interest in a
+    # csv file
+    bonferroni_correction = 0.05 / (Y.shape[1])
+
+    MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
+                                    'MULM_after_Bonferroni_correction.txt')
+
+    with open(MULM_after_Bonferroni_correction_file_path, 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
+        for i in np.arange(0, len(proba)):
+
+            if float(proba[i]) < bonferroni_correction:
+                sulcus_name = colnames[proba.index(proba[i])][11:]
+                spamwriter.writerow(['The MULM probability for the feature:']
+                                    + [sulcus_name]
+                                    + ['of the sulcus']
+                                    + [sulcus_name]
+                                    + ['is']
+                                    + [proba[i]]
+                                    #+ ['\n']
+                                    )
