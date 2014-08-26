@@ -212,8 +212,7 @@ if __name__ == "__main__":
                                 + ['of the sulcus']
                                 + [sulcus_name]
                                 + ['is']
-                                + [proba[i]]
-                                #+ ['\n']
+                                + [float(proba[i])]
                                 )
 
     # Since we focus here on 85 sulci (after QC), and for each of them on
@@ -238,6 +237,5 @@ if __name__ == "__main__":
                                     + ['of the sulcus']
                                     + [sulcus_name]
                                     + ['is']
-                                    + [proba[i]]
-                                    #+ ['\n']
+                                    + [float(proba[i]) * Y.shape[1]]
                                     )
