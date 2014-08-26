@@ -46,8 +46,8 @@ from mulm.models import MUOLS
 
 from sklearn.preprocessing import StandardScaler
 
-sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
-                             "2013_imagen_subdepression", "lib"))
+sys.path.append(os.path.join(os.environ['HOME'], 'gits', 'scripts',
+                             '2013_imagen_subdepression', 'lib'))
 import utils
 
 
@@ -59,7 +59,7 @@ def load_residualized_bmi_data(cache):
     if not(cache):
 
         # BMI
-        BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, "BMI.csv"),
+        BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
                                      sep=',',
                                      index_col=0)
 
@@ -78,8 +78,11 @@ def load_residualized_bmi_data(cache):
         # Add one cofound since sulci follows a power law
         clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
 
-        clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
-                             'tiv_gaser', 'tiv2', 'mean_pds']
+        clinical_cofounds = ['Gender de Feuil2',
+                             'ImagingCentreCity',
+                             'tiv_gaser',
+                             'tiv2',
+                             'mean_pds']
 
         clinical_df = clinical_df[clinical_cofounds]
 
