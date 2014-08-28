@@ -51,6 +51,28 @@ sys.path.append(os.path.join(os.environ['HOME'], 'gits', 'scripts',
 import utils
 
 
+# Pathnames
+BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+DATA_PATH = os.path.join(BASE_PATH, 'data')
+CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
+SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
+FULL_SULCI_PATH = os.path.join(SULCI_PATH, 'full_sulci')
+QC_PATH = os.path.join(FULL_SULCI_PATH, 'Quality_control')
+
+# Output results
+OUTPUT_DIR = os.path.join(FULL_SULCI_PATH, 'Results')
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+# Shared data
+BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
+SHARED_DIR = os.path.join(BASE_SHARED_DIR,
+                          'bmi_full_sulci_cache_IMAGEN')
+if not os.path.exists(SHARED_DIR):
+    os.makedirs(SHARED_DIR)
+
+
 #############
 # Read data #
 #############
@@ -68,7 +90,6 @@ def load_residualized_bmi_data(cache):
                                                           'sulci_df_qc.csv'),
                                               sep=',',
                                               index_col=0)
-        colnames = sulci_df_qc.columns
 
         # Dataframe for picking out only clinical cofounds of non interest
         clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
@@ -138,7 +159,7 @@ def load_residualized_bmi_data(cache):
         X = np.load(os.path.join(SHARED_DIR, 'X.npy'))
         Y = np.load(os.path.join(SHARED_DIR, 'Y.npy'))
         print "Data read from cache"
-    return X, Y, colnames
+    return X, Y, sulci_df_qc
 
 
 #"""#
@@ -155,28 +176,12 @@ if __name__ == "__main__":
     print "# Build dataset #"
     print "#################"
 
-    # Pathnames
-    BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
-    DATA_PATH = os.path.join(BASE_PATH, 'data')
-    CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-    BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
-    SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
-    FULL_SULCI_PATH = os.path.join(SULCI_PATH, 'full_sulci')
-    QC_PATH = os.path.join(FULL_SULCI_PATH, 'Quality_control')
+    # Load data
+    X, Y, sulci_df_qc = load_residualized_bmi_data(cache=False)
+    colnames = sulci_df_qc.columns
 
-    # Output results
-    OUTPUT_DIR = os.path.join(FULL_SULCI_PATH, 'Results')
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    # Shared data
-    BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_full_sulci_cache_IMAGEN')
-    if not os.path.exists(SHARED_DIR):
-        os.makedirs(SHARED_DIR)
-
-    X, Y, colnames = load_residualized_bmi_data(cache=False)
+    # Initialize beta_map
+    beta_map = np.zeros((X.shape[1], Y.shape[1]))
 
     print "##############################################################"
     print ("# Perform Mass-Univariate Linear Modeling "
@@ -198,8 +203,18 @@ if __name__ == "__main__":
             p[i] = 1 - p[i]
         proba.append('%.15f' % p[i])
 
-    # Write results of MULM computation for each feature of interest in a
-    # csv file
+    beta_map = bigols.coef_
+
+    beta_df = pd.DataFrame(beta_map[12:, :].transpose(),
+                           index=colnames,
+                           columns=['betas'])
+
+    # Save beta values from the GLM on sulci features as a dataframe
+    beta_df.to_csv(os.path.join(OUTPUT_DIR, 'MUOLS_beta_values_df.csv'))
+    print "Dataframe containing beta values for each sulcus has been saved."
+
+    # Write results of MULM computation, i.e. p-value for each feature of
+    # interest, in a csv file
     MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_full_sulci.txt')
 
     with open(MULM_file_path, 'wb') as csvfile:
