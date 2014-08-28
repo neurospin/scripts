@@ -31,8 +31,22 @@ METHOD: MUOLS
 
 NB: Subcortical features, BMI and covariates are centered-scaled.
 
-OUTPUT: returns a probability that the feature of interest of the selected
-        sulci is significantly associated to BMI.
+OUTPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MULM_bmi_full_sulci.txt:
+    Results of MULM computation, i.e. p-value for each feature of interest,
+    that the feature of interest of the selected sulci is significantly
+    associated to BMI
+
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MULM_after_Bonferroni_correction.txt:
+    Since we focus here on 85 sulci (after QC), and for each of them on
+    6 features, we only keep the probability-values p < (0.05 / (6 * 85))
+    that meet a significance threshold of 0.05 after Bonferroni correction.
+
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MUOLS_beta_values_df.csv:
+    Beta values from the General Linear Model run on sulci features.
 
 """
 
@@ -231,8 +245,8 @@ if __name__ == "__main__":
                                 )
 
     # Since we focus here on 85 sulci (after QC), and for each of them on
-    # 6 features, we only keep the probability p < (0.05 / (6 * 85)) that
-    # meet a significance threshold of 0.05 after Bonferroni correction.
+    # 6 features, we only keep the probability values p < (0.05 / (6 * 85))
+    # that meet a significance threshold of 0.05 after Bonferroni correction.
     # Write results of MULM computation for each feature of interest in a
     # csv file
     bonferroni_correction = 0.05 / (Y.shape[1])
