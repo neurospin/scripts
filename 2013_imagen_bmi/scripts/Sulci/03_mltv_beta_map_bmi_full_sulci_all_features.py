@@ -8,6 +8,35 @@ Mapping of hot spots which have been revealed by high correlation ratio
 after optimization of (alpha, l1) hyperparameters using Enet algorithm.
 This time, we have determined the optimum hyperparameters, so that we can
 run the model on the whole dataset.
+
+The selected sulci are robust to the segmentation process. These sulci are
+respectively split into various subsamples by the segmentation process. As
+a results, they have previously been gathered again.
+NB: Their features have previously been filtered by the quality control step.
+(cf 00_quality_control.py)
+
+The resort to sulci -instead of considering images of anatomical structures-
+should prevent us from the artifacts that may be induced by the normalization
+step of the segmentation process.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Quality_control/sulci_df_qc.csv:
+    sulci features after quality control
+
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: multivariate GLM
+
+NB: Subcortical features, BMI and covariates are centered-scaled.
+
+OUTPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/mltv_beta_values_df.csv:
+    returns for each sulcus the beta value associated to the GLM
+    determined by the selected optimized set of hyperparameters.
+
 """
 
 
@@ -20,9 +49,8 @@ from sklearn.metrics import r2_score
 
 from sklearn.preprocessing import StandardScaler
 
-sys.path.append(os.path.join(os.environ['HOME'],
-                             'gits', 'scripts', '2013_imagen_subdepression',
-                             'lib'))
+sys.path.append(os.path.join(os.environ['HOME'], 'gits', 'scripts',
+                             '2013_imagen_subdepression', 'lib'))
 import utils
 
 
@@ -34,6 +62,7 @@ BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
 SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
 FULL_SULCI_PATH = os.path.join(SULCI_PATH, 'full_sulci')
 QC_PATH = os.path.join(FULL_SULCI_PATH, 'Quality_control')
+RESULTS_PATH = os.path.join(FULL_SULCI_PATH, 'Results')
 
 # Shared data
 BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
@@ -65,7 +94,8 @@ def load_full_sulci_all_features_bmi_data(cache):
         # Sulci features
         sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                                           'sulci_df_qc.csv'),
-                              sep=',')
+                              sep=',',
+                              index_col=0)
 
         # Set the new dataframe index: subjects ID in the right format
         sulci_df_qc = sulci_df_qc.set_index(sulci_index)
@@ -131,6 +161,8 @@ def load_full_sulci_all_features_bmi_data(cache):
         X = design_mat
         z = BMI
 
+        sulci_df = pd.DataFrame(sulci_df_qc, index=subjects_index)
+
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
         np.save(os.path.join(SHARED_DIR, 'z.npy'), z)
 
@@ -139,7 +171,7 @@ def load_full_sulci_all_features_bmi_data(cache):
         X = np.load(os.path.join(SHARED_DIR, 'X.npy'))
         z = np.load(os.path.join(SHARED_DIR, 'z.npy'))
         print "Data read from cache"
-    return X, z
+    return X, z, sulci_df
 
 
 #######
@@ -147,7 +179,7 @@ def load_full_sulci_all_features_bmi_data(cache):
 #######
 if __name__ == "__main__":
     # Load data
-    X, z = load_full_sulci_all_features_bmi_data(cache=False)
+    X, z, sulci_df = load_full_sulci_all_features_bmi_data(cache=False)
 
     # Initialize beta_map
     beta_map = np.zeros(X.shape[1])
@@ -164,6 +196,7 @@ if __name__ == "__main__":
                                 alpha,
                                 penalty_start=penalty_start,
                                 mean=True)
+
     print "Compute beta values"
     mod.fit(X, z)
     beta_map = mod.beta
@@ -171,3 +204,21 @@ if __name__ == "__main__":
     print "Compute R2"
     r2 = r2_score(z, mod.predict(X))
     print r2
+
+    beta_df = pd.DataFrame(beta_map[penalty_start:],
+                           index=sulci_df.columns,
+                           columns=['betas'])
+
+    # Save beta values from the GLM on sulci features as a dataframe
+    beta_df.to_csv(os.path.join(RESULTS_PATH, 'mltv_beta_values_df.csv'))
+    print "Dataframe containing beta values for each sulcus has been saved."
+
+#    # To get the max of positive beta values:
+#    beta_df.max(axis=0)
+#    # and the index corresponding to this maximum:
+#    beta_df.idxmax(axis=0)
+#
+#    # To get the max of negative beta values:
+#    beta_df.min(axis=0)
+#    # and the index corresponding to this minimum:
+#    beta_df.idxmin(axis=0)
