@@ -201,7 +201,7 @@ sulci_data_df = all_sulci_df.loc[subjects_id]
 sulci_data_df = sulci_data_df.dropna()
 
 # Save this dataframe as a .csv file
-sulci_data_df.to_csv((os.path.join(QC_PATH, 'sulci_df.csv')))
+sulci_data_df.to_csv(os.path.join(QC_PATH, 'sulci_df.csv'))
 print "Original dataframe has been saved."
 
 # Get rid of outliers
@@ -243,7 +243,7 @@ print "Removing subjects:", sulci_data_df1.loc[masked_index_list].index.values
 
 # Write quality control results in a single csv file for all features of all
 # sulci
-sulci_data_qc_df.to_csv((os.path.join(QC_PATH, 'sulci_df_qc.csv')))
+sulci_data_qc_df.to_csv(os.path.join(QC_PATH, 'sulci_df_qc.csv'))
 print "Dataframe containing sulci data after quality control has been saved."
 
 # Control plot
