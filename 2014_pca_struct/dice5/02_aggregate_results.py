@@ -29,7 +29,7 @@ INPUT_MODELS = ["pca", "sparse_pca", "struct_pca"]
 INPUT_RESULT_FILE = "results.csv"
 
 OUTPUT_DIR = INPUT_BASE_DIR
-OUTPUT_RESULTS = os.path.join(OUTPUT_DIR, "consolidated_results.csv")
+OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "consolidated_results.csv")
 
 ##############
 # Parameters #
@@ -73,4 +73,4 @@ for snr in INPUT_SNRS:
 # Create multiindex (model, SNR, global_pen, tv_ratio, l1_ratio)
 total_df.set_index(['model', 'snr', 'global_pen', 'tv_ratio', 'l1_ratio'],
                    inplace=True, drop=True)
-total_df.to_csv(OUTPUT_RESULTS)
+total_df.to_csv(OUTPUT_RESULTS_FILE)
