@@ -1,6 +1,7 @@
 #############################################################################
 
 00_quality_control.py:
+
 Quality control on sulci data from the IMAGEN study.
 
 The resort to sulci -instead of considering images of anatomical structures-
@@ -121,16 +122,15 @@ that is we filter subjects whose features lie outside the interval
 #############################################################################
 
 01_univariate_bmi_sulci.py:
+
 Univariate correlation between residualized BMI and some sulci of interest
 on IMAGEN subjects.
 
 The selected sulci are particularly studied because of their robustness to
 the segmentation process. These sulci are respectively split into several
 subsamples by the segmentation process. As a results, Clara Fischer helped
-us to re-assemble the main sulci before processing our data.
+us to gather the main sulci again before processing our data.
 
-Here, we select the central, precentral, collateral sulci and the calloso-
-marginal fissure.
 NB: Their features have previously been filtered by the quality control step.
 (cf 00_quality_control.py)
 
@@ -138,24 +138,27 @@ The resort to sulci -instead of considering images of anatomical structures-
 should prevent us from the artifacts that may be induced by the normalization
 step of the segmentation process.
 
-INPUT:
+OUTPUT:
 - /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Quality_control/sulci_df_qc.csv:
-    sulci features after quality control
+  full_sulci/Results/MULM_bmi_full_sulci.txt:
+    Results of MULM computation, i.e. p-value for each feature of interest,
+    that the feature of interest of the selected sulci is significantly
+    associated to BMI
 
-- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
-    BMI of the 1265 subjects for which we also have neuroimaging data
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MULM_after_Bonferroni_correction.txt:
+    Since we focus here on 85 sulci (after QC), and for each of them on
+    6 features, we only keep the probability-values p < (0.05 / (6 * 85))
+    that meet a significance threshold of 0.05 after Bonferroni correction.
 
-METHOD: MUOLS
-
-NB: Subcortical features, BMI and covariates are centered-scaled.
-
-OUTPUT: returns a probability that the feature of interest of the selected
-        sulci is significantly associated to BMI.
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MUOLS_beta_values_df.csv:
+    Beta values from the General Linear Model run on sulci features.
 
 #############################################################################
 
 02_multivariate_bmi_sulci.py:
+
 Multivariate correlation between residualized BMI and one feature of interest
 along all sulci on IMAGEN subjects:
    CV using mapreduce and ElasticNet between the feature of interest and BMI.
@@ -197,9 +200,38 @@ OUTPUT:
 #############################################################################
 
 03_mltv_beta_map_bmi_full_sulci_all_features.py:
+
 Mapping of hot spots which have been revealed by high correlation ratio
 after optimization of (alpha, l1) hyperparameters using Enet algorithm.
 This time, we have determined the optimum hyperparameters, so that we can
 run the model on the whole dataset.
+
+The selected sulci are robust to the segmentation process. These sulci are
+respectively split into various subsamples by the segmentation process. As
+a results, they have previously been gathered again.
+NB: Their features have previously been filtered by the quality control step.
+(cf 00_quality_control.py)
+
+The resort to sulci -instead of considering images of anatomical structures-
+should prevent us from the artifacts that may be induced by the normalization
+step of the segmentation process.
+
+INPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Quality_control/sulci_df_qc.csv:
+    sulci features after quality control
+
+- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
+    BMI of the 1265 subjects for which we also have neuroimaging data
+
+METHOD: multivariate GLM
+
+NB: Subcortical features, BMI and covariates are centered-scaled.
+
+OUTPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/mltv_beta_values_df.csv:
+    returns for each sulcus the beta value associated to the GLM
+    determined by the selected optimized set of hyperparameters.
 
 #############################################################################
