@@ -3,6 +3,8 @@
 Created on Thu Jul  3 13:45:08 2014
 
 @author: christophe
+
+create the config file for the FA images not skeletonised. 
 """
 
 import os
