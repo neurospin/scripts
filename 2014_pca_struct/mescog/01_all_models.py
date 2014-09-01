@@ -26,6 +26,7 @@ import time
 import shutil
 
 from itertools import product
+from collections import OrderedDict
 
 import numpy as np
 import scipy
@@ -90,10 +91,12 @@ PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 # Functions #
 #############
 
+
 def load_globals(config):
     import mapreduce as GLOBAL
     babel_mask = nibabel.load(config["mask_file"])
-    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_mask(babel_mask.get_data())
+    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_mask(
+                                                        babel_mask.get_data())
     GLOBAL.Atv = Atv
     GLOBAL.MASK = babel_mask
 
@@ -107,7 +110,7 @@ def resample(config, resample_nb):
 
 
 def mapper(key, output_collector):
-    import mapreduce as GLOBAL # access to global variables:
+    import mapreduce as GLOBAL  # access to global variables:
     # GLOBAL.DATA
     # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
     # key: list of parameters
@@ -121,12 +124,12 @@ def mapper(key, output_collector):
         l1_ratio = 1
         ll1 = global_pen
     if model_name == 'struct_pca':
-        ltv = global_pen*tv_ratio
-        ll1 = l1_ratio*global_pen*(1-ltv)
-        ll2 = (1-l1_ratio)*global_pen*(1-tv_ratio)
+        ltv = global_pen * tv_ratio
+        ll1 = l1_ratio * global_pen * (1 - ltv)
+        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
-    n, p = shape = X_train.shape
+    n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
 
     # A matrices
@@ -152,7 +155,7 @@ def mapper(key, output_collector):
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
-    _time = t1-t0
+    _time = t1 - t0
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
     # Save the projectors
@@ -252,24 +255,33 @@ def reducer(key, values):
     for i in range(N_COMP):
         correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
-    scores = dict(key=key,
-                  correlation_0=correlation[0], correlation_1=correlation[1],
-                  correlation_2=correlation[2], correlation_mean=np.mean(correlation),
-                  evr_train_0=av_evr_train[0], evr_train_1=av_evr_train[1],
-                  evr_train_2=av_evr_train[2],
-                  evr_test_0=av_evr_test[0], evr_test_1=av_evr_test[1],
-                  evr_test_2=av_evr_test[2],
-                  l0_0=av_l0[0],l0_1=av_l0[1],
-                  l0_2=av_l0[2],
-                  l1_0=av_l1[0],l1_1=av_l1[1],
-                  l1_2=av_l1[2],
-                  l2_0=av_l2[0],l2_1=av_l2[1],
-                  l2_2=av_l2[2],
-                  tv_0=av_tv[0],tv_1=av_tv[1],
-                  tv_2=av_tv[2],
-                  time=np.mean(times))
+    scores = OrderedDict((
+        ('key', key),
+        ('correlation_0', correlation[0]),
+        ('correlation_1', correlation[1]),
+        ('correlation_2', correlation[2]),
+        ('correlation_mean', np.mean(correlation)),
+        ('evr_train_0', av_evr_train[0]),
+        ('evr_train_1', av_evr_train[1]),
+        ('evr_train_2', av_evr_train[2]),
+        ('evr_test_0', av_evr_test[0]),
+        ('evr_test_1', av_evr_test[1]),
+        ('evr_test_2', av_evr_test[2]),
+        ('l0_0', av_l0[0]),
+        ('l0_1', av_l0[1]),
+        ('l0_2', av_l0[2]),
+        ('l1_0', av_l1[0]),
+        ('l1_1', av_l1[1]),
+        ('l1_2', av_l1[2]),
+        ('l2_0', av_l2[0]),
+        ('l2_1', av_l2[1]),
+        ('l2_2', av_l2[2]),
+        ('tv_0', av_tv[0]),
+        ('tv_1', av_tv[1]),
+        ('tv_2', av_tv[2]),
+        ('time', np.mean(times))))
 
-    return dict(sorted(scores.items(), key=lambda t: t[0]))
+    return scores
 
 
 def run_test(wd, config):
