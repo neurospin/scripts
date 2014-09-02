@@ -159,6 +159,6 @@ if __name__ == "__main__":
 #norm_ob_groups = normal_group.append(obese_group, ignore_index=False)
 #overweight_obese_group_file = pd.DataFrame.to_csv(norm_ob_groups,
 #                                os.path.join(CLINIC_DATA_PATH,
-#                                'clinical_data_norm-ob_group.csv'))
+#                                'clinical_data_norm-ob_groups.csv'))
 #
 #print "CSV file containing clinical data from normal and obese subjects has been saved."
