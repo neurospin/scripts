@@ -4,7 +4,7 @@ Created on Mon Jun  2 12:08:01 2014
 
 @author: christophe
 
-concatenate FA images not skeletonised. 
+concatenate FA images skeletonised. 
 """
 import os
 import nibabel as nib
@@ -13,12 +13,12 @@ import pandas as pd
 
 BASE_PATH =  "/volatile/share/2014_bd_dwi"
 
-INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
+INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA_skeletonised.nii.gz")
 INPUT_CSV = os.path.join(BASE_PATH, "population.csv")
-OUTPUT_CS = os.path.join(BASE_PATH, "bd_dwi_cs")
+OUTPUT_CS = os.path.join(BASE_PATH, "bd_dwi_cs_sk")
 if not os.path.exists(OUTPUT_CS):
     os.makedirs(OUTPUT_CS)
-OUTPUT_CSI = os.path.join(BASE_PATH, "bd_dwi_csi")
+OUTPUT_CSI = os.path.join(BASE_PATH, "bd_dwi_csi_sk")
 if not os.path.exists(OUTPUT_CSI):
     os.makedirs(OUTPUT_CSI)
 OUTPUT_X ="X.npy"
@@ -27,7 +27,8 @@ OUTPUT_Y = "Y.npy"
 OUTPUT_MASK_FILENAME =  "mask.nii.gz" #mask use to filtrate our images
 
 FA_THRESHOLD = 0.05
-ATLAS_FILENAME = "/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz" # Image use to improve our mask
+ATLAS_FILENAME = "/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz" 
+# Image use to improve our mask
 ATLAS_LABELS_RM = [0, 13, 2, 8]  # cortex, trunc
 
 #############################################################################
@@ -57,9 +58,9 @@ for label_rm in ATLAS_LABELS_RM:
 #registration of mask
 out_im = nib.Nifti1Image(mask.astype(int), affine=images4d.get_affine())
 print "Number of voxels in mask:", mask.sum()
-
 n_voxel_in_mask = np.count_nonzero(mask)
-assert(n_voxel_in_mask == 507383)
+#assert(n_voxel_in_mask == 105799)
+# old images = 507383 voxels //  new images = 105799 voxels
 
 # Create Y (same for all the cases)
 Ytot = np.asarray(population.BD_HC, dtype='float64').reshape(n, 1)
@@ -67,9 +68,11 @@ Ytot = np.asarray(population.BD_HC, dtype='float64').reshape(n, 1)
 # Apply mask to images & center
 print "Application of mask on all the images & centering"
 masked_images = np.zeros((n, n_voxel_in_mask))
+
 for i, ID in enumerate(population.index):
     cur = population.iloc[i]
     slice_index = cur.SLICE
+    image = image_arr[:, :, :, slice_index]
     image = image_arr[:, :, :, slice_index]
     masked_images[i, :] = image[mask]
     
