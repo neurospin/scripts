@@ -16,7 +16,8 @@ OUTPUT: .phe file
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/BMI_o-o_groups.phe"
 
 Only the 242 subjects (overweight and obese teenagers) among the 1265 for
-whom we have neuroimaging data (masked_images) have been selected.
+whom we have both neuroimaging (i.e. masked_images) and genetic data have
+been selected.
 """
 
 
