@@ -15,7 +15,7 @@ OUTPUT: .phe file
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/BMI_norm_group.phe"
 
 Only normal teenagers (i.e. 910 subjects) among the 1.265 subjects for whom
-we have neuroimaging data (masked_images) have been selected.
+we have both neuroimaging and genetic data have been selected.
 
 """
 
