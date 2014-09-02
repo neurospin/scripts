@@ -154,11 +154,11 @@ if __name__ == "__main__":
 #print '# Group selection #'
 #print '###################'
 #
-#overweight_group = clinical_data[clinical_data['Status'] == 'Overweight']
+#normal_group = clinical_data[clinical_data['Status'] == 'Normal']
 #obese_group = clinical_data[clinical_data['Status'] == 'Obese']
-#o_o_groups = overweight_group.append(obese_group, ignore_index=False)
-#overweight_obese_group_file = pd.DataFrame.to_csv(o_o_groups,
+#norm_ob_groups = normal_group.append(obese_group, ignore_index=False)
+#overweight_obese_group_file = pd.DataFrame.to_csv(norm_ob_groups,
 #                                os.path.join(CLINIC_DATA_PATH,
-#                                'clinical_data_overweight_obese_group.csv'))
+#                                'clinical_data_norm-ob_groups.csv'))
 #
-#print "CSV file containing clinical data from overweight and obese status subjects has been saved."
+#print "CSV file containing clinical data from normal and obese subjects has been saved."

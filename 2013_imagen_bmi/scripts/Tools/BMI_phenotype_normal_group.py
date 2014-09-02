@@ -5,19 +5,18 @@ Created on Mon Sep  1 17:34:58 2014
 @author: hl237680
 
 This script aims at generating a .phe file, that is a dataframe with FID,
-IID and BMI of IMAGEN subjects with overweight or obese status, for further
-use with Plink.
+IID and BMI of IMAGEN subjects with normal status, for further use with Plink.
 
 INPUT: .xls initial data file
     "/neurospin/brainomics/2013_imagen_bmi/data/clinic/source_SHFJ/
     1534bmi-vincent2.xls"
 
 OUTPUT: .phe file
-    "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/BMI_o-o_groups.phe"
+    "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/BMI_norm_group.phe"
 
-Only the 242 subjects (overweight and obese teenagers) among the 1265 for
-whom we have both neuroimaging (i.e. masked_images) and genetic data have
-been selected.
+Only normal teenagers (i.e. 910 subjects) among the 1.265 subjects for whom
+we have both neuroimaging and genetic data have been selected.
+
 """
 
 
@@ -34,7 +33,7 @@ CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
 SHFJ_DATA_PATH = os.path.join(CLINIC_DATA_PATH, 'source_SHFJ')
 GENETICS_PATH = os.path.join(DATA_PATH, 'genetics')
 PLINK_GENETICS_PATH = os.path.join(GENETICS_PATH, 'Plink')
-BMI_PHENOTYPE = os.path.join(PLINK_GENETICS_PATH, 'BMI_o-o_groups.phe')
+BMI_PHENOTYPE = os.path.join(PLINK_GENETICS_PATH, 'BMI_norm_group.phe')
 
 # Generation of a dataframe containing clinical data to establish a .phe file
 print '###################################################'
@@ -43,7 +42,7 @@ print '###################################################'
 
 # Dataframe with right clinical data
 clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
-                                'clinical_data_overweight_obese_group.csv'),
+                                            'clinical_data_norm_group.csv'),
                                       sep=',',
                                       index_col=0)
 
