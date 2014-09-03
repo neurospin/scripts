@@ -40,6 +40,26 @@ sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
 import utils
 
 
+# Pathnames
+BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+DATA_PATH = os.path.join(BASE_PATH, 'data')
+CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
+FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
+
+# Output results
+OUTPUT_DIR = os.path.join(FREESURFER_PATH, 'Results')
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+# Shared data
+BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
+SHARED_DIR = os.path.join(BASE_SHARED_DIR,
+                          'bmi_Freesurfer_cache_IMAGEN')
+if not os.path.exists(SHARED_DIR):
+    os.makedirs(SHARED_DIR)
+
+
 #############
 # Read data #
 #############
@@ -154,7 +174,7 @@ def load_residualized_bmi_data(cache):
 #"""#
 if __name__ == "__main__":
 
-    ## Set pathes
+    # Set pathes
     WD = "/neurospin/tmp/brainomics/univariate_bmi_Freesurfer_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -163,28 +183,9 @@ if __name__ == "__main__":
     print "# Build dataset #"
     print "#################"
 
-    # Pathnames
-    BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
-    DATA_PATH = os.path.join(BASE_PATH, 'data')
-    CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-    BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
-    FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
-
-    # Output results
-    OUTPUT_DIR = os.path.join(FREESURFER_PATH, 'Results')
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    # Shared data
-    BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_Freesurfer_cache_IMAGEN')
-    if not os.path.exists(SHARED_DIR):
-        os.makedirs(SHARED_DIR)
-
+    # Load data
     X, Y = load_residualized_bmi_data(cache=False)
-    np.save(os.path.join(WD, 'X.npy'), X)
-    np.save(os.path.join(WD, 'Y.npy'), Y)
+    penalty_start = 11
 
     # Parameters of subcortical structure of interest
     freesurfer_features = ['lhCortexVol',
@@ -202,12 +203,14 @@ if __name__ == "__main__":
            "based Ordinary Least Squares #")
     print "##############################################################"
 
-    #MUOLS
+    # MUOLS
     bigols = MUOLS()
     bigols.fit(X, Y)
-    s, p = bigols.stats_t_coefficients(X, Y,
-                    contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                    pval=True)
+
+    t, p, df = bigols.stats_t_coefficients(X, Y,
+                               contrast=[0.] * penalty_start +
+                                        [1.] * (X.shape[1] - penalty_start),
+                               pval=True)
 
     proba = []
     for i in np.arange(0, p.shape[0]):
