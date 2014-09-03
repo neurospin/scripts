@@ -221,6 +221,7 @@ if __name__ == "__main__":
             p[i] = 1 - p[i]
         proba.append('%.15f' % p[i])
 
+    # Beta values: coefficients of the fit
     beta_map = bigols.coef_
 
     beta_df = pd.DataFrame(beta_map[penalty_start:, :].transpose(),
