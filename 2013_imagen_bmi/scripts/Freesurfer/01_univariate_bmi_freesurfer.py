@@ -13,15 +13,32 @@ induced by the normalization step of the SPM segmentation process.
 INPUT:
 - /neurospin/brainomics/2013_imagen_bmi/data/Freesurfer:
    .csv file containing volume of subcortical structures obtained by Freesurfer
+
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
-   BMI of the 1265 subjects for which we also have neuroimaging data
+   BMI of the 1265 subjects for whom we also have neuroimaging and genetic
+   data
 
 METHOD: MUOLS
 
 NB: Features extracted by Freesurfer, BMI and covariates are centered-scaled.
 
-OUTPUT: returns a probability for each subcortical structure to be
-        significantly associated to BMI.
+OUTPUT:
+- /neurospin/brainomics/2013_imagen_bmi/data/Freesurfer/Results/
+  MULM_bmi_freesurfer.txt:
+    Results of MULM computation, i.e. p-value for each feature of interest,
+    that this feature extracted by Freesurfer algorithm is significantly
+    associated to BMI
+
+- /neurospin/brainomics/2013_imagen_bmi/data/Freesurfer/Results/
+  MULM_after_Bonferroni_correction.txt:
+    Since we focus here on 9 features extracted by Freesurfer, we only keep
+    the probability-values p < (0.05 / 9) that meet a significance threshold
+    of 0.05 after Bonferroni correction.
+
+- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Results/MUOLS_beta_values_df.csv:
+    Beta values from the General Linear Model run on subcortical structures
+    extracted by Freesurfer.
 
 """
 
@@ -233,7 +250,7 @@ if __name__ == "__main__":
     # Write results of MULM computation, i.e. p-value for each feature of
     # interest, in a csv file
     MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_freesurfer.txt')
-    
+
     with open(MULM_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
 
@@ -258,7 +275,10 @@ if __name__ == "__main__":
 
         for i in np.arange(0, len(proba)):
 
-            spamwriter.writerow(['The probability of MULM computation is:']
-                                + [proba[i]] + ['for']
-                                + [freesurfer_features[i]]
-                                + ['extracted by Freesurfer.'])
+            if float(proba[i]) < bonferroni_correction:
+
+                spamwriter.writerow(['The probability of MULM computation is:']
+                                    + [float(proba[i]) * Y.shape[1]]
+                                    + ['for']
+                                    + [freesurfer_features[i]]
+                                    + ['extracted by Freesurfer.'])
