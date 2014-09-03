@@ -181,7 +181,7 @@ def load_residualized_bmi_data(cache):
 #"""#
 if __name__ == "__main__":
 
-    ## Set pathes
+    # Set pathes
     WD = "/neurospin/tmp/brainomics/univariate_bmi_full_sulci_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -193,6 +193,7 @@ if __name__ == "__main__":
     # Load data
     X, Y, sulci_df_qc = load_residualized_bmi_data(cache=False)
     colnames = sulci_df_qc.columns
+    penalty_start = 12
 
     # Initialize beta_map
     beta_map = np.zeros((X.shape[1], Y.shape[1]))
@@ -205,11 +206,14 @@ if __name__ == "__main__":
     #MUOLS
     bigols = MUOLS()
     bigols.fit(X, Y)
-    s, p = bigols.stats_t_coefficients(X, Y,
-#                contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-            # if add one more cofound
-            contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-            pval=True)
+    t, p, df = bigols.stats_t_coefficients(X, Y,
+                               # if add tiv² as an additionnal cofound
+                               contrast=[0.] * penalty_start +
+                                        [1.] * (X.shape[1] - penalty_start),
+#        # if want the contrast associated to mean_pds
+#        contrast=[0.] * (penalty_start - 2) + [1.]
+#                 + [0.] * (X.shape[1] - penalty_start + 1),
+                               pval=True)
 
     proba = []
     for i in np.arange(0, p.shape[0]):
@@ -217,9 +221,10 @@ if __name__ == "__main__":
             p[i] = 1 - p[i]
         proba.append('%.15f' % p[i])
 
+    # Beta values: coefficients of the fit
     beta_map = bigols.coef_
 
-    beta_df = pd.DataFrame(beta_map[12:, :].transpose(),
+    beta_df = pd.DataFrame(beta_map[penalty_start:, :].transpose(),
                            index=colnames,
                            columns=['betas'])
 

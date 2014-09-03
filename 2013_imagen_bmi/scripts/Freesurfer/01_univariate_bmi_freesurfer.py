@@ -40,6 +40,26 @@ sys.path.append(os.path.join(os.environ["HOME"], "gits", "scripts",
 import utils
 
 
+# Pathnames
+BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
+DATA_PATH = os.path.join(BASE_PATH, 'data')
+CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
+FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
+
+# Output results
+OUTPUT_DIR = os.path.join(FREESURFER_PATH, 'Results')
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+# Shared data
+BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
+SHARED_DIR = os.path.join(BASE_SHARED_DIR,
+                          'bmi_Freesurfer_cache_IMAGEN')
+if not os.path.exists(SHARED_DIR):
+    os.makedirs(SHARED_DIR)
+
+
 #############
 # Read data #
 #############
@@ -154,7 +174,7 @@ def load_residualized_bmi_data(cache):
 #"""#
 if __name__ == "__main__":
 
-    ## Set pathes
+    # Set pathes
     WD = "/neurospin/tmp/brainomics/univariate_bmi_Freesurfer_IMAGEN"
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -163,28 +183,9 @@ if __name__ == "__main__":
     print "# Build dataset #"
     print "#################"
 
-    # Pathnames
-    BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
-    DATA_PATH = os.path.join(BASE_PATH, 'data')
-    CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-    BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
-    FREESURFER_PATH = os.path.join(DATA_PATH, 'Freesurfer')
-
-    # Output results
-    OUTPUT_DIR = os.path.join(FREESURFER_PATH, 'Results')
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    # Shared data
-    BASE_SHARED_DIR = "/neurospin/tmp/brainomics/"
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'bmi_Freesurfer_cache_IMAGEN')
-    if not os.path.exists(SHARED_DIR):
-        os.makedirs(SHARED_DIR)
-
+    # Load data
     X, Y = load_residualized_bmi_data(cache=False)
-    np.save(os.path.join(WD, 'X.npy'), X)
-    np.save(os.path.join(WD, 'Y.npy'), Y)
+    penalty_start = 11
 
     # Parameters of subcortical structure of interest
     freesurfer_features = ['lhCortexVol',
@@ -202,12 +203,14 @@ if __name__ == "__main__":
            "based Ordinary Least Squares #")
     print "##############################################################"
 
-    #MUOLS
+    # MUOLS
     bigols = MUOLS()
     bigols.fit(X, Y)
-    s, p = bigols.stats_t_coefficients(X, Y,
-                    contrast=[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                    pval=True)
+
+    t, p, df = bigols.stats_t_coefficients(X, Y,
+                               contrast=[0.] * penalty_start +
+                                        [1.] * (X.shape[1] - penalty_start),
+                               pval=True)
 
     proba = []
     for i in np.arange(0, p.shape[0]):
@@ -216,12 +219,45 @@ if __name__ == "__main__":
 
         proba.append('%f' % p[i])
 
-    # Write results of MULM computation for each feature of interest in a
-    # csv file
+    # Beta values: coefficients of the fit
+    betas = bigols.coef_
+
+    beta_df = pd.DataFrame(betas[penalty_start:, :].transpose(),
+                           index=freesurfer_features,
+                           columns=['betas'])
+
+    # Save beta values from the GLM on Freesurfer features as a dataframe
+    beta_df.to_csv(os.path.join(OUTPUT_DIR, 'MUOLS_beta_values_df.csv'))
+    print "Dataframe containing beta values for each Freesurfer feature has been saved."
+
+    # Write results of MULM computation, i.e. p-value for each feature of
+    # interest, in a csv file
     MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_freesurfer.txt')
+    
     with open(MULM_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
         for i in np.arange(0, len(proba)):
+            spamwriter.writerow(['The probability of MULM computation is:']
+                                + [proba[i]] + ['for']
+                                + [freesurfer_features[i]]
+                                + ['extracted by Freesurfer.'])
+
+    # Bonferroni correction: since we focus here on 9 features extracted by
+    # Freesurfer algorithm, we only keep the probability values p < (0.05 / 9)
+    # that meet a significance threshold of 0.05 after Bonferroni correction.
+    # Write results of MULM computation for each feature of interest in a
+    # csv file
+    bonferroni_correction = 0.05 / (Y.shape[1])
+
+    MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
+                                    'MULM_after_Bonferroni_correction.txt')
+
+    with open(MULM_after_Bonferroni_correction_file_path, 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
+        for i in np.arange(0, len(proba)):
+
             spamwriter.writerow(['The probability of MULM computation is:']
                                 + [proba[i]] + ['for']
                                 + [freesurfer_features[i]]
