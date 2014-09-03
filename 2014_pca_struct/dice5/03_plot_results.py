@@ -10,16 +10,21 @@ Created on Fri Jun  6 11:29:39 2014
 
 import os
 
+from itertools import product
+
 import pandas as pd
 import numpy as np
+
 import matplotlib.pylab as plt
+
+from brainomics import plot_utilities
 
 ################
 # Input/Output #
 ################
 
 INPUT_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/results"
-INPUT_RESULTS = os.path.join(INPUT_DIR, "consolidated_results.csv")
+INPUT_RESULTS_FILE = os.path.join(INPUT_DIR, "consolidated_results.csv")
 
 ##############
 # Parameters #
@@ -29,46 +34,74 @@ N_COMP=3
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
 # Relative penalties
-SRUCTPCA_L1RATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
-SRUCTPCA_TVRATIO = np.array([0.5, 1e-1, 1e-2, 1e-3, 0])
+# 0.33 ensures that there is a case with TV = L1 = L2
+TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
+L1RATIO = np.array([1, 0.5, 1e-1, 1e-2, 1e-3, 0])
 
-STRUCTPCA_PARAMS = [[l1_ratio*alpha*(1-tv_ratio),
-                     (1-l1_ratio)*alpha*(1-tv_ratio),
-                     alpha*tv_ratio]
-                     for alpha in GLOBAL_PENALTIES
-                     for tv_ratio in SRUCTPCA_TVRATIO
-                     for l1_ratio in SRUCTPCA_L1RATIO]
+PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
+SPARSE_PCA_PARAMS = list(product(['sparse_pca'],
+                                 GLOBAL_PENALTIES,
+                                 [0.0],
+                                 [1.0]))
+STRUCT_PCA_PARAMS = list(product(['struct_pca'],
+                                 GLOBAL_PENALTIES,
+                                 TVRATIO,
+                                 L1RATIO))
 
 SNRS = np.array([0.1, 0.5, 1.0])
 
 MODEL = 'struct_pca'
-MODEL_STYLE={'pca': 'o', 'sparse_pca': '--', 'struct_pca': '-'}
-MODEL_COLOR={'pca': 'b', 'sparse_pca': 'g', 'struct_pca': 'r'}
+CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                 'data_100_100_{snr}',
+                                 '{global_pen}.svg')
 
 ##########
 # Script #
 ##########
 
 # Read data
-total_df = pd.io.parsers.read_csv(INPUT_RESULTS)
-model_df = total_df.loc[total_df['model'] == MODEL]
+df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
+                            index_col=[0, 2, 3, 4]).sort_index()
+struct_pca_df = df.xs(MODEL)
 
-# Plot EVR for a given SNR and a given global penalization
-width=0.8/(N_COMP)
-for snr in SNRS:
-    for i, global_pen in enumerate(GLOBAL_PENALTIES):
-        plt.figure()
-        ax = plt.gca()
-        data = model_df.loc[(model_df['snr'] == snr) & (model_df['global_pen'] == global_pen)]
-        grouped = data.groupby('l1_ratio')
-        for name, group in grouped:
-            plt.plot(SRUCTPCA_TVRATIO, group['evr_test_0'], marker='o')
-        title="SNR={snr} - Global penalization={global_pen}".format(snr=snr,
-                                                                    global_pen=global_pen)
-        plt.title(title)
-        plt.xlabel('TV ratio')
-        #ax.set_xscale('log')
-        plt.legend(SRUCTPCA_L1RATIO)
+# Plot some metrics for struct_pca for each SNR value
+snr_groups = struct_pca_df.groupby('snr')
+for snr_val, snr_group in snr_groups:
+    handles = plot_utilities.mapreduce_plot(snr_group, column="recall_mean",
+                                            global_pen=0,
+                                            l1_ratio=2,
+                                            tv_ratio=1)
+    for val, handle in handles.items():
+        filename = CURVE_FILE_FORMAT.format(snr=snr_val, global_pen=val)
+        handle.savefig(filename)
+
+#for snr_val, snr_group in snr_groups:
+#    print "SNR:", snr_val
+#    for global_pen in GLOBAL_PENALTIES:
+#        print "global pen:", global_pen
+#        for tv_ratio in SRUCTPCA_TVRATIO:
+#            print "tv:", tv_ratio
+#            data = snr_group.xs((global_pen, tv_ratio), level=[0, 1])
+#            data.sort('recall_mean', inplace=True)
+#            print data['recall_mean']
+#            raw_input()
+
+## Plot EVR for a given SNR and a given global penalization
+#width=0.8/(N_COMP)
+#for snr_val, snr_group in snr_groups:
+#    for i, global_pen in enumerate(GLOBAL_PENALTIES):
+#        plt.figure()
+#        ax = plt.gca()
+#        data = snr_group.xs(global_pen, level='global_pen')
+#        grouped = data.groupby(level='l1_ratio')
+#        for name, group in grouped:
+#            plt.plot(TVRATIO, group['evr_test_0'], marker='o')
+#        title="SNR={snr} - Global penalization={global_pen}".format(snr=snr_val,
+#                                                                    global_pen=global_pen)
+#        plt.title(title)
+#        plt.xlabel('TV ratio')
+#        #ax.set_xscale('log')
+#        plt.legend(L1RATIO)
 
 #group_key = total_df.groupby(['Global penalization',
 #                              'TV ratio'])
