@@ -37,6 +37,10 @@ def mapreduce_plot(df, column,
     handles: dictionnary of figure handles.
         The key is the value of global_pen and the value is the figure handler.
     """
+    # pandas.DataFrame.plot don't work properly if tv_ratio is an index
+    import pandas.core.common as com
+    tv_ratio_is_index = com.is_integer(tv_ratio)
+
     try:
         # Try to group by column name
         fig_groups = df.groupby(global_pen)
@@ -61,11 +65,15 @@ def mapreduce_plot(df, column,
             except:
                 raise Exception("Canno't group by l1_ratio.")
         for l1_ratio_val, l1_ratio_group in line_groups:
-            try:
+            if tv_ratio_is_index:
+                name = l1_ratio_group.index.names[tv_ratio]
+                l1_ratio_group.reset_index(tv_ratio, inplace=True)
+                l1_ratio_group.plot(x=name, y=column,
+                                    label=str(l1_ratio_val))
+            else:
                 l1_ratio_group.sort(tv_ratio, inplace=True)
-            except:
-                pass
-            l1_ratio_group.plot(x=tv_ratio, y=column, label=str(l1_ratio_val))
+                l1_ratio_group.plot(x=tv_ratio, y=column,
+                                    label=str(l1_ratio_val))
             plt.xlabel('TV')
             plt.ylabel(column)
         plt.legend()
