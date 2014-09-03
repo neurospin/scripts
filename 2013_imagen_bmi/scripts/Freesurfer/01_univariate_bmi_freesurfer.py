@@ -219,12 +219,45 @@ if __name__ == "__main__":
 
         proba.append('%f' % p[i])
 
-    # Write results of MULM computation for each feature of interest in a
-    # csv file
+    # Beta values: coefficients of the fit
+    betas = bigols.coef_
+
+    beta_df = pd.DataFrame(betas[penalty_start:, :].transpose(),
+                           index=freesurfer_features,
+                           columns=['betas'])
+
+    # Save beta values from the GLM on Freesurfer features as a dataframe
+    beta_df.to_csv(os.path.join(OUTPUT_DIR, 'MUOLS_beta_values_df.csv'))
+    print "Dataframe containing beta values for each Freesurfer feature has been saved."
+
+    # Write results of MULM computation, i.e. p-value for each feature of
+    # interest, in a csv file
     MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_freesurfer.txt')
+    
     with open(MULM_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
         for i in np.arange(0, len(proba)):
+            spamwriter.writerow(['The probability of MULM computation is:']
+                                + [proba[i]] + ['for']
+                                + [freesurfer_features[i]]
+                                + ['extracted by Freesurfer.'])
+
+    # Bonferroni correction: since we focus here on 9 features extracted by
+    # Freesurfer algorithm, we only keep the probability values p < (0.05 / 9)
+    # that meet a significance threshold of 0.05 after Bonferroni correction.
+    # Write results of MULM computation for each feature of interest in a
+    # csv file
+    bonferroni_correction = 0.05 / (Y.shape[1])
+
+    MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
+                                    'MULM_after_Bonferroni_correction.txt')
+
+    with open(MULM_after_Bonferroni_correction_file_path, 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+
+        for i in np.arange(0, len(proba)):
+
             spamwriter.writerow(['The probability of MULM computation is:']
                                 + [proba[i]] + ['for']
                                 + [freesurfer_features[i]]
