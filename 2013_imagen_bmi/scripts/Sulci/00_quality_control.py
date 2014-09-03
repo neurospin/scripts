@@ -115,7 +115,7 @@ OUTPUT:
 
 The quality control first consists in removing sulci that are not recognized
 in more than 25% of subjects.
-Then, we get rid of outliers, that is we drop subjects for which more than
+Then, we get rid of outliers, that is we drop subjects for whom more than
 25% of the remaining robust sulci have not been detected.
 Finally, we eliminate subjects for whom at least one measure is aberrant,
 that is we filter subjects whose features lie outside the interval
