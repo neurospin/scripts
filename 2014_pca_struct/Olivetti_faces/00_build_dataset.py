@@ -37,7 +37,7 @@ faces_centered_local = faces_centered_global - local_centering
 
 print("Dataset shape: {s}".format(s=shape))
 
-# Load ground truth (just in case)
+# Load ground truth (useful for cross validation)
 y = dataset.target
 
 ###############################################################################
