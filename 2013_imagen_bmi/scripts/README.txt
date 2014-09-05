@@ -1,4 +1,19 @@
 ﻿#############################################################################
+IMAGEN_data:
+This script directly questions the IMAGEN database in order to gather useful
+clinical data.
+
+INPUT:
+
+OUTPUT: csv file
+    "/neurospin/brainomics/2013_imagen_bmi/data/clinic/IMAGEN_data.csv"
+
+Only the 1265 subjects for which we have neuroimaging data (masked_images)
+are selected among the total number of subjects.
+
+
+NB: The script 00_clinical_data should not be used anymore since the original
+file 1534bmi-vincent2.xls seems to be corrupted...
 
 00_clinical_data:
 This script aims at generating a csv file from various xls files in order to
@@ -146,5 +161,40 @@ Univariate correlation between residualized BMI and images on normal subjects.
 This script aims at checking out whether the crowns that appear on beta maps
 obtained by multivariate analysis should be considered as an artifact due to
 the segmentation process or are to be taken into account.
+
+#############################################################################
+
+24_template_IMAGEN.py:
+Work on the template provided by the SHFJ and used to process our data.
+Take a look at the demographics of the subjects whose images were chosen to
+draw this template.
+
+INPUT:
+    "/neurospin/brainomics/2013_imagen_bmi/data/clinic/source_SHFJ/
+      1534bmi-vincent2.xls"
+    "/neurospin/brainomics/2013_imagen_bmi/data/clinic/BMI_status.xls"
+    "/neurospin/brainomics/2013_imagen_bmi/data/template/
+      adresses_images_240_template.txt"
+
+OUTPUT:
+    "/neurospin/brainomics/2013_imagen_bmi/data/template/
+      template_IMAGEN_clinics.csv"
+
+#############################################################################
+
+25_subjects_selection_for_template.py:
+This script generates a list of the images to use to construct a template
+controlling for normal subjects, that is subjects of normal weight status
+and whose neuroanatomic images passed the quality control (grade A).
+
+INPUT:
+    "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv"
+
+OUTPUT:
+    "/neurospin/brainomics/2013_imagen_bmi/data/template/
+      images_for_normal_template.txt"
+
+676 'normal' subjects among the 1265 for who we have both neuroimaging and
+genetic data meet these criteria.
 
 #############################################################################

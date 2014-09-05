@@ -150,14 +150,15 @@ if __name__ == "__main__":
     print "CSV file containing all clinical data has been saved."
 
 
-
 #print '###################'
 #print '# Group selection #'
 #print '###################'
 #
-#normal_group = df[df['STATUS'] == 'Normal']
-#normal_group_file = pd.DataFrame.to_csv(normal_group,
-#                    os.path.join(CLINIC_DATA_PATH,
-#                                 "clinical_data_normal_group.csv"))
+#normal_group = clinical_data[clinical_data['Status'] == 'Normal']
+#obese_group = clinical_data[clinical_data['Status'] == 'Obese']
+#norm_ob_groups = normal_group.append(obese_group, ignore_index=False)
+#overweight_obese_group_file = pd.DataFrame.to_csv(norm_ob_groups,
+#                                os.path.join(CLINIC_DATA_PATH,
+#                                'clinical_data_norm-ob_groups.csv'))
 #
-#print "CSV file containing clinical data from normal status subjects has been saved."
+#print "CSV file containing clinical data from normal and obese subjects has been saved."

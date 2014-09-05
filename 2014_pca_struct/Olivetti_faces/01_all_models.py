@@ -4,38 +4,31 @@ Created on Wed May 28 12:08:39 2014
 
 @author: md238665
 
-Process mescog/proj_wmh_patterns datasets with standard PCA, sklearn SparsePCA
-and our structured PCA.
+Process Olivetti datasets with standard PCA, sklearn SparsePCA and our
+structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
 We generate a map_reduce configuration file and the files needed to run on the
 cluster.
-Due to the cluster setup and the way mapreduce work we need to copy the datset
-on the cluster. Therefore we copy them on the output directory which is
-synchronised on the cluster.
 
 The output directory is results.
 
-This file was copied from scripts/2014_pca_struct/dice5/01_all_models.py.
+This file was copied from scripts/2014_pca_struct/mescog/01_all_models.py.
 
 """
 
 import os
 import json
 import time
-import shutil
 
 from itertools import product
 from collections import OrderedDict
 
 import numpy as np
 import scipy
-import pandas as pd
 
 import sklearn.decomposition
 from sklearn.cross_validation import StratifiedKFold
-
-import nibabel
 
 import parsimony.functions.nesterov.tv
 import pca_tv
@@ -47,25 +40,22 @@ import brainomics.cluster_gabriel as clust_utils
 # Input & output #
 ##################
 
-INPUT_DIR = os.path.join("/neurospin/",
-                         "mescog", "proj_wmh_patterns")
+INPUT_DIR = "/neurospin/brainomics/2014_pca_struct/Olivetti_faces"
 
 INPUT_DATASET = os.path.join(INPUT_DIR,
                              "X.npy")
-INPUT_MASK = os.path.join(INPUT_DIR,
-                          "mask_bin.nii")
-INPUT_CSV = os.path.join(INPUT_DIR,
-                         "population.csv")
+INPUT_TARGET = os.path.join(INPUT_DIR,
+                            "y.npy")
 
 OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
-                          "2014_pca_struct", "mescog")
+                          "2014_pca_struct", "Olivetti_faces")
 
 ##############
 # Parameters #
 ##############
 
 # Real shape of images
-INPUT_SHAPE = (182, 218, 182)
+INPUT_SHAPE = (64, 64)
 
 N_COMP = 3
 # Global penalty
@@ -94,11 +84,9 @@ PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 
 def load_globals(config):
     import mapreduce as GLOBAL
-    babel_mask = nibabel.load(config["mask_file"])
-    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_mask(
-                                                        babel_mask.get_data())
+    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(
+                                                            config.image_size)
     GLOBAL.Atv = Atv
-    GLOBAL.MASK = babel_mask
 
 
 def resample(config, resample_nb):
@@ -306,19 +294,13 @@ if __name__ == "__main__":
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
-    # Read clinic status (used to split groups)
-    clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
-    clinic_subjects_id = clinic_data.index
-    print "Found", len(clinic_subjects_id), "clinic records"
+    # Read target (used to split groups)
+    y = np.load(INPUT_TARGET)
+    print "Found", len(y), "images"
 
     # Stratification of subjects
-    y = clinic_data['SITE'].map({'FR': 0, 'GE': 1})
     skf = StratifiedKFold(y=y, n_folds=2)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
-
-    # Copy the learning data & mask
-    shutil.copy(INPUT_DATASET, OUTPUT_DIR)
-    shutil.copy(INPUT_MASK, OUTPUT_DIR)
 
     # Create files to synchronize with the cluster
     sync_push_filename, sync_pull_filename, CLUSTER_WD = \
@@ -328,7 +310,7 @@ if __name__ == "__main__":
     user_func_filename = os.path.abspath(__file__)
 
     config = dict(data=dict(X=os.path.basename(INPUT_DATASET)),
-                  mask_file=os.path.basename(INPUT_MASK),
+                  image_size=INPUT_SHAPE,
                   params=PARAMS,
                   resample=resample_index,
                   map_output="results",

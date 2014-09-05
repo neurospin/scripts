@@ -133,61 +133,8 @@ def load_residualized_bmi_data(cache):
         # Sulci features
         sulci_df_qc = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                                           'sulci_df_qc.csv'),
-                              sep=',',
-                              usecols=['mainmorpho_F.C.M._left.depthMax',
-                                       'mainmorpho_F.C.M._right.depthMax',
-                                       'mainmorpho_S.Pe.C._left.depthMax',
-                                       'mainmorpho_S.Pe.C._right.depthMax',
-                                       'mainmorpho_S.C._left.depthMax',
-                                       'mainmorpho_S.C._right.depthMax',
-                                       'mainmorpho_F.Coll._left.depthMax',
-                                       'mainmorpho_F.Coll._right.depthMax',
-                                       #
-                                       'mainmorpho_F.C.M._left.depthMean',
-                                       'mainmorpho_F.C.M._right.depthMean',
-                                       'mainmorpho_S.Pe.C._left.depthMean',
-                                       'mainmorpho_S.Pe.C._right.depthMean',
-                                       'mainmorpho_S.C._left.depthMean',
-                                       'mainmorpho_S.C._right.depthMean',
-                                       'mainmorpho_F.Coll._left.depthMean',
-                                       'mainmorpho_F.Coll._right.depthMean'
-                                       #
-#                                       'mainmorpho_F.C.M._left.length',
-#                                       'mainmorpho_F.C.M._right.length',
-#                                       'mainmorpho_S.Pe.C._left.length',
-#                                       'mainmorpho_S.Pe.C._right.length',
-#                                       'mainmorpho_S.C._left.length',
-#                                       'mainmorpho_S.C._right.length',
-#                                       'mainmorpho_F.Coll._left.length',
-#                                       'mainmorpho_F.Coll._right.length',
-                                       #
-#                                       'mainmorpho_F.C.M._left.surface',
-#                                       'mainmorpho_F.C.M._right.surface',
-#                                       'mainmorpho_S.Pe.C._left.surface',
-#                                       'mainmorpho_S.Pe.C._right.surface',
-#                                       'mainmorpho_S.C._left.surface',
-#                                       'mainmorpho_S.C._right.surface',
-#                                       'mainmorpho_F.Coll._left.surface',
-#                                       'mainmorpho_F.Coll._right.surface',
-                                       #
-#                                       'mainmorpho_F.C.M._left.GM_thickness',
-#                                       'mainmorpho_F.C.M._right.GM_thickness',
-#                                       'mainmorpho_S.Pe.C._left.GM_thickness',
-#                                       'mainmorpho_S.Pe.C._right.GM_thickness',
-#                                       'mainmorpho_S.C._left.GM_thickness',
-#                                       'mainmorpho_S.C._right.GM_thickness',
-#                                       'mainmorpho_F.Coll._left.GM_thickness',
-#                                       'mainmorpho_F.Coll._right.GM_thickness',
-                                       #
-#                                       'mainmorpho_F.C.M._left.opening',
-#                                       'mainmorpho_F.C.M._right.opening',
-#                                       'mainmorpho_S.Pe.C._left.opening',
-#                                       'mainmorpho_S.Pe.C._right.opening',
-#                                       'mainmorpho_S.C._left.opening',
-#                                       'mainmorpho_S.C._right.opening',
-#                                       'mainmorpho_F.Coll._left.opening',
-#                                       'mainmorpho_F.Coll._right.opening'
-                                       ])
+#                              usecols=[???],
+                              sep=',')
 
         # Set the new dataframe index: subjects ID in the right format
         sulci_df_qc = sulci_df_qc.set_index(sulci_index)
@@ -200,8 +147,11 @@ def load_residualized_bmi_data(cache):
         # Add one cofound since sulci follows a power law
         clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
 
-        clinical_cofounds = ['Gender de Feuil2', 'ImagingCentreCity',
-                             'tiv_gaser', 'tiv2', 'mean_pds']
+        clinical_cofounds = ['Gender de Feuil2',
+                             'ImagingCentreCity',
+                             'tiv_gaser',
+                             'tiv2',
+                             'mean_pds']
 
         clinical_df = clinical_df[clinical_cofounds]
 
@@ -266,9 +216,8 @@ def load_residualized_bmi_data(cache):
 #"""#
 if __name__ == "__main__":
 
-    ## Set pathes
-    #WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
-    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_depthMax_depthMean"
+    # Set pathes
+    WD = "/neurospin/tmp/brainomics/multivariate_bmi_full_sulci_all_features"
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -304,7 +253,7 @@ if __name__ == "__main__":
     NFOLDS = 5
     # CV index and parameters to test
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=NFOLDS)]
-    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10, 100]
+    params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10]
                for l1_ratio in np.arange(0.1, 1., .1)])
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
@@ -329,7 +278,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(os.getenv('HOME'), 'gits', 'scripts'))
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD, user="hl237680")
+        clust_utils.gabriel_make_sync_data_files(WD, user='hl237680')
     cmd = "mapreduce.py -m %s/config.json  --ncore 12" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #########################################################################
