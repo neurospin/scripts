@@ -85,7 +85,7 @@ PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
 def load_globals(config):
     import mapreduce as GLOBAL
     Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(
-                                                            config.image_size)
+                                                        config['image_size'])
     GLOBAL.Atv = Atv
 
 
