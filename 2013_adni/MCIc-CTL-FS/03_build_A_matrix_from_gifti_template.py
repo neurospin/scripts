@@ -21,7 +21,7 @@ import scipy.sparse as sparse
 
 BASE_PATH = "/neurospin/brainomics/2013_adni/"
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
-OUTPUT = os.path.join(BASE_PATH, "MCIc-CTL_fs")
+OUTPUT = os.path.join(BASE_PATH, "MCIc-CTL-FS")
 
 import numpy as np
 import brainomics.mesh_processing as mesh_utils

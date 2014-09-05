@@ -137,7 +137,7 @@ def reducer(key, values):
 ## Run all
 def debug(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
     key = '0.01_0.999_0.0_0.001_-1.0'
     os.chdir(WD)
     config = json.load(open("config_5cv.json"))
@@ -155,7 +155,7 @@ def debug(config):
     a = pickle.load(open("/tmp/a.pkl"))
     
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -191,8 +191,8 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-CTL_fs",
-        "03_gtvenet_cs.py")
+        "git", "scripts", "2013_adni", "MCIc-CTL-FS",
+        "03_tvenet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -205,7 +205,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input="5cv/*/*",
                   reduce_group_by="5cv/.*/(.*)",
-                  reduce_output="MCIc-CTL_fs.csv")
+                  reduce_output="MCIc-CTL-FS.csv")
     json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
 
     #############################################################################

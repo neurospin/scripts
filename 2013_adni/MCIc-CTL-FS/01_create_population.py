@@ -26,7 +26,7 @@ INPUT_VBM = os.path.join(BASE_PATH,
                                    "subject_list.txt")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,
-                          "MCIc-CTL_fs",
+                          "MCIc-CTL-FS",
                           "population.csv")
 
 if not os.path.exists(os.path.dirname(OUTPUT_CSV)):
