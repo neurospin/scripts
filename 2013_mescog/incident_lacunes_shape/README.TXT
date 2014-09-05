@@ -56,47 +56,5 @@ I[0..11] p. 101 thèse Fabrice
 More than one label /home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_images/023/023_1037-M36_LacBL.nii.gz
 
 ################################################################################
-DISCUSSION
-==========
 
-Moments
--------
-
-- incident_lacunes_moments.csv: all computed moments
-- incident_lacunes_moments_descriptive.xls: some descriptive stats on the moment
-with signification
-
-Methods
--------
-
-PCA
-
-PCA on 11 Invariant's moments (pure shape descriptors)
-- pc1-pc2_annotated.svg
-- pc1-pc2_clusters.csv (columns PC1, PC2)
-
-Clustering
-~~~~~~~~~~
-
-Plot of lacunes using the two first components (70% of explained variance).
-The plot highlight four patterns defined by 4 lines. This lines where
-used to define 4 groups.
-Clustering using the 
-- pc1-pc2_clusters.csv (columns label)
-- pc1-pc2_clusters.svg
-- pc1-pc2_clusters_annotated.svg
-
-Results
--------
-The plot within the two first PCs highlight one axis (diagonal top-left -> bottom-right, y = -x)
-that explain an anisotropy of the shape.
-- pc1-pc2_color-by-inerty_max_norm_from-mesh.svg shows that shape anisotropy increased
-moving bottom-right to top-left.
-The anisotropy is measured using the max inerty^2 / sum of inerties^2 ratio
-The shape anisotropy explain 24% of the total shape variance (F=169.38, p<10e-16, Manova Pillai test)
-However, the orthogonal axis is unclear
-
-)measure fdsfds
-fds
- 
 
