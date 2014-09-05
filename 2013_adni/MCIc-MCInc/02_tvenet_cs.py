@@ -8,9 +8,10 @@ Created on Fri May 30 20:03:12 2014
 import os
 import json
 import numpy as np
+from collections import OrderedDict
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
-from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
@@ -19,20 +20,23 @@ import parsimony.functions.nesterov.tv as tv_helper
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = nibabel.load(config["structure"])
+    STRUCTURE = nibabel.load(config["mask_filename"])
     A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
-    GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
+    GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
 
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
-
-def mapper(key, output_collector):
+def mapper_fix(key, output_collector):
     """This mapper do not fit, re-use the precomputed stored beta and compute
     proba of test samples. Call it using mapreduce.py -m -f config.json
     """
@@ -44,7 +48,7 @@ def mapper(key, output_collector):
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     #print output_collector,
     STRUCTURE = GLOBAL.STRUCTURE
-    penalty_start = 2
+    penalty_start = GLOBAL.CONFIG["penalty_start"]
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -72,7 +76,7 @@ def mapper(key, output_collector):
         return ret
 
 
-def mapper2(key, output_collector):
+def mapper(key, output_collector):
     import mapreduce as GLOBAL # access to global variables:
         #raise ImportError("could not import ")
     # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
@@ -86,7 +90,7 @@ def mapper2(key, output_collector):
     STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 2
+    penalty_start = GLOBAL.CONFIG["penalty_start"]
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -125,7 +129,7 @@ def reducer(key, values):
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/AD-CTL/results/*/0.1_0.0_0.0_1.0_-1.0/")]
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-MCInc_cs/results/*/0.1_0.0_0.0_1.0_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    values = [item.load() for item in values]
+    values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
@@ -135,20 +139,37 @@ def reducer(key, values):
     y_pred = np.concatenate(y_pred)
     prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    fpr, tpr, testholds = roc_curve(y_true, prob_pred)
-    auc_ = auc(fpr, tpr)
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
     n_ite = None
     betas = np.hstack([item["beta"] for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     print a, l1, l2, tv, k, beta_cor_mean
-    scores = dict(key=key, a=a, l1=l1, l2=l2, tv=tv, k=k,
-               recall_0=r[0], recall_1=r[1], recall_mean=r.mean(), recall_mean_std=recall_mean_std,
-               precision_0=p[0], precision_1=p[1], precision_mean=p.mean(),
-               f1_0=f[0], f1_1=f[1], f1_mean=f.mean(),
-               support_0=s[0] , support_1=s[1], n_ite=n_ite,
-               beta_cor_mean=beta_cor_mean, auc=auc_)
+    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+    scores = OrderedDict()
+    scores['a'] = a
+    scores['l1'] = l1
+    scores['l2'] = l2
+    scores['tv'] = tv
+    scores['l1l2_ratio'] = l1 / float(1-tv)
+    scores['recall_0'] = r[0]
+    scores['recall_1'] = r[1]
+    scores['recall_mean'] = r.mean()
+    scores['recall_mean_std'] = recall_mean_std
+    scores['auc'] = auc
+    scores['beta_cor_mean'] = beta_cor_mean
+    scores['precision_0'] = p[0]
+    scores['precision_1'] = p[1]
+    scores['precision_mean'] = p.mean()
+    scores['f1_0'] = f[0]
+    scores['f1_1'] = f[1]
+    scores['f1_mean'] = f.mean()
+    scores['support_0'] = s[0]
+    scores['support_1'] = s[1]
+    scores['n_ite'] = n_ite
+    scores['k'] = k
+    scores['key'] = key
     return scores
 
 
@@ -190,7 +211,15 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    if os.path.exists("config.json"):
+        inf = open("config.json", "r")
+        old_conf = json.load(inf)
+        cv = old_conf["resample"]
+        inf.close()
+    else:
+        cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    if cv[0] is not None: # Make sure first fold is None
+        cv.insert(0, None)
     # parameters grid
     # Re-run with
     tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
@@ -218,11 +247,12 @@ if __name__ == "__main__":
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
-                  structure=INPUT_MASK_PATH,
-                  map_output="results",
+                  mask_filename=INPUT_MASK_PATH,
+                  penalty_start = 2,
+                  map_output="5cv",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_input="5cv/*/*",
+                  reduce_group_by="5cv/.*/(.*)",
                   reduce_output="MCIc-MCInc_cs.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 

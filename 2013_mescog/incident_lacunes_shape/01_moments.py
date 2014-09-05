@@ -32,7 +32,7 @@ for filename in filenames:
     if not np.all(np.unique(arr) == [0, 1]):
         print "More than one label", filename
         continue
-    scipy.ndimage.find_objects(arr)
+    #scipy.ndimage.find_objects(arr)
     label, num_features = scipy.ndimage.label(arr)
     if not num_features == 1:
         print "More than one CC", filename
@@ -178,9 +178,9 @@ assert np.allclose(CL + CP + CS, 1)
 
 moments["tensor_invariant_fa"] = FA
 moments["tensor_invariant_mode"] = mode
-moments["tensor_invariant_cl"] = CL
-moments["tensor_invariant_cp"] = CP
-moments["tensor_invariant_cs"] = CS
+moments["tensor_invariant_linear_anisotropy"] = CL
+moments["tensor_invariant_planar_anisotropy"] = CP
+moments["tensor_invariant_spherical_anisotropy"] = CS
 #
 #moments["inertia_max_norm"] = I[:, 0] ** 2 / np.sum(A ** 2, axis=1)
 #moments["inertia_min_norm"] = I[:, 2] ** 2 / np.sum(A ** 2, axis=1)

@@ -20,9 +20,9 @@ INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data")
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
 
 
-INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL_fs", "population.csv")
+INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL-FS", "population.csv")
 
-OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL_fs")
+OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS")
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)

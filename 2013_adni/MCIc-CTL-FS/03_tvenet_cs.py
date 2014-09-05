@@ -10,7 +10,7 @@ import json
 from collections import OrderedDict
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-from sklearn.metrics import roc_curve, auc, roc_auc_score, precision_recall_fscore_support
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
@@ -25,6 +25,7 @@ def load_globals(config):
     GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask = mesh_coord, mesh_triangles, mask
     A, _ = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
     GLOBAL.A = A
+    GLOBAL.CONFIG = config
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
@@ -51,7 +52,7 @@ def mapper(key, output_collector):
     # STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 2
+    penalty_start = GLOBAL.CONFIG["penalty_start"]
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
@@ -112,6 +113,7 @@ def reducer(key, values):
     scores['l1'] = l1
     scores['l2'] = l2
     scores['tv'] = tv
+    scores['l1l2_ratio'] = l1 / float(1-tv)
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
@@ -129,7 +131,6 @@ def reducer(key, values):
     scores['n_ite'] = n_ite
     scores['k'] = k
     scores['key'] = key
-
     return scores
 
 
@@ -137,7 +138,7 @@ def reducer(key, values):
 ## Run all
 def debug(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
     key = '0.01_0.999_0.0_0.001_-1.0'
     os.chdir(WD)
     config = json.load(open("config_5cv.json"))
@@ -155,7 +156,7 @@ def debug(config):
     a = pickle.load(open("/tmp/a.pkl"))
     
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_fs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -171,8 +172,17 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
-    cv.insert(0, None)  # first fold is None
+    if os.path.exists("config.json"):
+        inf = open("config.json", "r")
+        old_conf = json.load(inf)
+        cv = old_conf["resample"]
+        inf.close()
+    else:
+        cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    if cv[0] is not None: # Make sure first fold is None
+        cv.insert(0, None)
+    #cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    #cv.insert(0, None)  # first fold is None
     # parameters grid
     # Re-run with
     tv_range = np.array([0., 1e-3, 5e-3, 1e-2, 5e-2, .1, .2, .3, .333, .4, .5, .6, .7, .8, .9])
@@ -191,8 +201,8 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-CTL_fs",
-        "03_gtvenet_cs.py")
+        "git", "scripts", "2013_adni", "MCIc-CTL-FS",
+        "03_tvenet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -202,10 +212,11 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   structure=STRUCTURE,
                   map_output="5cv",
+                  penalty_start = 2,
                   user_func=user_func_filename,
                   reduce_input="5cv/*/*",
                   reduce_group_by="5cv/.*/(.*)",
-                  reduce_output="MCIc-CTL_fs.csv")
+                  reduce_output="MCIc-CTL-FS.csv")
     json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
 
     #############################################################################
