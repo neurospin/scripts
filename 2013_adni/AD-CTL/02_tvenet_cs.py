@@ -219,10 +219,10 @@ if __name__ == "__main__":
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK_PATH,
-                  map_output="results",
+                  map_output="5cv",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_input="5cv/*/*",
+                  reduce_group_by="5cv/.*/(.*)",
                   reduce_output="AD-CTL_cs.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 

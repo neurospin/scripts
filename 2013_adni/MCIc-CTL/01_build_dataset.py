@@ -43,11 +43,13 @@ INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL", "population.csv")
 
 OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL")
 OUTPUT_CS = os.path.join(BASE_PATH,          "MCIc-CTL_cs")
+OUTPUT_CSI = os.path.join(BASE_PATH,          "MCIc-CTL_csi")
 OUTPUT_ATLAS = os.path.join(BASE_PATH,       "MCIc-CTL_gtvenet")
 OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "MCIc-CTL_cs_gtvenet")
 
 os.makedirs(OUTPUT)
 os.makedirs(OUTPUT_CS)
+os.makedirs(OUTPUT_CSI)
 os.makedirs(OUTPUT_ATLAS)
 os.makedirs(OUTPUT_CS_ATLAS)
 
@@ -150,6 +152,22 @@ fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' 
     (n, p, mask.sum()))
 fh.close()
 
+# Xcsi
+X = Xtot[:, mask_bool.ravel()]
+X = np.hstack([Z, X])
+assert X.shape == (202, 286120)
+X -= X.mean(axis=0)
+X /= X.std(axis=0)
+X[:, 0] = 1.
+n, p = X.shape
+np.save(os.path.join(OUTPUT_CSI, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_CSI, "X.npy").replace("npy", "txt"), "w")
+fh.write('Centered and scaled data. Shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+    (n, p, mask.sum()))
+fh.close()
+
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSI, "mask.nii"))
+
 # atlas
 X = Xtot[:, (mask_atlas.ravel() != 0)]
 X = np.hstack([Z, X])
@@ -176,6 +194,62 @@ fh.close()
 
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
+np.save(os.path.join(OUTPUT_CSI, "y.npy"), y)
 np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)
 
+#############################################################################
+# MULM
+mask_ima = nibabel.load(os.path.join(OUTPUT_CSI, "mask.nii"))
+mask_arr = mask_ima.get_data() != 0
+X = np.load(os.path.join(OUTPUT_CSI, "X.npy"))
+y = np.load(os.path.join(OUTPUT_CSI, "y.npy"))
+Z = X[:, :3]
+Y = X[: , 3:]
+assert np.sum(mask_arr) == Y.shape[1]
+
+
+DesignMat = np.zeros((Z.shape[0], Z.shape[1]+1)) # y, intercept, age, sex
+DesignMat[:, 0] = (y.ravel() - y.ravel().mean())  # y
+DesignMat[:, 1] = 1  # intercept
+DesignMat[:, 2] = Z[:, 1]  # age
+DesignMat[:, 3] = Z[:, 2]  # sex
+
+from mulm import MUOLSStatsCoefficients
+muols = MUOLSStatsCoefficients()
+muols.fit(X=DesignMat, Y=Y)
+
+tvals, pvals, dfs = muols.stats_t_coefficients(X=DesignMat, Y=Y, contrast=[-1, 0, 0, 0], pval=True)
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_CSI, "t_stat_CTL-MCIc.nii.gz"))
+
+thres = .1
+m1 = pvals <= thres
+m2 = (pvals > thres) & (pvals < (1. - thres))
+m3 = pvals >= (1. - thres)
+print np.sum(m1), np.sum(m2), np.sum(m3)
+arr = np.zeros(mask_arr.shape)
+val = np.zeros(pvals.shape, dtype=int)
+val[m1] = 1.
+val[m2] = 2.
+val[m3] = 3.
+arr[mask_arr] = val
+arr = brainomics.image_atlas.smooth_labels(arr, size=(3, 3, 3))
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_CSI, "pval-quantile_CTL-MCIc.nii.gz"))
+
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = pvals
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_CSI, "pval_CTL-MCIc.nii.gz"))
+
+tvals, pvals, dfs = muols.stats_t_coefficients(X=DesignMat, Y=Y, contrast=[1, 0, 0, 0], pval=True)
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_CSI, "t_stat_MCIc-CTL.nii.gz"))
+
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = pvals
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_CSI, "pval_MCIc-CTL.nii.gz"))
+
+# anatomist /neurospin/brainomics/2013_adni/MCIc-CTL_csi/*.nii.gz
