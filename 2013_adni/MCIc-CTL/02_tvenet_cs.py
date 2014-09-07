@@ -155,7 +155,9 @@ def reducer(key, values):
     scores['l1'] = l1
     scores['l2'] = l2
     scores['tv'] = tv
-    scores['l1l2_ratio'] = l1 / float(1-tv)
+    left = float(1 - tv)
+    if left == 0: left = 1.
+    scores['l1l2_ratio'] = l1 / left
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
