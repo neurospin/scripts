@@ -4,6 +4,9 @@
 Created on Thu july  22 10:46:01 2014
 
 @author: christophe
+
+Extract some of clinical information and mappings those which we have an
+interest with. (variables SEX, SCANNER and AGEATMRI)
 """
 
 ## Build population for the project 2014_bd_dwi
