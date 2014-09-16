@@ -17,12 +17,12 @@ BASE_PATH = "/home/ed203246/data/mescog/incident_lacunes_shape"
 INPUT_IMAGES = os.path.join(BASE_PATH, "incident_lacunes_images")
 #INPUT_MOMENTS_CSV = "/home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_moments_area_from_mesh.csv"
 INPUT_MOMENTS_CSV = os.path.join(BASE_PATH, "incident_lacunes_moments.csv")
-INPUT_PC_CLUSTERS_CSV = os.path.join(BASE_PATH, "results_moments_invariant", "pc1-pc2_clusters.csv")
+INPUT_PC_CLUSTERS_CSV = os.path.join(BASE_PATH, "results_moments_invariant", "mnts-inv_pca.csv")
 OUTPUT = os.path.join(BASE_PATH, "results_lacunes-mesh")
 
 SCALE_XY_PC12 = 300
 SCALE_anisotropy_linear = 500
-SCALE_anisotropy_spherical = 500
+SCALE_anisotropy_planar = 500
 
 moments = pd.read_csv(INPUT_MOMENTS_CSV)#, index_col=0)
 pc = pd.read_csv(INPUT_PC_CLUSTERS_CSV)#, index_col=0)
@@ -34,8 +34,8 @@ filename = "/home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_i
 ##
 coord_pc_moment_invariant_all = list()
 coord_pc_moment_invariant_scaled_all = list()
-coord_anisotropy_linear_spherical_all = list()
-coord_anisotropy_linear_spherical_scaled_all = list()
+coord_anisotropy_linear_planar_all = list()
+coord_anisotropy_linear_planar_scaled_all = list()
 
 
 tri_all = list()
@@ -71,15 +71,15 @@ for filename in filenames:
     coord_pc_moment_invariant[:, 1] += comp.PC2 * SCALE_XY_PC12
     coord_pc_moment_invariant_all.append(coord_pc_moment_invariant)
     # Mesh coord inerty_max_vs_cluster
-    coord_anisotropy_linear_spherical = coord.copy()
-    coord_anisotropy_linear_spherical[:, 0] += m.tensor_invariant_linear_anisotropy * SCALE_anisotropy_linear
-    coord_anisotropy_linear_spherical[:, 1] += m.tensor_invariant_spherical_anisotropy * SCALE_anisotropy_spherical
-    coord_anisotropy_linear_spherical_all.append(coord_anisotropy_linear_spherical)
-    coord_anisotropy_linear_spherical_scaled = coord.copy()
-    coord_anisotropy_linear_spherical_scaled *= scale_xyz
-    coord_anisotropy_linear_spherical_scaled[:, 0] += m.tensor_invariant_linear_anisotropy * SCALE_anisotropy_linear
-    coord_anisotropy_linear_spherical_scaled[:, 1] += m.tensor_invariant_spherical_anisotropy * SCALE_anisotropy_spherical
-    coord_anisotropy_linear_spherical_scaled_all.append(coord_anisotropy_linear_spherical_scaled)
+    coord_anisotropy_linear_planar = coord.copy()
+    coord_anisotropy_linear_planar[:, 0] += m.tensor_invariant_linear_anisotropy * SCALE_anisotropy_linear
+    coord_anisotropy_linear_planar[:, 1] += m.tensor_invariant_planar_anisotropy * SCALE_anisotropy_planar
+    coord_anisotropy_linear_planar_all.append(coord_anisotropy_linear_planar)
+    coord_anisotropy_linear_planar_scaled = coord.copy()
+    coord_anisotropy_linear_planar_scaled *= scale_xyz
+    coord_anisotropy_linear_planar_scaled[:, 0] += m.tensor_invariant_linear_anisotropy * SCALE_anisotropy_linear
+    coord_anisotropy_linear_planar_scaled[:, 1] += m.tensor_invariant_planar_anisotropy * SCALE_anisotropy_planar
+    coord_anisotropy_linear_planar_scaled_all.append(coord_anisotropy_linear_planar_scaled)
     # Tri
     tri_all.append(tri + n_vertex)
     #ids = np.zeros(coord.shape[0], dtype=int)
@@ -98,14 +98,14 @@ for filename in filenames:
 
 coord_pc_moment_invariant_scaled_all = np.vstack(coord_pc_moment_invariant_scaled_all)
 coord_pc_moment_invariant_all = np.vstack(coord_pc_moment_invariant_all)
-coord_anisotropy_linear_spherical_scaled_all = np.vstack(coord_anisotropy_linear_spherical_scaled_all)
-coord_anisotropy_linear_spherical_all = np.vstack(coord_anisotropy_linear_spherical_all)
+coord_anisotropy_linear_planar_scaled_all = np.vstack(coord_anisotropy_linear_planar_scaled_all)
+coord_anisotropy_linear_planar_all = np.vstack(coord_anisotropy_linear_planar_all)
 tri_all = np.vstack(tri_all)
-mesh_processing.mesh_from_arrays(coord_pc_moment_invariant_scaled_all, tri_all, path=os.path.join(OUTPUT, "pca_moment_invariant_lacunes-scaled.gii"))
-mesh_processing.mesh_from_arrays(coord_pc_moment_invariant_all, tri_all, path=os.path.join(OUTPUT, "pca_moment_invariant.gii"))
-mesh_processing.mesh_from_arrays(coord_anisotropy_linear_spherical_scaled_all, tri_all,
- path=os.path.join(OUTPUT, "anisotropy_linear_spherical_lacunes-scaled.gii"))
-mesh_processing.mesh_from_arrays(coord_anisotropy_linear_spherical_all, tri_all, path=os.path.join(OUTPUT, "anisotropy_linear_spherical_.gii"))
+mesh_processing.mesh_from_arrays(coord_pc_moment_invariant_scaled_all, tri_all, path=os.path.join(OUTPUT, "mnts-inv_pc12_scaled.gii"))
+mesh_processing.mesh_from_arrays(coord_pc_moment_invariant_all, tri_all, path=os.path.join(OUTPUT, "mnts-inv_pc12.gii"))
+mesh_processing.mesh_from_arrays(coord_anisotropy_linear_planar_scaled_all, tri_all,
+ path=os.path.join(OUTPUT, "tnsr-inv_lin-plan_scaled.gii"))
+mesh_processing.mesh_from_arrays(coord_anisotropy_linear_planar_all, tri_all, path=os.path.join(OUTPUT, "tnsr-inv_lin-plan.gii"))
 
 
 for k in textures:

@@ -54,6 +54,9 @@ OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
 # Parameters #
 ##############
 
+RANDOM_STATE = 13031981
+N_FOLDS = 2
+
 # Real shape of images
 INPUT_SHAPE = (64, 64)
 
@@ -220,6 +223,8 @@ def reducer(key, values):
     values = [item.load() for item in values]
 
     comp_list = [item["components"] for item in values]
+    frobenius_train = np.vstack([item["frobenius_train"] for item in values])
+    frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
@@ -229,6 +234,8 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Average precision/recall across folds for each component
+    av_frobenius_train = frobenius_train.mean(axis=0)
+    av_frobenius_test = frobenius_test.mean(axis=0)
     av_evr_train = evr_train.mean(axis=0)
     av_evr_test = evr_test.mean(axis=0)
     av_l0 = l0.mean(axis=0)
@@ -245,6 +252,8 @@ def reducer(key, values):
 
     scores = OrderedDict((
         ('key', key),
+        ('frobenius_train', av_frobenius_train[0]),
+        ('frobenius_test', av_frobenius_test[0]),
         ('correlation_0', correlation[0]),
         ('correlation_1', correlation[1]),
         ('correlation_2', correlation[2]),
@@ -299,7 +308,10 @@ if __name__ == "__main__":
     print "Found", len(y), "images"
 
     # Stratification of subjects
-    skf = StratifiedKFold(y=y, n_folds=2)
+    skf = StratifiedKFold(y=y,
+                          n_folds=N_FOLDS,
+                          shuffle=True,
+                          random_state=RANDOM_STATE)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
 
     # Create files to synchronize with the cluster
