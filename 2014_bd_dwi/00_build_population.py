@@ -11,6 +11,10 @@ Created on Thu july  22 10:46:01 2014
 import os
 import pandas as pd
 
+from collections import OrderedDict
+
+from brainomics import pandas_utilities as pu
+
 
 #loading files
 BASE_PATH =  "/volatile/share/2014_bd_dwi"
@@ -48,8 +52,21 @@ images = pd.DataFrame(range(len(image_id)), columns=['SLICE'],
 
 # Read some columns clinic data
 clinic = pd.read_csv(INPUT_CSV_BASE,
-                     index_col = 0)
+                     index_col=0)
 clinic = clinic[["BD_HC", "SCANNER", "AGEATMRI", "SEX"]]
+
+# Map the sex from (1, 2) where 1 is for male and 2 is for female
+# to (-1, 1) where 1 is for the female, -1 is for the male
+mappings_NC = {'SEX': OrderedDict([(1, -1),
+                                   (2, 1)])}
+clinic = pu.numerical_coding(clinic, mappings_NC)
+
+# Dummy Coding of scanners
+mappings_DC = {'SCANNER': OrderedDict([(1, 1),
+                                       (2, 2),
+                                       (3, 3)])}
+
+clinic = pu.indicator_variables(clinic, mappings_DC)
 
 # Merge dataframes
 population = pd.merge(clinic, images,
