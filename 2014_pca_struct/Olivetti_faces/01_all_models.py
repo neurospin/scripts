@@ -54,6 +54,9 @@ OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
 # Parameters #
 ##############
 
+RANDOM_STATE = 13031981
+N_FOLDS = 2
+
 # Real shape of images
 INPUT_SHAPE = (64, 64)
 
@@ -305,7 +308,10 @@ if __name__ == "__main__":
     print "Found", len(y), "images"
 
     # Stratification of subjects
-    skf = StratifiedKFold(y=y, n_folds=2)
+    skf = StratifiedKFold(y=y,
+                          n_folds=N_FOLDS,
+                          shuffle=True,
+                          random_state=RANDOM_STATE)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
 
     # Create files to synchronize with the cluster
