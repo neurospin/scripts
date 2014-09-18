@@ -3,6 +3,8 @@
 Created on Thu May 29 18:22:21 2014
 
 @author: edouard.duchesnay@cea.fr
+
+Same as test_mapreduce but group by resampling.
 """
 
 import os
@@ -80,7 +82,7 @@ if __name__ == "__main__":
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_group_by="results/(.*)/.*",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -95,11 +97,11 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    for key in params:
+    for i, (tr, te) in enumerate(cv):
         # key = params[0]
         y_true = list()
         y_pred = list()
-        for tr, te in cv:
+        for key in params:
             # tr, te = cv[0]
             Xtrain = X[tr, :]
             Xtest = X[te, :]
@@ -110,7 +112,7 @@ if __name__ == "__main__":
             y_true.append(ytest)
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
-        res.append(["_".join([str(p) for p in key]), r2_score(y_true, y_pred)])
+        res.append([i, r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["param", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
