@@ -322,16 +322,17 @@ if __name__ == "__main__":
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
             groups[which_group_key[0]].append(output_collector)
+        # Sort the group (list of OutputCollector)
+        # The list is sorted alphabetically according to the string
+        # representation of the OutputCollector (i.e. by folder name)
+        for k in groups:
+            groups[k].sort(key=repr)
         if options.verbose:
             print "== Groups found:"
             print groups
         # Do the reduce
         scores = None  # Dict of all the results
         for k in groups:
-            # Sort the group (list of OutputCollector)
-            # The list is sorted alphabetically according to the string
-            # representation of the OutputCollector (i.e. by folder name)
-            groups[k].sort(key=repr)
             try:
                 # Results for this key
                 score = user_func.reducer(key=k, values=groups[k])
