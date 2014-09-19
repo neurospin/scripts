@@ -51,7 +51,7 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     print cmd
     os.system(cmd)
     # preserve:
-    # recursive, link, time, group, owner, Devices (scpecial), update, verbose, compress 
+    # recursive, link, time, group, owner, Devices (scpecial), update, verbose, compress
     push_str = 'rsync -rltgoDuvz %s %s@gabriel.intra.cea.fr:%s/' % (
          wd, user, os.path.dirname(wd_cluster))
     sync_push_filename = os.path.join(wd, "sync_push.sh")
@@ -67,7 +67,7 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     return sync_push_filename, sync_pull_filename, wd_cluster
 
 
-def gabriel_make_qsub_job_files(output_dirname, cmd):
+def gabriel_make_qsub_job_files(output_dirname, cmd, suffix=""):
     """Build PBS files, one for Cati_LowPrio 12ppn, and one for Global_long
     8ppn
 
@@ -94,20 +94,20 @@ def gabriel_make_qsub_job_files(output_dirname, cmd):
     params['ppn'] = 12
     params['queue'] = "Cati_LowPrio"
     qsub = job_template_pbs % params
-    job_filename = os.path.join(output_dirname, 'job_Cati_LowPrio.pbs')
+    job_filename = os.path.join(output_dirname, 'job_Cati_LowPrio%s.pbs' % suffix)
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)
     params['queue'] = "Cati_long"
     qsub = job_template_pbs % params
-    job_filename = os.path.join(output_dirname, 'job_Cati_long.pbs')
+    job_filename = os.path.join(output_dirname, 'job_Cati_long%s.pbs' % suffix)
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)
     params['ppn'] = 8
     params['queue'] = "Global_long"
     qsub = job_template_pbs % params
-    job_filename = os.path.join(output_dirname, 'job_Global_long.pbs')
+    job_filename = os.path.join(output_dirname, 'job_Global_long%s.pbs' % suffix)
     with open(job_filename, 'wb') as f:
         f.write(qsub)
     os.chmod(job_filename, 0777)
