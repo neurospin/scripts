@@ -43,7 +43,7 @@ config = dict(data=dict(X="X.npy", y="y.npy"),
               map_output="map_results",
               resample=cv,
               ncore=2,
-              reduce_input="map_results/*/*", reduce_group_by=".*/.*/(.*)")
+              reduce_group_by="params_str")
 json.dump(config, open("config.json", "w"))
 
 """
@@ -52,19 +52,50 @@ json.dump(config, open("config.json", "w"))
 def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
 
-_OUTPUT = 0
-_PARAMS = 1
-_RESAMPLE_NB = 2
+_RESAMPLE_NB = 'resample'
+_PARAMS = 'params'
+_PARAMS_STR = 'params_str'
+_OUTPUT = 'output dir'
+_OUTPUT_COLLECTOR = 'output collector'
+
+GROUP_BY_VALUES = [_RESAMPLE_NB, _PARAMS, _PARAMS_STR]
 
 def _build_job_table(config):
+    """Build a pandas dataframe representing the jobs.
+    The dataframe has 3 columns whose name is given by global variables:
+      - _RESAMPLE_NB: the index of the resampling
+      - _PARAMS: the key passed to map (tuple of parameters)
+      - _PARAMS_STR: representation of the parameters as a string (used in
+         output dir)
+      - _OUTPUT: the output directory
+      - _OUTPUT_COLLECTOR: the OutputCollector
+    In order to be able to group by parameters, they must be hashable (it's the
+    case for tuples made of strings and floats).
+    Note that the index respects the natural ordering of (resample, params) as
+    given in the in the config file.
+    """
     params_list = json.load(open(config["params"])) \
         if isinstance(config["params"], str) else config["params"]
-    jobs = [[os.path.join(config["map_output"], str(resample_i),
-                          param_sep.join([str(p) for p in params])),
-            params,
-            resample_i]
+    # Create representation of parameters as a string
+    params_str_list = [param_sep.join([str(p) for p in params])
+                       for params in params_list]
+    # The parameters are given as list of values.
+    # As list are not hashable, we cast them to tuples.
+    jobs = [[resample_i,
+             tuple(params),
+             params_str,
+             os.path.join(config["map_output"],
+                          str(resample_i),
+                          params_str)]
             for resample_i in xrange(len(config["resample"]))
-            for params in params_list]
+            for (params, params_str) in zip(params_list, params_str_list)]
+    jobs = pd.DataFrame.from_records(jobs,
+                                     columns=[_RESAMPLE_NB,
+                                              _PARAMS,
+                                              _PARAMS_STR,
+                                              _OUTPUT])
+    # Add OutputCollectors (we need all the rows so we do that latter)
+    jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(lambda x: OutputCollector(x))
     return jobs
 
 
@@ -210,7 +241,7 @@ if __name__ == "__main__":
         'resampling.'
         'or list of list of indices, ex: [[0, 1, 2, 3], [1, 3, 0, 2]]. for '
         'bootstraping/permuation like resampling. '
-        '"ncore", "reduce_input" and "reduce_output": see command line argument.'
+        '"ncore", and "reduce_output": see command line argument.'
         )
 
     default_nproc = cpu_count()
@@ -233,17 +264,27 @@ if __name__ == "__main__":
     if options.ncore is None:
         options.ncore = default_nproc
 
+    #=========================================================================
+    #== Check config file                                                   ==
+    #=========================================================================
+    if not config["user_func"]:
+        print 'Attribute "user_func" is required'
+        sys.exit(1)
+    user_func = _import_user_func(config["user_func"])
+
+    if not config["reduce_group_by"]:
+        print 'Attribute "reduce_group_by" is required'
+        sys.exit(1)
+    if config["reduce_group_by"] not in GROUP_BY_VALUES:
+        print 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
+        sys.exit(1)
+
+    jobs = _build_job_table(config)
+
     # =======================================================================
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
-        if not config["user_func"]:
-            print 'Required fields in config file: "user_func"'
-            sys.exit(1)
-        user_func = _import_user_func(config["user_func"])
-        ## Load globals
-        user_func.load_globals(config)
-        jobs = _build_job_table(config)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
@@ -264,18 +305,18 @@ if __name__ == "__main__":
                         if options.verbose:
                             print "Joined:", str(p)
                 time.sleep(1)
-            job = jobs[i]
+            job = jobs.loc[i]
             try:
                 os.makedirs(job[_OUTPUT])
             except:
                 if not options.force:
                     continue
-            output_collector = OutputCollector(job[_OUTPUT])
             if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
                (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
                 resample_nb_cur = job[_RESAMPLE_NB]
                 user_func.resample(config, resample_nb_cur)
             key = job[_PARAMS]
+            output_collector = job[_OUTPUT_COLLECTOR]
             p = Process(target=user_func.mapper, args=(key, output_collector))
             if options.verbose:
                 print "Start :", str(p), str(output_collector)
@@ -291,67 +332,64 @@ if __name__ == "__main__":
                 print "Joined:", str(p)
 
     if options.clean:
-        jobs = _build_job_table(config)
         for i in xrange(len(jobs)):
-            output_collector = OutputCollector(jobs[i][_OUTPUT])
+            output_collector = jobs.iloc[i][_OUTPUT_COLLECTOR]
             output_collector.clean()
 
     # =======================================================================
     # == REDUCE                                                            ==
     # =======================================================================
     if options.reduce:
-        if not config["reduce_input"]:
-            print 'Required arguments: --reduce_input'
-            sys.exit(1)
-        if not config["user_func"]:
-            print 'Attribute "user_func" is required'
-            sys.exit(1)
-        user_func = _import_user_func(config["user_func"])
-        items = glob.glob(config["reduce_input"])
-        items = [item for item in items if os.path.isdir(item)]
-        if options.verbose:
-            print "== Items found:"
-            print items
-        config["reduce_group_by"]
-        group_keys = set([re.findall(config["reduce_group_by"], item)[0] for item
-            in items])
-        groups = {k:[] for k in group_keys}
-        for item in items:
-            which_group_key = [k for k in groups if re.findall(config["reduce_group_by"], item)[0]==k]
-            if len(which_group_key) != 1:
-                raise ValueError("Many/No keys match %s" % item)
-            output_collector = OutputCollector(item)
-            groups[which_group_key[0]].append(output_collector)
+        # Create dict of list of OutputCollectors.
+        # It is important that the inner lists are ordered naturally because
+        # the reducer generally iterate through this list and some entries may
+        # have special meaning (for instance the first fold might be the full
+        # population without resampling):
+        #  - If grouping by parameters (the most common case) we sort by
+        # resample index (i.e. the first fold is the first loaded entry).
+        #  - If grouping by resample index, we sort by parameters (i.e. the
+        # first tuple of parameters is the first loaded entry)
+        # In both cases, the index gives the correct order (see function
+        # _build_job_table).
+        # Note that by default groupby sorts the key (hence the order of the
+        # groups is not and the final CSV is not naturally sorted). Therefore
+        # we pass sort=False.
+        grouped = jobs.groupby(config["reduce_group_by"], sort=False)
+        # Copy the groups in a dictionnary with the same keys than the GroupBy
+        # object and the same order. This is needed to sort the groups.
+        groups = OrderedDict(iter(grouped))
+        # Sort inner groups by index
+        for key, group in groups.items():
+                group.sort_index(inplace=True)
         if options.verbose:
             print "== Groups found:"
-            print groups
+            for key, group in groups.items():
+                print key
+                print group
         # Do the reduce
-        scores = None  # Dict of all the results
+        all_scores = None  # Dict of all the results
         for k in groups:
-            # Sort the group (list of OutputCollector)
-            # The list is sorted alphabetically according to the string
-            # representation of the OutputCollector (i.e. by folder name)
-            groups[k].sort(key=repr)
             try:
+                output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
-                score = user_func.reducer(key=k, values=groups[k])
+                scores = user_func.reducer(key=k, values=output_collectors)
                 # Append those results to scores
-                if scores is None:  # Init
-                    scores = OrderedDict.fromkeys(score.keys())
-                for key, value in score.items():
-                    if scores[key] is None:  # On first insert we have None
-                        scores[key] = [value]
+                if all_scores is None:  # Init
+                    all_scores = OrderedDict.fromkeys(scores.keys())
+                for key, value in scores.items():
+                    if all_scores[key] is None:  # On first insert we have None
+                        all_scores[key] = [value]
                     else:  # Append to the list of values
-                        scores[key].append(value)
+                        all_scores[key].append(value)
             except Exception, e:
 #                pass
-                print "Reducer failed in %s" % k, groups[k]
+                print "Reducer failed in {key}".format(key=k), groups[k]
                 print "Exception:", e
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
-        scores = pd.DataFrame(scores)
+        all_scores = pd.DataFrame(all_scores)
         if "reduce_output" in config:
             print "Save results into: %s" % config["reduce_output"]
-            scores.to_csv(config["reduce_output"], index=False)
+            all_scores.to_csv(config["reduce_output"], index=False)
         else:
-            print scores.to_string()
+            print all_scores.to_string()

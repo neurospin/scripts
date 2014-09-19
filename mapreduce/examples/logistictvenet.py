@@ -108,8 +108,7 @@ if __name__ == "__main__":
                   structure='mask.nii',
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_group_by="params_str",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
