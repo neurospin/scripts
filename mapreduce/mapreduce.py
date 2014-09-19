@@ -285,6 +285,8 @@ if __name__ == "__main__":
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
+        ## Load globals
+        user_func.load_globals(config)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
