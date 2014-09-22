@@ -4,30 +4,31 @@ Created on Mon Jun  2 12:08:01 2014
 
 @author: christophe
 
-concatenate FA images not skeletonised.
+Create a dataset with non-skeletonised FA images and covariates:
+ - intercept
+ - sex
+ - site
+ - age (centered and scaled)
+We use the standard mask.
 """
 import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
 
-from collections import OrderedDict
-
-from brainomics import pandas_utilities as pu
-
-BASE_PATH =  "/volatile/share/2014_bd_dwi"
+BASE_PATH = "/neurospin/brainomics/2014_bd_dwi"
 
 INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
 INPUT_CSV = os.path.join(BASE_PATH, "population.csv")
-
+# mask used to filtrate the images
 INPUT_MASK = os.path.join(BASE_PATH,
                           "masks",
                           "mask.nii.gz")
-                          
+
 OUTPUT_DIR = os.path.join(BASE_PATH, "bd_dwi_csi_site")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
-OUTPUT_X ="X.npy"
+OUTPUT_X = "X.npy"
 OUTPUT_X_DESC = OUTPUT_X.replace("npy", "txt")
 OUTPUT_Y = "Y.npy"
 
@@ -58,7 +59,7 @@ print "Application of mask on all the images & centering"
 masked_images = np.zeros((n, n_voxel_in_mask))
 for i, ID in enumerate(population.index):
     cur = population.iloc[i]
-    slice_index = cur.SLICE
+    slice_index = cur['SLICE']
     image = image_arr[:, :, :, slice_index]
     masked_images[i, :] = image[bin_mask]
 
@@ -69,7 +70,7 @@ masked_images /= masked_images.std(axis=0)
 cat_covar_df = population[["SEX", "SCANNER#1", 'SCANNER#2', 'SCANNER#3']]
 cat_covar = cat_covar_df.as_matrix()
 
-# Create and center continuous covariates
+# Create & center continuous covariates
 cont_covar = population[["AGEATMRI"]].as_matrix()
 cont_covar -= cont_covar.mean(axis=0)
 cont_covar /= cont_covar.std(axis=0)
@@ -91,3 +92,5 @@ fh.write('shape = (%i, %i): Intercept + Age + Gender + Site (3 dummy variables) 
 fh.close()
 # Y
 np.save(os.path.join(OUTPUT_DIR, OUTPUT_Y), Ytot)
+
+#############################################################################
