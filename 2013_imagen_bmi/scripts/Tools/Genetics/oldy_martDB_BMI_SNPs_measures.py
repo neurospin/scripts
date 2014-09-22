@@ -20,7 +20,7 @@ OUTPUT:
 - csv file containing SNPs' measures for subjects for whom we have both
   neuroimaging and genetic data:
     "/neurospin/brainomics/2013_imagen_bmi/data/SNPs_measures.csv"
-as
+
 BEWARE!!!
 The path to get genetic data online (mart) has changed. Here, it is the old
 script to bypass CW database problems before having checked the consistency
