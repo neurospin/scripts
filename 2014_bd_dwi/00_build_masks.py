@@ -1,26 +1,38 @@
+# -*- coding: utf-8 -*-
+
+"""
+Created on Sept 05 10:46:01 2014
+
+@author: christophe
+
+Create masks for the base images and the skeletonised images.
+"""
+
 import os
 import nibabel as nib
 import numpy as np
 
 
-BASE_PATH = "/volatile/share/2014_bd_dwi"
+BASE_PATH = "/neurospin/brainomics/2014_bd_dwi"
 
-INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA.nii.gz")
-INPUT_IMAGE_SK = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA_skeletonised.nii.gz")
+INPUT_IMAGE = os.path.join(BASE_PATH,
+                           "all_FA/nii/stats/all_FA.nii.gz")
+INPUT_IMAGE_SK = os.path.join(BASE_PATH,
+                              "all_FA/nii/stats/all_FA_skeletonised.nii.gz")
 
 OUTPUT_DIR = os.path.join(BASE_PATH, "masks")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
-OUTPUT_MASK_FILENAME = "mask.nii.gz" #mask use to filtrate our images
-OUTPUT_MASK_TRUNC_FILENAME = "mask_trunc.nii.gz" #mask use to filtrate our images
-OUTPUT_MASK_SK_FILENAME = "mask_sk.nii.gz" #mask use to filtrate our images
+OUTPUT_MASK_FILENAME = "mask.nii.gz"  # Basic mask
+OUTPUT_MASK_TRUNC_FILENAME = "mask_trunc.nii.gz"  # Truncation of basic mask
+OUTPUT_MASK_SK_FILENAME = "mask_sk.nii.gz"  # Mask for skeletonised images
 
 FA_THRESHOLD = 0.05
 ATLAS_FILENAME = "/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz" # Image use to improve our mask
 ATLAS_LABELS_RM = [0, 13, 2, 8]  # cortex, trunc
-# Slices to remove after the cingulate gyri
-MASK_SLICE = range(71)
+# Slices to remove everything after the cingulate gyri
+TRUNC_MASK_SLICE = range(71)
 
 ####################################
 # Creation of mask for base images #
@@ -45,18 +57,20 @@ print "Number of voxels in mask:", n_voxel_in_mask
 assert(n_voxel_in_mask == 507383)
 
 # Store mask
-out_im = nib.Nifti1Image(mask.astype(np.uint8), affine=images4d.get_affine())
+out_im = nib.Nifti1Image(mask.astype(np.uint8),
+                         affine=images4d.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DIR, OUTPUT_MASK_FILENAME))
 
 # Truncate mask
 trunc_mask = np.copy(mask)
-trunc_mask[:, MASK_SLICE, :] = 0
+trunc_mask[:, TRUNC_MASK_SLICE, :] = 0
 n_voxel_in_trunc_mask = np.count_nonzero(trunc_mask)
 print "Number of voxels in truncated mask:", trunc_mask.sum()
 assert(n_voxel_in_trunc_mask == 448334)
 
 # Store truncated mask
-out_im = nib.Nifti1Image(trunc_mask.astype(np.uint8), affine=images4d.get_affine())
+out_im = nib.Nifti1Image(trunc_mask.astype(np.uint8),
+                         affine=images4d.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DIR, OUTPUT_MASK_TRUNC_FILENAME))
 
 del image_arr, images4d, mask, trunc_mask
@@ -80,9 +94,10 @@ assert np.all(images4d_sk.get_affine() == atlas.get_affine())
 for label_rm in ATLAS_LABELS_RM:
     mask_sk[atlas.get_data() == label_rm] = False
 n_voxel_in_mask_sk = np.count_nonzero(mask_sk)
-print "Number of voxels in mask:", n_voxel_in_mask_sk
+print "Number of voxels in skeletonised mask:", n_voxel_in_mask_sk
 assert(n_voxel_in_mask_sk == 105799)
 
 # Store truncated mask
-out_im = nib.Nifti1Image(mask_sk.astype(np.uint8), affine=images4d_sk.get_affine())
+out_im = nib.Nifti1Image(mask_sk.astype(np.uint8),
+                         affine=images4d_sk.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DIR, OUTPUT_MASK_SK_FILENAME))
