@@ -1,84 +1,124 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep 22 18:32:17 2014
+Created on Tue Sep  2 17:47:30 2014
 
 @author: hl237680
 
-This script returns the list of all SNPs extracted from genes known to be
-associated to BMI that are present on mart CW database, and a dataframe
-containing genotype associated measures.
+This script aims at comparing SNPs referenced in the literature as
+associated to BMI and SNPs extracted from CW mart database for genes known
+to be associated to BMI.
 
 INPUT:
-- mart database for info on SNPs measures for the IMAGEN cohort
-- subjects id of subjects for whom we have both neuroimaging and genetic data:
-    "/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv"
+- SNPs referenced in the literature as associated to BMI (included in or near
+to BMI-associated genes):
+    "/neurospin/brainomics/2013_imagen_bmi/data/genetics/
+    genes_BMI_ob.xls"
+- SNPs from BMI-associated genes that are indexed on mart CW database:
+    "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
 
 OUTPUT:
-- list of SNPs included in genes known to be associated to the BMI that are
-  present on the mart database:
-    "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
-- csv file containing SNPs' measures for subjects for whom we have both
-  neuroimaging and genetic data:
-    "/neurospin/brainomics/2013_imagen_bmi/data/SNPs_all.csv"
+- SNPs_of_interest: intercept of both lists of SNPs
+    "neurospin/brainomics/2013_imagen_bmi/data/genetics/BMI_SNPs_intercept.csv"
+- SNPs distribution among IMAGEN subjects:
+    "/neurospin/brainomics/2013_imagen_bmi/data/genetics/SNPs_distribution.txt"
+
+Results: only 10 SNPs are both included in candidate SNPs referenced in the
+         literature as associated to BMI and SNPs from BMI-associated genes
+         that are indexed on mart CW database.
 
 """
 
-
 import os
-import sys
+import xlrd
 import numpy as np
 import pandas as pd
-
-sys.path.append(os.path.join('/home/vf140245', 'gits', 'mycaps/nsap/caps'))
-from genim.genibabel import connect, load_from_genes
+import csv
 
 
 # Pathnames
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
 DATA_PATH = os.path.join(BASE_PATH, 'data')
+CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+GENETICS_PATH = os.path.join(DATA_PATH, 'genetics')
+
+# Output results
+OUTPUT_DIR = os.path.join(GENETICS_PATH, 'Results')
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
 
 
-# Main genes associated to BMI according to the literature
-bmi_gene_list = ['BDNF', 'CADM2', 'COL4A3BP', 'ETV5', 'FAIM2', 'FANCL',
-                 'FTO', 'GIPR', 'GNPDA2', 'GPRC5B', 'HMGCR', 'KCTD15',
-                 'LMX1B', 'LRP1B', 'LINGO2', 'MAP2K5', 'MC4R', 'MTCH2',
-                 'MTIF3', 'NEGR1', 'NPC1', 'NRXN3', 'NTRK2', 'NUDT3', 'POC5',
-                 'POMC', 'PRKD1', 'PRL', 'PTBP2', 'PTER', 'QPCTL', 'RPL27A',
-                 'SEC16B', 'SH2B1', 'SLC39A8', 'SREBF2', 'TFAP2B', 'TMEM160',
-                 'TMEM18', 'TNNI3K', 'TOMM40', 'ZNF608']
+# Data on SNPs extracted from the literature on BMI and genetics
+workbook = xlrd.open_workbook(os.path.join(GENETICS_PATH,
+                                           'genes_BMI_ob.xls'))
+sheet1 = workbook.sheet_by_name('SNPs_from_literature')
+
+SNPs_from_literature = []
+n_rows_1 = 66
+for row in range(n_rows_1):
+    SNPs_from_literature.append(sheet1.cell(row, 0).value)
+    SNPs_from_literature[row].replace("text:u", "").replace("'", "")
+
+SNPs_from_literature = [str(snp) for snp in SNPs_from_literature]
+
+# All SNPs extracted from genes associated with BMI (UCSC)
+sheet2 = workbook.sheet_by_name('SNPs_from_BMI_genes')
+
+SNPs_from_BMI_genes = []
+n_rows_2 = 1615
+for row in range(n_rows_2):
+    SNPs_from_BMI_genes.append(sheet2.cell(row, 0).value)
+    SNPs_from_BMI_genes[row].replace("text:u", "").replace("'", "")
+
+SNPs_from_BMI_genes = [str(snp) for snp in SNPs_from_BMI_genes]
+
+# Intersection of all SNPs extracted from BMI-associated genes and candidate
+# SNPs specifically studied to have a link with BMI
+SNPs_of_interest = np.intersect1d(SNPs_from_literature,
+                                  SNPs_from_BMI_genes)
+
+# SNPs distribution among IMAGEN subjects
+BMI_SNPs_intercept_file_path = os.path.join(GENETICS_PATH,
+                                            'BMI_SNPs_intercept.txt')
+
+with open(BMI_SNPs_intercept_file_path, 'wb') as csvfile:
+    spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+    for i, SNP in enumerate(SNPs_of_interest):
+        spamwriter.writerow([SNP])
+
+# Read genotypage data as a dataframe
+SNPs_demographics = pd.io.parsers.read_csv(os.path.join(DATA_PATH,
+                                    'BMI_associated_SNPs_demographics.csv'),
+                                           index_col=0)
+
+# Select only SNPs of interest to see if they are signigicantly represented
+# throughout the population
+SNPs_demographics = SNPs_demographics[SNPs_of_interest]
+
+# Count number of heterozygotes, dominant and recessives homozygotes among
+# subjects for whom we have both neuroimaging and genetic data
+for i, j in enumerate(SNPs_of_interest):
+    dominant_homoz = sum(SNPs_demographics[j] == 0)
+    recessive_homoz = sum(SNPs_demographics[j] == 2)
+    heterozygotes = sum(SNPs_demographics[j] == 1)
+    print 'For SNP', j, 'there are:'
+    print dominant_homoz, 'dominant homozygotes,'
+    print recessive_homoz, 'recessive homozygotes,'
+    print heterozygotes, 'heterozygotes.'
 
 
-if __name__ == "__main__":
-    bioresDB = connect(server='mart.cea.fr', user='admin', passwd='alpine')
+# SNPs distribution among IMAGEN subjects
+SNPs_distribution_file_path = os.path.join(GENETICS_PATH,
+                                           'SNPs_distribution.txt')
 
-    snps_dict, void_gene, df = load_from_genes(bmi_gene_list,
-                                               study='IMAGEN',
-                                               bioresDB=bioresDB)
+with open(SNPs_distribution_file_path, 'wb') as csvfile:
+    spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
 
-    # SNPs considered: SNPs from genes known to be associated to BMI
-    BMI_SNPs = df.columns
+    for i, j in enumerate(SNPs_of_interest):
+        dominant_homoz = sum(SNPs_demographics[j] == 0)
+        recessive_homoz = sum(SNPs_demographics[j] == 2)
+        heterozygotes = sum(SNPs_demographics[j] == 1)
 
-    # SNPs considered are stored as a dataframe pandas and this list is saved
-    # as a csv file for further use, i.e. to check their correlation to
-    # obesity with Plink
-    BMI_SNPs_names_list = pd.DataFrame.to_csv(pd.DataFrame(BMI_SNPs),
-                                              os.path.join(DATA_PATH,
-                                                  'BMI_SNPs_names_list.csv'),
-                                              header=False,
-                                              index=False)
-
-    # Get the ordered list of subjects ID
-    subjects_id = np.genfromtxt(os.path.join(DATA_PATH, 'subjects_id.csv'),
-                                dtype=None, delimiter=',', skip_header=1)
-
-    # Conversion to unicode with 12 positions
-    subjects_id = [unicode('%012d' % i) for i in subjects_id]
-
-    # SNPs_IMAGEN: dataframe with index giving subjects ID in the right order
-    # and columns the SNPs considered
-    SNPs_IMAGEN = df.loc[subjects_id, :]
-
-    # Write all SNPs' measures for subjects for whom we have both neuroimaging
-    # and genetic data in a .csv file
-    SNPs_IMAGEN.to_csv(os.path.join(DATA_PATH, 'SNPs_all.csv'))
-    print "SNPs_IMAGEN saved to SNPs_all.csv"
+        spamwriter.writerow(['For SNP'] + [j] + ['there are:']
+                            + [dominant_homoz] + ['dominant homozygotes,']
+                            + [recessive_homoz] + ['recessive homozygotes,']
+                            + [heterozygotes] + ['heterozygotes.'])
