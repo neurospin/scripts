@@ -4,26 +4,31 @@ Created on Mon Jun  2 12:08:01 2014
 
 @author: christophe
 
-concatenate FA images skeletonised. 
+Create a dataset with skeletonised FA images and covariates:
+ - intercept
+ - sex
+ - site
+ - age (centered and scaled)
+We use the standard mask on those images.
 """
 import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
 
-BASE_PATH =  "/volatile/share/2014_bd_dwi"
+BASE_PATH = "/neurospin/brainomics/2014_bd_dwi"
 
 INPUT_IMAGE = os.path.join(BASE_PATH, "all_FA/nii/stats/all_FA_skeletonised.nii.gz")
 INPUT_CSV = os.path.join(BASE_PATH, "population.csv")
-
+# mask used to filtrate the images
 INPUT_MASK = os.path.join(BASE_PATH,
                           "masks",
                           "mask_sk.nii.gz")
-                          
-OUTPUT_CSI = os.path.join(BASE_PATH, "bd_dwi_csi_sk")
-if not os.path.exists(OUTPUT_CSI):
-    os.makedirs(OUTPUT_CSI)
-OUTPUT_X ="X.npy"
+
+OUTPUT_DIR = os.path.join(BASE_PATH, "bd_dwi_csi_sk")
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+OUTPUT_X = "X.npy"
 OUTPUT_X_DESC = OUTPUT_X.replace("npy", "txt")
 OUTPUT_Y = "Y.npy"
 
@@ -52,10 +57,9 @@ Ytot = np.asarray(population.BD_HC, dtype='float64').reshape(n, 1)
 # Apply mask to images & center
 print "Application of mask on all the images & centering"
 masked_images = np.zeros((n, n_voxel_in_mask))
-
 for i, ID in enumerate(population.index):
     cur = population.iloc[i]
-    slice_index = cur.SLICE
+    slice_index = cur['SLICE']
     image = image_arr[:, :, :, slice_index]
     masked_images[i, :] = image[bin_mask]
 
@@ -63,30 +67,30 @@ masked_images -= masked_images.mean(axis=0)
 masked_images /= masked_images.std(axis=0)
 
 # Create categorial covariates
-cat_covar_df = population[["SEX"]]
+cat_covar_df = population[["SEX", "SCANNER#1", 'SCANNER#2', 'SCANNER#3']]
 cat_covar = cat_covar_df.as_matrix()
 
-
-# Create & center covariates
+# Create & center continuous covariates
 cont_covar = population[["AGEATMRI"]].as_matrix()
 cont_covar -= cont_covar.mean(axis=0)
 cont_covar /= cont_covar.std(axis=0)
 
+# Concat
 covar = np.hstack((cont_covar, cat_covar))
 
 # Case CS + Intercept
 print "Saving CSI data"
 Xtot = np.hstack([np.ones((covar.shape[0], 1)), covar, masked_images])
 n, p = Xtot.shape
-assert Xtot.shape == (n, n_voxel_in_mask + 3)
+assert Xtot.shape == (n, n_voxel_in_mask + covar.shape[1] + 1)
 # X
-np.save(os.path.join(OUTPUT_CSI, OUTPUT_X), Xtot)
+np.save(os.path.join(OUTPUT_DIR, OUTPUT_X), Xtot)
 # X_DESC
-fh = open(os.path.join(OUTPUT_CSI, OUTPUT_X_DESC), "w")
-fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+fh = open(os.path.join(OUTPUT_DIR, OUTPUT_X_DESC), "w")
+fh.write('shape = (%i, %i): Intercept + Age + Gender + Site (3 dummy variables) + %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
 # Y
-np.save(os.path.join(OUTPUT_CSI, OUTPUT_Y), Ytot)
+np.save(os.path.join(OUTPUT_DIR, OUTPUT_Y), Ytot)
 
 #############################################################################
