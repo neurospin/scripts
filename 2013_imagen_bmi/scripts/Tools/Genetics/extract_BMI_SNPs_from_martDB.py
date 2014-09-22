@@ -10,7 +10,7 @@ to be associated to BMI.
 We also show their respective distribution among IMAGEN subjects in order
 to check whether they are significantly represented among the population.
 
-INPUT:
+#INPUT:
 - SNPs referenced in the literature as associated to BMI (included in or near
 to BMI-associated genes):
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/
