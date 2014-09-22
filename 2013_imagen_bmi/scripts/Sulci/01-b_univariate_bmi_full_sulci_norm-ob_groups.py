@@ -5,20 +5,20 @@ Created on Thu Sep  4 17:54:22 2014
 @author: hl237680
 
 Univariate correlation between BMI and robustly segmented sulci on IMAGEN
-subjects.
+normal and obese subjects.
 
 The selected sulci are particularly studied because of their robustness to
 the segmentation process. These sulci are respectively split into various
 subsamples by the segmentation process. As a results, they have previously
 been gathered again.
 NB: Their features have previously been filtered by the quality control step.
-(cf 00_quality_control.py)
+(cf 00-a_quality_control.py)
 
 The resort to sulci -instead of considering images of anatomical structures-
 should prevent us from the artifacts that may be induced by the normalization
 step of the segmentation process.
 
-In comparison to the 01_univariate_bmi_full_sulci.py script, we here focus
+In comparison to the 01-a_univariate_bmi_full_sulci.py script, we here focus
 on both the normal and obese groups (in order to avoid 'mirror effects' from
 the insuff and overweight groups).
 
