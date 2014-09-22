@@ -371,9 +371,8 @@ if __name__ == "__main__":
                 print key
                 print group
         # Do the reduce
-        all_scores = None  # Dict of all the results
-        #all_scores = pd.DataFrame(index=ordered_keys)
-        for i, k in enumerate(groups):
+        scores_tab = None  # Dict of all the results
+        for k in groups:
             try:
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
@@ -383,29 +382,29 @@ if __name__ == "__main__":
                 # As we use a df, previous failed reducers (if any) will be
                 # empty. Similarly future failed reducers (if any) will be
                 # empty.
-                if all_scores is None:
+                if scores_tab is None:
                     index = pd.Index(ordered_keys,
                                      name=config["reduce_group_by"])
-                    all_scores = pd.DataFrame(index=index,
+                    scores_tab = pd.DataFrame(index=index,
                                               columns=scores.keys())
                 # Append those results to scores
-                # We use a integer based access because all_scores.loc[k] don't
-                # work (it's interpreted as several index because k is a tuple)
-                # all_scores.loc[k,] works but is ugly
-                # all_scores.loc[i] seems to work but it's probably a bug
-                all_scores.iloc[i] = scores.values()
+                # scores_tab.loc[k] don't work because as k is a tuple
+                # it's interpreted as several index.
+                # Therefore we use scores_tab.loc[k,].
+                # Integer based access (scores_tab.iloc[i]) would work too.
+                scores_tab.loc[k,] = scores.values()
             except Exception, e:
 #                pass
                 print "Reducer failed in {key}".format(key=k), groups[k]
                 print "Exception:", e
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
-        if all_scores is not None:
+        if scores_tab is not None:
             if "reduce_output" in config:
                 print "Save results into: %s" % config["reduce_output"]
-                all_scores.to_csv(config["reduce_output"], index=True)
+                scores_tab.to_csv(config["reduce_output"], index=True)
             else:
-                print all_scores.to_string()
+                print scores_tab.to_string()
         else:
-            print "All reducers failed. Nothing saved"
+            print "All reducers failed. Nothing saved."
             sys.exit(1)
