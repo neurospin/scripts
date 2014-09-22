@@ -19,14 +19,14 @@ OUTPUT:
     "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
 - csv file containing SNPs' measures for subjects for whom we have both
   neuroimaging and genetic data:
-    "/neurospin/brainomics/2013_imagen_bmi/data/SNPs_all.csv"
+    "/neurospin/brainomics/2013_imagen_bmi/data/SNPs_measures.csv"
 
 BEWARE!!!
 The path to get genetic data online (mart) has changed. Here, it is the old
 script to bypass CW database problems before having checked the consistency
 of the database by unit tests.
 Besides, genetic data have to be imputed.
-    
+
     => See 02_IMAGEN1265_SNPs_measurements.py
 
 """
@@ -88,5 +88,5 @@ if __name__ == "__main__":
 
     # Write all SNPs' measures for subjects for whom we have both neuroimaging
     # and genetic data in a .csv file
-    SNPs_IMAGEN.to_csv(os.path.join(DATA_PATH, 'SNPs_all.csv'))
+    SNPs_IMAGEN.to_csv(os.path.join(DATA_PATH, 'SNPs_measures.csv'))
     print "SNPs_IMAGEN saved to SNPs_all.csv"
