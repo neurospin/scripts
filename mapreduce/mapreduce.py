@@ -6,7 +6,7 @@ Map reduce for parsimony.
 import time
 import errno
 import json
-import sys, os, glob, argparse, re
+import sys, os, glob, argparse
 #import warnings
 import pickle
 import nibabel
@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
     if not options.config:
         print 'Required config file'
-        sys.exit(1)
+        sys.exit(os.EX_USAGE)
     config_filename = options.config
     ## TO DEBUG just set config_filename here
     # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
@@ -270,14 +270,14 @@ if __name__ == "__main__":
     #=========================================================================
     if "user_func" not in config:
         print 'Attribute "user_func" is required'
-        sys.exit(1)
+        sys.exit(os.EX_CONFIG)
     user_func = _import_user_func(config["user_func"])
 
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
     if config["reduce_group_by"] not in GROUP_BY_VALUES:
         print 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
-        sys.exit(1)
+        sys.exit(os.EX_CONFIG)
 
     # =======================================================================
     # == Build job table                                                   ==
@@ -289,7 +289,11 @@ if __name__ == "__main__":
     # =======================================================================
     if options.map:
         ## Load globals
-        user_func.load_globals(config)
+        try:
+            user_func.load_globals(config)
+        except:
+            print "Canno't load data"
+            sys.exit(os.EX_DATAERR)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
@@ -405,7 +409,7 @@ if __name__ == "__main__":
 #        print p.get_open_files()
         if scores_tab is None:
             print "All reducers failed. Nothing saved."
-            sys.exit(1)
+            sys.exit(os.EX_SOFTWARE)
         # Add a columns of glob expressions
         if config["reduce_group_by"] == _PARAMS:
             globs = [os.path.join(config["map_output"],
