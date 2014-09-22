@@ -13,7 +13,7 @@ INPUT:
 - subjects id of subjects for whom we have both neuroimaging and genetic data:
     "/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv"
 
-OUTPUT:
+:
 - list of SNPs included in genes known to be associated to the BMI that are
   present on the mart database:
     "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
