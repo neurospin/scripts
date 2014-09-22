@@ -144,3 +144,4 @@ for i, subject in enumerate(subjects_id):
 
 # Then, extract the .nii.gz
 # Use them through SPM8 Matlab's module to build a new template
+# Finally, segment T1-weighted images using this template and Gaser algorithm

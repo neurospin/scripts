@@ -37,7 +37,9 @@ params = [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]]
 # enet_userfunc.py is a python file containing mapper(key, output_collector)
 # and reducer(key, values) functions.
 
-config = dict(data=dict(X="X.npy", y="y.npy"), params=params, user_func="enet_userfunc.py",
+config = dict(data=dict(X="X.npy", y="y.npy"),
+              params=params,
+              user_func="enet_userfunc.py",
               map_output="map_results",
               resample=cv,
               ncore=2,
@@ -48,7 +50,7 @@ json.dump(config, open("config.json", "w"))
 
 
 def load_data(key_filename):
-    return {key:np.load(key_filename[key]) for key in key_filename}
+    return {key: np.load(key_filename[key]) for key in key_filename}
 
 _OUTPUT = 0
 _PARAMS = 1
@@ -65,12 +67,14 @@ def _build_job_table(config):
             for params in params_list]
     return jobs
 
+
 def _makedirs_safe(path):
     try:
         os.makedirs(path)
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+
 
 def _import_module_from_filename(filename):
     sys.path.append(os.path.dirname(filename))
@@ -103,7 +107,7 @@ class OutputCollector:
     def clean(self):
         if os.path.exists(self.output_dir) \
             and len(os.listdir(self.output_dir)) == 0:
-            print "clean",self.output_dir
+            print "clean", self.output_dir
             os.rmdir(self.output_dir)
 
     def collect(self, key, value):
@@ -171,14 +175,14 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--clean', action='store_true', default=False,
                         help="Clean execution: remove empty directories "
                         "in map_output. Use it if you suspect that some "
-                        "mapper where not end not properly.")
+                        "mapper jobs did not end not properly.")
 
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call"
                         "reduce (defined in user_func)")
 
     parser.add_argument('-f', '--force', action='store_true', default=False,
-                        help="Force mapper call even output is present")
+                        help="Force call to mapper even if output is present")
 
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
 
@@ -195,8 +199,9 @@ if __name__ == "__main__":
         ' <map_output>/0/<params> if no resampling is provided.'
         'override config options.'
         '(4) "user_func": (Required) Path to python file that contains 4 user '
-        ' defined functions: '
-        '(i) load_globals(config): executed ones at the beginning load all the data '
+        'defined functions: '
+        '(i) load_globals(config): executed once at the beginning to load '
+        'all the data '
         '(ii) resample() is executed on each new resampling'
         '(iii) mapper(key) is executed on each parameters x reample item'
         '(iv) reducer(key, values)'
@@ -210,7 +215,7 @@ if __name__ == "__main__":
 
     default_nproc = cpu_count()
     parser.add_argument('--ncore',
-        help='Nb cpu ncore to use (default %i)' % default_nproc, type=int)
+        help='Nb of cpu cores to use (default %i)' % default_nproc, type=int)
     options = parser.parse_args()
 
     if not options.config:
@@ -317,16 +322,17 @@ if __name__ == "__main__":
                 raise ValueError("Many/No keys match %s" % item)
             output_collector = OutputCollector(item)
             groups[which_group_key[0]].append(output_collector)
+        # Sort the group (list of OutputCollector)
+        # The list is sorted alphabetically according to the string
+        # representation of the OutputCollector (i.e. by folder name)
+        for k in groups:
+            groups[k].sort(key=repr)
         if options.verbose:
             print "== Groups found:"
             print groups
         # Do the reduce
         scores = None  # Dict of all the results
         for k in groups:
-            # Sort the group (list of OutputCollector)
-            # The list is sorted alphabetically according to the string
-            # representation of the OutputCollector (i.e. by folder name)
-            groups[k].sort(key=repr)
             try:
                 # Results for this key
                 score = user_func.reducer(key=k, values=groups[k])

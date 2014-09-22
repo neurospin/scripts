@@ -165,7 +165,8 @@ for i, s in enumerate(sulci_file_list):
     sulci_df = pd.io.parsers.read_csv(os.path.join(SULCI_PATH, s),
                                       sep=';',
                                       index_col=0,
-                                      usecols=np.hstack(('subject', features)))
+                                      usecols=np.hstack(('subject',
+                                                         features)))
 
     # If the sulcus has not been recognized in 25% of the subjects, we do
     # not take it into account.
@@ -196,6 +197,9 @@ subjects_id = np.genfromtxt(os.path.join(DATA_PATH,
                             skip_header=1)
 
 sulci_data_df = all_sulci_df.loc[subjects_id]
+
+# Keep name of index column
+sulci_data_df.index.name = 'subject_id'
 
 # Drop rows that have any NaN values
 sulci_data_df = sulci_data_df.dropna()

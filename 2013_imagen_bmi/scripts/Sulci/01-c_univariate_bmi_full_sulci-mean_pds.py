@@ -4,14 +4,13 @@ Created on Wed Jul 30 17:29:01 2014
 
 @author: hl237680
 
-Univariate correlation between residualized BMI and some sulci of interest
-on IMAGEN subjects.
+Univariate correlation between BMI and sulci considering the mean pds on
+IMAGEN subjects.
+
 The selected sulci are particularly studied because of their robustness to
 the segmentation process. These sulci are respectively split into various
 subsamples by the segmentation process. As a results, they have previously
 been gathered again.
-Here, we select the central, precentral, collateral sulci and the calloso-
-marginal fissure.
 NB: Their features have previously been filtered by the quality control step.
 (cf 00_quality_control.py)
 
@@ -28,25 +27,21 @@ INPUT:
     BMI of the 1265 subjects for which we also have neuroimaging data
 
 METHOD: MUOLS
+        Apply contrast only on the mean pds.
 
 NB: Subcortical features, BMI and covariates are centered-scaled.
 
 OUTPUT:
 - /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Results/MULM_bmi_full_sulci.txt:
-    Results of MULM computation, i.e. p-value for each feature of interest,
-    that the feature of interest of the selected sulci is significantly
-    associated to BMI
-
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Results/MULM_after_Bonferroni_correction.txt:
+  full_sulci/Results/MULM_after_Bonferroni_correction_mean_pds.txt:
     Since we focus here on 85 sulci (after QC), and for each of them on
     6 features, we only keep the probability-values p < (0.05 / (6 * 85))
     that meet a significance threshold of 0.05 after Bonferroni correction.
 
 - /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Results/MUOLS_beta_values_df.csv:
-    Beta values from the General Linear Model run on sulci features.
+  full_sulci/Results/MUOLS_beta_values_mean_pds_df.csv:
+    Beta values from the General Linear Model run on sulci features for the
+    mean pds.
 
 """
 
@@ -207,12 +202,12 @@ if __name__ == "__main__":
     bigols = MUOLS()
     bigols.fit(X, Y)
     t, p, df = bigols.stats_t_coefficients(X, Y,
-                               # if add tiv² as an additionnal cofound
-                               contrast=[0.] * penalty_start +
-                                        [1.] * (X.shape[1] - penalty_start),
-#        # if want the contrast associated to mean_pds
-#        contrast=[0.] * (penalty_start - 2) + [1.]
-#                 + [0.] * (X.shape[1] - penalty_start + 1),
+#                               # if add tiv² as an additionnal cofound
+#                               contrast=[0.] * penalty_start +
+#                                        [1.] * (X.shape[1] - penalty_start),
+        # if want the contrast associated to mean_pds
+        contrast=[0.] * (penalty_start - 2) + [1.]
+                 + [0.] * (X.shape[1] - penalty_start + 1),
                                pval=True)
 
     proba = []
@@ -224,30 +219,14 @@ if __name__ == "__main__":
     # Beta values: coefficients of the fit
     beta_map = bigols.coef_
 
-    beta_df = pd.DataFrame(beta_map[penalty_start:, :].transpose(),
+    beta_df = pd.DataFrame(beta_map[penalty_start - 1, :].transpose(),
                            index=colnames,
                            columns=['betas'])
 
     # Save beta values from the GLM on sulci features as a dataframe
-    beta_df.to_csv(os.path.join(OUTPUT_DIR, 'MUOLS_beta_values_df.csv'))
+    beta_df.to_csv(os.path.join(OUTPUT_DIR,
+                                'MUOLS_beta_values_mean_pds_df.csv'))
     print "Dataframe containing beta values for each sulcus has been saved."
-
-    # Write results of MULM computation, i.e. p-value for each feature of
-    # interest, in a csv file
-    MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_full_sulci.txt')
-
-    with open(MULM_file_path, 'wb') as csvfile:
-        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
-
-        for i in np.arange(0, len(proba)):
-            sulcus_name = colnames[proba.index(proba[i])][11:]
-            spamwriter.writerow(['The MULM probability for the feature:']
-                                + [sulcus_name]
-                                + ['of the sulcus']
-                                + [sulcus_name]
-                                + ['is']
-                                + [float(proba[i])]
-                                )
 
     # Since we focus here on 85 sulci (after QC), and for each of them on
     # 6 features, we only keep the probability values p < (0.05 / (6 * 85))
@@ -257,7 +236,7 @@ if __name__ == "__main__":
     bonferroni_correction = 0.05 / (Y.shape[1])
 
     MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
-                                    'MULM_after_Bonferroni_correction.txt')
+                            'MULM_after_Bonferroni_correction_mean_pds.txt')
 
     with open(MULM_after_Bonferroni_correction_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
@@ -266,10 +245,6 @@ if __name__ == "__main__":
 
             if float(proba[i]) < bonferroni_correction:
                 sulcus_name = colnames[proba.index(proba[i])][11:]
-                spamwriter.writerow(['The MULM probability for the feature:']
-                                    + [sulcus_name]
-                                    + ['of the sulcus']
-                                    + [sulcus_name]
-                                    + ['is']
-                                    + [float(proba[i]) * Y.shape[1]]
-                                    )
+                spamwriter.writerow(
+                ['The MULM probability for the mean_pds on the sulcus']
+                + [sulcus_name] + ['is'] + [float(proba[i]) * Y.shape[1]])

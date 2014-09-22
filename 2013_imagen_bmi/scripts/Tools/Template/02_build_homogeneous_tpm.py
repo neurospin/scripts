@@ -2,12 +2,14 @@
 """
 Created on Fri Sep  5 17:01:26 2014
 
-@author: md238665
+@author: md238665 and hl237680
 
 Compute the mean of the images obtained after new_segment segmentation (wmc)
 for the six tissue classes to build the new TPM.
+
 This TPM is then normalized and saved under:
 /neurospin/tmp/hl/TPM.nii
+
 """
 
 import os

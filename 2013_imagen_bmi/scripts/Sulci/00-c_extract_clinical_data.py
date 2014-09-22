@@ -7,7 +7,7 @@ Created on Thu Aug 21 15:21:43 2014
 This script generates the list of IDs of subjects who passed the quality
 control on sulci data.
 Then, it creates a .csv file giving gender, age in years, BMI and weight
-status for the 978 subjects who passed the quality control on sulci data.
+status for the 745 subjects who passed the quality control on sulci data.
 
 INPUT:
     "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
@@ -20,7 +20,7 @@ OUTPUT: .csv file
     "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
     full_sulci/full_sulci_clinics.csv"
 
-Only 978 subjects among the 1265 for who we have both genetic and neuroimaging
+Only 745 subjects among the 1265 for who we have both genetic and neuroimaging
 data (masked_images) have passed the quality control step.
 """
 

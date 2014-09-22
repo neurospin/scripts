@@ -71,6 +71,6 @@ if __name__ == "__main__":
     ###########################################################################
     ## Apply map
     map_cmd = "%s --map %s/config.json --ncore 2" % (exec_path, WD)
-    reduce_cmd = "%s --reduce %s/config.json" % (exec_path, WD)
+    reduce_cmd = "%s -v --reduce %s/config.json" % (exec_path, WD)
     os.system(map_cmd)
     os.system(reduce_cmd)
