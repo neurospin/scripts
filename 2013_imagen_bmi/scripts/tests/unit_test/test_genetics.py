@@ -6,6 +6,7 @@ Created on Wed Jul 16 14:35:13 2014
 
 Simple script to try to read SNPs related to a given set of genes from the
 file database.
+
 """
 
 import os
@@ -17,12 +18,14 @@ import collections
 ################
 
 INPUT_DIR = "/neurospin/brainomics/bioinformatics_resources/data/"
+
 INPUT_REFGENE_META = os.path.join(INPUT_DIR,
-                                  "genetics",
-                                  "hg19.refGene.meta")
+                                  'genetics',
+                                  'hg19.refGene.meta')
+
 INPUT_SNP138 = os.path.join(INPUT_DIR,
-                            "snps",
-                            "cleaned_snp138Common.txt")
+                            'snps',
+                            'cleaned_snp138Common.txt')
 
 
 ##############
