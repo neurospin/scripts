@@ -38,7 +38,9 @@ def reducer(key, values):
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
-    return OrderedDict((('param', key), ('r2', r2_score(y_true, y_pred))))
+    d = OrderedDict()
+    d['r2'] = r2_score(y_true, y_pred)
+    return d
 
 
 if __name__ == "__main__":

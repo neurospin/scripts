@@ -42,12 +42,11 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
-    d['param'] = key
     d['r2'] = r2_score(y_true, y_pred)
     return d
 
@@ -110,10 +109,10 @@ if __name__ == "__main__":
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
         res.append(["_".join([str(p) for p in key]), r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["param", "r2"])
+    true = pd.DataFrame(res, columns=["params_str", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.param) == np.sort(mr.param))
-    m = pd.merge(true, mr, on="param", suffixes=["_true", "_mr"])
+    assert np.all(np.sort(true.params_str) == np.sort(mr.params_str))
+    m = pd.merge(true, mr, on="params_str", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

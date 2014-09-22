@@ -52,18 +52,18 @@ json.dump(config, open("config.json", "w"))
 def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
 
-_RESAMPLE_NB = 'resample'
+_RESAMPLE_INDEX = 'resample_index'
 _PARAMS = 'params'
 _PARAMS_STR = 'params_str'
 _OUTPUT = 'output dir'
 _OUTPUT_COLLECTOR = 'output collector'
 
-GROUP_BY_VALUES = [_RESAMPLE_NB, _PARAMS, _PARAMS_STR]
+GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS, _PARAMS_STR]
 
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 3 columns whose name is given by global variables:
-      - _RESAMPLE_NB: the index of the resampling
+      - _RESAMPLE_INDEX: the index of the resampling
       - _PARAMS: the key passed to map (tuple of parameters)
       - _PARAMS_STR: representation of the parameters as a string (used in
          output dir)
@@ -90,7 +90,7 @@ def _build_job_table(config):
             for resample_i in xrange(len(config["resample"]))
             for (params, params_str) in zip(params_list, params_str_list)]
     jobs = pd.DataFrame.from_records(jobs,
-                                     columns=[_RESAMPLE_NB,
+                                     columns=[_RESAMPLE_INDEX,
                                               _PARAMS,
                                               _PARAMS_STR,
                                               _OUTPUT])
@@ -313,9 +313,9 @@ if __name__ == "__main__":
             except:
                 if not options.force:
                     continue
-            if (not resample_nb_cur and job[_RESAMPLE_NB]) or \
-               (resample_nb_cur != job[_RESAMPLE_NB]):  # Load
-                resample_nb_cur = job[_RESAMPLE_NB]
+            if (not resample_nb_cur and job[_RESAMPLE_INDEX]) or \
+               (resample_nb_cur != job[_RESAMPLE_INDEX]):  # Load
+                resample_nb_cur = job[_RESAMPLE_INDEX]
                 user_func.resample(config, resample_nb_cur)
             key = job[_PARAMS]
             output_collector = job[_OUTPUT_COLLECTOR]
@@ -360,6 +360,8 @@ if __name__ == "__main__":
         # Copy the groups in a dictionnary with the same keys than the GroupBy
         # object and the same order. This is needed to sort the groups.
         groups = OrderedDict(iter(grouped))
+        n_groups = len(groups)
+        ordered_keys = groups.keys()
         # Sort inner groups by index
         for key, group in groups.items():
                 group.sort_index(inplace=True)
@@ -370,28 +372,40 @@ if __name__ == "__main__":
                 print group
         # Do the reduce
         all_scores = None  # Dict of all the results
-        for k in groups:
+        #all_scores = pd.DataFrame(index=ordered_keys)
+        for i, k in enumerate(groups):
             try:
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
                 scores = user_func.reducer(key=k, values=output_collectors)
+                # Create df on first valid reducer
+                # The keys are the keys of the GroupBy object.
+                # As we use a df, previous failed reducers (if any) will be
+                # empty. Similarly future failed reducers (if any) will be
+                # empty.
+                if all_scores is None:
+                    index = pd.Index(ordered_keys,
+                                     name=config["reduce_group_by"])
+                    all_scores = pd.DataFrame(index=index,
+                                              columns=scores.keys())
                 # Append those results to scores
-                if all_scores is None:  # Init
-                    all_scores = OrderedDict.fromkeys(scores.keys())
-                for key, value in scores.items():
-                    if all_scores[key] is None:  # On first insert we have None
-                        all_scores[key] = [value]
-                    else:  # Append to the list of values
-                        all_scores[key].append(value)
+                # We use a integer based access because all_scores.loc[k] don't
+                # work (it's interpreted as several index because k is a tuple)
+                # all_scores.loc[k,] works but is ugly
+                # all_scores.loc[i] seems to work but it's probably a bug
+                all_scores.iloc[i] = scores.values()
             except Exception, e:
 #                pass
                 print "Reducer failed in {key}".format(key=k), groups[k]
                 print "Exception:", e
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
-        all_scores = pd.DataFrame(all_scores)
-        if "reduce_output" in config:
-            print "Save results into: %s" % config["reduce_output"]
-            all_scores.to_csv(config["reduce_output"], index=False)
+        if all_scores is not None:
+            if "reduce_output" in config:
+                print "Save results into: %s" % config["reduce_output"]
+                all_scores.to_csv(config["reduce_output"], index=True)
+            else:
+                print all_scores.to_string()
         else:
-            print all_scores.to_string()
+            print "All reducer failed. Nothing saved"
+            sys.exit(1)
