@@ -407,5 +407,5 @@ if __name__ == "__main__":
             else:
                 print all_scores.to_string()
         else:
-            print "All reducer failed. Nothing saved"
+            print "All reducers failed. Nothing saved"
             sys.exit(1)
