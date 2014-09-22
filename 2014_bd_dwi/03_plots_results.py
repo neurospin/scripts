@@ -19,9 +19,9 @@ from brainomics import plot_utilities as UP
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_bd_dwi"
-INPUT_DIR = os.path.join(INPUT_BASE_DIR, "bd_dwi_enettv_csi")
-INPUT_RESULTS = os.path.join(INPUT_DIR, "results_CSI.csv")
+INPUT_BASE_DIR = "/volatile/share/2014_bd_dwi"
+INPUT_DIR = os.path.join(INPUT_BASE_DIR, "bd_dwi_enettv_csi_site")
+INPUT_RESULTS = os.path.join(INPUT_DIR, "results_CSI_site.csv")
 
 OUTPUT_DIR = os.path.join(INPUT_DIR, "figures")
 if not os.path.exists(OUTPUT_DIR):
@@ -60,7 +60,7 @@ results['l1_ratio'] = np.vectorize(l1_ratio)(results['l1'],
                                              results['l2'],
                                              results['tv'])
 
-r1 = results.loc[results.k == 1000]
+r1 = results.loc[results.k == 10000]
 handles = UP.mapreduce_plot(r1, 'recall_mean', tv_ratio='tv')
 for val, handle in handles.items():
     handle.savefig(os.path.join(OUTPUT_DIR, str(val) + '.png'))

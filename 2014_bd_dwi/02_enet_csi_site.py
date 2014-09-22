@@ -143,7 +143,7 @@ def run_all(config):
 
 # CS with Intercept
 
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_site"
     key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -168,12 +168,12 @@ if __name__ == "__main__":
     INPUT_MASK = "mask.nii.gz"
 
     # Directory
-    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi"
-    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
+    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi_site"
+    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_site"
+
 
     NFOLDS = 5
-    INPUT_PENALTY_START_CSI = 3
-    INPUT_PENALTY_START_CS = 2
+    INPUT_PENALTY_START_CSI = 5
 
     #####################
     # Common parameters #
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # User map/reduce function file:
     user_func_filename = os.path.join("/home/md238665/christophe",
         "scripts", '2014_bd_dwi',
-        "02_enet_cs.py")
+        "02_enet_csi_site.py")
     print "user_func", user_func_filename
 
     #####################
@@ -218,17 +218,17 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   structure=INPUT_MASK,
                   penalty_start=INPUT_PENALTY_START_CSI,
-                  map_output="results_CSI",
+                  map_output="results_CSI_site",
                   user_func=user_func_filename,
-                  reduce_input="results_CSI/*/*",
-                  reduce_group_by="results_CSI/.*/(.*)",
-                  reduce_output="results_CSI.csv")
-    json.dump(config, open(os.path.join(WD_CSI, "config_CSI.json"), "w"))
+                  reduce_input="results_CSI_site/*/*",
+                  reduce_group_by="results_CSI_site/.*/(.*)",
+                  reduce_output="results_CSI_site.csv")
+    json.dump(config, open(os.path.join(WD_CSI, "config_CSI_site.json"), "w"))
 
     # Utils files with intercept
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD_CSI, user="md238665")
-    cmd = "mapreduce.py --map  %s/config_CSI.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_CSI_site.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD_CSI, cmd)
 
     del INPUT_DIR_CSI, WD_CSI, INPUT_PENALTY_START_CSI

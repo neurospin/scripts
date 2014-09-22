@@ -4,7 +4,7 @@ Created on Thu Jul  3 13:45:08 2014
 
 @author: christophe
 
-create the config file for the FA images not skeletonised. 
+create the config file for the FA images not skeletonised.
 """
 
 import os
@@ -143,7 +143,7 @@ def run_all(config):
 
 # CS with Intercept
 
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
+    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_trunc"
     key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -165,15 +165,14 @@ if __name__ == "__main__":
     # Relative filenames
     INPUT_DATA_X = 'X.npy'
     INPUT_DATA_y = 'Y.npy'
-    INPUT_MASK = "mask.nii.gz"
+    INPUT_MASK = "mask_trunc.nii.gz"
 
     # Directory
-    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi"
-    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi"
+    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi_trunc"
+    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_trunc"
 
     NFOLDS = 5
     INPUT_PENALTY_START_CSI = 3
-    INPUT_PENALTY_START_CS = 2
 
     #####################
     # Common parameters #
@@ -200,7 +199,7 @@ if __name__ == "__main__":
     # User map/reduce function file:
     user_func_filename = os.path.join("/home/md238665/christophe",
         "scripts", '2014_bd_dwi',
-        "02_enet_cs.py")
+        "02_enet_csi_trunc.py")
     print "user_func", user_func_filename
 
     #####################
@@ -218,18 +217,19 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   structure=INPUT_MASK,
                   penalty_start=INPUT_PENALTY_START_CSI,
-                  map_output="results_CSI",
+                  map_output="results_CSI_trunc",
                   user_func=user_func_filename,
-                  reduce_input="results_CSI/*/*",
-                  reduce_group_by="results_CSI/.*/(.*)",
-                  reduce_output="results_CSI.csv")
-    json.dump(config, open(os.path.join(WD_CSI, "config_CSI.json"), "w"))
+                  reduce_input="results_CSI_trunc/*/*",
+                  reduce_group_by="results_CSI_trunc/.*/(.*)",
+                  reduce_output="results_CSI_trunc.csv")
+    json.dump(config, open(os.path.join(WD_CSI, "config_CSI_trunc.json"), "w"))
 
     # Utils files with intercept
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD_CSI, user="md238665")
-    cmd = "mapreduce.py --map  %s/config_CSI.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_CSI_trunc.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD_CSI, cmd)
 
     del INPUT_DIR_CSI, WD_CSI, INPUT_PENALTY_START_CSI
+
 
