@@ -58,7 +58,7 @@ _PARAMS_STR = 'params_str'
 _OUTPUT = 'output dir'
 _OUTPUT_COLLECTOR = 'output collector'
 
-GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS, _PARAMS_STR]
+GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
 
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
@@ -377,7 +377,8 @@ if __name__ == "__main__":
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
                 scores = user_func.reducer(key=k, values=output_collectors)
-                # Create df on first valid reducer
+                # Create df on first valid reducer (we canno't do it before
+                # because we don't have the columns).
                 # The keys are the keys of the GroupBy object.
                 # As we use a df, previous failed reducers (if any) will be
                 # empty. Similarly future failed reducers (if any) will be

@@ -78,7 +78,7 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_group_by="params_str",
+                  reduce_group_by="params",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -108,11 +108,14 @@ if __name__ == "__main__":
             y_true.append(ytest)
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
-        res.append(["_".join([str(p) for p in key]), r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["params_str", "r2"])
+        # As we reload mapreduce results, the params will be interpreted as
+        # strings representation of tuples.
+        # Here we apply the same representation
+        res.append([str(tuple(key)), r2_score(y_true, y_pred)])
+    true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.params_str) == np.sort(mr.params_str))
-    m = pd.merge(true, mr, on="params_str", suffixes=["_true", "_mr"])
+    assert np.all(true.params == mr.params)
+    m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)
