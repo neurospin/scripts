@@ -59,6 +59,7 @@ _OUTPUT = 'output dir'
 _OUTPUT_COLLECTOR = 'output collector'
 
 GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
+DEFAULT_GROUP_BY = _PARAMS
 
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
@@ -267,14 +268,13 @@ if __name__ == "__main__":
     #=========================================================================
     #== Check config file                                                   ==
     #=========================================================================
-    if not config["user_func"]:
+    if "user_func" not in config:
         print 'Attribute "user_func" is required'
         sys.exit(1)
     user_func = _import_user_func(config["user_func"])
 
-    if not config["reduce_group_by"]:
-        print 'Attribute "reduce_group_by" is required'
-        sys.exit(1)
+    if "reduce_group_by" not in config:
+        config["reduce_group_by"] = DEFAULT_GROUP_BY
     if config["reduce_group_by"] not in GROUP_BY_VALUES:
         print 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
         sys.exit(1)

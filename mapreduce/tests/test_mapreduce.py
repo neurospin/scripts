@@ -78,7 +78,6 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_group_by="params",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
