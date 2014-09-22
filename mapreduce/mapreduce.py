@@ -61,6 +61,7 @@ _OUTPUT_COLLECTOR = 'output collector'
 GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
+
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 3 columns whose name is given by global variables:
@@ -73,7 +74,7 @@ def _build_job_table(config):
     In order to be able to group by parameters, they must be hashable (it's the
     case for tuples made of strings and floats).
     Note that the index respects the natural ordering of (resample, params) as
-    given in the in the config file.
+    given in the config file.
     """
     params_list = json.load(open(config["params"])) \
         if isinstance(config["params"], str) else config["params"]
