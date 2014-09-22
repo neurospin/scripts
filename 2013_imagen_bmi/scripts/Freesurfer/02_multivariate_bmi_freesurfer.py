@@ -4,8 +4,7 @@ Created on Tue Jul 29 17:48:18 2014
 
 @author: hl237680
 
-Multivariate correlation between residualized BMI and one subcortical feature
-of interest:
+Multivariate correlation between BMI and one subcortical feature of interest:
    CV using mapreduce and ElasticNet between the feature of interest and BMI.
 
 The resort to Freesurfer should prevent us from the artifacts that may be
