@@ -9,6 +9,7 @@ associated to BMI.
 
 OUTPUT: csv file
     "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
+
 """
 
 import os
