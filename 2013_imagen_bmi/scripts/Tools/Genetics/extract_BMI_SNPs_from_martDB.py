@@ -4,9 +4,11 @@ Created on Tue Sep  2 17:47:30 2014
 
 @author: hl237680
 
-This script aims at comparing SNPs referenced in the literature as
+This script aims at selecting SNPs referenced in the literature as
 associated to BMI and SNPs extracted from CW mart database for genes known
 to be associated to BMI.
+We also show their respective distribution among IMAGEN subjects in order
+to check whether they are significantly represented among the population.
 
 INPUT:
 - SNPs referenced in the literature as associated to BMI (included in or near
