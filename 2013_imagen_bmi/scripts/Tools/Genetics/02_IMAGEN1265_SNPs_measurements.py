@@ -14,31 +14,39 @@ INPUT:
 - Genotype data from the IMAGEN study:
     "/neurospin/brainomics/2013_imagen_bmi/2012_imagen_shfj/genetics/
     qc_sub_qc_gen_all_snps_common_autosome"
-- List of SNPs from genes found in the literature to be strongly associated
-  to BMI:
-    "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
+- SNPs referenced in the literature as strongly associated to the BMI
+  (included in or near to BMI-associated genes):
+    "/neurospin/brainomics/2013_imagen_bmi/data/genetics/
+    genes_BMI_ob.xls"
 - List of the 1.265 subjects for whom we have both neuroimaging and genetic
   data:
     "/neurospin/brainomics/2013_imagen_bmi/data/subjects_id.csv"
 
-OUTPUT: .csv file
+OUTPUT:
+- List of SNPs referenced in the literature as strongly associated to the BMI:
+    "/neurospin/brainomics/2013_imagen_bmi/data/mart_BMI_SNPs_names_list.csv"
+- Genetic measures on SNPs of interest
     "/neurospin/brainomics/2013_imagen_bmi/data/
-    BMI_associated_SNPs_demographics.csv"
+    BMI_associated_SNPs_measures.csv"
 
 """
 
-import numpy as np
 import os
+import numpy as np
+import xlrd
+import csv
 import pandas as pd
 import plinkio as ig
 
 
-## Pathnames ##
+# Pathnames
 BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
 DATA_PATH = os.path.join(BASE_PATH, 'data')
+CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
+GENETICS_PATH = os.path.join(DATA_PATH, 'genetics')
 
 
-## Functions ##
+# Functions
 
 #def extract(genotype, snps_dict):
 #    """ from a genotype instance provide various helpers
@@ -113,50 +121,71 @@ def impute_data_by_med(data, verbose=0, nan_symbol=128):
 #                  columns=snp_data_columns)
 
 
-# SNPs from genes highly associated to BMI
-BMI_SNPs = np.genfromtxt(os.path.join(DATA_PATH, 'BMI_SNPs_names_list.csv'),
-                         dtype=None)
+if __name__ == "__main__":
 
-# Genotype data (IMAGEN study)
-gfn = os.path.join('/neurospin/brainomics',
-                   '2012_imagen_shfj',
-                   'genetics',
-                   'qc_sub_qc_gen_all_snps_common_autosome')
+    # SNPs referenced in the literature as highly associated to the BMI
+    workbook = xlrd.open_workbook(os.path.join(GENETICS_PATH,
+                                               'genes_BMI_ob.xls'))
+    sheet = workbook.sheet_by_name('SNPs_from_literature')
 
-genotype = ig.Genotype(gfn)
+    SNPs_from_literature = []
+    n_rows = 67
+    for row in range(n_rows):
+        SNPs_from_literature.append(sheet.cell(row, 0).value)
+        SNPs_from_literature[row].replace("text:u", "").replace("'", "")
 
-# Build an array that keeps only SNPs of interest among the SNPs referenced
-# in the qc_sub_qc_gen_all_snps_common_autosome file
-SNPs = genotype.snpGenotypeByName(BMI_SNPs.tolist())
+    SNPs_from_literature = [str(snp) for snp in SNPs_from_literature]
 
-## Check whether there are missing data
-## dominant homozygote
-#sum(SNPs[:, 0] == 1)
-## heterozygote
-#sum(SNPs[:, 0] == 0)
-## two muted alleles
-#sum(SNPs[:, 0] == 2)
-## missing data
-#sum(SNPs == 128)
+    # Save list of SNPs of interest
+    BMI_SNPs_from_literature = os.path.join(GENETICS_PATH,
+                                            'BMI_SNPs_names_list.csv')
 
-SNPs = impute_data_by_med(SNPs)
+    with open(BMI_SNPs_from_literature, 'wb') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+        for i, SNP in enumerate(SNPs_from_literature):
+            spamwriter.writerow([SNP])
 
-# Subjects ID for whom we have both neuroimaging and genetic data
-subjects_id = np.genfromtxt(os.path.join(DATA_PATH, 'subjects_id.csv'),
-                            dtype=None,
-                            delimiter=',',
-                            skip_header=1)
+    # Genotype data (IMAGEN study)
+    gfn = os.path.join('/neurospin/brainomics',
+                       '2012_imagen_shfj',
+                       'genetics',
+                       'qc_sub_qc_gen_all_snps_common_autosome')
 
-# Conversion to unicode with 12 positions
-subjects_id = [unicode('%012d' % i) for i in subjects_id]
+    genotype = ig.Genotype(gfn)
 
-# SNPs_df: dataframe with index giving subjects ID in the right order
-# and columns the SNPs considered
-SNPs_IMAGEN = pd.DataFrame(SNPs,
-                           index=genotype.assayIID(),
-                           columns=BMI_SNPs)
-SNPs_df = SNPs_IMAGEN.loc[subjects_id, :]
+    # Build an array that keeps only SNPs of interest among the SNPs referenced
+    # in the qc_sub_qc_gen_all_snps_common_autosome file
+    SNPs = genotype.snpGenotypeByName(SNPs_from_literature[1:])
 
-# Write SNPs of interest in a .csv file
-SNPs_df.to_csv(os.path.join(DATA_PATH, 'BMI_associated_SNPs_demographics.csv'))
-print "Saved .csv containing BMI associated SNPs within the IMAGEN population."
+    ## Check whether there are missing data
+    ## dominant homozygote
+    #sum(SNPs[:, 0] == 1)
+    ## heterozygote
+    #sum(SNPs[:, 0] == 0)
+    ## two muted alleles
+    #sum(SNPs[:, 0] == 2)
+    ## missing data
+    #sum(SNPs == 128)
+
+    SNPs = impute_data_by_med(SNPs)
+
+    # Subjects ID for whom we have both neuroimaging and genetic data
+    subjects_id = np.genfromtxt(os.path.join(DATA_PATH, 'subjects_id.csv'),
+                                dtype=None,
+                                delimiter=',',
+                                skip_header=1)
+
+    # Conversion to unicode with 12 positions
+    subjects_id = [unicode('%012d' % i) for i in subjects_id]
+
+    # SNPs_df: dataframe with index giving subjects ID in the right order
+    # and columns the SNPs considered
+    SNPs_IMAGEN = pd.DataFrame(SNPs,
+                               index=genotype.assayIID(),
+                               columns=SNPs_from_literature)
+    SNPs_df = SNPs_IMAGEN.loc[subjects_id, :]
+
+    # Write genetic measures for SNPs of interest in a .csv file
+    SNPs_df.to_csv(os.path.join(DATA_PATH,
+                                'BMI_associated_SNPs_measures.csv'))
+    print "Saved .csv containing BMI-associated SNPs measures within the IMAGEN population."
