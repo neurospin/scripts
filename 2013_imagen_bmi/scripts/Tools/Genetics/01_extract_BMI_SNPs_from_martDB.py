@@ -12,15 +12,17 @@ to check whether they are significantly represented among the population.
 
 INPUT:
 - SNPs referenced in the literature as associated to BMI (included in or near
-to BMI-associated genes):
+  to BMI-associated genes):
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/
     genes_BMI_ob.xls"
-- SNPs from BMI-associated genes that are indexed on mart CW database:
-    "/neurospin/brainomics/2013_imagen_bmi/data/BMI_SNPs_names_list.csv"
+- mart database to get SNPs associated to the specified BMI-associated genes
 
 OUTPUT:
+- list of all SNPs extracted from genes known to be associated to the BMI
+  that are indexed on mart CW database:
+    "/neurospin/brainomics/2013_imagen_bmi/data/mart_BMI_SNPs_names_list.csv"
 - SNPs_of_interest: intercept of both lists of SNPs
-    "neurospin/brainomics/2013_imagen_bmi/data/genetics/BMI_SNPs_intercept.csv"
+    "neurospin/brainomics/2013_imagen_bmi/data/genetics/BMI_Illumina_SNPs.csv"
 - SNPs distribution among IMAGEN subjects:
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/SNPs_distribution.txt"
 
@@ -62,8 +64,9 @@ for row in range(n_rows_1):
 
 SNPs_from_literature = [str(snp) for snp in SNPs_from_literature]
 
-# All SNPs extracted from genes associated with BMI (UCSC)
-sheet2 = workbook.sheet_by_name('SNPs_from_BMI_genes')
+# All SNPs extracted from genes associated with BMI (UCSC) that are present
+# on CW mart database
+sheet2 = workbook.sheet_by_name('SNPs_from_BMI_genes-(CW_DB)')
 
 SNPs_from_BMI_genes = []
 n_rows_2 = 1615
@@ -80,7 +83,7 @@ SNPs_of_interest = np.intersect1d(SNPs_from_literature,
 
 # SNPs distribution among IMAGEN subjects
 BMI_SNPs_intercept_file_path = os.path.join(GENETICS_PATH,
-                                            'BMI_SNPs_intercept.txt')
+                                            'BMI_Illumina_SNPs.txt')
 
 with open(BMI_SNPs_intercept_file_path, 'wb') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
