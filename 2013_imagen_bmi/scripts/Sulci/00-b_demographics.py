@@ -4,7 +4,7 @@ Created on Mon Sep 22 10:24:15 2014
 
 @author: hl237680
 
-This script gives an insight of the distribution of ponderal status among
+This script gives an insight of the distribution of weight status among
 subjects who passed the quality control for the study on sulci.
 
 INPUT:
