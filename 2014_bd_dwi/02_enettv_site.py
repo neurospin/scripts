@@ -7,7 +7,7 @@ Created on Thu Jul  3 13:45:08 2014
 create the config file for the dataset created in 01_build_dataset_site.py.
 """
 
-import os
+import os, sys
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
@@ -140,7 +140,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_enettv_csi_site"
+    WD = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_site"
     key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -165,8 +165,8 @@ if __name__ == "__main__":
     INPUT_MASK = "mask.nii.gz"
 
     # Directory
-    INPUT_DIR = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_csi_site"
-    WD = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_enettv_csi_site"
+    INPUT_DIR = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_site"
+    WD = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_site"
 
     # Output
     OUTPUT_CONFIG_FILE = "config.json"
@@ -200,9 +200,7 @@ if __name__ == "__main__":
     params = [params.tolist() for params in alphal1l2tvk]
 
     # User map/reduce function file:
-    user_func_filename = os.path.join("/home/md238665/",
-                                      "scripts", '2014_bd_dwi',
-                                      "02_enet_csi_site.py")
+    user_func_filename = os.path.abspath(sys.argv[0])
     print "user_func", user_func_filename
 
     ######################
