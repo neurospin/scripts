@@ -162,10 +162,12 @@ if __name__ == "__main__":
     # Relative filenames
     INPUT_DATA_X = 'X.npy'
     INPUT_DATA_y = 'Y.npy'
-    INPUT_MASK = "mask_sk.nii.gz"
 
     # Directory
     INPUT_DIR = "/neurospin/brainomics/2014_bd_dwi/bd_dwi"
+    INPUT_MASK_DIR = "/neurospin/brainomics/2014_bd_dwi/masks"
+    INPUT_MASK = os.path.join(INPUT_MASK_DIR,
+                              "mask.nii.gz")
     WD = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi"
 
     # Output
@@ -212,6 +214,8 @@ if __name__ == "__main__":
     if os.path.exists(WD):
         raise IOError("Directory %s exists" % WD)
     shutil.copytree(INPUT_DIR, WD)
+    # Copy mask
+    shutil.copy(INPUT_MASK, WD)
 
     # Config file
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
