@@ -4,7 +4,7 @@ Created on Thu Jul  3 13:45:08 2014
 
 @author: christophe
 
-create the config file for the FA images not skeletonised. 
+create the config file for the dataset created in 01_build_dataset_site.py.
 """
 
 import os
@@ -99,7 +99,7 @@ def reducer(key, values):
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
 
-    # Avoid taking account the fold 0
+    # Avoid taking into account the fold 0
     values = [item.load() for item in values[1:]]
 
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
@@ -140,10 +140,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-
-# CS with Intercept
-
-    WD = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_site"
+    WD = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_enettv_csi_site"
     key = '_'.join(str(p) for p in config['params'][0])
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -168,20 +165,25 @@ if __name__ == "__main__":
     INPUT_MASK = "mask.nii.gz"
 
     # Directory
-    INPUT_DIR_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_csi_site"
-    WD_CSI = "/volatile/share/2014_bd_dwi/bd_dwi_enettv_csi_site"
+    INPUT_DIR = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_csi_site"
+    WD = "/neurospin/brainomics/2014_bd_dwi/bd_dwi_enettv_csi_site"
 
+    # Output
+    OUTPUT_CONFIG_FILE = "config.json"
+    OUTPUT_LOCAL_CONFIG_FILE = os.path.join(WD, OUTPUT_CONFIG_FILE)
 
     NFOLDS = 5
-    INPUT_PENALTY_START_CSI = 5
+    INPUT_PENALTY_START = 6
 
     #####################
     # Common parameters #
     #####################
 
-    # Resampling (Y is the same for both cases)
-    y = np.load(os.path.join(INPUT_DIR_CSI, INPUT_DATA_y))
-    cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+    # Resamplings
+    y = np.load(os.path.join(INPUT_DIR, INPUT_DATA_y))
+    skf = StratifiedKFold(y.ravel(),
+                          n_folds=NFOLDS)
+    cv = [[tr.tolist(), te.tolist()] for tr,te in skf]
     cv.insert(0, None)  # first fold is None
 
     # Parameters grid
@@ -198,38 +200,38 @@ if __name__ == "__main__":
     params = [params.tolist() for params in alphal1l2tvk]
 
     # User map/reduce function file:
-    user_func_filename = os.path.join("/home/md238665/christophe",
-        "scripts", '2014_bd_dwi',
-        "02_enet_csi_site.py")
+    user_func_filename = os.path.join("/home/md238665/",
+                                      "scripts", '2014_bd_dwi',
+                                      "02_enet_csi_site.py")
     print "user_func", user_func_filename
 
-    #####################
-    # CS with Intercept #
-    #####################
+    ######################
+    # Create config file #
+    ######################
 
     # Copy input data
     # Since we use copytree, the target directory should not exist
-    if os.path.exists(WD_CSI):
-        raise IOError("Directory %s exists" % WD_CSI)
-    shutil.copytree(INPUT_DIR_CSI, WD_CSI)
+    if os.path.exists(WD):
+        raise IOError("Directory %s exists" % WD)
+    shutil.copytree(INPUT_DIR, WD)
 
-    # Config file with Intercept
+    # Config file
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=INPUT_MASK,
-                  penalty_start=INPUT_PENALTY_START_CSI,
-                  map_output="results_CSI_site",
+                  penalty_start=INPUT_PENALTY_START,
+                  map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results_CSI_site/*/*",
-                  reduce_group_by="results_CSI_site/.*/(.*)",
-                  reduce_output="results_CSI_site.csv")
-    json.dump(config, open(os.path.join(WD_CSI, "config_CSI_site.json"), "w"))
+                  reduce_input="results/*/*",
+                  reduce_group_by="results/.*/(.*)",
+                  reduce_output="results.csv")
+    json.dump(config, open(OUTPUT_LOCAL_CONFIG_FILE, "w"))
 
-    # Utils files with intercept
+    # Utils files
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD_CSI, user="md238665")
-    cmd = "mapreduce.py --map  %s/config_CSI_site.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD_CSI, cmd)
+        clust_utils.gabriel_make_sync_data_files(WD, user="md238665")
+    CLUSTER_OUTPUT_FILE = os.path.join(WD_CLUSTER, OUTPUT_CONFIG_FILE)
+    cmd = "mapreduce.py --map  %s" % CLUSTER_OUTPUT_FILE
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
 
-    del INPUT_DIR_CSI, WD_CSI, INPUT_PENALTY_START_CSI
-
+    del INPUT_DIR, WD, INPUT_PENALTY_START
