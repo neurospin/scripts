@@ -25,7 +25,7 @@ INPUT:
     sulci features after quality control
 
 - /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
-    BMI of the 1265 subjects for which we also have neuroimaging data
+    BMI of the 1.265 subjects for which we also have neuroimaging data
 
 METHOD: MUOLS
 
@@ -110,13 +110,13 @@ def load_residualized_bmi_data(cache):
                                                           'population.csv'),
                                              index_col=0)
 
-        # Add one cofound since sulci follows a power law
-        clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
+#        # Add one cofound since sulci follows a power law
+#        clinical_df['tiv2'] = pow(clinical_df['tiv_gaser'], 2)
 
         clinical_cofounds = ['Gender de Feuil2',
                              'ImagingCentreCity',
                              'tiv_gaser',
-                             'tiv2',
+#                             'tiv2',
                              'mean_pds']
 
         clinical_df = clinical_df[clinical_cofounds]
@@ -193,7 +193,9 @@ if __name__ == "__main__":
     # Load data
     X, Y, sulci_df_qc = load_residualized_bmi_data(cache=False)
     colnames = sulci_df_qc.columns
-    penalty_start = 12
+    penalty_start = 11
+#    # if add tiv² as an additionnal cofound
+#    penalty_start = 12
 
     # Initialize beta_map
     beta_map = np.zeros((X.shape[1], Y.shape[1]))
@@ -207,9 +209,11 @@ if __name__ == "__main__":
     bigols = MUOLS()
     bigols.fit(X, Y)
     t, p, df = bigols.stats_t_coefficients(X, Y,
-                               # if add tiv² as an additionnal cofound
-                               contrast=[0.] * penalty_start +
-                                        [1.] * (X.shape[1] - penalty_start),
+                                          contrast=[0.] * penalty_start +
+                                          [1.] * (X.shape[1] - penalty_start),
+#                               # if add tiv² as an additionnal cofound
+#                               contrast=[0.] * penalty_start +
+#                                        [1.] * (X.shape[1] - penalty_start),
 #        # if want the contrast associated to mean_pds
 #        contrast=[0.] * (penalty_start - 2) + [1.]
 #                 + [0.] * (X.shape[1] - penalty_start + 1),
@@ -232,22 +236,22 @@ if __name__ == "__main__":
     beta_df.to_csv(os.path.join(OUTPUT_DIR, 'MUOLS_beta_values_df.csv'))
     print "Dataframe containing beta values for each sulcus has been saved."
 
-    # Write results of MULM computation, i.e. p-value for each feature of
-    # interest, in a csv file
-    MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_full_sulci.txt')
-
-    with open(MULM_file_path, 'wb') as csvfile:
-        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
-
-        for i in np.arange(0, len(proba)):
-            sulcus_name = colnames[proba.index(proba[i])][11:]
-            spamwriter.writerow(['The MULM probability for the feature:']
-                                + [sulcus_name]
-                                + ['of the sulcus']
-                                + [sulcus_name]
-                                + ['is']
-                                + [float(proba[i])]
-                                )
+#    # Write results of MULM computation, i.e. p-value for each feature of
+#    # interest, in a csv file
+#    MULM_file_path = os.path.join(OUTPUT_DIR, 'MULM_bmi_full_sulci.txt')
+#
+#    with open(MULM_file_path, 'wb') as csvfile:
+#        spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
+#
+#        for i in np.arange(0, len(proba)):
+#            sulcus_name = colnames[proba.index(proba[i])][(penalty_start - 1):]
+#            spamwriter.writerow(['The MULM probability for the feature:']
+#                                + [sulcus_name]
+#                                + ['of the sulcus']
+#                                + [sulcus_name]
+#                                + ['is']
+#                                + [float(proba[i])]
+#                                )
 
     # Since we focus here on 85 sulci (after QC), and for each of them on
     # 6 features, we only keep the probability values p < (0.05 / (6 * 85))
@@ -265,7 +269,7 @@ if __name__ == "__main__":
         for i in np.arange(0, len(proba)):
 
             if float(proba[i]) < bonferroni_correction:
-                sulcus_name = colnames[proba.index(proba[i])][11:]
+                sulcus_name = colnames[proba.index(proba[i])][(penalty_start - 1):]
                 spamwriter.writerow(['The MULM probability for the feature:']
                                     + [sulcus_name]
                                     + ['of the sulcus']
