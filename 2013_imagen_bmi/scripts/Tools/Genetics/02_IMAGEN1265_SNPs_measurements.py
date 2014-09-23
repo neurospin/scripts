@@ -155,7 +155,10 @@ if __name__ == "__main__":
 
     # Build an array that keeps only SNPs of interest among the SNPs referenced
     # in the qc_sub_qc_gen_all_snps_common_autosome file
-    SNPs = genotype.snpGenotypeByName(SNPs_from_literature[1:])
+    snp_from_liter_in_study = np.intersect1d(SNPs_from_literature[1:],
+                                    genotype.snpList().tolist()).tolist()
+    #SNPs = genotype.snpGenotypeByName(SNPs_from_literature[1:])
+    SNPs = genotype.snpGenotypeByName(snp_from_liter_in_study)
 
     ## Check whether there are missing data
     ## dominant homozygote
@@ -182,7 +185,7 @@ if __name__ == "__main__":
     # and columns the SNPs considered
     SNPs_IMAGEN = pd.DataFrame(SNPs,
                                index=genotype.assayIID(),
-                               columns=SNPs_from_literature)
+                               columns=snp_from_liter_in_study)
     SNPs_df = SNPs_IMAGEN.loc[subjects_id, :]
 
     # Write genetic measures for SNPs of interest in a .csv file
