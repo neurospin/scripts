@@ -25,7 +25,7 @@ INPUT_MASK = os.path.join(BASE_PATH,
                           "masks",
                           "mask.nii.gz")
 
-OUTPUT_DIR = os.path.join(BASE_PATH, "bd_dwi_csi_site")
+OUTPUT_DIR = os.path.join(BASE_PATH, "bd_dwi_site")
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 OUTPUT_X = "X.npy"
@@ -78,8 +78,8 @@ cont_covar /= cont_covar.std(axis=0)
 # Concat
 covar = np.hstack((cont_covar, cat_covar))
 
-# Case CS + Intercept
-print "Saving CSI data"
+# Save data
+print "Saving data"
 Xtot = np.hstack([np.ones((covar.shape[0], 1)), covar, masked_images])
 n, p = Xtot.shape
 assert Xtot.shape == (n, n_voxel_in_mask + covar.shape[1] + 1)
