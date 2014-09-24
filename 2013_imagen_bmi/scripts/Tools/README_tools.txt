@@ -1,4 +1,28 @@
+#############################################################################
+
 weigths_map_vizu.py: Edouard Duchesnay's tool to mesh beta maps.
+
+#############################################################################
+
+write_cofounds_file.py:
+
+Generation of a dataframe containing cofounds of non interest (i.e. gender,
+imaging city centre, tiv_gaser and mean pds) for the 745 subjects who passed
+the quality control on sulci data for further use with Plink.
+
+BEWARE that the first two columns must be IID and FID.
+
+INPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv":
+    clinical data on IMAGEN population
+- "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+    full_sulci/Quality_control/sulci_depthMax_df.csv":
+    sulci depthMax after quality control
+
+OUTPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/Sulci_SNPs/
+    confound_Gender_Centre_TIV_PDS_745id.cov:"
+    .cov file with IID - FID - Gender - Centre - TIV - PDS
 
 #############################################################################
 
