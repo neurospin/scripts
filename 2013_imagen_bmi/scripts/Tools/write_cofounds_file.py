@@ -20,7 +20,7 @@ INPUT:
 OUTPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Plink/Sulci_SNPs/
     confound_Gender_Centre_TIV_PDS_745id.cov:"
-    .cov file with IID - FID - Gender - Centre - TIV - PDS
+    .cov file with FID - IID - Gender - Centre - TIV - PDS
 
 """
 
