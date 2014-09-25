@@ -93,9 +93,9 @@ def mapper(key, output_collector):
     zte = GLOBAL.DATA_RESAMPLED['z'][1]
     print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
     # penalty_start since we residualized BMI with 2 categorical covariables
-    # (Gender and ImagingCentreCity - 8 columns) and 3 ordinal variables
-    # (tiv_gaser, tiv_gaser² and mean_pds - 3 columns)
-    penalty_start = 12
+    # (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables
+    # (tiv_gaser and mean_pds - 2 columns)
+    penalty_start = 11
     mod = estimators.ElasticNet(l1_ratio,
                                 alpha,
                                 penalty_start=penalty_start,
@@ -117,8 +117,8 @@ def reducer(key, values):
 #############
 # Read data #
 #############
-# Load data on BMI and sulci features
-def load_residualized_bmi_data(cache):
+# Load data on BMI, SNPs and sulci features
+def load_sulci_SNPs_bmi_data(cache):
     if not(cache):
         # BMI
         BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
@@ -223,11 +223,13 @@ if __name__ == "__main__":
 
     # Shared data
     BASE_SHARED_DIR = '/neurospin/tmp/brainomics/'
+    if not os.path.exists(BASE_SHARED_DIR):
+        os.makedirs(BASE_SHARED_DIR)
     SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'BMI_asso_Sulci_SNPs_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
-    X, z = load_residualized_bmi_data(cache=False)
+    X, z = load_sulci_SNPs_bmi_data(cache=False)
     n, p = X.shape
     np.save(os.path.join(WD, 'X.npy'), X)
     np.save(os.path.join(WD, 'z.npy'), z)
