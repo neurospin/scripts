@@ -155,7 +155,7 @@ def load_sulci_SNPs_data(cache):
 if __name__ == "__main__":
 
     # Set pathes
-    WD = '/neurospin/tmp/brainomics/univariate_bmi_full_sulci_IMAGEN'
+    WD = '/neurospin/tmp/brainomics/univariate_bmi_SNPs_IMAGEN'
     if not os.path.exists(WD):
         os.makedirs(WD)
 
