@@ -223,8 +223,6 @@ if __name__ == "__main__":
 
     # Shared data
     BASE_SHARED_DIR = '/neurospin/tmp/brainomics/'
-    if not os.path.exists(BASE_SHARED_DIR):
-        os.makedirs(BASE_SHARED_DIR)
     SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'BMI_asso_Sulci_SNPs_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
