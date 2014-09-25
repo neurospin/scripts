@@ -19,7 +19,7 @@ INPUT:
 
 OUTPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-    full_sulci/Quality_control/more_clinics_745sulci.csv"
+    full_sulci/more_clinics_745sulci.csv"
     complete clinical data for subjects who passed the quality control on
     sulci
 """
@@ -54,5 +54,5 @@ sulci_depthMax_df = pd.io.parsers.read_csv(os.path.join(QC_PATH,
 sup_df = sup_df.loc[sulci_depthMax_df.index.values]
 
 # Write dataframe into a .csv file
-sup_df.to_csv(os.path.join(CLINIC_DATA_PATH,
+sup_df.to_csv(os.path.join(FULL_SULCI_PATH,
                            'more_clinics_745sulci.csv'))
