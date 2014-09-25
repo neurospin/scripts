@@ -28,7 +28,7 @@ INPUT:
 
 OUTPUT:
 - Intersection between all SNPs included in BMI-associated genes and SNPs
-  read by the Illumina platform for the IMAGEN study:
+  read by the Illumina platform for the IMAGEN study (i.e. 1.615 SNPs):
     "/neurospin/brainomics/2013_imagen_bmi/data/genetics/
     all_Illumina_SNPs_from_BMI_genes.csv"
 - Genetic measures on SNPs of interest
