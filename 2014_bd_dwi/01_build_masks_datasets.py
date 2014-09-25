@@ -204,7 +204,7 @@ print '#####################'
 #                         population[["SEX"]], population[["AGEATMRI"]],
 #                         output_x, output_x_desc,
 #                         add_intercept=False)
-#
+
 ## Second case: intercept, SEX and AGE, standard mask
 ## This case is no longer of interest. It's keep here just for record.
 #output_x = os.path.join(OUTPUT_DIR,
