@@ -26,6 +26,7 @@ OUTPUT:
 
 
 import os
+import numpy as np
 import pandas as pd
 
 
@@ -50,8 +51,13 @@ sulci_depthMax_df = pd.io.parsers.read_csv(os.path.join(QC_PATH,
                                            sep=',',
                                            index_col=0)
 
+# Keep only subjects for whom we have both clinical data and robustly
+# segmented sulci
+subjects_id = np.intersect1d(sulci_depthMax_df.index.values,
+                             sup_df.index.values).tolist()
+
 # Keep only subjects whose sulci have been robustly segmented
-sup_df = sup_df.loc[sulci_depthMax_df.index.values]
+sup_df = sup_df.loc[subjects_id]
 
 # Write dataframe into a .csv file
 sup_df.to_csv(os.path.join(FULL_SULCI_PATH,
