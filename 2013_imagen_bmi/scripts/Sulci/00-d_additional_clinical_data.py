@@ -22,12 +22,10 @@ OUTPUT:
     full_sulci/Quality_control/more_clinics_745sulci.csv"
     complete clinical data for subjects who passed the quality control on
     sulci
-  
 """
 
 
 import os
-import numpy as np
 import pandas as pd
 
 
