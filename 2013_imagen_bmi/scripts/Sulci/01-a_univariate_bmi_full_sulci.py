@@ -269,7 +269,7 @@ if __name__ == "__main__":
         for i in np.arange(0, len(proba)):
 
             if float(proba[i]) < bonferroni_correction:
-                sulcus_name = colnames[proba.index(proba[i])][(penalty_start - 1):]
+                sulcus_name = colnames[i][11:]
                 spamwriter.writerow(['The MULM probability for the feature:']
                                     + [sulcus_name]
                                     + ['of the sulcus']
