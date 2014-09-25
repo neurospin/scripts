@@ -179,7 +179,7 @@ INPUT:
 
 OUTPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-    full_sulci/Quality_control/more_clinics_745sulci.csv"
+    full_sulci/more_clinics_745sulci.csv"
     complete clinical data for subjects who passed the quality control on
     sulci
 
