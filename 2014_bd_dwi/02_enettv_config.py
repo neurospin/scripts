@@ -160,7 +160,7 @@ def run_all(config):
 
 if __name__ == "__main__":
 
-    def create_mapreduce_config(input_x, input_y, input_mask,
+    def create_mapreduce_config(input_x, input_x_desc, input_y, input_mask,
                                 resamplings, parameters, penalty_start,
                                 output_dir):
         # Create output dir
@@ -168,13 +168,17 @@ if __name__ == "__main__":
             os.makedirs(output_dir)
         # Copy dataset and mask
         shutil.copy2(input_x, output_dir)
+        shutil.copy2(input_x_desc, output_dir)
         shutil.copy2(input_y, output_dir)
         shutil.copy2(input_mask, output_dir)
 
         # Config file
+        input_x = os.path.basename(input_x)
+        input_y = os.path.basename(input_y)
+        input_mask = os.path.basename(input_mask)
         config = dict(data=dict(X=input_x, y=input_y),
                                 params=params, resample=resamplings,
-                                structure=input_mask,
+                                mask=input_mask,
                                 penalty_start=penalty_start,
                                 map_output="results",
                                 user_func=user_func_filename,
@@ -185,18 +189,17 @@ if __name__ == "__main__":
         json.dump(config, open(config_full_filename, "w"))
 
         # Utils files
-        sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        sync_push_filename, sync_pull_filename, wd_cluster = \
             clust_utils.gabriel_make_sync_data_files(output_dir,
                                                      user="md238665")
-        cluster_output_file = os.path.join(WD_CLUSTER, CONFIG_FILENAME)
+        cluster_output_file = os.path.join(wd_cluster, CONFIG_FILENAME)
         cmd = "mapreduce.py --map  %s" % cluster_output_file
         clust_utils.gabriel_make_qsub_job_files(output_dir, cmd)
-
 
     # Directory
     INPUT_DATSETS_DIR = "/neurospin/brainomics/2014_bd_dwi/datasets"
     INPUT_DATA_y = os.path.join(INPUT_DATSETS_DIR, "Y.npy")
-    
+
     CONFIG_FILENAME = "config.json"
 
     #####################
@@ -232,12 +235,59 @@ if __name__ == "__main__":
     # Create config files #
     #######################
 
-    # First dataset
-    input_x = os.path.join(INPUT_DATSETS_DIR, "X.npy")
+#    # First dataset
+#    # This case is no longer interesting: it's keep here for record.
+#    input_x = os.path.join(INPUT_DATSETS_DIR, "X_nointercept.npy")
+#    input_x_desc = input_x.replace('.npy', '.txt')
+#    input_mask = os.path.join(INPUT_DATSETS_DIR, "mask.nii.gz")
+#    penalty_start = 2
+#    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_nointercept"
+#    create_mapreduce_config(input_x, input_x_desc, INPUT_DATA_y, input_mask,
+#                            resamplings, params, penalty_start,
+#                            output_dir)
+#    del input_x, input_mask, penalty_start, output_dir
+
+#    # Second dataset
+#    # This case is no longer interesting: it's keep here for record.
+#    input_x = os.path.join(INPUT_DATSETS_DIR, "X.npy")
+#    input_x_desc = input_x.replace('.npy', '.txt')
+#    input_mask = os.path.join(INPUT_DATSETS_DIR, "mask.nii.gz")
+#    penalty_start = 3
+#    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi"
+#    create_mapreduce_config(input_x, input_x_desc, INPUT_DATA_y, input_mask,
+#                            resamplings, params, penalty_start,
+#                            output_dir)
+#    del input_x, input_mask, penalty_start, output_dir
+
+    # Third dataset
+    input_x = os.path.join(INPUT_DATSETS_DIR, "X_site.npy")
+    input_x_desc = input_x.replace('.npy', '.txt')
     input_mask = os.path.join(INPUT_DATSETS_DIR, "mask.nii.gz")
-    penlaty_start = 2
-    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi"
-    create_mapreduce_config(input_x, INPUT_DATA_y, input_mask,
-                            resamplings, params, penlaty_start,
+    penalty_start = 6
+    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_site"
+    create_mapreduce_config(input_x, input_x_desc, INPUT_DATA_y, input_mask,
+                            resamplings, params, penalty_start,
                             output_dir)
-    del input_x, input_mask, penlaty_start, output_dir
+    del input_x, input_mask, penalty_start, output_dir
+
+    # Fourth dataset
+    input_x = os.path.join(INPUT_DATSETS_DIR, "X_trunc.npy")
+    input_x_desc = input_x.replace('.npy', '.txt')
+    input_mask = os.path.join(INPUT_DATSETS_DIR, "mask_trunc.nii.gz")
+    penalty_start = 6
+    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_trunc"
+    create_mapreduce_config(input_x, input_x_desc, INPUT_DATA_y, input_mask,
+                            resamplings, params, penalty_start,
+                            output_dir)
+    del input_x, input_mask, penalty_start, output_dir
+
+    # Fifth dataset
+    input_x = os.path.join(INPUT_DATSETS_DIR, "X_skel.npy")
+    input_x_desc = input_x.replace('.npy', '.txt')
+    input_mask = os.path.join(INPUT_DATSETS_DIR, "mask_skel.nii.gz")
+    penalty_start = 6
+    output_dir = "/neurospin/brainomics/2014_bd_dwi/enettv_bd_dwi_skel"
+    create_mapreduce_config(input_x, input_x_desc, INPUT_DATA_y, input_mask,
+                            resamplings, params, penalty_start,
+                            output_dir)
+    del input_x, input_mask, penalty_start, output_dir
