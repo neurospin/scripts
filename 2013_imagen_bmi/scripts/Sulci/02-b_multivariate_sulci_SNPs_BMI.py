@@ -246,8 +246,6 @@ if __name__ == "__main__":
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
                                       '02-b_multivariate_sulci_SNPs_BMI.py')
 
-    #print "user_func", user_func_filename
-
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
                   params=params, resample=cv,
