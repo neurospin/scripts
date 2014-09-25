@@ -208,9 +208,12 @@ if __name__ == "__main__":
 
     # Resamplings
     NFOLDS = 5
+    SEED = 13031981
     y = np.load(os.path.join(INPUT_DATSETS_DIR, INPUT_DATA_y))
     skf = StratifiedKFold(y.ravel(),
-                          n_folds=NFOLDS)
+                          n_folds=NFOLDS,
+                          shuffle=True,
+                          random_state=SEED)
     resamplings = [[tr.tolist(), te.tolist()] for tr,te in skf]
     resamplings.insert(0, None)  # first fold is None
 
