@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep 24 18:07:26 2014
+Created on Thu Sep 25 11:05:28 2014
 
 @author: hl237680
 
-Univariate correlation between BMI and the intercept of SNPs referenced in
-the literature as associated to the BMI and SNPs read by the Illumina
-platform on IMAGEN subjects.
+Univariate correlation between BMI and the intercept of all SNPs included in
+BMI-associated genes and SNPs read by the Illumina platform on IMAGEN subjects.
 
 INPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv"
@@ -15,10 +14,11 @@ INPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv"
     BMI of the 1.265 subjects for which we also have neuroimaging data
 
-- "/neurospin/brainomics/2013_imagen_bmi/data/BMI_associated_SNPs_measures.csv"
+- "/neurospin/brainomics/2013_imagen_bmi/data/
+    SNPs_from_BMI-associated_genes_measures.csv"
     Genetic measures on SNPs of interest, that is SNPs at the intersection
-    between BMI-associated SNPs referenced in the literature and SNPs read
-    by the Illumina platform
+    between all SNPs included in BMI-associated genes and SNPs read by the
+    Illumina platform
 
 METHOD: MUOLS
 
@@ -26,13 +26,13 @@ NB: Subcortical features and covariates are centered-scaled.
 
 OUTPUT:
 - "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
-    MULM_BMI_SNPs_after_Bonferroni_correction.txt":
-    Since we focus here on 22 SNPs, we keep the probability-values
-    p < (0.05 / 22) that meet a significance threshold of 0.05 after
+    MULM_BMI_SNPs_from_BMI_genes_after_Bonferroni_correction.txt":
+    Since we focus here on 1615 SNPs, we keep the probability-values
+    p < (0.05 / 1615) that meet a significance threshold of 0.05 after
     Bonferroni correction.
 
 - "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
-    MUOLS_BMI_SNPs_beta_values_df.csv":
+    MUOLS_SNPs_from_BMI_genes_beta_values.csv":
     Beta values from the General Linear Model run on SNPs for BMI.
 
 """
@@ -90,7 +90,7 @@ def load_sulci_SNPs_data(cache):
 
         # SNPs
         SNPs_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH,
-                                           'BMI_associated_SNPs_measures.csv'),
+                                'SNPs_from_BMI-associated_genes_measures.csv'),
                                          index_col=0)
 
         # Dataframe for picking out only clinical cofounds of non interest
@@ -155,7 +155,7 @@ def load_sulci_SNPs_data(cache):
 if __name__ == "__main__":
 
     # Set pathes
-    WD = '/neurospin/tmp/brainomics/univariate_bmi_SNPs_IMAGEN'
+    WD = '/neurospin/tmp/brainomics/univariate_bmi_all_SNPs_IMAGEN'
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -199,18 +199,18 @@ if __name__ == "__main__":
 
     # Save beta values from the GLM on sulci features as a dataframe
     beta_df.to_csv(os.path.join(OUTPUT_DIR,
-                                'MUOLS_SNPs_BMI_beta_values.csv'))
+                                'MUOLS_SNPs_from_BMI_genes_beta_values.csv'))
     print 'Dataframe containing beta values for each SNP has been saved.'
 
-    # Since we focus here on the 22 SNPs at the intersection between
-    # BMI-associated SNPs referenced in the literature and SNPs read by the
-    # Illumina platform we only keep the probability values p < (0.05 / 22)
-    # that meet a significance threshold of 0.05 after Bonferroni correction.
+    # Since we focus here on the 1615 SNPs at the intersection between all
+    # SNPs included in BMI-associated genes and SNPs read by the Illumina
+    # platform, we only keep the probability values p < (0.05 / 1615) that
+    # meet a significance threshold of 0.05 after Bonferroni correction.
     # Write results of MULM computation for each SNP in a .csv file.
     bonferroni_correction = 0.05 / (Y.shape[1])
 
     MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
-                            'MULM_SNPs_BMI_after_Bonferroni_correction.txt')
+                'MULM_BMI_SNPs_from_BMI_genes_after_Bonferroni_correction.txt')
 
     with open(MULM_after_Bonferroni_correction_file_path, 'wb') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ', quotechar=' ')
