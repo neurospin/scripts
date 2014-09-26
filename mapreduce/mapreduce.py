@@ -255,6 +255,18 @@ if __name__ == "__main__":
         print 'Required config file'
         sys.exit(os.EX_USAGE)
     config_filename = options.config
+
+    # Check that at least one mode is given
+    if not (options.map or options.reduce or options.clean):
+        print 'Require a mode (map, reduce or clean)'
+        sys.exit(1)
+    # Check that only one mode is given
+    if (options.map and options.reduce) or \
+       (options.map and options.clean) or \
+       (options.reduce and options.clean):
+           print 'Require only one mode (map, reduce or clean)'
+           sys.exit(1)
+
     ## TO DEBUG just set config_filename here
     # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
     # Read config file
@@ -373,6 +385,7 @@ if __name__ == "__main__":
         # Sort inner groups by index
         for key, group in groups.items():
                 group.sort_index(inplace=True)
+
         if options.verbose:
             print "== Groups found:"
             for key, group in groups.items():

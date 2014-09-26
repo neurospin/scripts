@@ -5,8 +5,9 @@ Created on Thu july  22 10:46:01 2014
 
 @author: christophe
 
-Extract some of clinical information and mappings those which we have an
-interest with. (variables SEX, SCANNER and AGEATMRI)
+Check the subjects for which we have the images and the clinical information.
+Extract some clinical information (SEX, SCANNER and AGEATMRI) and maps
+the categorical variables.
 """
 
 ## Build population for the project 2014_bd_dwi
@@ -20,13 +21,12 @@ from brainomics import pandas_utilities as pu
 
 
 #loading files
-BASE_PATH =  "/volatile/share/2014_bd_dwi"
+BASE_PATH = "/neurospin/brainomics/2014_bd_dwi"
 
-#BASE_PATH =  "/volatile/share/2014_bd_dwi/all_FA/nii/stats"
-
-
-INPUT_IMAGE_INDEX = os.path.join(BASE_PATH, "clinic", "image_list.txt") # file list of images in order from josselin
-INPUT_CSV_BASE = os.path.join(BASE_PATH, "clinic", "BD_clinic.csv") # clinic file from josselin
+# Ordered list of images from Josselin
+INPUT_IMAGE_INDEX = os.path.join(BASE_PATH, "clinic", "image_list.txt")
+# Clinic file from Josselin
+INPUT_CSV_BASE = os.path.join(BASE_PATH, "clinic", "BD_clinic.csv")
 OUTPUT_CSV = os.path.join(BASE_PATH, "population.csv")
 
 #OUTPUT = os.path.join(BASE_PATH, "DATA")

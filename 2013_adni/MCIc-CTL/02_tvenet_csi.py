@@ -109,7 +109,6 @@ def reducer(key, values):
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     print a, l1, l2, tv, k, beta_cor_mean
-    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     scores = OrderedDict()
     scores['a'] = a
     scores['l1'] = l1
@@ -117,7 +116,7 @@ def reducer(key, values):
     scores['tv'] = tv
     left = float(1 - tv)
     if left == 0: left = 1.
-    scores['l1l2_ratio'] = l1 / left
+    scores['l1l2_ratio'] = float(l1) / left
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
@@ -161,10 +160,6 @@ def run_all(config):
 
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi"
-    #BASE = "/neurospin/tmp/brainomics/testenettv"
-    #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-    #print "Sync data to %s/ " % os.path.dirname(WD)
-    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii")
@@ -218,9 +213,9 @@ if __name__ == "__main__":
                   penalty_start = 3,
                   map_output="5cv",
                   user_func=user_func_filename,
-                  reduce_input="5cv/*/*",
-                  reduce_group_by="5cv/.*/(.*)",
-                  reduce_output="MCIc-CTL_cs.csv")
+                  #reduce_input="rndperm/*/*",
+                  reduce_group_by="params",
+                  reduce_output="MCIc-CTL_csi.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #############################################################################

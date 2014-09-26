@@ -8,8 +8,8 @@ Created on Mon Aug 25 13:47:36 2014
 import matplotlib.pylab as plt
 
 
-def mapreduce_plot(df, column,
-                   global_pen='a', l1_ratio='l1_ratio', tv_ratio='tv_ratio'):
+def plot_lines(df, x_col, y_col, colorby_col=None,
+               splitby_col=None, color_map=None):
     """Plot a metric of mapreduce as a function of the TV ratio.
     Data are grouped by global penalty (one global penalty per figure) and by
     value of the l1 ratio (one line per figure).
@@ -20,61 +20,63 @@ def mapreduce_plot(df, column,
     ----------
     df: the dataframe containing the results.
 
-    column: name of the column to plot.
+    x_col: column name of the x-axis.
 
-    global_pen: name of the column containing global penalty or level for an
-        Index.
-        default: 'a'
+    y_col: column name of the y-axis.
 
-    l1_ratio: name of the column containing the l1 ratio or level for an Index.
-        default: 'l1_ratio'
+    colorby_col: column name that define colored lines. One line per level.
 
-    tv_ratio: name of the column containing the TV ratio or level for an Index.
-        default: 'tv_ratio'
+    splitby_col: column name that define how to split axis/figures.
+    One axis/figure per level.
 
     Returns
     -------
     handles: dictionnary of figure handles.
-        The key is the value of global_pen and the value is the figure handler.
+        The key is the value of splitby_col and the value is the figure handler.
     """
-    # pandas.DataFrame.plot don't work properly if tv_ratio is an index
+    # pandas.DataFrame.plot don't work properly if x_col is an index
     import pandas.core.common as com
-    tv_ratio_is_index = com.is_integer(tv_ratio)
+    x_col_is_index = com.is_integer(x_col)
 
     try:
         # Try to group by column name
-        fig_groups = df.groupby(global_pen)
+        fig_groups = df.groupby(splitby_col)
     except KeyError:
         try:
             # Try to group by index level
-            fig_groups = df.groupby(level=global_pen)
+            fig_groups = df.groupby(level=splitby_col)
         except:
-            raise Exception("Canno't group by global_pen.")
+            raise Exception("Cannot group by splitby_col.")
     handles = {}
-    for global_pen_val, global_pen_group in fig_groups:
+    for splitby_col_val, splitby_col_group in fig_groups:
         h = plt.figure()
-        handles[global_pen_val] = h
-        plt.suptitle(str(global_pen_val))
+        handles[splitby_col_val] = h
+        plt.suptitle(str(splitby_col_val))
         try:
             # Try to group by column name
-            line_groups = global_pen_group.groupby(l1_ratio)
+            color_groups = splitby_col_group.groupby(colorby_col)
         except KeyError:
             try:
                 # Try to group by index level
-                line_groups = global_pen_group.groupby(level=l1_ratio)
+                color_groups = splitby_col_group.groupby(level=colorby_col)
             except:
-                raise Exception("Canno't group by l1_ratio.")
-        for l1_ratio_val, l1_ratio_group in line_groups:
-            if tv_ratio_is_index:
-                name = l1_ratio_group.index.names[tv_ratio]
-                l1_ratio_group.reset_index(tv_ratio, inplace=True)
-                l1_ratio_group.plot(x=name, y=column,
-                                    label=str(l1_ratio_val))
+                raise Exception("Cannot group by colorby_col.")
+        for colorby_col_val, colorby_col_group in color_groups:
+            if x_col_is_index:
+                name = colorby_col_group.index.names[x_col]
+                colorby_col_group.reset_index(x_col, inplace=True)
+                colorby_col_group.plot(x=name, y=y_col,
+                                       label=str(colorby_col_val))
             else:
-                l1_ratio_group.sort(tv_ratio, inplace=True)
-                l1_ratio_group.plot(x=tv_ratio, y=column,
-                                    label=str(l1_ratio_val))
-            plt.xlabel('TV')
-            plt.ylabel(column)
+                colorby_col_group.sort(x_col, inplace=True)
+                if color_map is None:
+                    colorby_col_group.plot(x=x_col, y=y_col,
+                                           label=str(colorby_col_val))
+                else:
+                    colorby_col_group.plot(x=x_col, y=y_col,
+                                           label=str(colorby_col_val),
+                                           color=color_map[colorby_col_val])
+            plt.xlabel(x_col)
+            plt.ylabel(y_col)
         plt.legend()
     return handles

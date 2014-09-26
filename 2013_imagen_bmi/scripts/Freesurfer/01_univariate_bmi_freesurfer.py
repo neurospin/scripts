@@ -4,8 +4,8 @@ Created on Mon Jul 28 13:43:46 2014
 
 @author: hl237680
 
-Univariate correlation between residualized BMI and volume of subcortical
-structures (Freesurfer) on IMAGEN subjects.
+Univariate correlation between BMI and volume of subcortical structures
+(Freesurfer) on IMAGEN subjects.
 
 The resort to Freesurfer should prevent us from the artifacts that may be
 induced by the normalization step of the SPM segmentation process.

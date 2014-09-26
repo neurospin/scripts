@@ -4,8 +4,8 @@ Created on Thu Jul 31 11:50:48 2014
 
 @author: hl237680
 
-Multivariate correlation between residualized BMI and one feature of interest
-along all sulci on IMAGEN subjects:
+Multivariate correlation between BMI and one feature of interest along all
+sulci on IMAGEN subjects:
    CV using mapreduce and ElasticNet between the feature of interest and BMI.
 
 The selected sulci are particularly studied because of their robustness to
