@@ -96,7 +96,11 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
 
@@ -220,7 +224,8 @@ def reducer(key, values):
     global N_COMP
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    values = [item.load() for item in values]
+    # Avoid taking into account the fold 0
+    values = [item.load() for item in values[1:]]
 
     comp_list = [item["components"] for item in values]
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
@@ -250,8 +255,17 @@ def reducer(key, values):
     for i in range(N_COMP):
         correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
+    model = '_'.join(key.split('_')[:-3])
+    global_pen = float(key.split('_')[-3])
+    tv_ratio = float(key.split('_')[-2])
+    l1_ratio = float(key.split('_')[-1])
+
     scores = OrderedDict((
         ('key', key),
+        ('model', model),
+        ('global_pen', global_pen),
+        ('tv_ratio', tv_ratio),
+        ('l1_ratio', l1_ratio),
         ('frobenius_train', av_frobenius_train[0]),
         ('frobenius_test', av_frobenius_test[0]),
         ('correlation_0', correlation[0]),
@@ -313,6 +327,7 @@ if __name__ == "__main__":
                           shuffle=True,
                           random_state=RANDOM_STATE)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
+    resample_index.insert(0, None)  # first fold is None
 
     # Create files to synchronize with the cluster
     sync_push_filename, sync_pull_filename, CLUSTER_WD = \

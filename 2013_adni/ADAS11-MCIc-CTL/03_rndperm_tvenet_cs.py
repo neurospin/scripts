@@ -98,8 +98,6 @@ def reducer(key, values):
     # Compute sd; ie.: compute results on each folds
     print key, values[1:]
     values = [item.load() for item in values[1:]]
-    #recall_mean_std = np.std([np.mean(r2_score(
-    #    item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
@@ -108,7 +106,11 @@ def reducer(key, values):
     corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
     betas = np.hstack([item["beta"] for item in values]).T
     R = np.corrcoef(betas)
-    beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
+    R = R[np.triu_indices_from(R, 1)]
+    # Fisher z-transformation / average
+    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+    # bracktransform
+    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
     n_ite = None
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     #print a, l1, l2, tv, k, beta_cor_mean
@@ -117,15 +119,17 @@ def reducer(key, values):
     scores['l1'] = l1
     scores['l2'] = l2
     scores['tv'] = tv
-    scores['r2']= r2
+    left = float(1 - tv)
+    if left == 0: left = 1.
+    scores['l1l2_ratio'] = float(l1) / left
+    scores['r2'] = r2
     scores['corr']= corr
-    scores['beta_cor_mean'] = beta_cor_mean
+    scores['beta_r'] = str(R)
+    scores['beta_r_bar'] = r_bar
     scores['support'] = len(y_true)
     scores['n_ite'] = n_ite
     scores['key'] = key
     scores['k'] = k
-#    scores = dict(key=key, a=a, l1=l1, l2=l2, tv=tv, k=k, r2=r2, corr=corr, support=len(y_true),
-#                  n_ite=n_ite, beta_cor_mean=beta_cor_mean)
     return scores
 
 
@@ -151,10 +155,6 @@ def run_all(config):
 
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
-    #BASE = "/neurospin/tmp/brainomics/testenettv"
-    #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
-    #print "Sync data to %s/ " % os.path.dirname(WD)
-    #os.system('rsync -azvu %s %s/' % (BASE, os.path.dirname(WD)))
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii.gz")
@@ -194,8 +194,8 @@ if __name__ == "__main__":
                   penalty_start = 3,
                   map_output="rndperm",
                   user_func=user_func_filename,
-                  reduce_input="rndperm/*/*",
-                  reduce_group_by="rndperm/.*/(.*)",
+                  #reduce_input="rndperm/*/*",
+                  reduce_group_by="params",
                   reduce_output="ADAS11-MCIc-CTL_rndperm.csv")
     json.dump(config, open(os.path.join(WD, "config_rndperm.json"), "w"))
 
