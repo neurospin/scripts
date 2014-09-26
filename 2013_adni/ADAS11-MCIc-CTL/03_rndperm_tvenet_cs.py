@@ -94,10 +94,10 @@ def reducer(key, values):
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
     #import glob, mapreduce
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/rndperm/*/0.001_0.3335_0.3335_0.333_-1/")]
     # Compute sd; ie.: compute results on each folds
     print key, values[1:]
-    values = [item.load() for item in values[1:]]
+    values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
@@ -170,8 +170,14 @@ if __name__ == "__main__":
     y = np.load(INPUT_DATA_y)
     #NRNDPERMS = 3
     #y = np.arange(4)
-    rndperm = [[tr.tolist(), te.tolist()] for perm in xrange(NRNDPERMS)
-        for tr, te in KFold(n=len(y), n_folds=NFOLDS, random_state=0)]
+    if os.path.exists("config_rndperm.json"):
+        inf = open("config_rndperm.json", "r")
+        old_conf = json.load(inf)
+        rndperm = old_conf["resample"]
+        inf.close()
+    else:
+        rndperm = [[tr.tolist(), te.tolist()] for perm in xrange(NRNDPERMS)
+            for tr, te in KFold(n=len(y), n_folds=NFOLDS, random_state=0)]
     #[[i, j] for i in range(2) for j in range(3)]
     #[[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]]
     # parameters grid
