@@ -98,7 +98,12 @@ def reducer(key, values):
     corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
     betas = np.hstack([item["beta"] for item in values]).T
     R = np.corrcoef(betas)
-    beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
+    #R = np.random.uniform(size=9).reshape((3, 3))
+    R = R[np.triu_indices_from(R, 1)]
+    # Fisher z-transformation / average
+    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+    # bracktransform
+    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
     n_ite = None
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     #print a, l1, l2, tv, k, beta_cor_mean
@@ -109,7 +114,8 @@ def reducer(key, values):
     scores['tv'] = tv
     scores['r2']= r2
     scores['corr']= corr
-    scores['beta_cor_mean'] = beta_cor_mean
+    scores['beta_r'] = str(R)
+    scores['beta_r_bar'] = r_bar
     scores['support'] = len(y_true)
     scores['n_ite'] = n_ite
     scores['key'] = key

@@ -220,7 +220,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_input="5cv/*/*",
                   reduce_group_by="5cv/.*/(.*)",
-                  reduce_output="MCIc-CTL_cs.csv")
+                  reduce_output="MCIc-CTL_csi.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #############################################################################

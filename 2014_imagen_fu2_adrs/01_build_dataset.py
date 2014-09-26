@@ -30,19 +30,11 @@ BASE_PATH = "/neurospin/brainomics/2014_imagen_fu2_adrs"
 
 
 INPUT_CSV = os.path.join(BASE_PATH,          "ADRS", "population.csv")
-
-OUTPUT = os.path.join(BASE_PATH,             "ADRS")
-OUTPUT_CS = os.path.join(BASE_PATH,          "ADRS_cs")
-#OUTPUT_ATLAS = os.path.join(BASE_PATH,       "ADRS_gtvenet")
-#OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "ADRS_cs_gtvenet")
+OUTPUT = os.path.join(BASE_PATH,             "ADRS_csi")
 
 if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-if not os.path.exists(OUTPUT_CS): os.makedirs(OUTPUT_CS)
-#os.makedirs(OUTPUT_ATLAS)
-#os.makedirs(OUTPUT_CS_ATLAS)
 
 # Read input subjects
-
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
 pop['Gender_num'] = pop["Gender"].map(GENDER_MAP)
@@ -64,6 +56,16 @@ for i in xrange(n):
     y[i, 0] = cur["adrs"]
 
 shape = babel_image.get_data().shape
+np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+#############################################################################
+# resample one anat
+fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s" % \
+("/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz", 
+cur["mri_path"], 
+os.path.join(OUTPUT, "MNI152_T1_1mm_brain.nii.gz"))
+
+os.system(fsl_cmd)
 
 #############################################################################
 # Compute implicit mask
@@ -74,65 +76,87 @@ Xtot = np.vstack(images)
 np.save(os.path.join(OUTPUT, "Xtot.npy"), Xtot)
 del images
 
+shape = babel_image.get_data().shape
 #os.exit(0)
-Xtot = np.load(os.path.join(OUTPUT, "Xtot.npy"))
+#Xtot = np.load(os.path.join(OUTPUT, "Xtot.npy"))
 
-mask_implicit = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
-mask_implicit = mask.reshape(shape)
-assert mask_implicit.sum() == 730646
-mask_implicit = mask_implicit.reshape(shape)
-out_im = nibabel.Nifti1Image(mask_implicit.astype(int),
+mask_implicit_arr = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
+mask_implicit_arr = mask_implicit_arr.reshape(shape)
+assert mask_implicit_arr.sum() == 730646
+out_im = nibabel.Nifti1Image(mask_implicit_arr.astype(int),
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask_implicit.nii.gz"))
-out_im.to_filename(os.path.join(OUTPUT_CS, "mask_implicit.nii.gz"))
 
 
 #############################################################################
 # Compute atlas mask
-babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(
+mask_atlas_ima = brainomics.image_atlas.resample_atlas_harvard_oxford(
     ref=cur["mri_path"],
     output=os.path.join(OUTPUT, "mask_atlas.nii.gz"))
 
-mask_atlas = babel_mask_atlas.get_data()
-assert np.sum(mask_atlas != 0) == 638715
-mask_atlas[np.logical_not(mask_implicit)] = 0  # apply implicit mask
+mask_atlas_arr = mask_atlas_ima.get_data()
+assert np.sum(mask_atlas_arr != 0) == 638715
+mask_atlas_arr[np.logical_not(mask_implicit_arr)] = 0  # apply implicit mask
 # smooth
-mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
-assert np.sum(mask_atlas != 0) == 625897
-out_im = nibabel.Nifti1Image(mask_atlas,
+mask_atlas_arr = brainomics.image_atlas.smooth_labels(mask_atlas_arr, size=(3, 3, 3))
+assert np.sum(mask_atlas_arr != 0) == 625897
+out_im = nibabel.Nifti1Image(mask_atlas_arr,
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask_atlas.nii.gz"))
 im = nibabel.load(os.path.join(OUTPUT, "mask_atlas.nii.gz"))
-assert np.all(mask_atlas.astype(int) == im.get_data())
-shutil.copyfile(os.path.join(OUTPUT, "mask_atlas.nii.gz"), os.path.join(OUTPUT_CS, "mask_atlas.nii.gz"))
+assert np.all(mask_atlas_arr.astype(int) == im.get_data())
 
 
 #############################################################################
 # Compute mask with atlas but binarized (not group tv)
-mask_atlas_binarized = mask_atlas != 0
-assert mask_atlas_binarized.sum() == 625897
-out_im = nibabel.Nifti1Image(mask_atlas_binarized.astype("int16"),
+mask_atlas_binarized_arr = mask_atlas_arr != 0
+assert mask_atlas_binarized_arr.sum() == 625897
+out_im = nibabel.Nifti1Image(mask_atlas_binarized_arr.astype("int16"),
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask_atlas_binarized.nii.gz"))
 babel_mask = nibabel.load(os.path.join(OUTPUT, "mask_atlas_binarized.nii.gz"))
-assert np.all(mask_atlas_binarized == (babel_mask.get_data() != 0))
-shutil.copyfile(os.path.join(OUTPUT, "mask_atlas_binarized.nii.gz"), os.path.join(OUTPUT_CS, "mask_atlas_binarized.nii.gz"))
+assert np.all(mask_atlas_binarized_arr == (babel_mask.get_data() != 0))
 
 #############################################################################
 # X
-X = Xtot[:, mask_atlas_binarized.ravel()]
+X = Xtot[:, mask_atlas_binarized_arr.ravel()]
 #############################################################################
 # BASIC MULM
 from mulm import MUOLSStatsCoefficients
 muols = MUOLSStatsCoefficients()
 X_design = np.hstack([y, Z])
 muols.fit(X_design, X)
-tvals, pvals = muols.stats(X_design, X)
-p_log10 = - np.log10(pvals)
+#tvals, pvals = muols.stats(X_design, X)
+tvals, pvals, dfs = muols.stats_t_coefficients(X=X_design, Y=X, contrast=[1, 0, 0, 0], pval=True)
+
+# test the other side
+tvals2, pvals2, dfs2 = muols.stats_t_coefficients(X=X_design, Y=X, contrast=[-1, 0, 0, 0], pval=True)
+assert np.all(tvals == -tvals2)
+assert np.all((pvals>.5) == (pvals2<.5))
+assert np.allclose(1 - pvals[pvals>.5], pvals2[pvals>.5])
+assert np.sum(tvals2>3) == 180
+# End
+pvals_2side = pvals.copy()
+pvals_2side[pvals>.5] = 1 - pvals[pvals>.5]
+assert np.allclose(pvals_2side[pvals>.5], pvals2[pvals>.5])
+pvals_2side *= 2.
+
+p_log10 = - np.log10(pvals_2side)
 arr = np.zeros(shape)
-arr[mask_atlas_binarized] = p_log10[0, :]
+arr[mask_atlas_binarized_arr] = p_log10
 out_im = nibabel.Nifti1Image(arr, affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "pval_-log10_adrs.nii.gz"))
+
+arr = np.zeros(shape)
+arr[mask_atlas_binarized_arr] = tvals
+out_im = nibabel.Nifti1Image(arr, affine=babel_image.get_affine())
+out_im.to_filename(os.path.join(OUTPUT, "tstat_adrs.nii.gz"))
+
+import matplotlib.pyplot as plt
+plt.plot(y, X[:, np.argmax(tvals)], "ob")
+plt.savefig(os.path.join(OUTPUT, "gm-where-maxtval_x_adrs.svg"))
+print "Max corr", np.corrcoef(y.ravel(), X[:, np.argmax(tvals)])
+print "Min corr", np.corrcoef(y.ravel(), X[:, np.argmin(tvals)])
 
 # ROI
 # 70% Frontal Medial Cortex 25
@@ -141,51 +165,14 @@ out_im.to_filename(os.path.join(OUTPUT, "pval_-log10_adrs.nii.gz"))
 X = np.hstack([Z, X])
 assert X.shape == (242, 285986)
 n, p = X.shape
+X -= X.mean(axis=0)
+X /= X.std(axis=0)
+X[:, 0] = 1.
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 fh = open(os.path.join(OUTPUT, "X.npy").replace("npy", "txt"), "w")
 fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
-    (n, p, mask_atlas_binarized.sum()))
+    (n, p, mask_atlas_binarized_arr.sum()))
 fh.close()
 
-# Xcs
-X = Xtot[:, mask_atlas_binarized.ravel()]
-X = np.hstack([Z[:, 1:], X])
-assert X.shape == (242, 285985)
-X -= X.mean(axis=0)
-X /= X.std(axis=0)
-n, p = X.shape
-np.save(os.path.join(OUTPUT_CS, "X.npy"), X)
-fh = open(os.path.join(OUTPUT_CS, "X.npy").replace("npy", "txt"), "w")
-fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' % \
-    (n, p, mask.sum()))
-fh.close()
 
-## atlas
-#X = Xtot[:, (mask_atlas.ravel() != 0)]
-#X = np.hstack([Z, X])
-#assert X.shape == (242, 285986)
-#n, p = X.shape
-#np.save(os.path.join(OUTPUT_ATLAS, "X.npy"), X)
-#fh = open(os.path.join(OUTPUT_ATLAS, "X.npy").replace("npy", "txt"), "w")
-#fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
-#    (n, p, (mask_atlas.ravel() != 0).sum()))
-#fh.close()
-#
-## atlas cs
-#X = Xtot[:, (mask_atlas.ravel() != 0)]
-#X = np.hstack([Z[:, 1:], X])
-#assert X.shape == (242, 285985)
-#X -= X.mean(axis=0)
-#X /= X.std(axis=0)
-#n, p = X.shape
-#np.save(os.path.join(OUTPUT_CS_ATLAS, "X.npy"), X)
-#fh = open(os.path.join(OUTPUT_CS_ATLAS, "X.npy").replace("npy", "txt"), "w")
-#fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' % \
-#    (n, p, (mask_atlas.ravel() != 0).sum()))
-#fh.close()
-
-np.save(os.path.join(OUTPUT, "y.npy"), y)
-np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
-#np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
-#np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)
 
