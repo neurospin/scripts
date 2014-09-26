@@ -355,7 +355,7 @@ if __name__ == "__main__":
 
     if options.clean:
         for i in xrange(len(jobs)):
-            output_collector = jobs.iloc[i][_OUTPUT_COLLECTOR]
+            output_collector = jobs.ix[i][_OUTPUT_COLLECTOR]
             output_collector.clean()
 
     # =======================================================================
