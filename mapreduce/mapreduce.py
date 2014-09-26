@@ -313,7 +313,7 @@ if __name__ == "__main__":
         resamples_file_cur = resample_nb_cur = None
         data_cur = None
         workers = list()
-        for i in xrange(len(jobs)):
+        for i, job in jobs.iterrows():
             # see if we can create a worker
             while len(workers) == options.ncore:
                 # We use a copy of workers to iterate because
@@ -327,7 +327,7 @@ if __name__ == "__main__":
                         if options.verbose:
                             print "Joined:", str(p)
                 time.sleep(1)
-            job = jobs.loc[i]
+            #job = jobs.loc[i]
             try:
                 os.makedirs(job[_OUTPUT])
             except:
@@ -354,8 +354,8 @@ if __name__ == "__main__":
                 print "Joined:", str(p)
 
     if options.clean:
-        for i in xrange(len(jobs)):
-            output_collector = jobs.ix[i][_OUTPUT_COLLECTOR]
+        for i, job in jobs.iterrows():
+            output_collector = job[_OUTPUT_COLLECTOR]
             output_collector.clean()
 
     # =======================================================================
