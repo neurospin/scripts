@@ -21,13 +21,18 @@ INPUT:
 
 OUTPUT:
 - '/neurospin/brainomics/2013_imagen_bmi/data/fMRI_GCA_motor_left/
+    subjects_id_left_motor_fMRI.csv'
+    List of subjects ID for whom we have both left motor fMRI tasks and
+    sulci data
+- '/neurospin/brainomics/2013_imagen_bmi/data/fMRI_GCA_motor_left/
     GCA_motor_left_images.npy'
-    unfolded fMRI images for left motor tasks saved in an array-like format
+    Unfolded fMRI images for left motor tasks saved in an array-like format
 
 """
 
 import os
 import numpy as np
+import pandas as pd
 import nibabel as ni
 from glob import glob
 
@@ -64,6 +69,7 @@ if __name__ == "__main__":
     # fMRI images of left motor tasks
     # (directly picked up from the IMAGEN database)
     fMRI_left_PATH_list = []
+    fMRI_subjects_list = []
     for i, subject in enumerate(subjects_id_list):
         for file in glob(os.path.join(IMAGEN_PATH,
                                       subject,
@@ -72,10 +78,21 @@ if __name__ == "__main__":
                                       'swea',
                                       'con_0005.nii.gz')):
             fMRI_left_PATH_list.append(file)
+            fMRI_subjects_list.append(
+            file[len(IMAGEN_PATH):-len(
+            '/SessionA/EPI_global/swea/con_0005.nii.gz')])
 
     nb_images = len(fMRI_left_PATH_list)
     print "Found", nb_images, "images."
 
+    # Save list of subjects ID for whom we have both left motor fMRI tasks
+    # and sulci data as a .csv file
+    subjects_in_study = pd.DataFrame.to_csv(pd.DataFrame
+                                                (fMRI_subjects_list,
+                                                 columns=['subject_id']),
+                                        os.path.join(OUTPUT_DIR,
+                                            'subjects_id_left_motor_fMRI.csv'),
+                                        index=False)
     # Read images in 4D volume
     images = None
     for i, filename in enumerate(fMRI_left_PATH_list):
