@@ -47,8 +47,8 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
-    # load return dict correspondning to mapper ouput. they need to be loaded.
-    return dict(param=key)
+    # load return dict corresponding to mapper ouput. they need to be loaded.
+    return dict()
 
 
 if __name__ == "__main__":
@@ -62,8 +62,6 @@ if __name__ == "__main__":
                   resample=[[0]],
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
