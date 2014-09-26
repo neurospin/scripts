@@ -49,7 +49,6 @@ def reducer(key, values):
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
-    d['param'] = key
     d['r2'] = r2_score(y_true, y_pred)
     return d
 
@@ -81,8 +80,7 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/(.*)/.*",
+                  reduce_group_by="resample_index",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -113,10 +111,10 @@ if __name__ == "__main__":
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
         res.append([i, r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["param", "r2"])
+    true = pd.DataFrame(res, columns=["resample_index", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.param) == np.sort(mr.param))
-    m = pd.merge(true, mr, on="param", suffixes=["_true", "_mr"])
+    assert np.all(np.sort(true.resample_index) == np.sort(mr.resample_index))
+    m = pd.merge(true, mr, on="resample_index", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

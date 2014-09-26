@@ -53,7 +53,6 @@ def reducer(key, values):
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = np.mean([item["model"].algorithm.num_iter for item in values])
     scores = OrderedDict((
-        ('key', key),
         ('recall_0', r[0]),
         ('recall_1', r[1]),
         ('recall_mean', r.mean()),
@@ -108,8 +107,6 @@ if __name__ == "__main__":
                   structure='mask.nii',
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 

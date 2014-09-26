@@ -42,12 +42,11 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
-    d['param'] = key
     d['r2'] = r2_score(y_true, y_pred)
     return d
 
@@ -79,8 +78,6 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -110,11 +107,14 @@ if __name__ == "__main__":
             y_true.append(ytest)
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
-        res.append(["_".join([str(p) for p in key]), r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["param", "r2"])
+        # As we reload mapreduce results, the params will be interpreted as
+        # strings representation of tuples.
+        # Here we apply the same representation
+        res.append([str(tuple(key)), r2_score(y_true, y_pred)])
+    true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.param) == np.sort(mr.param))
-    m = pd.merge(true, mr, on="param", suffixes=["_true", "_mr"])
+    assert np.all(true.params == mr.params)
+    m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)
