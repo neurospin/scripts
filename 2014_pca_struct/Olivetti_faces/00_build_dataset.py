@@ -16,10 +16,15 @@ import numpy as np
 from sklearn.datasets import fetch_olivetti_faces
 
 OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/Olivetti_faces"
+if not os.path.exists(OUTPUT_BASE_DIR):
+    os.makedirs(OUTPUT_BASE_DIR)
+
 OUTPUT_DATASET_FILE = os.path.join(OUTPUT_BASE_DIR,
                                    "X.npy")
 OUTPUT_TARGET_FILE = os.path.join(OUTPUT_BASE_DIR,
                                   "y.npy")
+OUTPUT_IMAGE_FILE = os.path.join(OUTPUT_BASE_DIR,
+                                 "example.png")
 
 ###############################################################################
 # Load faces data
@@ -80,4 +85,5 @@ plt.title('Local centering')
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
 fig.colorbar(im, cax=cbar_ax)
+fig.savefig(OUTPUT_IMAGE_FILE)
 fig.show()
