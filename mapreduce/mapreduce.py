@@ -139,7 +139,7 @@ class OutputCollector:
 
     def clean(self):
         if os.path.exists(self.output_dir) \
-            and len(os.listdir(self.output_dir)) == 0:
+            and (len(os.listdir(self.output_dir)) == 0):
             print "clean", self.output_dir
             os.rmdir(self.output_dir)
 
