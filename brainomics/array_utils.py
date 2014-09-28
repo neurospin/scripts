@@ -53,3 +53,4 @@ def arr_threshold_from_norm2_ratio(v, ratio=.99):
     v_t = v.copy()
     v_t[np.abs(v) < t] = 0
     return v_t, t
+
