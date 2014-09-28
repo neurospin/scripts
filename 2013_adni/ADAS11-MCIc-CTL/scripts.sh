@@ -44,3 +44,23 @@ ln -s beta_0.001_0.5_0.5_0.0_-1.0.nii_clusters_values.nii.gz clusters.nii.gz
 mv clusters.mesh clusters.mesh-
 ln -s beta_0.001_0.5_0.5_0.0_-1.0.nii_clusters.gii clusters.mesh
 
+
+################################################################################
+# Start by running Locally with 2 cores, to check that everything os OK)
+Interrupt after a while CTL-C
+mapreduce.py --map /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/config_rndperm.json --ncore 2
+# 1) Log on gabriel:
+ssh -t gabriel.intra.cea.fr
+# 2) Run one Job to test
+qsub -I
+cd /neurospin/tmp/ed203246/ADAS11-MCIc-CTL
+./job_Global_long.pbs
+# 3) Run on cluster
+qsub job_Global_long.pbs
+# 4) Log out and pull Pull
+exit
+/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/sync_pull.sh
+# Reduce
+mapreduce.py --reduce /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/config_rndperm.json
+
+
