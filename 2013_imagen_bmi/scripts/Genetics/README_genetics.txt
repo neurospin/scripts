@@ -1,6 +1,6 @@
 #############################################################################
 
-IMAGEN1265_SNPs_measurements.py:
+00-a_IMAGEN1265_SNPs_measurements.py:
 
 This script generates a .csv file containing the genotype of IMAGEN subjects
 for whom we have both neuroimaging and genetic data regarding SNPs of interest
@@ -34,7 +34,7 @@ OUTPUT:
 
 #############################################################################
 
-all_SNPs_included_in_BMI_genes_measurements.py:
+00-b_all_SNPs_included_in_BMI_genes_measurements.py:
 
 This script generates a .csv file containing the genotype of IMAGEN subjects
 for whom we have both neuroimaging and genetic data regarding SNPs of interest
@@ -64,5 +64,75 @@ OUTPUT:
 - Genetic measures on SNPs of interest
     "/neurospin/brainomics/2013_imagen_bmi/data/
     BMI_associated_all_SNPs_measures.csv"
+
+#############################################################################
+
+01-a_univariate_SNPs_BMI.py:
+
+Univariate correlation between BMI and the intercept of SNPs referenced in
+the literature as associated to the BMI and SNPs read by the Illumina
+platform on IMAGEN subjects.
+
+INPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv"
+    useful clinical data
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv"
+    BMI of the 1.265 subjects for which we also have neuroimaging data
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/BMI_associated_SNPs_measures.csv"
+    Genetic measures on SNPs of interest, that is SNPs at the intersection
+    between BMI-associated SNPs referenced in the literature and SNPs read
+    by the Illumina platform
+
+METHOD: MUOLS
+
+NB: Subcortical features and covariates are centered-scaled.
+
+OUTPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
+    MULM_BMI_SNPs_after_Bonferroni_correction.txt":
+    Since we focus here on 22 SNPs, we keep the probability-values
+    p < (0.05 / 22) that meet a significance threshold of 0.05 after
+    Bonferroni correction.
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
+    MUOLS_BMI_SNPs_beta_values_df.csv":
+    Beta values from the General Linear Model run on SNPs for BMI.
+
+#############################################################################
+
+01-b_univariate_SNPs_from_BMI_genes_BMI.py:
+
+Univariate correlation between BMI and the intercept of all SNPs included in
+BMI-associated genes and SNPs read by the Illumina platform on IMAGEN subjects.
+
+INPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv"
+    useful clinical data
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv"
+    BMI of the 1.265 subjects for which we also have neuroimaging data
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/
+    SNPs_from_BMI-associated_genes_measures.csv"
+    Genetic measures on SNPs of interest, that is SNPs at the intersection
+    between all SNPs included in BMI-associated genes and SNPs read by the
+    Illumina platform
+
+METHOD: MUOLS
+
+NB: Subcortical features and covariates are centered-scaled.
+
+OUTPUT:
+- "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
+    MULM_BMI_SNPs_from_BMI_genes_after_Bonferroni_correction.txt":
+    Since we focus here on 1615 SNPs, we keep the probability-values
+    p < (0.05 / 1615) that meet a significance threshold of 0.05 after
+    Bonferroni correction.
+
+- "/neurospin/brainomics/2013_imagen_bmi/data/genetics/Results/
+    MUOLS_SNPs_from_BMI_genes_beta_values.csv":
+    Beta values from the General Linear Model run on SNPs for BMI.
 
 #############################################################################
