@@ -15,6 +15,8 @@ from sklearn.metrics import r2_score
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LinearRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
+from brainomics import array_utils
+from statsmodels.stats.inter_rater import fleiss_kappa
 
 
 def load_globals(config):
@@ -95,12 +97,38 @@ def reducer(key, values):
     r2 = r2_score(y_true, y_pred)
     corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
     betas = np.hstack([item["beta"] for item in values]).T
+
+    ## Compute beta similarity measures
+
+    # Correlation
     R = np.corrcoef(betas)
     R = R[np.triu_indices_from(R, 1)]
     # Fisher z-transformation / average
     z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
     # bracktransform
     r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+
+    # threshold betas to compute fleiss_kappa and DICE
+    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+    assert np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) /
+                np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5)
+
+    # Compute fleiss kappa statistics
+    beta_signed = np.sign(betas_t)
+    table = np.zeros((beta_signed.shape[1], 3))
+    table[:, 0] = np.sum(beta_signed == 0, 0)
+    table[:, 1] = np.sum(beta_signed == 1, 0)
+    table[:, 2] = np.sum(beta_signed == -1, 0)
+    fleiss_kappa_stat = fleiss_kappa(table)
+
+    # Paire-wise Dice coeficient
+    beta_n0 = betas_t != 0
+    ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
+    [[idx[0], idx[1]] for idx in ij]
+    dice_bar = np.mean([float(np.sum(beta_n0[idx[0], :] == beta_n0[idx[1], :])) /\
+         (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
+         for idx in ij])
+
     n_ite = None
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     #print a, l1, l2, tv, k, beta_cor_mean
@@ -116,6 +144,8 @@ def reducer(key, values):
     scores['corr']= corr
     scores['beta_r'] = str(R)
     scores['beta_r_bar'] = r_bar
+    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+    scores['beta_dice_bar'] = dice_bar
     scores['support'] = len(y_true)
     scores['n_ite'] = n_ite
     scores['key'] = key
