@@ -207,7 +207,10 @@ if __name__ == "__main__":
     # platform, we only keep the probability values p < (0.05 / 1615) that
     # meet a significance threshold of 0.05 after Bonferroni correction.
     # Write results of MULM computation for each SNP in a .csv file.
-    bonferroni_correction = 0.05 / (Y.shape[1])
+#    bonferroni_correction = 0.05 / (Y.shape[1])
+
+    # Since the Bonferroni correction is to 'hard'
+    bonferroni_correction = 0.0005
 
     MULM_after_Bonferroni_correction_file_path = os.path.join(OUTPUT_DIR,
                 'MULM_BMI_SNPs_from_BMI_genes_after_Bonferroni_correction.txt')
