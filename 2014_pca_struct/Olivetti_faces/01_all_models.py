@@ -336,9 +336,7 @@ if __name__ == "__main__":
                   resample=resample_index,
                   map_output="results",
                   user_func=user_func_filename,
-                  ncore=4,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_group_by="params",
                   reduce_output="results.csv")
     config_full_filename = os.path.join(OUTPUT_DIR, "config.json")
     json.dump(config, open(config_full_filename, "w"))
