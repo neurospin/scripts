@@ -255,17 +255,11 @@ def reducer(key, values):
     for i in range(N_COMP):
         correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
-    model = '_'.join(key.split('_')[:-3])
-    global_pen = float(key.split('_')[-3])
-    tv_ratio = float(key.split('_')[-2])
-    l1_ratio = float(key.split('_')[-1])
-
     scores = OrderedDict((
-        ('key', key),
-        ('model', model),
-        ('global_pen', global_pen),
-        ('tv_ratio', tv_ratio),
-        ('l1_ratio', l1_ratio),
+        ('model', key[0]),
+        ('global_pen', key[1]),
+        ('tv_ratio', key[2]),
+        ('l1_ratio', key[3]),
         ('frobenius_train', av_frobenius_train[0]),
         ('frobenius_test', av_frobenius_test[0]),
         ('correlation_0', correlation[0]),
