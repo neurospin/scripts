@@ -106,6 +106,9 @@ def load_left_motor_fMRI_SNPs_data(cache):
         masked_images = np.load(os.path.join(GCA_motor_left_PATH,
                                              'GCA_motor_left_images.npy'))
 
+        # Remove NaN values from masked images
+        masked_images = masked_images[~np.isnan(masked_images)]
+
         # List of all subjects who had an fMRI examination
         fMRI_subjects = pd.io.parsers.read_csv(
                                 os.path.join(GCA_motor_left_PATH,
