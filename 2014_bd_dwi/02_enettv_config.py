@@ -113,7 +113,11 @@ def reducer(key, values):
     auc = roc_auc_score(y_true, y_post) #area under curve score.
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     scores = OrderedDict()
-    scores['key'] = key
+    scores['alpha'] = key[0]
+    scores['l1'] = key[1]
+    scores['l2'] = key[2]
+    scores['tv'] = key[3]
+    scores['k'] = key[4]
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
@@ -182,8 +186,7 @@ if __name__ == "__main__":
                                 penalty_start=penalty_start,
                                 map_output="results",
                                 user_func=user_func_filename,
-                                reduce_input="results/*/*",
-                                reduce_group_by="results/.*/(.*)",
+                                reduce_group_by="param",
                                 reduce_output="results.csv")
         config_full_filename = os.path.join(output_dir, CONFIG_FILENAME)
         json.dump(config, open(config_full_filename, "w"))
