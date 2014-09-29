@@ -186,7 +186,7 @@ if __name__ == "__main__":
                                 penalty_start=penalty_start,
                                 map_output="results",
                                 user_func=user_func_filename,
-                                reduce_group_by="param",
+                                reduce_group_by="params",
                                 reduce_output="results.csv")
         config_full_filename = os.path.join(output_dir, CONFIG_FILENAME)
         json.dump(config, open(config_full_filename, "w"))
