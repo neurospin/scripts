@@ -252,20 +252,20 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     if not options.config:
-        print 'Required config file'
+        print >> sys.stderr, 'Required config file'
         sys.exit(os.EX_USAGE)
     config_filename = options.config
 
     # Check that at least one mode is given
     if not (options.map or options.reduce or options.clean):
-        print 'Require a mode (map, reduce or clean)'
-        sys.exit(1)
+        print >> sys.stderr, 'Require a mode (map, reduce or clean)'
+        sys.exit(os.EX_USAGE)
     # Check that only one mode is given
     if (options.map and options.reduce) or \
        (options.map and options.clean) or \
        (options.reduce and options.clean):
-           print 'Require only one mode (map, reduce or clean)'
-           sys.exit(1)
+           print >> sys.stderr, 'Require only one mode (map, reduce or clean)'
+           sys.exit(os.EX_USAGE)
 
     ## TO DEBUG just set config_filename here
     # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
@@ -282,14 +282,14 @@ if __name__ == "__main__":
     #== Check config file                                                   ==
     #=========================================================================
     if "user_func" not in config:
-        print 'Attribute "user_func" is required'
+        print >> sys.stderr, 'Attribute "user_func" is required'
         sys.exit(os.EX_CONFIG)
     user_func = _import_user_func(config["user_func"])
 
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
     if config["reduce_group_by"] not in GROUP_BY_VALUES:
-        print 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
+        print >> sys.stderr, 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
         sys.exit(os.EX_CONFIG)
 
     # =======================================================================
@@ -305,7 +305,7 @@ if __name__ == "__main__":
         try:
             user_func.load_globals(config)
         except:
-            print "Canno't load data"
+            print >> sys.stderr, "Can not load data"
             sys.exit(os.EX_DATAERR)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
@@ -422,7 +422,7 @@ if __name__ == "__main__":
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
         if scores_tab is None:
-            print "All reducers failed. Nothing saved."
+            print >> sys.stderr, "All reducers failed. Nothing saved."
             sys.exit(os.EX_SOFTWARE)
         # Add a columns of glob expressions
         if config["reduce_group_by"] == _PARAMS:
