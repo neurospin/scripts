@@ -378,7 +378,8 @@ if __name__ == "__main__":
         # we pass sort=False.
         grouped = jobs.groupby(config["reduce_group_by"], sort=False)
         # Copy the groups in a dictionnary with the same keys than the GroupBy
-        # object and the same order. This is needed to sort the groups.
+        # object and the same order. This is needed to sort the groups only
+        # once.
         groups = OrderedDict(iter(grouped))
         n_groups = len(groups)
         ordered_keys = groups.keys()
