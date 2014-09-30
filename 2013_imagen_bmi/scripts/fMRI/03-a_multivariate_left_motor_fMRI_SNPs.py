@@ -104,7 +104,7 @@ def reducer(key, values):
     values = [item.load() for item in values]
     z_true = np.concatenate([item['z_true'].ravel() for item in values])
     z_pred = np.concatenate([item['z_pred'].ravel() for item in values])
-    scores = dict(param=key, r2=r2_score(z_true, z_pred))
+    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
     return scores
 
 
@@ -236,8 +236,7 @@ if __name__ == "__main__":
                   structure='',
                   map_output='results',
                   user_func=user_func_filename,
-                  reduce_input='results/*/*',
-                  reduce_group_by='results/.*/(.*)',
+                  reduce_group_by='params',
                   reduce_output='results_left_motor_fMRI_SNPs_assoc.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
