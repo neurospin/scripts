@@ -75,7 +75,7 @@ if __name__ == "__main__":
                                       subject,
                                       'Session*',
                                       'EPI_global',
-                                      'swea',
+                                      'swea_mvtroi',
                                       'con_0005.nii.gz')):
             fMRI_right_PATH_list.append(file)
             fMRI_subjects_list.append(

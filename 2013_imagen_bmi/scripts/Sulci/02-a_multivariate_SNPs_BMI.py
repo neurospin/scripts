@@ -1,30 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 25 17:36:00 2014
+Created on Tue Sep 30 17:28:36 2014
 
 @author: hl237680
 
-Multivariate association analysis between left motor tasks fMRI and SNPs at
-the intersection between BMI-associated SNPs referenced in the literature
-and SNPs read by the Illumina platform.
+Multivariate correlation between BMI and SNPs both known to be associated to
+the BMI and read by the Illumina chip along sulci on IMAGEN subjects:
+   CV using mapreduce and ElasticNet between the features of interest and BMI.
 
 INPUT:
-- '/neurospin/brainomics/2013_imagen_bmi/data/clinic/population.csv'
-    useful clinical data
-
-- '/neurospin/brainomics/2013_imagen_bmi/data/fMRI_GCA_motor_left/
-    subjects_id_left_motor_fMRI.csv'
-    List of subjects ID for whom we have both motor left fMRI tasks and
-    sulci data
-
 - '/neurospin/brainomics/2013_imagen_bmi/data/BMI_associated_SNPs_measures.csv'
     Genetic measures on SNPs of interest, that is SNPs at the intersection
     between BMI-associated SNPs referenced in the literature and SNPs read
     by the Illumina platform
 
-- '/neurospin/brainomics/2013_imagen_bmi/data/fMRI_GCA_motor_left/
-    GCA_motor_left_images.npy'
-    unfolded fMRI images for left motor tasks saved in an array-like format
+- '/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv'
+    BMI of the 1.265 subjects for which we also have neuroimaging data
 
 METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         maximizes the correlation between predicted BMI values via the Linear
@@ -32,14 +23,13 @@ METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
         cross validation.
 --NB: Computation involves to send jobs to Gabriel.--
 
-NB: Covariates are centered-scaled.
+NB: BMI and covariates are centered-scaled.
 
 OUTPUT:
 - the Mapper returns predicted and true values of BMI, model estimators.
 - the Reducer returns R2 scores between prediction and true values.
 
 """
-
 
 import os
 import sys
@@ -83,9 +73,9 @@ def mapper(key, output_collector):
     alpha, l1_ratio = key[0], key[1]
     Xtr = GLOBAL.DATA_RESAMPLED['X'][0]
     Xte = GLOBAL.DATA_RESAMPLED['X'][1]
-    Ytr = GLOBAL.DATA_RESAMPLED['Y'][0]
-    Yte = GLOBAL.DATA_RESAMPLED['Y'][1]
-    print key, "Data shape:", Xtr.shape, Xte.shape, Ytr.shape, Yte.shape
+    ztr = GLOBAL.DATA_RESAMPLED['z'][0]
+    zte = GLOBAL.DATA_RESAMPLED['z'][1]
+    print key, "Data shape:", Xtr.shape, Xte.shape, ztr.shape, zte.shape
     # penalty_start since we residualized BMI with 2 categorical covariables
     # (Gender and ImagingCentreCity - 8 columns) and 2 ordinal variables
     # (tiv_gaser and mean_pds - 2 columns)
@@ -94,8 +84,8 @@ def mapper(key, output_collector):
                                 alpha,
                                 penalty_start=penalty_start,
                                 mean=True)
-    Y_pred = mod.fit(Xtr, Ytr).predict(Xte)
-    ret = dict(Y_pred=Y_pred, z_true=Yte, beta=mod.beta)
+    z_pred = mod.fit(Xtr, ztr).predict(Xte)
+    ret = dict(z_pred=z_pred, z_true=zte, beta=mod.beta)
     output_collector.collect(key, ret)
 
 
@@ -111,9 +101,25 @@ def reducer(key, values):
 #############
 # Read data #
 #############
-# Load data on left motor tasks fMRI and SNPs
-def load_fMRI_SNPs_bmi_data(cache):
+# Load data on BMI and SNPs
+def load_SNPs_bmi_data(cache):
     if not(cache):
+        # BMI
+        BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
+                                     sep=',',
+                                     index_col=0)
+
+        # Sulci maximal depth
+        sulci_depthMax_df = pd.io.parsers.read_csv(os.path.join(QC_PATH,
+                                                    'sulci_depthMax_df.csv'),
+                                                   sep=',',
+                                                   index_col=0)
+
+        # SNPs
+        SNPs_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH,
+                                          'BMI_associated_SNPs_measures.csv'),
+                                         index_col=0)
+
         # Dataframe for picking out only clinical cofounds of non interest
         clinical_df = pd.io.parsers.read_csv(os.path.join(CLINIC_DATA_PATH,
                                                           'population.csv'),
@@ -127,31 +133,17 @@ def load_fMRI_SNPs_bmi_data(cache):
 
         clinical_df = clinical_df[clinical_cofounds]
 
-        # SNPs
-        SNPs_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH,
-                                          'BMI_associated_SNPs_measures.csv'),
-                                         index_col=0)
-
-        # fMRI left motor tasks
-        masked_images = np.load(os.path.join(GCA_motor_left_PATH,
-                                             'GCA_motor_left_images.npy'))
-
-        # List of all subjects who had an fMRI examination
-        fMRI_subjects = pd.io.parsers.read_csv(
-                                os.path.join(GCA_motor_left_PATH,
-                                            'subjects_id_left_motor_fMRI.csv'),
-                                index_col=0)
-
-        # Get the intersept of indices of subjects for whom we have both
-        # genetic data and fMRI examination
+        # Get the intersept of indices of subjects for whom we have
+        # neuroimaging and genetic data, but also robustly segmented sulci
         subjects_intercept = np.intersect1d(SNPs_df.index.values,
-                                            fMRI_subjects.index.values)
+                                            BMI_df.index.values)
         subjects_id = np.intersect1d(subjects_intercept,
-                                     clinical_df.index.values).tolist()
+                                     sulci_depthMax_df.index.values)
 
-        # Keep only subjects for whom we have both genetic data and fMRI
-        # examination
+        # Keep only subjects for which we have ALL data (neuroimaging,
+        # genetic data and sulci features)
         clinical_data = clinical_df.loc[subjects_id]
+        BMI = BMI_df.loc[subjects_id]
         SNPs = SNPs_df.loc[subjects_id]
 
         # Conversion dummy coding
@@ -163,6 +155,9 @@ def load_fMRI_SNPs_bmi_data(cache):
         skl = StandardScaler()
         cov = skl.fit_transform(cov)
 
+        # Center & scale BMI
+        BMI = skl.fit_transform(BMI)
+
         # Constant regressor to mimick the fit intercept
         constant_regressor = np.ones((SNPs.shape[0], 1))
 
@@ -170,17 +165,17 @@ def load_fMRI_SNPs_bmi_data(cache):
         design_mat = np.hstack((cov, constant_regressor, SNPs))
 
         X = design_mat
-        Y = masked_images
+        z = BMI
 
         np.save(os.path.join(SHARED_DIR, 'X.npy'), X)
-        np.save(os.path.join(SHARED_DIR, 'Y.npy'), Y)
+        np.save(os.path.join(SHARED_DIR, 'z.npy'), z)
 
         print 'Data saved.'
     else:
         X = np.load(os.path.join(SHARED_DIR, 'X.npy'))
-        Y = np.load(os.path.join(SHARED_DIR, 'Y.npy'))
+        z = np.load(os.path.join(SHARED_DIR, 'z.npy'))
         print 'Data read from cache.'
-    return X, Y
+    return X, z
 
 
 #"""#
@@ -189,7 +184,7 @@ def load_fMRI_SNPs_bmi_data(cache):
 if __name__ == "__main__":
 
     # Set pathes
-    WD = '/neurospin/tmp/brainomics/multivariate_left_motor_fMRI_assoc_SNPs'
+    WD = '/neurospin/tmp/brainomics/multivariate_bmi_SNPs_assoc'
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -201,19 +196,21 @@ if __name__ == "__main__":
     BASE_PATH = '/neurospin/brainomics/2013_imagen_bmi/'
     DATA_PATH = os.path.join(BASE_PATH, 'data')
     CLINIC_DATA_PATH = os.path.join(DATA_PATH, 'clinic')
-    GCA_motor_left_PATH = os.path.join(DATA_PATH, 'GCA_motor_left')
+    BMI_FILE = os.path.join(DATA_PATH, 'BMI.csv')
+    SULCI_PATH = os.path.join(DATA_PATH, 'Imagen_mainSulcalMorphometry')
+    FULL_SULCI_PATH = os.path.join(SULCI_PATH, 'full_sulci')
+    QC_PATH = os.path.join(FULL_SULCI_PATH, 'Quality_control')
 
     # Shared data
     BASE_SHARED_DIR = '/neurospin/tmp/brainomics/'
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR,
-                              'left_motor_fMRI_SNPs_assoc_cache')
+    SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'BMI_SNPs_assoc_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
-    X, Y = load_fMRI_SNPs_bmi_data(cache=False)
+    X, z = load_SNPs_bmi_data(cache=False)
     n, p = X.shape
     np.save(os.path.join(WD, 'X.npy'), X)
-    np.save(os.path.join(WD, 'Y.npy'), Y)
+    np.save(os.path.join(WD, 'z.npy'), z)
 
     print "#####################"
     print "# Build config file #"
@@ -225,19 +222,18 @@ if __name__ == "__main__":
     params = ([[alpha, l1_ratio] for alpha in [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 10]
                for l1_ratio in np.arange(0.1, 1., .1)])
 
-    user_func_filename = os.path.join(
-                                  '/home/hl237680', 'gits', 'scripts',
-                                  '2013_imagen_bmi', 'scripts', 'Sulci',
-                                  '03-a_multivariate_left_motor_fMRI_SNPs.py')
+    user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
+                                      '2013_imagen_bmi', 'scripts', 'Sulci',
+                                      '02-a_multivariate_SNPs_BMI.py')
 
     # Use relative path from config.json
-    config = dict(data=dict(X='X.npy', Y='Y.npy'),
+    config = dict(data=dict(X='X.npy', z='z.npy'),
                   params=params, resample=cv,
                   structure='',
                   map_output='results',
                   user_func=user_func_filename,
                   reduce_group_by='params',
-                  reduce_output='results_left_motor_fMRI_SNPs_assoc.csv')
+                  reduce_output='results_BMI_SNPs_assoc.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
