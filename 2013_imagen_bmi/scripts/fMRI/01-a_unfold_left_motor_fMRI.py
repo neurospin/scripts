@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     # Check extraction
     mask_indexes = np.where(bin_mask)
-    vox_to_check = [0, n_voxels_in_mask - 1] + range(2014, 5000)
+    vox_to_check = np.random.randint(0, n_voxels_in_mask - 1, size=(100))
     for i in range(nb_images):
         for j in vox_to_check:
             a = masked_images[i, j]
