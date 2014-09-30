@@ -305,7 +305,7 @@ if __name__ == "__main__":
         try:
             user_func.load_globals(config)
         except:
-            print >> sys.stderr, "Can not load data"
+            print "Cannot load data"
             sys.exit(os.EX_DATAERR)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
@@ -395,31 +395,31 @@ if __name__ == "__main__":
         # Do the reduce
         scores_tab = None  # Dict of all the results
         for k in groups:
-            try:
-                output_collectors = groups[k][_OUTPUT_COLLECTOR]
-                # Results for this key
-                scores = user_func.reducer(key=k, values=output_collectors)
-                # Create df on first valid reducer (we canno't do it before
-                # because we don't have the columns).
-                # The keys are the keys of the GroupBy object.
-                # As we use a df, previous failed reducers (if any) will be
-                # empty. Similarly future failed reducers (if any) will be
-                # empty.
-                if scores_tab is None:
-                    index = pd.Index(ordered_keys,
-                                     name=config["reduce_group_by"])
-                    scores_tab = pd.DataFrame(index=index,
-                                              columns=scores.keys())
-                # Append those results to scores
-                # scores_tab.loc[k] don't work because as k is a tuple
-                # it's interpreted as several index.
-                # Therefore we use scores_tab.loc[k,].
-                # Integer based access (scores_tab.iloc[i]) would work too.
-                scores_tab.loc[k,] = scores.values()
-            except Exception, e:
+            #try:
+            output_collectors = groups[k][_OUTPUT_COLLECTOR]
+            # Results for this key
+            scores = user_func.reducer(key=k, values=output_collectors)
+            # Create df on first valid reducer (we canno't do it before
+            # because we don't have the columns).
+            # The keys are the keys of the GroupBy object.
+            # As we use a df, previous failed reducers (if any) will be
+            # empty. Similarly future failed reducers (if any) will be
+            # empty.
+            if scores_tab is None:
+                index = pd.Index(ordered_keys,
+                                 name=config["reduce_group_by"])
+                scores_tab = pd.DataFrame(index=index,
+                                          columns=scores.keys())
+            # Append those results to scores
+            # scores_tab.loc[k] don't work because as k is a tuple
+            # it's interpreted as several index.
+            # Therefore we use scores_tab.loc[k,].
+            # Integer based access (scores_tab.iloc[i]) would work too.
+            scores_tab.loc[k,] = scores.values()
+#            except Exception, e:
 #                pass
-                print "Reducer failed in {key}".format(key=k), groups[k]
-                print "Exception:", e
+#                print "Reducer failed in {key}".format(key=k), "\n", groups[k]
+#                print "Exception:", e
 #        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
 #        print p.get_open_files()
         if scores_tab is None:
