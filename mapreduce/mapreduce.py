@@ -425,23 +425,6 @@ if __name__ == "__main__":
         if scores_tab is None:
             print >> sys.stderr, "All reducers failed. Nothing saved."
             sys.exit(os.EX_SOFTWARE)
-        # Add a columns of glob expressions
-        if config["reduce_group_by"] == _PARAMS:
-            globs = [os.path.join(config["map_output"],
-                                  '*',
-                                  param_sep.join([str(p) for p in params]))
-                                  for params in scores_tab.index]
-        else:
-            globs = [os.path.join(config["map_output"],
-                                  str(resample),
-                                  '*')
-                                  for resample in scores_tab.index]
-        globs_df = pd.DataFrame(globs,
-                                columns=['glob'],
-                                 index=index)
-        scores_tab = scores_tab.merge(globs_df,
-                                      left_index=True,
-                                      right_index=True)
         if "reduce_output" in config:
             print "Save results into: %s" % config["reduce_output"]
             scores_tab.to_csv(config["reduce_output"], index=True)
