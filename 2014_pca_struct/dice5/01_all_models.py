@@ -49,7 +49,7 @@ INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 
 INPUT_SHAPE = (100, 100, 1)
 INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.5, 1.0]
+INPUT_SNRS = [0.1, 0.2, 0.5, 1.0]
 
 OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
@@ -102,9 +102,14 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
-
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...]
+                                 for idx in resample]
+                                 for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k]
+                                 for idx in [0, 1]]
+                                 for k in GLOBAL.DATA}
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables:
@@ -235,7 +240,8 @@ def reducer(key, values):
     global N_COMP
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    values = [item.load() for item in values]
+    # Avoid taking into account the fold 0
+    values = [item.load() for item in values[1:]]
 
     comp_list = [item["components"] for item in values]
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
@@ -272,7 +278,10 @@ def reducer(key, values):
         correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
 
     scores = OrderedDict((
-        ('key', key),
+        ('model', key[0]),
+        ('global_pen', key[1]),
+        ('tv_ratio', key[2]),
+        ('l1_ratio', key[3]),
         ('frobenius_train', av_frobenius_train[0]),
         ('frobenius_test', av_frobenius_test[0]),
         ('recall_0', av_recall[0]),
@@ -344,6 +353,8 @@ if __name__ == '__main__':
             full_filename = os.path.join(input_dir, filename)
             indices.append(np.load(full_filename).tolist())
         rev_indices = indices[::-1]
+        resample_index = [indices, rev_indices]
+        resample_index.insert(0, None)  # first fold is None
 
         # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
@@ -373,12 +384,11 @@ if __name__ == '__main__':
         config = dict(data=dict(X=INPUT_STD_DATASET_FILE),
                       im_shape=INPUT_SHAPE,
                       params=PARAMS,
-                      resample=[indices, rev_indices],
+                      resample=resample_index,
                       map_output="results",
                       user_func=user_func_filename,
                       ncore=4,
-                      reduce_input="results/*/*",
-                      reduce_group_by="results/.*/(.*)",
+                      reduce_group_by="params",
                       reduce_output="results.csv")
         config_full_filename = os.path.join(output_dir, "config.json")
         json.dump(config, open(config_full_filename, "w"))
