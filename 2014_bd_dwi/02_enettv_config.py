@@ -94,7 +94,7 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     # key : string of intermediary key
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict correspondning to mapper output. they need to be loaded.
     # DEBUG
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
@@ -111,9 +111,9 @@ def reducer(key, values):
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     n_ite = None
     auc = roc_auc_score(y_true, y_post) #area under curve score.
-    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+
     scores = OrderedDict()
-    scores['alpha'] = key[0]
+    scores['a'] = key[0]
     scores['l1'] = key[1]
     scores['l2'] = key[2]
     scores['tv'] = key[3]
@@ -132,11 +132,6 @@ def reducer(key, values):
     scores['support_1'] = s[1]
     scores['n_ite'] = n_ite
     scores['auc'] = auc
-    scores['a'] = a
-    scores['l1'] = l1
-    scores['l2'] = l2
-    scores['k'] = k
-    scores['tv'] = tv
 
     return scores
 
