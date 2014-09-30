@@ -305,7 +305,7 @@ if __name__ == "__main__":
         try:
             user_func.load_globals(config)
         except:
-            print "Cannot load data"
+            print >> sys.stderr, "Cannot load data"
             sys.exit(os.EX_DATAERR)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
