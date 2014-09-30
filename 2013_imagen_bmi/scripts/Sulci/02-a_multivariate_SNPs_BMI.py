@@ -184,7 +184,7 @@ def load_SNPs_bmi_data(cache):
 if __name__ == "__main__":
 
     # Set pathes
-    WD = '/neurospin/tmp/brainomics/multivariate_bmi_assoc_sulci_SNPs'
+    WD = '/neurospin/tmp/brainomics/multivariate_bmi_SNPs_assoc'
     if not os.path.exists(WD):
         os.makedirs(WD)
 
