@@ -181,7 +181,7 @@ def load_sulci_SNPs_bmi_data(cache):
         # Constant regressor to mimick the fit intercept
         constant_regressor = np.ones((sulci_data.shape[0], 1))
 
-        # Concatenate sulci data, constant regressor and covariates
+        # Concatenate SNPs, constant regressor and covariates
         design_mat = np.hstack((cov, constant_regressor, sulci_data, SNPs))
 
         X = design_mat
