@@ -365,7 +365,7 @@ OUTPUT:
 
 #############################################################################
 
-02_multivariate_bmi_sulci.py:
+02_multivariate_bmi_full_sulci.py:
 
 Multivariate correlation between BMI and one feature of interest along all
 sulci on IMAGEN subjects:
@@ -406,7 +406,75 @@ OUTPUT:
 
 #############################################################################
 
-02-b_multivariate_sulci_SNPs_BMI.py:
+02-a_multivariate_SNPs_BMI.py:
+
+Multivariate correlation between BMI and SNPs both known to be associated to
+the BMI and read by the Illumina chip along sulci on IMAGEN subjects:
+   CV using mapreduce and ElasticNet between the features of interest and BMI.
+
+INPUT:
+- '/neurospin/brainomics/2013_imagen_bmi/data/BMI_associated_SNPs_measures.csv'
+    Genetic measures on SNPs of interest, that is SNPs at the intersection
+    between BMI-associated SNPs referenced in the literature and SNPs read
+    by the Illumina platform
+
+- '/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv'
+    BMI of the 1.265 subjects for which we also have neuroimaging data
+
+METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
+        maximizes the correlation between predicted BMI values via the Linear
+        Model  and true ones using Elastic Net algorithm, mapreduce and
+        cross validation.
+--NB: Computation involves to send jobs to Gabriel.--
+
+NB: BMI and covariates are centered-scaled.
+
+OUTPUT:
+- the Mapper returns predicted and true values of BMI, model estimators.
+- the Reducer returns R2 scores between prediction and true values.
+
+#############################################################################
+
+02-b_multivariate_Sulci_BMI.py:
+
+Multivariate correlation between BMI and the maximal depth along sulci on
+IMAGEN subjects:
+   CV using mapreduce and ElasticNet between the features of interest and BMI.
+
+NB: Sulci maximal depth has previously been filtered by the quality control
+step. (cf 00-a_quality_control.py)
+
+The resort to sulci -instead of considering images of anatomical structures-
+should prevent us from the artifacts that may be induced by the normalization
+step of the segmentation process.
+
+The idea to go through a multivariate analysis lies within the scope of
+investigating a better relevance and improved efficiency of the model, and
+a stronger associativity.
+
+INPUT:
+- '/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
+  full_sulci/Quality_control/sulci_depthMax_df.csv'
+    sulci maximal depth after quality control
+
+- '/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv'
+    BMI of the 1.265 subjects for which we also have neuroimaging data
+
+METHOD: Search for the optimal set of hyperparameters (alpha, l1_ratio) that
+        maximizes the correlation between predicted BMI values via the Linear
+        Model  and true ones using Elastic Net algorithm, mapreduce and
+        cross validation.
+--NB: Computation involves to send jobs to Gabriel.--
+
+NB: Subcortical features, BMI and covariates are centered-scaled.
+
+OUTPUT:
+- the Mapper returns predicted and true values of BMI, model estimators.
+- the Reducer returns R2 scores between prediction and true values.
+
+#############################################################################
+
+02-c_multivariate_sulci_SNPs_BMI.py:
 
 Multivariate correlation between BMI and the concatenation of SNPs known to
 be associated to the BMI and read by the Illumina chip and the maximal depth
@@ -451,39 +519,32 @@ OUTPUT:
 
 #############################################################################
 
-03_mltv_beta_map_bmi_full_sulci_all_features.py:
+03-a_hot_spot_mapping_mltv_SNPs_BMI.py:
 
 Mapping of hot spots which have been revealed by high correlation ratio
 after optimization of (alpha, l1) hyperparameters using Enet algorithm.
-This time, we have determined the optimum hyperparameters, so that we can
-run the model on the whole dataset.
+This time, we have determined the optimum hyperparameters
+(02-a_multivariate_SNPs_BMI.py), so that we can run the model on the
+whole dataset.
 
-The selected sulci are robust to the segmentation process. These sulci are
-respectively split into various subsamples by the segmentation process. As
-a results, they have previously been gathered again.
-NB: Their features have previously been filtered by the quality control step.
-(cf 00_quality_control.py)
+#############################################################################
 
-The resort to sulci -instead of considering images of anatomical structures-
-should prevent us from the artifacts that may be induced by the normalization
-step of the segmentation process.
+03-b_hot_spot_mapping_mltv_Sulci_BMI.py:
 
-INPUT:
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Quality_control/sulci_df_qc.csv:
-    sulci features after quality control
+Mapping of hot spots which have been revealed by high correlation ratio
+after optimization of (alpha, l1) hyperparameters using Enet algorithm.
+This time, we have determined the optimum hyperparameters
+(02-b_multivariate_sulci_BMI.py), so that we can run the model on the
+whole dataset.
 
-- /neurospin/brainomics/2013_imagen_bmi/data/BMI.csv:
-    BMI of the 1265 subjects for which we also have neuroimaging data
+#############################################################################
 
-METHOD: multivariate GLM
+03-c_hot_spot_mapping_mltv_Sulci_SNPs_BMI.py:
 
-NB: Subcortical features, BMI and covariates are centered-scaled.
-
-OUTPUT:
-- /neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
-  full_sulci/Results/mltv_beta_values_df.csv:
-    returns for each sulcus the beta value associated to the GLM
-    determined by the selected optimized set of hyperparameters.
+Mapping of hot spots which have been revealed by high correlation ratio
+after optimization of (alpha, l1) hyperparameters using Enet algorithm.
+This time, we have determined the optimum hyperparameters
+(02-c_multivariate_sulci_SNPs_BMI.py), so that we can run the model on the
+whole dataset.
 
 #############################################################################

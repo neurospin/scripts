@@ -52,6 +52,7 @@ import sys
 import numpy as np
 import pandas as pd
 import json
+from collections import OrderedDict
 
 from sklearn.preprocessing import StandardScaler
 
@@ -110,7 +111,11 @@ def reducer(key, values):
     values = [item.load() for item in values]
     z_true = np.concatenate([item['z_true'].ravel() for item in values])
     z_pred = np.concatenate([item['z_pred'].ravel() for item in values])
-    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
+#    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
+    scores = OrderedDict()
+    scores['alpha'] = key[0]
+    scores['l1_ratio'] = key[1]
+    scores['r2'] = r2_score(z_true, z_pred)
     return scores
 
 
@@ -244,7 +249,7 @@ if __name__ == "__main__":
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
-                                      '02-b_multivariate_sulci_SNPs_BMI.py')
+                                      '02-c_multivariate_sulci_SNPs_BMI.py')
 
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
@@ -275,4 +280,4 @@ if __name__ == "__main__":
     print 'qsub job_Global_long.pbs'
     #########################################################################
     print '# Reduce'
-    print 'mapreduce.py -r %s/config.json' % WD_CLUSTER
+    print 'mapreduce.py -r %s/config.json' % WD
