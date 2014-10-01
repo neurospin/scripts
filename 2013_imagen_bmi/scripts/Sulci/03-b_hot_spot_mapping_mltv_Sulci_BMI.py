@@ -161,7 +161,7 @@ if __name__ == "__main__":
     r2 = r2_score(z, mod.predict(X))
     print r2
 
-    # Store beta values in a .csv file
+    # Store non-zero beta values in a .csv file
     beta_Sulci_BMI_assoc_path = os.path.join(BASE_PATH, 'results',
                                             'beta_Sulci_BMI_assoc.txt')
     with open(beta_Sulci_BMI_assoc_path, 'wb') as csvfile:
@@ -169,9 +169,10 @@ if __name__ == "__main__":
 
         for i in np.arange(0, beta_map.shape[0] - penalty_start):
             variable = variables[i]
-            spamwriter.writerow([
+            if beta_map[i + penalty_start] != 0.:
+                spamwriter.writerow([
         'The beta value of']
         + [variable]
         + ['to be associated to the BMI while taking into account data on maximal depth sulci is ']
         + [beta_map[i + penalty_start]])
-        spamwriter.writerow(['\n R2-score equals'] + [r2])
+                spamwriter.writerow(['\n R2-score equals'] + [r2])
