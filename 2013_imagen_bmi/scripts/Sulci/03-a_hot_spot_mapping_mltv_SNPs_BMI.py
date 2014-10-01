@@ -175,4 +175,4 @@ if __name__ == "__main__":
         + [variable]
         + ['to be associated to the BMI while taking into account data on SNPs is ']
         + [beta_map[i + penalty_start]])
-                spamwriter.writerow(['\n R2-score equals'] + [r2])
+        spamwriter.writerow(['\n R2-score equals'] + [r2])
