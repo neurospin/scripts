@@ -7,7 +7,7 @@ Created on Fri Sep 26 09:54:41 2014
 Mapping of hot spots which have been revealed by high correlation ratio
 after optimization of (alpha, l1) hyperparameters using Enet algorithm.
 This time, we have determined the optimum hyperparameters
-(02-b_multivariate_sulci_SNPs_BMI.py), so that we can run the model on the
+(02-c_multivariate_sulci_SNPs_BMI.py), so that we can run the model on the
 whole dataset.
 """
 
