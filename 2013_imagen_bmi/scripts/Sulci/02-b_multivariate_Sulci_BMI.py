@@ -116,7 +116,7 @@ def reducer(key, values):
 #############
 # Read data #
 #############
-# Load data on BMI and SNPs
+# Load data on BMI and sulci
 def load_SNPs_bmi_data(cache):
     if not(cache):
         # BMI

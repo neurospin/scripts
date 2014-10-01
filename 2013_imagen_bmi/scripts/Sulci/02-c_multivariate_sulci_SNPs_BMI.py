@@ -249,7 +249,7 @@ if __name__ == "__main__":
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
-                                      '02-b_multivariate_sulci_SNPs_BMI.py')
+                                      '02-c_multivariate_sulci_SNPs_BMI.py')
 
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
