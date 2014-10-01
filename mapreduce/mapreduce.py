@@ -118,6 +118,12 @@ def _import_module_from_filename(filename):
 _import_user_func = _import_module_from_filename
 
 
+# TODO: add different error code for nonexistent dir and empty dir cases
+class MapperError(Exception):
+    """Dummy class to represent exceptions caused by failed mapper jobs."""
+    pass
+
+
 class OutputCollector:
     """Map output collector
 
@@ -166,7 +172,14 @@ class OutputCollector:
     def load(self, pattern="*"):
         #print os.path.join(self.output_dir, pattern)
         res = dict()
-        for filename in glob.glob(os.path.join(self.output_dir, pattern)):
+        if not os.path.exists(self.output_dir):
+            msg = "Output dir not found ({dir})".format(dir=self.output_dir)
+            raise MapperError(msg)
+        files = glob.glob(os.path.join(self.output_dir, pattern))
+        if len(files) == 0:
+            msg = "Output dir empty ({dir})".format(dir=self.output_dir)
+            raise MapperError(msg)
+        for filename in files:
             o = None
             try:
                 fd = np.load(filename)
@@ -395,53 +408,39 @@ if __name__ == "__main__":
         # Do the reduce
         scores_tab = None  # Dict of all the results
         for k in groups:
-            #try:
-            output_collectors = groups[k][_OUTPUT_COLLECTOR]
-            # Results for this key
-            scores = user_func.reducer(key=k, values=output_collectors)
-            # Create df on first valid reducer (we canno't do it before
-            # because we don't have the columns).
-            # The keys are the keys of the GroupBy object.
-            # As we use a df, previous failed reducers (if any) will be
-            # empty. Similarly future failed reducers (if any) will be
-            # empty.
-            if scores_tab is None:
-                index = pd.Index(ordered_keys,
-                                 name=config["reduce_group_by"])
-                scores_tab = pd.DataFrame(index=index,
-                                          columns=scores.keys())
-            # Append those results to scores
-            # scores_tab.loc[k] don't work because as k is a tuple
-            # it's interpreted as several index.
-            # Therefore we use scores_tab.loc[k,].
-            # Integer based access (scores_tab.iloc[i]) would work too.
-            scores_tab.loc[k,] = scores.values()
-#            except Exception, e:
-#                pass
-#                print "Reducer failed in {key}".format(key=k), "\n", groups[k]
-#                print "Exception:", e
-#        scores = [user_func.reducer(key=k, values=groups[k]) for k in groups]
-#        print p.get_open_files()
+            try:
+                output_collectors = groups[k][_OUTPUT_COLLECTOR]
+                # Results for this key
+                scores = user_func.reducer(key=k, values=output_collectors)
+                # Create df on first valid reducer (we cannot do it before
+                # because we don't have the columns).
+                # The keys are the keys of the GroupBy object.
+                # As we use a df, previous failed reducers (if any) will be
+                # empty. Similarly future failed reducers (if any) will be
+                # empty.
+                if scores_tab is None:
+                    index = pd.Index(ordered_keys,
+                                     name=config["reduce_group_by"])
+                    scores_tab = pd.DataFrame(index=index,
+                                              columns=scores.keys())
+                # Append those results to scores
+                # scores_tab.loc[k] don't work because as k is a tuple
+                # it's interpreted as several index.
+                # Therefore we use scores_tab.loc[k,].
+                # Integer based access (scores_tab.iloc[i]) would work too.
+                scores_tab.loc[k, ] = scores.values()
+            except MapperError as e:
+                print "Reducer failed in {key} because it can't access " \
+                      "data.".format(key=k)
+                print "Exception:", e
+                print "This is probably because the mapper failed."
+            except Exception as e:
+                print >> sys.stderr, "Reducer failed in {key}".format(key=k)
+                print >> sys.stderr, "Exception:", e
+                sys.exit(os.EX_SOFTWARE)
         if scores_tab is None:
             print >> sys.stderr, "All reducers failed. Nothing saved."
             sys.exit(os.EX_SOFTWARE)
-        # Add a columns of glob expressions
-        if config["reduce_group_by"] == _PARAMS:
-            globs = [os.path.join(config["map_output"],
-                                  '*',
-                                  param_sep.join([str(p) for p in params]))
-                                  for params in scores_tab.index]
-        else:
-            globs = [os.path.join(config["map_output"],
-                                  str(resample),
-                                  '*')
-                                  for resample in scores_tab.index]
-        globs_df = pd.DataFrame(globs,
-                                columns=['glob'],
-                                 index=index)
-        scores_tab = scores_tab.merge(globs_df,
-                                      left_index=True,
-                                      right_index=True)
         if "reduce_output" in config:
             print "Save results into: %s" % config["reduce_output"]
             scores_tab.to_csv(config["reduce_output"], index=True)
