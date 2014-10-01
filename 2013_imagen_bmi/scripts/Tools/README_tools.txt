@@ -135,7 +135,7 @@ are selected among the total number of subjects.
 00_get_demographics.py:
 
 This script aims at selecting the subjects for building a new template.
-This template will results from as many obese, overweight and normal people,
+This template will result from as many obese, overweight and normal people,
 as many girls as boys, well distributed along the imaging centre cities.
 
 INPUT: clinical data of IMAGEN subjects, including their weight status
