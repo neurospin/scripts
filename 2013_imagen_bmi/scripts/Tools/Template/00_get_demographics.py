@@ -5,7 +5,7 @@ Created on Thu Sep  4 15:39:25 2014
 @author: hl237680
 
 This script aims at selecting the subjects for building a new template.
-This template will results from as many obese, overweight and normal people,
+This template will result from as many obese, overweight and normal people,
 as many girls as boys, well distributed along the imaging centre cities.
 
 INPUT: clinical data of IMAGEN subjects, including their weight status
