@@ -46,6 +46,7 @@ import sys
 import numpy as np
 import pandas as pd
 import json
+from collections import OrderedDict
 
 from sklearn.preprocessing import StandardScaler
 
@@ -104,7 +105,11 @@ def reducer(key, values):
     values = [item.load() for item in values]
     z_true = np.concatenate([item['z_true'].ravel() for item in values])
     z_pred = np.concatenate([item['z_pred'].ravel() for item in values])
-    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
+#    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
+    scores = OrderedDict()
+    scores['alpha'] = key[0]
+    scores['l1_ratio'] = key[1]
+    scores['r2'] = r2_score(z_true, z_pred)
     return scores
 
 
