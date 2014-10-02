@@ -55,7 +55,7 @@ OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
 ##############
 
 RANDOM_STATE = 13031981
-N_FOLDS = 2
+N_FOLDS = 5
 
 # Real shape of images
 INPUT_SHAPE = (64, 64)
