@@ -55,7 +55,7 @@ OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
 ##############
 
 RANDOM_STATE = 13031981
-N_FOLDS = 2
+N_FOLDS = 5
 
 # Real shape of images
 INPUT_SHAPE = (64, 64)
@@ -188,9 +188,6 @@ def mapper(key, output_collector):
     evr_test = metrics.adjusted_explained_variance(X_test_transform)
     evr_test /= np.var(X_test, axis=0).sum()
 
-    # Remove predicted values (they are huge)
-    del X_train_predict, X_test_predict
-
     # Compute geometric metrics and norms of components
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
     l0 = np.zeros((N_COMP,))
@@ -207,6 +204,8 @@ def mapper(key, output_collector):
     ret = dict(frobenius_train=frobenius_train,
                frobenius_test=frobenius_test,
                components=V,
+               X_train_predict=X_train_predict,
+               X_test_predict=X_test_predict,
                X_train_transform=X_train_transform,
                X_test_transform=X_test_transform,
                evr_train=evr_train,

@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 25 09:04:04 2014
+Created on Tue Sep 30 17:35:18 2014
 
 @author: hl237680
 
-Multivariate correlation between BMI and the concatenation of SNPs known to
-be associated to the BMI and read by the Illumina chip and the maximal depth
-along sulci on IMAGEN subjects:
+Multivariate correlation between BMI and the maximal depth along sulci on
+IMAGEN subjects:
    CV using mapreduce and ElasticNet between the features of interest and BMI.
 
 NB: Sulci maximal depth has previously been filtered by the quality control
@@ -24,11 +23,6 @@ INPUT:
 - '/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/
   full_sulci/Quality_control/sulci_depthMax_df.csv'
     sulci maximal depth after quality control
-
-- '/neurospin/brainomics/2013_imagen_bmi/data/BMI_associated_SNPs_measures.csv'
-    Genetic measures on SNPs of interest, that is SNPs at the intersection
-    between BMI-associated SNPs referenced in the literature and SNPs read
-    by the Illumina platform
 
 - '/neurospin/brainomics/2013_imagen_bmi/data/BMI.csv'
     BMI of the 1.265 subjects for which we also have neuroimaging data
@@ -52,6 +46,7 @@ import sys
 import numpy as np
 import pandas as pd
 import json
+from collections import OrderedDict
 
 from sklearn.preprocessing import StandardScaler
 
@@ -110,15 +105,19 @@ def reducer(key, values):
     values = [item.load() for item in values]
     z_true = np.concatenate([item['z_true'].ravel() for item in values])
     z_pred = np.concatenate([item['z_pred'].ravel() for item in values])
-    scores = dict(param=key, r2=r2_score(z_true, z_pred))
+#    scores = dict(alpha=key[0], l1_ratio=key[1], r2=r2_score(z_true, z_pred))
+    scores = OrderedDict()
+    scores['alpha'] = key[0]
+    scores['l1_ratio'] = key[1]
+    scores['r2'] = r2_score(z_true, z_pred)
     return scores
 
 
 #############
 # Read data #
 #############
-# Load data on BMI, SNPs and sulci features
-def load_sulci_SNPs_bmi_data(cache):
+# Load data on BMI and sulci
+def load_SNPs_bmi_data(cache):
     if not(cache):
         # BMI
         BMI_df = pd.io.parsers.read_csv(os.path.join(DATA_PATH, 'BMI.csv'),
@@ -161,7 +160,6 @@ def load_sulci_SNPs_bmi_data(cache):
         clinical_data = clinical_df.loc[subjects_id]
         BMI = BMI_df.loc[subjects_id]
         sulci_data = sulci_depthMax_df.loc[subjects_id]
-        SNPs = SNPs_df.loc[subjects_id]
 
         # Conversion dummy coding
         covar = utils.make_design_matrix(clinical_data,
@@ -175,14 +173,11 @@ def load_sulci_SNPs_bmi_data(cache):
         # Center & scale BMI
         BMI = skl.fit_transform(BMI)
 
-        # Center & scale sulci_data
-        sulci_data = skl.fit_transform(sulci_data)
-
         # Constant regressor to mimick the fit intercept
         constant_regressor = np.ones((sulci_data.shape[0], 1))
 
         # Concatenate sulci data, constant regressor and covariates
-        design_mat = np.hstack((cov, constant_regressor, sulci_data, SNPs))
+        design_mat = np.hstack((cov, constant_regressor, sulci_data))
 
         X = design_mat
         z = BMI
@@ -204,7 +199,7 @@ def load_sulci_SNPs_bmi_data(cache):
 if __name__ == "__main__":
 
     # Set pathes
-    WD = '/neurospin/tmp/brainomics/multivariate_bmi_assoc_sulci_SNPs'
+    WD = '/neurospin/tmp/brainomics/multivariate_bmi_sulci_assoc'
     if not os.path.exists(WD):
         os.makedirs(WD)
 
@@ -223,11 +218,11 @@ if __name__ == "__main__":
 
     # Shared data
     BASE_SHARED_DIR = '/neurospin/tmp/brainomics/'
-    SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'BMI_asso_Sulci_SNPs_cache')
+    SHARED_DIR = os.path.join(BASE_SHARED_DIR, 'BMI_Sulci_assoc_cache')
     if not os.path.exists(SHARED_DIR):
         os.makedirs(SHARED_DIR)
 
-    X, z = load_sulci_SNPs_bmi_data(cache=False)
+    X, z = load_SNPs_bmi_data(cache=False)
     n, p = X.shape
     np.save(os.path.join(WD, 'X.npy'), X)
     np.save(os.path.join(WD, 'z.npy'), z)
@@ -244,7 +239,7 @@ if __name__ == "__main__":
 
     user_func_filename = os.path.join('/home/hl237680', 'gits', 'scripts',
                                       '2013_imagen_bmi', 'scripts', 'Sulci',
-                                      '02-b_multivariate_sulci_SNPs_BMI.py')
+                                      '02-b_multivariate_Sulci_BMI.py')
 
     # Use relative path from config.json
     config = dict(data=dict(X='X.npy', z='z.npy'),
@@ -252,9 +247,8 @@ if __name__ == "__main__":
                   structure='',
                   map_output='results',
                   user_func=user_func_filename,
-                  reduce_input='results/*/*',
-                  reduce_group_by='results/.*/(.*)',
-                  reduce_output='results_BMI_assoc_Sulci_SNPs.csv')
+                  reduce_group_by='params',
+                  reduce_output='results_BMI_Sulci_assoc.csv')
     json.dump(config, open(os.path.join(WD, 'config.json'), 'w'))
 
     #########################################################################
