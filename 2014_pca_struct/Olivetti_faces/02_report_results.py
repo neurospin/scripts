@@ -36,8 +36,25 @@ INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "results")
 INPUT_RESULTS_FILE = os.path.join(INPUT_BASE_DIR, "results.csv")
 
+INPUT_DATASET = os.path.join(INPUT_BASE_DIR,
+                             "X.npy")
+INPUT_TARGET = os.path.join(INPUT_BASE_DIR,
+                            "y.npy")
+INPUT_COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                            '{fold}',
+                                            '{key}',
+                                            'components.npz')
+INPUT_TEST_PROJ_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                           '{fold}',
+                                           '{key}',
+                                           'X_test_transform.npz')
+
 OUTPUT_DIR = INPUT_BASE_DIR
 OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
+# Filename is forged from the figure title
+OUTPUT_PLOT_TITLE = "{name}"
+OUTPUT_COMPONENT_PLOT_FIGNAME = 'components'
+OUTPUT_PROJECTION_PLOT_FIGNAME = 'projections'
 
 ##############
 # Parameters #
@@ -57,10 +74,7 @@ PARAMS = [item[0] for item in COND]
 COLS = ['frobenius_test']
 FOLD = 0  # This is the special fold with the whole dataset
 N_COMP = 3
-COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
-                                      '{fold}',
-                                      '{key}',
-                                      'components.npz')
+
 IM_SHAPE = (64, 64)
 
 ##########
@@ -72,7 +86,7 @@ IM_SHAPE = (64, 64)
 df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
                             index_col=[1, 2, 3, 4]).sort_index()
 
-# Subsample it & add a column based on name
+# Extract some cases & add a column based on name
 summary = df.loc[PARAMS][COLS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
                        index=PARAMS)
@@ -80,6 +94,24 @@ summary['name'] = name_serie
 
 # Write in a CSV
 summary.to_csv(OUTPUT_RESULTS_FILE)
+
+# Load dataset and labels
+X = np.load(INPUT_DATASET)
+y = np.load(INPUT_TARGET)
+
+n, p = X.shape
+
+# Number of persons
+# This assume that y is sorted (bincount works on non-negative int)
+[indiv, count] = [np.unique(y), np.bincount(y)]
+n_indiv = len(indiv)
+print "Found", n_indiv, "persons"
+
+###############################################################################
+# Plot metrics                                                                #
+###############################################################################
+
+# TODO: update this section
 
 ## Plot Fronenius distance
 #width = 0.8
@@ -95,18 +127,23 @@ summary.to_csv(OUTPUT_RESULTS_FILE)
 #ax.set_xticklabels(summary['name'])
 #plt.title('Olivetti faces')
 
+###############################################################################
+# Components                                                                  #
+###############################################################################
+
 # Load components
 components = np.zeros((len(COND), np.prod(IM_SHAPE), N_COMP))
 for j, (params, _) in enumerate(COND):
     key = '_'.join([str(param) for param in params])
-    filename = COMPONENTS_FILE_FORMAT.format(fold=FOLD,
-                                             key=key)
+    filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=FOLD,
+                                                   key=key)
     if os.path.exists(filename):
         components[j, ...] = np.load(filename)['arr_0']
     else:
         print "No components for", COND[j][1]
 data_min = components.min()
 data_max = components.max()
+
 # Create a symetric colormap
 # This assume that max is positive and min is negative
 vmax = max([np.abs(data_min), np.abs(data_max)])
@@ -125,13 +162,9 @@ for j, (params, name) in enumerate(COND):
         data = components[j, :, l].reshape(IM_SHAPE)
         im = axe.imshow(data, norm=norm, aspect="auto",
                         cmap=cmap)
-    figtitle = "{name}".format(name=name,
-                               fold=FOLD)
-    figname = figtitle.replace(' ', '_')
+    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
     plt.suptitle(figtitle)
-#            fig.subplots_adjust(right=0.8)
-#            cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-#            fig.colorbar(im, cax=cbar_ax)
+    figname = OUTPUT_COMPONENT_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
     f.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
@@ -143,4 +176,46 @@ cb = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
                                       norm=norm,
                                       orientation='horizontal')
 fig.savefig(os.path.join(OUTPUT_DIR,
-                         "colorbar.png"))
+                         "components_colorbar.png"))
+
+
+###############################################################################
+# Projection of individuals on components                                     #
+###############################################################################
+
+# Load projections
+projections = np.zeros((len(COND), n, N_COMP))
+for j, (params, name) in enumerate(COND):
+    print "Loading projection for", name
+    key = '_'.join([str(param) for param in params])
+    filename = INPUT_TEST_PROJ_FILE_FORMAT.format(fold=FOLD,
+                                                  key=key)
+    if os.path.exists(filename):
+        projections[j, ...] = np.load(filename)['arr_0']
+    else:
+        print "No components for", COND[j][1]
+
+# Create point color (one for each person)
+all_colors = matplotlib.colors.cnames.keys()
+all_colors.remove('white')
+point_color = [all_colors[person] for person in y]
+
+# Plot components: we plot on the PC0-PC1 plane and on the PC1-PC2 plane
+handles = np.zeros((len(COND)), dtype='object')
+for j, (params, name) in enumerate(COND):
+    handles[j] = fig, axes = plt.subplots(nrows=1,
+                                          ncols=2,
+                                          figsize=(11.8, 3.7))
+    f = plt.gcf()
+    for first_pc, second_pc, axe in zip(range(2), range(1, 3), axes.flat):
+        axe.scatter(projections[j, ..., first_pc],
+                    projections[j, ..., second_pc],
+                    color=point_color)
+        axe.set_xlabel('PC {i}'.format(i=first_pc + 1))
+        axe.set_ylabel('PC {i}'.format(i=second_pc + 1))
+    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
+    plt.suptitle(figtitle)
+    figname = OUTPUT_PROJECTION_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    f.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR,
+                             ".".join([figname, "png"])))
