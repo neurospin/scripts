@@ -15,6 +15,11 @@ from sklearn.metrics import r2_score
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LinearRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
+from brainomics import array_utils
+from statsmodels.stats.inter_rater import fleiss_kappa
+
+NFOLDS = 5
+NRNDPERMS = 1000
 
 
 def load_globals(config):
@@ -89,48 +94,158 @@ def mapper(key, output_collector):
     else:
         return ret
 
-def reducer(key, values):
+def reducer_(key, values):
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
-    #import glob, mapreduce
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/rndperm/*/0.001_0.3335_0.3335_0.333_-1/")]
-    # Compute sd; ie.: compute results on each folds
-    print key, values[1:]
-    values = [item.load() for item in values]
-    y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]
-    y_true = np.concatenate(y_true)
-    y_pred = np.concatenate(y_pred)
-    r2 = r2_score(y_true, y_pred)
-    corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
-    betas = np.hstack([item["beta"] for item in values]).T
-    R = np.corrcoef(betas)
-    R = R[np.triu_indices_from(R, 1)]
-    # Fisher z-transformation / average
-    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
-    # bracktransform
-    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
-    n_ite = None
-    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-    #print a, l1, l2, tv, k, beta_cor_mean
-    scores = OrderedDict()
-    scores['a'] = a
-    scores['l1'] = l1
-    scores['l2'] = l2
-    scores['tv'] = tv
-    left = float(1 - tv)
-    if left == 0: left = 1.
-    scores['l1l2_ratio'] = float(l1) / left
-    scores['r2'] = r2
-    scores['corr']= corr
-    scores['beta_r'] = str(R)
-    scores['beta_r_bar'] = r_bar
-    scores['support'] = len(y_true)
-    scores['n_ite'] = n_ite
-    scores['key'] = key
-    scores['k'] = k
-    return scores
+    import glob, mapreduce
+    BASE = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/rndperm"
+    INPUT = BASE + "/%i/%s"
+    OUTPUT = BASE + "/arrays"
+    keys = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
+    for key in keys:
+        #key = keys[0]
+        paths_5cv_all = [INPUT % (perm, key) for perm in xrange(NFOLDS * NRNDPERMS)]
+        idx_5cv_blocks = range(0, (NFOLDS * NRNDPERMS) + NFOLDS, NFOLDS)
+        cpt = 0
+        qc = dict()
+        r2_perms = np.zeros(NRNDPERMS)
+        corr_perms = np.zeros(NRNDPERMS)
+        r_bar_perms = np.zeros(NRNDPERMS)
+        fleiss_kappa_stat_perms = np.zeros(NRNDPERMS)
+        dice_bar_perms = np.zeros(NRNDPERMS)
+        for perm_i in xrange(len(idx_5cv_blocks)-1):
+            paths_5cv = paths_5cv_all[idx_5cv_blocks[perm_i]:idx_5cv_blocks[perm_i+1]]
+            for p in paths_5cv:
+                if os.path.exists(p) and not(p in qc):
+                    if p in qc:
+                        qc[p] += 1
+                    else:
+                        qc[p] = 1
+                    cpt += 1
+            #
+            values = [mapreduce.OutputCollector(p) for p in paths_5cv]
+            values = [item.load() for item in values]
+            y_true = [item["y_true"].ravel() for item in values]
+            y_pred = [item["y_pred"].ravel() for item in values]
+            y_true = np.concatenate(y_true)
+            y_pred = np.concatenate(y_pred)
+            r2 = r2_score(y_true, y_pred)
+            corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
+            betas = np.hstack([item["beta"] for item in values]).T
+            #
+            ## Compute beta similarity measures
+            #
+            # Correlation
+            R = np.corrcoef(betas)
+            R = R[np.triu_indices_from(R, 1)]
+            # Fisher z-transformation / average
+            z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+            # bracktransform
+            r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+            #
+            # threshold betas to compute fleiss_kappa and DICE
+            try:
+                betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+                print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+                print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+                                   rtol=0, atol=1e-02)
+                #
+                # Compute fleiss kappa statistics
+                beta_signed = np.sign(betas_t)
+                table = np.zeros((beta_signed.shape[1], 3))
+                table[:, 0] = np.sum(beta_signed == 0, 0)
+                table[:, 1] = np.sum(beta_signed == 1, 0)
+                table[:, 2] = np.sum(beta_signed == -1, 0)
+                fleiss_kappa_stat = fleiss_kappa(table)
+                #
+                # Paire-wise Dice coeficient
+                beta_n0 = betas_t != 0
+                ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
+                #print [[idx[0], idx[1]] for idx in ij]
+                dice_bar = np.mean([float(np.sum(beta_signed[idx[0], :] == beta_signed[idx[1], :])) /\
+                     (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
+                     for idx in ij])
+            except:
+                dice_bar = fleiss_kappa_stat = 0.
+            #
+            r2_perms[perm_i] = r2
+            corr_perms[perm_i] = corr
+            r_bar_perms[perm_i] = r_bar
+            fleiss_kappa_stat_perms[perm_i] = fleiss_kappa_stat
+            dice_bar_perms[perm_i] = dice_bar
+            np.savez_compressed(OUTPUT+"/perms_"+key+".npz",
+                                r2=r2_perms, corr=corr_perms,
+                                r_bar=r_bar_perms, fleiss_kappa=fleiss_kappa_stat_perms,
+                                dice_bar=dice_bar_perms)
+            
+            perms = dict()
+            for key in keys:
+                perms[key] = np.load(OUTPUT+"/perms_"+key+".npz")
+
+            l1l2tv, l1tv, l1l2, l1 = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  
+                                 "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
+            import pandas as pd
+            true = pd.read_csv(os.path.join(BASE, "..", "ADAS11-MCIc-CTL.csv"))
+            true = true[true.a == 0.001]
+            true["key"] = [s.replace("results/*/", "").replace("-1.0", "-1") for s in true["glob"]]
+            true["key"].isin([l1l2tv, l1tv, l1l2, l1])
+            np.sum(true["key"].isin(l1l2tv))
+            
+            np.sum(true["key"] == "0.001_0.3335_0.3335_0.333_-1")
+            np.sum(true["key"] == '0.001_0.3335_0.3335_0.333_-1')
+            np.sum(true["key"] == l1l2tv)
+            np.sum(true["key"].isin([l1l2tv, l1]))
+            np.sum(true["key"].isin([l1]))
+
+            true[(true.l1 == 0.3335) & (true.l2 == 0.3335)]
+            
+            params = pd.DataFrame([[k]+[float(a) for a in k.split("_")] for k in [l1tv, l1, l1l2, l1l2tv]], columns=["key", "a", "l1", "l2", "tv", "k"])
+            l1_ = params[params.key == l1]
+            true[true.l1 == l1_.l1.values[0]]
+            true.l1 == 0.3335
+            # r2 pvals
+            np.sum(perms[l1]['r2'] > 0.504914458435749)
+            np.sum(perms[l1tv]['r2'] > 0.517747334146272)
+            np.sum(perms[l1l2]['r2'] > 0.5294619358)
+            np.sum(perms[l1l2tv]['r2'] > 0.5085280694)
+
+            # l1 vs l1tv
+            np.sum((perms[l1tv]['r2'] - perms[l1]['r2']) > (0.517747334146272 - 0.504914458435749))
+            np.sum((perms[l1tv]['r_bar'] - perms[l1]['r_bar']) > ())
+            np.sum((perms[l1tv]['fleiss_kappa'] - perms[l1]['fleiss_kappa']) > ())
+            np.sum((perms[l1tv]['dice_bar'] - perms[l1]['dice_bar']) > ())
+
+            # l1l2 vs l1l2tv
+            np.sum((perms[l1l2]['r2'] - perms[l1l2tv]['r2']) > (0.5294619358 - 0.5085280694))
+            np.sum(perms[]['r_bar'] - perms[]['r_bar'] > ())
+            np.sum(perms[]['fleiss_kappa'] - perms[]['fleiss_kappa'] > ())
+            np.sum(perms[]['dice_bar'] - perms[]['dice_bar'] > ())
+
+            
+    
+            arrs.keys()['r_bar', 'fleiss_kappa', 'dice_bar', 'corr', 'r2']
+            #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+            a, l1, l2, tv, k = key
+            scores = OrderedDict()
+            scores['a'] = a
+            scores['l1'] = l1
+            scores['l2'] = l2
+            scores['tv'] = tv
+            left = float(1 - tv)
+            if left == 0: left = 1.
+            scores['l1l2_ratio'] = float(l1) / left
+            scores['r2'] = r2
+            scores['corr']= corr
+            scores['beta_r'] = str(R)
+            scores['beta_r_bar'] = r_bar
+            scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+            scores['beta_dice_bar'] = dice_bar
+            scores['support'] = len(y_true)
+            scores['n_ite'] = n_ite
+            scores['key'] = key
+            scores['k'] = k
+            return scores
 
 
 ##############################################################################
@@ -158,8 +273,6 @@ if __name__ == "__main__":
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii.gz")
-    NFOLDS = 5
-    NRNDPERMS = 1000
 
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD): os.makedirs(WD)

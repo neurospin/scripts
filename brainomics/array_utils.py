@@ -54,3 +54,16 @@ def arr_threshold_from_norm2_ratio(v, ratio=.99):
     v_t[np.abs(v) < t] = 0
     return v_t, t
 
+"""
+np.save("/tmp/betas.npy" ,betas)
+
+betas = np.load("/tmp/betas.npy")
+v = betas[1, :]
+v_t, t = arr_threshold_from_norm2_ratio(v, ratio=.99)
+ratio = np.sqrt(np.sum(v_t ** 2)) / np.sqrt(np.sum(v ** 2))
+from brainomics import array_utils
+
+betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+assert np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) /
+                np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5)
+"""
