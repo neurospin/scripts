@@ -88,7 +88,7 @@ def reducer(key, values):
     #import glob, mapreduce
     #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    print key, values[1:]
+    print key#, values[1:]
     values = [item.load() for item in values[1:]]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
@@ -109,29 +109,32 @@ def reducer(key, values):
     r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
 
     # threshold betas to compute fleiss_kappa and DICE
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
-    assert np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) /
-                np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5)
-
-    # Compute fleiss kappa statistics
-    beta_signed = np.sign(betas_t)
-    table = np.zeros((beta_signed.shape[1], 3))
-    table[:, 0] = np.sum(beta_signed == 0, 0)
-    table[:, 1] = np.sum(beta_signed == 1, 0)
-    table[:, 2] = np.sum(beta_signed == -1, 0)
-    fleiss_kappa_stat = fleiss_kappa(table)
-
-    # Paire-wise Dice coeficient
-    beta_n0 = betas_t != 0
-    ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
-    [[idx[0], idx[1]] for idx in ij]
-    dice_bar = np.mean([float(np.sum(beta_n0[idx[0], :] == beta_n0[idx[1], :])) /\
-         (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
-         for idx in ij])
-
+    try:
+        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+        print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+        print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+                           rtol=0, atol=1e-02)
+    
+        # Compute fleiss kappa statistics
+        beta_signed = np.sign(betas_t)
+        table = np.zeros((beta_signed.shape[1], 3))
+        table[:, 0] = np.sum(beta_signed == 0, 0)
+        table[:, 1] = np.sum(beta_signed == 1, 0)
+        table[:, 2] = np.sum(beta_signed == -1, 0)
+        fleiss_kappa_stat = fleiss_kappa(table)
+    
+        # Paire-wise Dice coeficient
+        beta_n0 = betas_t != 0
+        ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
+        #print [[idx[0], idx[1]] for idx in ij]
+        dice_bar = np.mean([float(np.sum(beta_signed[idx[0], :] == beta_signed[idx[1], :])) /\
+             (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
+             for idx in ij])
+    except:
+        dice_bar = fleiss_kappa_stat = 0.
     n_ite = None
-    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-    #print a, l1, l2, tv, k, beta_cor_mean
+    #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+    a, l1, l2, tv, k = key
     scores = OrderedDict()
     scores['a'] = a
     scores['l1'] = l1
@@ -250,3 +253,15 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --reduce %s/config.json" % WD
+
+
+"""scp gabriel://neurospin/tmp/ed203246/ADAS11-MCIc-CTL/config.json ./
+
+import json
+fd = open("config.json")
+config = json.load(fd); fd.close()
+config["reduce_group_by"] = 'params'
+fd = open("config.json", "wb")
+json.dump(config, fd)
+fd.close()
+"""
