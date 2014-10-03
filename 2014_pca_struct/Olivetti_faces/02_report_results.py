@@ -9,8 +9,9 @@ Report some results:
  - pure l1, l2 and TV
  - l1+TV, l2+TV and l1+l2
  - l1+l2+TV
+With a constant global penalization.
 
-We use a constant global penalization.
+Also plot some results for all the structured PCA models.
 
 This file was copied from scripts/2014_pca_struct/dice5/03_report_results.py.
 
@@ -23,9 +24,9 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-import nibabel as nib
-
 import pandas as pd
+
+from brainomics import plot_utilities
 
 ################
 # Input/Output #
@@ -51,6 +52,9 @@ INPUT_TEST_PROJ_FILE_FORMAT = os.path.join(INPUT_DIR,
 
 OUTPUT_DIR = INPUT_BASE_DIR
 OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
+#
+OUTPUT_CURVE_FILE_FORMAT = os.path.join(OUTPUT_DIR,
+                                        '{metric}_{global_pen}.png')
 # Filename is forged from the figure title
 OUTPUT_PLOT_TITLE = "{name}"
 OUTPUT_COMPONENT_PLOT_FIGNAME = 'components'
@@ -71,7 +75,7 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
         (('struct_pca', GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
-COLS = ['frobenius_test']
+METRICS = ['frobenius_test']
 FOLD = 0  # This is the special fold with the whole dataset
 N_COMP = 3
 
@@ -86,8 +90,10 @@ IM_SHAPE = (64, 64)
 df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
                             index_col=[1, 2, 3, 4]).sort_index()
 
+struct_pca_df = df.xs('struct_pca')
+
 # Extract some cases & add a column based on name
-summary = df.loc[PARAMS][COLS]
+summary = df.loc[PARAMS][METRICS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
                        index=PARAMS)
 summary['name'] = name_serie
@@ -111,7 +117,16 @@ print "Found", n_indiv, "persons"
 # Plot metrics                                                                #
 ###############################################################################
 
-# TODO: update this section
+for metric in METRICS:
+    handles = plot_utilities.plot_lines(struct_pca_df,
+                                        x_col=1,
+                                        y_col=metric,
+                                        splitby_col=0,
+                                        colorby_col=2)
+    for val, handle in handles.items():
+        filename = OUTPUT_CURVE_FILE_FORMAT.format(metric=metric,
+                                                   global_pen=val)
+        handle.savefig(filename)
 
 ## Plot Fronenius distance
 #width = 0.8
