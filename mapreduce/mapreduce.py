@@ -277,8 +277,8 @@ if __name__ == "__main__":
     if (options.map and options.reduce) or \
        (options.map and options.clean) or \
        (options.reduce and options.clean):
-           print >> sys.stderr, 'Require only one mode (map, reduce or clean)'
-           sys.exit(os.EX_USAGE)
+        print >> sys.stderr, 'Require only one mode (map, reduce or clean)'
+        sys.exit(os.EX_USAGE)
 
     ## TO DEBUG just set config_filename here
     # config_filename = "/neurospin/brainomics/2013_adni/proj_classif_MCIc-MCInc_gtvenet/config.json"
@@ -302,7 +302,8 @@ if __name__ == "__main__":
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
     if config["reduce_group_by"] not in GROUP_BY_VALUES:
-        print >> sys.stderr, 'Attribute "reduce_group_by" must be one of', GROUP_BY_VALUES
+        print >> sys.stderr, 'Attribute "reduce_group_by" must be one of', \
+                             GROUP_BY_VALUES
         sys.exit(os.EX_CONFIG)
 
     # =======================================================================
@@ -331,7 +332,8 @@ if __name__ == "__main__":
             while len(workers) == options.ncore:
                 # We use a copy of workers to iterate because
                 # we remove some element in it
-                # See: https://docs.python.org/2/tutorial/datastructures.html#looping-techniques
+                # See: https://docs.python.org/2/tutorial/datastructures.html
+                # (section "Looping Techniques")
                 for p in workers[:]:
                     #print "Is alive", str(p), p.is_alive()
                     if not p.is_alive():
