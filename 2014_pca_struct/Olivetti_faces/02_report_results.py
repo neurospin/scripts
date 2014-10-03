@@ -128,20 +128,6 @@ for metric in METRICS:
                                                    global_pen=val)
         handle.savefig(filename)
 
-## Plot Fronenius distance
-#width = 0.8
-#ind = np.arange(len(COND))
-#plt.figure()
-#ax = plt.gca()
-#plt.xticks(rotation=70)
-#plt.bar(ind, summary[COLS[1]], width)
-#y_range = [min(summary[COLS[1]]), max(summary[COLS[1]])]
-#y_lim = plt.ylim()
-#plt.ylim(0.95 * y_range[0], y_lim[1])
-#ax.set_xticks(ind + (width / 2))
-#ax.set_xticklabels(summary['name'])
-#plt.title('Olivetti faces')
-
 ###############################################################################
 # Components                                                                  #
 ###############################################################################
