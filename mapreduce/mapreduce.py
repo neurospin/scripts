@@ -412,23 +412,6 @@ if __name__ == "__main__":
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
                 scores = user_func.reducer(key=k, values=output_collectors)
-                # Create df on first valid reducer (we cannot do it before
-                # because we don't have the columns).
-                # The keys are the keys of the GroupBy object.
-                # As we use a df, previous failed reducers (if any) will be
-                # empty. Similarly future failed reducers (if any) will be
-                # empty.
-                if scores_tab is None:
-                    index = pd.Index(ordered_keys,
-                                     name=config["reduce_group_by"])
-                    scores_tab = pd.DataFrame(index=index,
-                                              columns=scores.keys())
-                # Append those results to scores
-                # scores_tab.loc[k] don't work because as k is a tuple
-                # it's interpreted as several index.
-                # Therefore we use scores_tab.loc[k,].
-                # Integer based access (scores_tab.iloc[i]) would work too.
-                scores_tab.loc[k, ] = scores.values()
             except MapperError as e:
                 print "Reducer failed in {key} because it can't access " \
                       "data.".format(key=k)
@@ -438,6 +421,23 @@ if __name__ == "__main__":
                 print >> sys.stderr, "Reducer failed in {key}".format(key=k)
                 print >> sys.stderr, "Exception:", e
                 sys.exit(os.EX_SOFTWARE)
+            # Create df on first valid reducer (we cannot do it before
+            # because we don't have the columns).
+            # The keys are the keys of the GroupBy object.
+            # As we use a df, previous failed reducers (if any) will be
+            # empty. Similarly future failed reducers (if any) will be
+            # empty.
+            if scores_tab is None:
+                index = pd.Index(ordered_keys,
+                                 name=config["reduce_group_by"])
+                scores_tab = pd.DataFrame(index=index,
+                                          columns=scores.keys())
+            # Append those results to scores
+            # scores_tab.loc[k] don't work because as k is a tuple
+            # it's interpreted as several index.
+            # Therefore we use scores_tab.loc[k,].
+            # Integer based access (scores_tab.iloc[i]) would work too.
+            scores_tab.loc[k, ] = scores.values()
         if scores_tab is None:
             print >> sys.stderr, "All reducers failed. Nothing saved."
             sys.exit(os.EX_SOFTWARE)
