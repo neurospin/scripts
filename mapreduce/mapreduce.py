@@ -428,8 +428,12 @@ if __name__ == "__main__":
             # empty. Similarly future failed reducers (if any) will be
             # empty.
             if scores_tab is None:
+                # tupleize_cols was introduced in pandas 0.14 to automatically
+                # create MultiIndex. For now we force it to False in 0.14 (it
+                # is ignored in previous versions).
                 index = pd.Index(ordered_keys,
-                                 name=config["reduce_group_by"])
+                                 name=config["reduce_group_by"],
+                                 tupleize_cols=False)
                 scores_tab = pd.DataFrame(index=index,
                                           columns=scores.keys())
             # Append those results to scores
