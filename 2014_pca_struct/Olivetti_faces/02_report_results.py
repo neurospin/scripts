@@ -49,6 +49,10 @@ INPUT_TEST_PROJ_FILE_FORMAT = os.path.join(INPUT_DIR,
                                            '{fold}',
                                            '{key}',
                                            'X_test_transform.npz')
+INPUT_RECONSTRUCTIONS_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                                 '{fold}',
+                                                 '{key}',
+                                                  'X_test_predict.npz')
 
 OUTPUT_DIR = INPUT_BASE_DIR
 OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
@@ -59,6 +63,7 @@ OUTPUT_CURVE_FILE_FORMAT = os.path.join(OUTPUT_DIR,
 OUTPUT_PLOT_TITLE = "{name}"
 OUTPUT_COMPONENT_PLOT_FIGNAME = 'components'
 OUTPUT_PROJECTION_PLOT_FIGNAME = 'projections'
+OUTPUT_EX_IMAGE_PLOT_FIGNAME = 'example'
 
 ##############
 # Parameters #
@@ -76,10 +81,13 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
        ]
 PARAMS = [item[0] for item in COND]
 METRICS = ['frobenius_test']
-FOLD = 0  # This is the special fold with the whole dataset
+EXAMPLE_FOLD = 0  # This is the special fold with the whole dataset
 N_COMP = 3
 
 IM_SHAPE = (64, 64)
+
+EX_IMAGES = [0, 42, 255]
+N_EX_IMAGES = len(EX_IMAGES)
 
 ##########
 # Script #
@@ -134,10 +142,11 @@ for metric in METRICS:
 
 # Load components
 components = np.zeros((len(COND), np.prod(IM_SHAPE), N_COMP))
-for j, (params, _) in enumerate(COND):
+for j, (params, name) in enumerate(COND):
     key = '_'.join([str(param) for param in params])
-    filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=FOLD,
+    filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
                                                    key=key)
+    print "Loading components for", name, ":", filename
     if os.path.exists(filename):
         components[j, ...] = np.load(filename)['arr_0']
     else:
@@ -187,10 +196,10 @@ fig.savefig(os.path.join(OUTPUT_DIR,
 # Load projections
 projections = np.zeros((len(COND), n, N_COMP))
 for j, (params, name) in enumerate(COND):
-    print "Loading projection for", name
     key = '_'.join([str(param) for param in params])
-    filename = INPUT_TEST_PROJ_FILE_FORMAT.format(fold=FOLD,
+    filename = INPUT_TEST_PROJ_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
                                                   key=key)
+    print "Loading projections for", name, ":", filename
     if os.path.exists(filename):
         projections[j, ...] = np.load(filename)['arr_0']
     else:
@@ -220,3 +229,56 @@ for j, (params, name) in enumerate(COND):
     f.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
+
+###############################################################################
+# Example of reconstruction                                                   #
+###############################################################################
+
+# Load reconstructions
+reconstructions = np.zeros((len(COND), n, np.prod(IM_SHAPE)))
+for j, (params, name) in enumerate(COND):
+    key = '_'.join([str(param) for param in params])
+    filename = INPUT_RECONSTRUCTIONS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
+                                                        key=key)
+    print "Loading reconstructions for", name, ":", filename
+    if os.path.exists(filename):
+        reconstructions[j, ...] = np.load(filename)['arr_0']
+    else:
+        print "No reconstruction for", COND[j][1]
+data_min = reconstructions.min()
+data_max = reconstructions.max()
+
+# Plot components
+handles = np.zeros((len(COND)), dtype='object')
+for j, (params, name) in enumerate(COND):
+    handles[j] = fig, axes = plt.subplots(nrows=1,
+                                          ncols=N_EX_IMAGES,
+                                          figsize=(11.8, 3.7))
+    f = plt.gcf()
+    for l, axe in zip(range(N_EX_IMAGES), axes.flat):
+        data = reconstructions[j, l, ...].reshape(IM_SHAPE)
+        im = axe.imshow(data, norm=norm, aspect="auto",
+                        cmap=cmap)
+    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
+    plt.suptitle(figtitle)
+    figname = OUTPUT_EX_IMAGE_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    f.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR,
+                             ".".join([figname, "png"])))
+
+# Plot original data
+fig, axes = plt.subplots(nrows=1,
+                         ncols=N_EX_IMAGES,
+                         figsize=(11.8, 3.7))
+f = plt.gcf()
+for l, axe in zip(range(N_EX_IMAGES), axes.flat):
+    data = X[l, ...].reshape(IM_SHAPE)
+    im = axe.imshow(data, norm=norm, aspect="auto",
+                    cmap=cmap)
+figtitle = "Original data"
+plt.suptitle(figtitle)
+figname = figtitle.replace(' ', '_')
+f.tight_layout()
+fig.savefig(os.path.join(OUTPUT_DIR,
+                         ".".join([figname, "png"])))
+
