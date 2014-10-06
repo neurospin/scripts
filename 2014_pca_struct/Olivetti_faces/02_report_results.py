@@ -63,6 +63,7 @@ OUTPUT_CURVE_FILE_FORMAT = os.path.join(OUTPUT_DIR,
 OUTPUT_PLOT_TITLE = "{name}"
 OUTPUT_COMPONENT_PLOT_FIGNAME = 'components'
 OUTPUT_PROJECTION_PLOT_FIGNAME = 'projections'
+OUTPUT_EXTREME_PLOT_FIGNAME = 'extreme'
 OUTPUT_EX_IMAGE_PLOT_FIGNAME = 'example'
 
 ##############
@@ -114,6 +115,8 @@ X = np.load(INPUT_DATASET)
 y = np.load(INPUT_TARGET)
 
 n, p = X.shape
+data_min = np.min(X)
+data_max = np.max(X)
 
 # Number of persons
 # This assume that y is sorted (bincount works on non-negative int)
@@ -151,15 +154,15 @@ for j, (params, name) in enumerate(COND):
         components[j, ...] = np.load(filename)['arr_0']
     else:
         print "No components for", COND[j][1]
-data_min = components.min()
-data_max = components.max()
+components_min = components.min()
+components_max = components.max()
 
 # Create a symetric colormap
 # This assume that max is positive and min is negative
-vmax = max([np.abs(data_min), np.abs(data_max)])
-vmin = -data_max
-norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-cmap = matplotlib.cm.jet
+vmax = max([np.abs(components_min), np.abs(components_max)])
+vmin = -vmax
+components_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+components_cmap = matplotlib.cm.jet
 
 # Plot components
 handles = np.zeros((len(COND)), dtype='object')
@@ -170,8 +173,10 @@ for j, (params, name) in enumerate(COND):
     f = plt.gcf()
     for l, axe in zip(range(N_COMP), axes.flat):
         data = components[j, :, l].reshape(IM_SHAPE)
-        im = axe.imshow(data, norm=norm, aspect="auto",
-                        cmap=cmap)
+        im = axe.imshow(data,
+                        aspect="auto",
+                        norm=components_norm,
+                        cmap=components_cmap)
     figtitle = OUTPUT_PLOT_TITLE.format(name=name)
     plt.suptitle(figtitle)
     figname = OUTPUT_COMPONENT_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
@@ -182,12 +187,12 @@ for j, (params, name) in enumerate(COND):
 # http://matplotlib.org/examples/api/colorbar_only.html
 fig = plt.figure(figsize=(8, 1))
 ax = fig.add_axes([0.05, 0.30, 0.9, 0.35])
-cb = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
-                                      norm=norm,
+cb = matplotlib.colorbar.ColorbarBase(ax,
+                                      cmap=components_cmap,
+                                      norm=components_norm,
                                       orientation='horizontal')
 fig.savefig(os.path.join(OUTPUT_DIR,
                          "components_colorbar.png"))
-
 
 ###############################################################################
 # Projection of individuals on components                                     #
@@ -230,6 +235,40 @@ for j, (params, name) in enumerate(COND):
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
 
+# Create a symetric colormap
+# This assume that max is positive and min is negative
+vmax = max([np.abs(data_min), np.abs(data_max)])
+vmin = -vmax
+extreme_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+extreme_cmap = matplotlib.cm.gray
+
+# Find extreme individuals
+extreme_individuals_index = np.zeros((len(COND), N_COMP, 2), dtype='int')
+min_indiv_index = projections.argmin(axis=1)
+extreme_individuals_index[:, :, 0] = min_indiv_index
+max_indiv_index = projections.argmax(axis=1)
+extreme_individuals_index[:, :, 1] = max_indiv_index
+
+# Plot extreme individuals: 1 figure per condition with N_COMPx2 subplots
+handles = np.zeros((len(COND)), dtype='object')
+for j, (params, name) in enumerate(COND):
+    handles[j] = fig, axes = plt.subplots(nrows=N_COMP,
+                                          ncols=2)
+    f = plt.gcf()
+    for l, (i, axe) in enumerate(zip(extreme_individuals_index[j].flat,
+                                     axes.flat)):
+        data = X[i, ...].reshape(IM_SHAPE)
+        im = axe.imshow(data,
+                    aspect="auto",
+                    norm=extreme_norm,
+                    cmap=extreme_cmap)
+    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
+    plt.suptitle(figtitle)
+    figname = OUTPUT_EXTREME_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    f.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR,
+                             ".".join([figname, "png"])))
+
 ###############################################################################
 # Example of reconstruction                                                   #
 ###############################################################################
@@ -245,8 +284,16 @@ for j, (params, name) in enumerate(COND):
         reconstructions[j, ...] = np.load(filename)['arr_0']
     else:
         print "No reconstruction for", COND[j][1]
-data_min = reconstructions.min()
-data_max = reconstructions.max()
+reconstruction_min = reconstructions.min()
+reconstruction_max = reconstructions.max()
+
+# Create a symetric colormap
+# This assume that max is positive and min is negative
+vmax = max([np.abs(reconstruction_min), np.abs(reconstruction_max),
+            np.abs(data_min), np.abs(data_max)])
+vmin = -vmax
+reconstruction_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+reconstruction_cmap = matplotlib.cm.gray
 
 # Plot components
 handles = np.zeros((len(COND)), dtype='object')
@@ -255,10 +302,12 @@ for j, (params, name) in enumerate(COND):
                                           ncols=N_EX_IMAGES,
                                           figsize=(11.8, 3.7))
     f = plt.gcf()
-    for l, axe in zip(range(N_EX_IMAGES), axes.flat):
+    for l, axe in zip(EX_IMAGES, axes.flat):
         data = reconstructions[j, l, ...].reshape(IM_SHAPE)
-        im = axe.imshow(data, norm=norm, aspect="auto",
-                        cmap=cmap)
+        im = axe.imshow(data,
+                        aspect="auto",
+                        norm=reconstruction_norm,
+                        cmap=reconstruction_cmap)
     figtitle = OUTPUT_PLOT_TITLE.format(name=name)
     plt.suptitle(figtitle)
     figname = OUTPUT_EX_IMAGE_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
@@ -271,14 +320,15 @@ fig, axes = plt.subplots(nrows=1,
                          ncols=N_EX_IMAGES,
                          figsize=(11.8, 3.7))
 f = plt.gcf()
-for l, axe in zip(range(N_EX_IMAGES), axes.flat):
+for l, axe in zip(EX_IMAGES, axes.flat):
     data = X[l, ...].reshape(IM_SHAPE)
-    im = axe.imshow(data, norm=norm, aspect="auto",
-                    cmap=cmap)
+    im = axe.imshow(data,
+                    aspect="auto",
+                    norm=reconstruction_norm,
+                    cmap=reconstruction_cmap)
 figtitle = "Original data"
 plt.suptitle(figtitle)
 figname = figtitle.replace(' ', '_')
 f.tight_layout()
 fig.savefig(os.path.join(OUTPUT_DIR,
                          ".".join([figname, "png"])))
-
