@@ -23,8 +23,12 @@ OUTPUT_DATASET_FILE = os.path.join(OUTPUT_BASE_DIR,
                                    "X.npy")
 OUTPUT_TARGET_FILE = os.path.join(OUTPUT_BASE_DIR,
                                   "y.npy")
+OUTPUT_VAR_FILE = os.path.join(OUTPUT_BASE_DIR,
+                               "pixel_var.png")
 OUTPUT_IMAGE_FILE = os.path.join(OUTPUT_BASE_DIR,
                                  "example.png")
+
+IM_SHAPE = (64, 64)
 
 ###############################################################################
 # Load faces data
@@ -51,15 +55,29 @@ np.save(OUTPUT_DATASET_FILE, faces_centered_local)
 np.save(OUTPUT_TARGET_FILE, y)
 
 ###############################################################################
-# Plot an original face and the centered versions
+
 import matplotlib
 import matplotlib.pylab as plt
+
+# Pixel-wise variance
+var = faces_centered_local.var(axis=0).reshape(IM_SHAPE)
+fig = plt.figure()
+my_cmap = matplotlib.cm.get_cmap('gray')
+im = plt.imshow(var,
+                cmap=my_cmap)
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+fig.colorbar(im, cax=cbar_ax)
+fig.savefig(OUTPUT_VAR_FILE)
+fig.show()
+
+# Plot an original face and the centered versions
 DEMO_FACE = 0
-im1 = faces[0, :].reshape(64, 64)
+im1 = faces[0, :].reshape(IM_SHAPE)
 im1_bounds = [im1.min(), im1.max()]
-im2 = faces_centered_global[0, :].reshape(64, 64)
+im2 = faces_centered_global[0, :].reshape(IM_SHAPE)
 im2_bounds = [im2.min(), im2.max()]
-im3 = faces_centered_local[0, :].reshape(64, 64)
+im3 = faces_centered_local[0, :].reshape(IM_SHAPE)
 im3_bounds = [im3.min(), im3.max()]
 
 bounds = [min([im1_bounds[0], im2_bounds[0], im3_bounds[0]]),
