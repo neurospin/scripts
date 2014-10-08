@@ -174,78 +174,71 @@ def reducer_(key, values):
             r_bar_perms[perm_i] = r_bar
             fleiss_kappa_stat_perms[perm_i] = fleiss_kappa_stat
             dice_bar_perms[perm_i] = dice_bar
-            np.savez_compressed(OUTPUT+"/perms_"+key+".npz",
-                                r2=r2_perms, corr=corr_perms,
-                                r_bar=r_bar_perms, fleiss_kappa=fleiss_kappa_stat_perms,
-                                dice_bar=dice_bar_perms)
-            
-            perms = dict()
-            for key in keys:
-                perms[key] = np.load(OUTPUT+"/perms_"+key+".npz")
+        # END PERMS
+        print "save", key
+        np.savez_compressed(OUTPUT+"/perms_"+key+".npz",
+                            r2=r2_perms, corr=corr_perms,
+                            r_bar=r_bar_perms, fleiss_kappa=fleiss_kappa_stat_perms,
+                            dice_bar=dice_bar_perms)
+        #
+        perms = dict()
+        for key in keys:
+            perms[key] = np.load(OUTPUT+"/perms_"+key+".npz")
 
-            l1l2tv, l1tv, l1l2, l1 = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  
-                                 "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
-            import pandas as pd
-            true = pd.read_csv(os.path.join(BASE, "..", "ADAS11-MCIc-CTL.csv"))
-            true = true[true.a == 0.001]
-            true["key"] = [s.replace("results/*/", "").replace("-1.0", "-1") for s in true["glob"]]
-            true["key"].isin([l1l2tv, l1tv, l1l2, l1])
-            np.sum(true["key"].isin(l1l2tv))
-            
-            np.sum(true["key"] == "0.001_0.3335_0.3335_0.333_-1")
-            np.sum(true["key"] == '0.001_0.3335_0.3335_0.333_-1')
-            np.sum(true["key"] == l1l2tv)
-            np.sum(true["key"].isin([l1l2tv, l1]))
-            np.sum(true["key"].isin([l1]))
+        l1l2tv, l1tv, l1l2, l1 = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  
+                             "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
+        # Read true scores
+        import pandas as pd
+        true = pd.read_csv(os.path.join(BASE, "..", "ADAS11-MCIc-CTL.csv"))
+        true = true[true.a == 0.001]
+        true_l1l2tv = true[true.l1 == 0.3335].iloc[0]
+        true_l1l2 = true[(true.l1 == 0.5) & (true.l2 == 0.5)].iloc[0]
+        true_l1tv = true[(true.l1 == 0.5) & (true.tv == 0.5)].iloc[0]
+        true_l1 = true[(true.l1 == 1.)].iloc[0]
 
-            true[(true.l1 == 0.3335) & (true.l2 == 0.3335)]
-            
-            params = pd.DataFrame([[k]+[float(a) for a in k.split("_")] for k in [l1tv, l1, l1l2, l1l2tv]], columns=["key", "a", "l1", "l2", "tv", "k"])
-            l1_ = params[params.key == l1]
-            true[true.l1 == l1_.l1.values[0]]
-            true.l1 == 0.3335
-            # r2 pvals
-            np.sum(perms[l1]['r2'] > 0.504914458435749)
-            np.sum(perms[l1tv]['r2'] > 0.517747334146272)
-            np.sum(perms[l1l2]['r2'] > 0.5294619358)
-            np.sum(perms[l1l2tv]['r2'] > 0.5085280694)
+        # r2 pvals
+        nperms = float(len(perms[l1]['r2']))
+        np.sum(perms[l1]['r2'] > true_l1["r2"]) / nperms
+        np.sum(perms[l1tv]['r2'] > true_l1tv["r2"]) / nperms
+        np.sum(perms[l1l2]['r2'] > true_l1l2["r2"]) / nperms
+        np.sum(perms[l1l2tv]['r2'] > true_l1l2tv["r2"]) / nperms
 
-            # l1 vs l1tv
-            np.sum((perms[l1tv]['r2'] - perms[l1]['r2']) > (0.517747334146272 - 0.504914458435749))
-            np.sum((perms[l1tv]['r_bar'] - perms[l1]['r_bar']) > ())
-            np.sum((perms[l1tv]['fleiss_kappa'] - perms[l1]['fleiss_kappa']) > ())
-            np.sum((perms[l1tv]['dice_bar'] - perms[l1]['dice_bar']) > ())
+        # l1 vs l1tv
+        np.sum((perms[l1tv]['r2'] - perms[l1]['r2']) > (true_l1tv["r2"] - true_l1["r2"])) / nperms
+        np.sum((perms[l1tv]['r_bar'] - perms[l1]['r_bar']) > (true_l1tv["beta_r_bar"] - true_l1["beta_r_bar"])) / nperms
+        np.sum((perms[l1tv]['fleiss_kappa'] - perms[l1]['fleiss_kappa']) > (true_l1tv["beta_fleiss_kappa"] - true_l1["beta_fleiss_kappa"])) / nperms
+        np.sum((perms[l1tv]['dice_bar'] - perms[l1]['dice_bar']) > (true_l1tv["beta_dice_bar"] - true_l1["beta_dice_bar"])) / nperms
 
-            # l1l2 vs l1l2tv
-            np.sum((perms[l1l2]['r2'] - perms[l1l2tv]['r2']) > (0.5294619358 - 0.5085280694))
-            np.sum(perms[]['r_bar'] - perms[]['r_bar'] > ())
-            np.sum(perms[]['fleiss_kappa'] - perms[]['fleiss_kappa'] > ())
-            np.sum(perms[]['dice_bar'] - perms[]['dice_bar'] > ())
+        # l1l2 vs l1l2tv
+        np.sum((perms[l1l2]['r2'] - perms[l1l2tv]['r2']) > (true_l1l2["r2"] - true_l1l2tv["r2"])) / nperms
+        np.sum((perms[l1l2tv]['r_bar'] - perms[l1l2]['r_bar']) > (true_l1l2tv["beta_r_bar"] - true_l1l2["beta_r_bar"])) / nperms
+        np.sum((perms[l1l2tv]['fleiss_kappa'] - perms[l1l2]['fleiss_kappa']) > (true_l1l2tv["beta_fleiss_kappa"] - true_l1l2["beta_fleiss_kappa"])) / nperms
+        np.sum((perms[l1l2tv]['dice_bar'] - perms[l1l2]['dice_bar']) > (true_l1l2tv["beta_dice_bar"] - true_l1l2["beta_dice_bar"])) / nperms
 
-            
-    
-            arrs.keys()['r_bar', 'fleiss_kappa', 'dice_bar', 'corr', 'r2']
-            #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-            a, l1, l2, tv, k = key
-            scores = OrderedDict()
-            scores['a'] = a
-            scores['l1'] = l1
-            scores['l2'] = l2
-            scores['tv'] = tv
-            left = float(1 - tv)
-            if left == 0: left = 1.
-            scores['l1l2_ratio'] = float(l1) / left
-            scores['r2'] = r2
-            scores['corr']= corr
-            scores['beta_r'] = str(R)
-            scores['beta_r_bar'] = r_bar
-            scores['beta_fleiss_kappa'] = fleiss_kappa_stat
-            scores['beta_dice_bar'] = dice_bar
-            scores['support'] = len(y_true)
-            scores['n_ite'] = n_ite
-            scores['key'] = key
-            scores['k'] = k
-            return scores
+        
+
+        arrs.keys()['r_bar', 'fleiss_kappa', 'dice_bar', 'corr', 'r2']
+        #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+        a, l1, l2, tv, k = key
+        scores = OrderedDict()
+        scores['a'] = a
+        scores['l1'] = l1
+        scores['l2'] = l2
+        scores['tv'] = tv
+        left = float(1 - tv)
+        if left == 0: left = 1.
+        scores['l1l2_ratio'] = float(l1) / left
+        scores['r2'] = r2
+        scores['corr']= corr
+        scores['beta_r'] = str(R)
+        scores['beta_r_bar'] = r_bar
+        scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+        scores['beta_dice_bar'] = dice_bar
+        scores['support'] = len(y_true)
+        scores['n_ite'] = n_ite
+        scores['key'] = key
+        scores['k'] = k
+        return scores
 
 
 ##############################################################################
