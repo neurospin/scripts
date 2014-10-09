@@ -4,6 +4,8 @@ Created on Wed Oct  8 11:03:19 2014
 
 @author: md238665
 
+Create population file for the static sequences DB.
+
 Convert images to PNG and create CSV.
 The RAW format stores the color plane first. Most image vizualization tools
 can't display that and to load them in numpy/scipy we should have perform some
@@ -22,8 +24,6 @@ import glob
 import re
 import collections
 
-import numpy as np
-import scipy.misc
 import pandas as pd
 
 ################
