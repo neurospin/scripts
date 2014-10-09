@@ -33,7 +33,7 @@ import pandas as pd
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/AR_faces"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "raw_data",
-                         "uncompressed")
+                         "static_sequences")
 INPUT_IMAGES_GLOB = os.path.join(INPUT_DIR,
                                  "*",
                                  "*.raw")
