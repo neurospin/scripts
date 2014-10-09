@@ -4,13 +4,16 @@ Created on Wed Oct  8 11:03:19 2014
 
 @author: md238665
 
-Convert images to PNG and dump a grayscale version in a numpy array.
+Convert images to PNG and create CSV.
 The RAW format stores the color plane first. Most image vizualization tools
 can't display that and to load them in numpy/scipy we should have perform some
 manipulations). Therefore it's easier to convert the images to PNG before.
 
 One of the problem is that some conditions are duplicated so we try to ignore
-them.
+them. Normally the chosen image should be the first in the lexicographic sort
+
+We don't dump images a numpy array because it's huge and application scripts
+may subsample images.
 
 """
 
@@ -21,8 +24,6 @@ import collections
 
 import numpy as np
 import scipy.misc
-import skimage
-import skimage.color
 import pandas as pd
 
 ################
@@ -41,16 +42,13 @@ CONVERT_COMMAND = """convert -depth 8 -interlace plane -size 768x576 """ \
 INPUT_IMAGE_RE = re.compile('(?P<sex>[wm])-(?P<id>\d{3})-(?P<expr>\d{1,2})')
 INPUT_IMAGE_SHAPE = (576, 768, 3)
 
-OUTPUT_BASE_DIR = INPUT_BASE_DIR
-OUTPUT_DIR = os.path.join(OUTPUT_BASE_DIR,
-                          "dataset")
+# Output is put in INPUT_DIR because it's the better place.
+OUTPUT_DIR = os.path.join(INPUT_DIR)
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 OUTPUT_DUPES = os.path.join(OUTPUT_DIR,
                             "dupes.txt")
-OUTPUT_X = os.path.join(OUTPUT_DIR,
-                        "X.npy")
 OUTPUT_POP = os.path.join(OUTPUT_DIR,
                           "population.csv")
 
@@ -99,9 +97,10 @@ n_uniques = len(all_raw_images) - n_dupes + len(dupes)
 # Store dict in file
 with open(OUTPUT_DUPES, "w") as f:
     for k, v in dupes.items():
-        print >>f, k, " ".join([str(e) for e in v])
+        print >>f, "{k}:".format(k=k), " ".join([str(e) for e in v])
 
-# Create dataframe
+# Create dataframe (we could do that at the same time than conversion but
+# it's rather fast).
 file_infos = collections.OrderedDict.fromkeys(['sex', 'id', 'expr'])
 for k in file_infos.keys():
     file_infos[k] = []
@@ -116,18 +115,12 @@ for filename in all_png_images:
 file_infos['file'] = all_png_images
 
 images_df = pd.DataFrame.from_dict(file_infos)
+
+# Remove duplicates (as the image filenames are sorted, the chosen image for
+# duplicates should be the first in lexicographic order).
 images_df = images_df[~images_df.duplicated(subset=["sex", "id", "expr"])]
 images_df.sort(columns=["sex", "id", "expr"],
                inplace=True)
 assert(len(images_df) == n_uniques)
-images_df.to_csv(OUTPUT_POP)
-
-# Put images in array
-print "Convert to grayscale and store in numpy array"
-images = np.empty((n_uniques, INPUT_IMAGE_SHAPE[0], INPUT_IMAGE_SHAPE[1]))
-for i, image in enumerate(images_df['file']):
-    # Read image
-    rgb_data = scipy.misc.imread(image)
-    float_data = skimage.color.rgb2gray(rgb_data)
-    images[i] = float_data
-np.save(OUTPUT_X, images)
+images_df.to_csv(OUTPUT_POP,
+                 index=False)
