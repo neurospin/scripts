@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 
-from brainomics import plot_utilities
+from brainomics import plot_utilities, array_utils
 
 ################
 # Input/Output #
@@ -60,11 +60,11 @@ OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 OUTPUT_CURVE_FILE_FORMAT = os.path.join(OUTPUT_DIR,
                                         '{metric}_{global_pen}.png')
 # Filename is forged from the figure title
-OUTPUT_PLOT_TITLE = "{name}"
-OUTPUT_COMPONENT_PLOT_FIGNAME = 'components'
-OUTPUT_PROJECTION_PLOT_FIGNAME = 'projections'
-OUTPUT_EXTREME_PLOT_FIGNAME = 'extreme'
-OUTPUT_EX_IMAGE_PLOT_FIGNAME = 'example'
+#OUTPUT_PLOT_TITLE = "{name}"
+OUTPUT_COMPONENT_PLOT_FIGNAME = 'component_{k}_{name}'
+OUTPUT_PROJECTION_PLOT_FIGNAME = 'projections_{name}'
+OUTPUT_EXTREME_PLOT_FIGNAME = 'extreme_{name}'
+OUTPUT_EX_IMAGE_PLOT_FIGNAME = 'example_{name}'
 
 ##############
 # Parameters #
@@ -81,7 +81,11 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
         (('struct_pca', GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
-METRICS = ['frobenius_test']
+METRICS = ['frobenius_test',
+           'correlation_0',
+           'correlation_1',
+           'correlation_2',
+           'correlation_mean']
 EXAMPLE_FOLD = 0  # This is the special fold with the whole dataset
 N_COMP = 3
 
@@ -157,42 +161,49 @@ for j, (params, name) in enumerate(COND):
 components_min = components.min()
 components_max = components.max()
 
-# Create a symetric colormap
-# This assume that max is positive and min is negative
-vmax = max([np.abs(components_min), np.abs(components_max)])
-vmin = -vmax
-components_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-components_cmap = matplotlib.cm.jet
-
-# Plot components
-handles = np.zeros((len(COND)), dtype='object')
+# Plot components (one figure per component and model)
+# We create a colormap for each component (of each model)
+# The colormap is symmetric, values below threshold are black
+handles = np.zeros((len(COND), N_COMP), dtype='object')
 for j, (params, name) in enumerate(COND):
-    handles[j] = fig, axes = plt.subplots(nrows=1,
-                                          ncols=N_COMP,
-                                          figsize=(11.8, 3.7))
-    f = plt.gcf()
-    for l, axe in zip(range(N_COMP), axes.flat):
-        data = components[j, :, l].reshape(IM_SHAPE)
+    for k in range(N_COMP):
+        handles[j, k] = plt.figure()
+        fig = plt.gcf()
+        axe = plt.gca()
+        data = components[j, :, k].reshape(IM_SHAPE)
+        data, t = array_utils.arr_threshold_from_norm2_ratio(data)
+        vmax = np.max(np.abs(data))
+        vmin = -vmax
+        component_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+        x = [0, 0.5-t, 0.5+t, 1.0]
+        cdict = {'red': ((x[0], 0.0, 0.0),
+                         (x[1], 1.0, 0.0),
+                         (x[2], 0.0, 1.0),
+                         (x[3], 1.0, 0.0)),
+                 'green': ((x[0], 0.0, 0.0),
+                           (x[1], 1.0, 0.0),
+                           (x[2], 0.0, 1.0),
+                           (x[3], 0.0, 0.0)),
+                 'blue': ((x[0], 0.0, 1.0),
+                          (x[1], 1.0, 0.0),
+                          (x[2], 0.0, 1.0),
+                          (x[3], 0.0, 0.0))}
+        component_cmap = \
+            matplotlib.colors.LinearSegmentedColormap('my_colormap',
+                                                      cdict,
+                                                      256)
         im = axe.imshow(data,
-                        aspect="auto",
-                        norm=components_norm,
-                        cmap=components_cmap)
-    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
-    plt.suptitle(figtitle)
-    figname = OUTPUT_COMPONENT_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
-    f.tight_layout()
-    fig.savefig(os.path.join(OUTPUT_DIR,
-                             ".".join([figname, "png"])))
-# Create a colobar
-# http://matplotlib.org/examples/api/colorbar_only.html
-fig = plt.figure(figsize=(8, 1))
-ax = fig.add_axes([0.05, 0.30, 0.9, 0.35])
-cb = matplotlib.colorbar.ColorbarBase(ax,
-                                      cmap=components_cmap,
-                                      norm=components_norm,
-                                      orientation='horizontal')
-fig.savefig(os.path.join(OUTPUT_DIR,
-                         "components_colorbar.png"))
+                        aspect="equal",
+                        norm=component_norm,
+                        cmap=component_cmap,
+                        interpolation="none")
+        plt.colorbar(mappable=im, ax=axe, use_gridspec=True)
+        name = name.replace(' ', '_')
+        figname = OUTPUT_COMPONENT_PLOT_FIGNAME.format(name=name,
+                                                       k=k)
+        fig.savefig(os.path.join(OUTPUT_DIR,
+                                 ".".join([figname, "png"])),
+                    bbox_inches='tight')
 
 ###############################################################################
 # Projection of individuals on components                                     #
@@ -228,9 +239,8 @@ for j, (params, name) in enumerate(COND):
                     color=point_color)
         axe.set_xlabel('PC {i}'.format(i=first_pc + 1))
         axe.set_ylabel('PC {i}'.format(i=second_pc + 1))
-    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
-    plt.suptitle(figtitle)
-    figname = OUTPUT_PROJECTION_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    name = name.replace(' ', '_')
+    figname = OUTPUT_PROJECTION_PLOT_FIGNAME.format(name=name)
     f.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
@@ -262,9 +272,8 @@ for j, (params, name) in enumerate(COND):
                     aspect="auto",
                     norm=extreme_norm,
                     cmap=extreme_cmap)
-    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
-    plt.suptitle(figtitle)
-    figname = OUTPUT_EXTREME_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    name = name.replace(' ', '_')
+    figname = OUTPUT_EXTREME_PLOT_FIGNAME.format(name=name)
     f.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
@@ -308,9 +317,8 @@ for j, (params, name) in enumerate(COND):
                         aspect="auto",
                         norm=reconstruction_norm,
                         cmap=reconstruction_cmap)
-    figtitle = OUTPUT_PLOT_TITLE.format(name=name)
-    plt.suptitle(figtitle)
-    figname = OUTPUT_EX_IMAGE_PLOT_FIGNAME + '_' + figtitle.replace(' ', '_')
+    name = name.replace(' ', '_')
+    figname = OUTPUT_EX_IMAGE_PLOT_FIGNAME.format(name=name)
     f.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR,
                              ".".join([figname, "png"])))
@@ -327,7 +335,6 @@ for l, axe in zip(EX_IMAGES, axes.flat):
                     norm=reconstruction_norm,
                     cmap=reconstruction_cmap)
 figtitle = "Original data"
-plt.suptitle(figtitle)
 figname = figtitle.replace(' ', '_')
 f.tight_layout()
 fig.savefig(os.path.join(OUTPUT_DIR,
