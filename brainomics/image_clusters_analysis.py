@@ -177,14 +177,23 @@ if __name__ == "__main__":
     ##########################################################################
     #map_filename = "/tmp/beta_0.001_0.5_0.5_0.0_-1.0.nii_thresholded:0.003706/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz"
 
-    map_filename_noext, _ = os.path.splitext(map_filename)
-    output_csv_clusters_info_filename  = map_filename_noext + "_clusters_info.csv"
-    output_clusters_labels_filename  = map_filename_noext + "_clusters_labels.nii.gz"
-    output_clusters_values_filename  = map_filename_noext + "_clusters_values.nii.gz"
-    output_clusters_small_mesh_filename  = map_filename_noext + "_clusters_small.gii"
-    output_clusters_large_mesh_filename  = map_filename_noext + "_clusters_large.gii"
-    output_clusters_mesh_filename  = map_filename_noext + "_clusters.gii"
-    output_MNI152_T1_1mm_brain_filename  = map_filename_noext + "_" + os.path.basename(MNI152_T1_1mm_brain_filename)
+    output, ext = os.path.splitext(map_filename)
+    if ext == ".gz":
+        output, _ = os.path.splitext(output)
+    if not os.path.exists(output):
+        os.mkdir(output)
+    map_filename_symlink =  os.path.join(output, os.path.basename(map_filename))
+    if not os.path.exists(map_filename_symlink):
+        os.symlink(map_filename, map_filename_symlink)
+    #print map_filename_symlink
+    #sys.exit(0)
+    output_csv_clusters_info_filename  = os.path.join(output, "clust_info.csv")
+    output_clusters_labels_filename  = os.path.join(output, "clust_labels.nii.gz")
+    output_clusters_values_filename  = os.path.join(output, "clust_values.nii.gz")
+    output_clusters_small_mesh_filename  = os.path.join(output, "clust_small.gii")
+    output_clusters_large_mesh_filename  = os.path.join(output, "clust_large.gii")
+    output_clusters_mesh_filename  = os.path.join(output, "clust.gii")
+    output_MNI152_T1_1mm_brain_filename  = os.path.join(output, os.path.basename(MNI152_T1_1mm_brain_filename))
 
     tempdir = tempfile.mkdtemp()
 
@@ -248,20 +257,41 @@ if __name__ == "__main__":
         output_clusters_large_mesh_filename, tempdir, ima, thresh_size)
 
     if clusters_small_mesh and clusters_large_mesh:
-        clusters_mesh = aims.SurfaceManip.meshMerge(clusters_small_mesh, clusters_large_mesh)
+        aims.SurfaceManip.meshMerge(clusters_small_mesh, clusters_large_mesh)
+        #print "TOTO", clusters_mesh, clusters_small_mesh, clusters_large_mesh
+        clusters_mesh = clusters_small_mesh
     elif clusters_small_mesh:
         clusters_mesh = clusters_small_mesh
     elif clusters_large_mesh:
         clusters_mesh = clusters_large_mesh
 
     writer.write(clusters_mesh, output_clusters_mesh_filename)
-
     # warp  MNI152_T1_1mm into map referential
     os.system(fsl_warp_cmd % (MNI152_T1_1mm_brain_filename, map_filename, 
                               output_MNI152_T1_1mm_brain_filename))
+    #print MNI152_T1_1mm_brain_filename, map_filename, output_MNI152_T1_1mm_brain_filename
     # Force same referential
     MNI152_T1_1mm_brain =  aims.read(output_MNI152_T1_1mm_brain_filename)
     MNI152_T1_1mm_brain.header()['referentials'] = ima.header()['referentials']
     MNI152_T1_1mm_brain.header()['transformations'] = ima.header()['transformations']
     writer.write(MNI152_T1_1mm_brain, output_MNI152_T1_1mm_brain_filename)
-    
+
+    print "Output directory:", output
+
+
+"""
+{'connected_components': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/connected_components.nii.gz',
+  'mesh_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters.mesh',
+  'cluster_mask_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters_mask.nii.gz',
+  'cluster_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters.nii.gz'}
+/home/ed203246/.local/share/nsap/MNI152_T1_1mm_Bothhemi.gii
+
+mesh_file = output_clusters_mesh_filename
+white_mesh_file = "/neurospin/brainomics/neuroimaging_ressources/mesh/MNI152_T1_1mm_Bothhemi.gii"
+
+# run render
+do_mesh_cluster_rendering(mesh_file = outputs["mesh_file"],
+                             texture_file = outputs["cluster_file"],
+                             white_mesh_file = get_sample_data("mni_1mm").mesh,
+                             anat_file = target)
+"""
