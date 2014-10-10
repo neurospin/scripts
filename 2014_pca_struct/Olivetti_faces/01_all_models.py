@@ -263,7 +263,7 @@ def reducer(key, values):
     av_tv = tv.mean(axis=0)
 
     # Compute correlations of components between all folds
-    n_corr = N_FOLDS * (N_FOLDS - 1)/2
+    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
     correlations = np.zeros((N_COMP, n_corr))
     for k in range(N_COMP):
         R = np.corrcoef(np.abs(components[:, k, :].T))
@@ -275,7 +275,7 @@ def reducer(key, values):
     # Average for each component
     z_bar = np.mean(Z, axis=1)
     # Transform back to average correlation for each component
-    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+    r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
 
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
@@ -298,20 +298,20 @@ def reducer(key, values):
             fleiss_kappa_stat = fleiss_kappa(table)
         except:
             fleiss_kappa_stat = 0.
-        fleiss_kappas[k] = fleiss_kappa_stat        
+        fleiss_kappas[k] = fleiss_kappa_stat
         try:
             # Paire-wise DICE coefficient (there is the same number than
             # pair-wise correlations)
             thresh_comp_n0 = thresh_comp != 0
             # Index of lines (folds) to use
             ij = [[i, j] for i in xrange(N_FOLDS)
-                         for j in xrange(i+1, N_FOLDS)]
+                         for j in xrange(i + 1, N_FOLDS)]
             num = [np.sum(thresh_comp[idx[0], :] == thresh_comp[idx[1], :])
                    for idx in ij]
             denom = [(np.sum(thresh_comp_n0[idx[0], :]) + \
                       np.sum(thresh_comp_n0[idx[1], :]))
                      for idx in ij]
-            dices = np.array([float(num[i])/denom[i] for i in range(n_corr)])
+            dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
             dice_bar = dices.mean()
         except:
             dice_bar = 0.
