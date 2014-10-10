@@ -8,7 +8,7 @@ Create population file for the cropped images DB.
 
 There is no duplicates in this base. Note that the sex is upper-case here.
 
-We don't dump images a numpy array because it's huge and application scripts
+We don't dump images in a numpy array because it's huge and application scripts
 may subsample images.
 
 """
@@ -45,7 +45,7 @@ OUTPUT_POP = os.path.join(OUTPUT_DIR,
 # Script #
 ##########
 
-# Find files (sort is no strictly speaking necessary here)
+# Find files (sort is not necessary here)
 all_images = glob.glob(INPUT_IMAGES_GLOB)
 all_images.sort()
 print "Found", len(all_images), "files"

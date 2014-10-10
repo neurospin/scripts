@@ -12,9 +12,9 @@ can't display that and to load them in numpy/scipy we should have perform some
 manipulations). Therefore it's easier to convert the images to PNG before.
 
 One of the problem is that some conditions are duplicated so we try to ignore
-them. Normally the chosen image should be the first in the lexicographic sort
+them. Normally the chosen image should be the first in the lexicographic order.
 
-We don't dump images a numpy array because it's huge and application scripts
+We don't dump images in a numpy array because it's huge and application scripts
 may subsample images.
 
 """
