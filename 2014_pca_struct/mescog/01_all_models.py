@@ -8,13 +8,14 @@ Process mescog/proj_wmh_patterns datasets with standard PCA, sklearn SparsePCA
 and our structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
-We generate a map_reduce configuration file and the files needed to run on the
-cluster.
-Due to the cluster setup and the way mapreduce work we need to copy the datset
-on the cluster. Therefore we copy them on the output directory which is
-synchronised on the cluster.
-
-The output directory is results.
+We generate 2 map_reduce configuration directory (for configuration files and
+the files needed to run on the cluster):
+ - one for 2 folds CV (close to the protocol in mescog/proj_wmh_patterns)
+ - one for 5 folds CV + full resample
+Due to the cluster setup and the way mapreduce work we need to copy the dataset
+on the cluster. Therefore we copy them for each config directory.
+The reducer need the number of folds and if a full resample was used. Therefore
+those parameters are included in the config file.
 
 This file was copied from scripts/2014_pca_struct/dice5/01_all_models.py.
 
@@ -40,6 +41,8 @@ import nibabel
 import parsimony.functions.nesterov.tv
 import pca_tv
 import metrics
+from brainomics import array_utils
+from statsmodels.stats.inter_rater import fleiss_kappa
 
 import brainomics.cluster_gabriel as clust_utils
 
@@ -64,8 +67,11 @@ OUTPUT_DIR = os.path.join("/neurospin", "brainomics",
 # Parameters #
 ##############
 
-# Real shape of images
-INPUT_SHAPE = (182, 218, 182)
+RANDOM_STATE = 13031981
+# Parameters for the function create_config
+# Note that value at index 1 will be the name of the task on the cluster
+CONFIGS = [[2, "mescog_2folds", "config_2folds.json", False],
+           [5, "mescog_5folds", "config_5folds.json", True]]
 
 N_COMP = 3
 # Global penalty
@@ -99,13 +105,19 @@ def load_globals(config):
                                                         babel_mask.get_data())
     GLOBAL.Atv = Atv
     GLOBAL.MASK = babel_mask
+    GLOBAL.N_FOLDS = config['n_folds']
+    GLOBAL.FULL_RESAMPLE = config['full_resample']
 
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
 
@@ -227,11 +239,30 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     global N_COMP
+    import mapreduce as GLOBAL
+    N_FOLDS = GLOBAL.N_FOLDS
+    # N_FOLDS is the number of true folds (not the number of resamplings)
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    values = [item.load() for item in values]
+    # Avoid taking into account the fold 0
+    if GLOBAL.FULL_RESAMPLE:
+        values = [item.load() for item in values[1:]]
+    else:
+        values = [item.load() for item in values]
 
-    comp_list = [item["components"] for item in values]
+    # Load components: each file is n_voxelsxN_COMP matrix.
+    # We stack them on the third dimension (folds)
+    components = np.dstack([item["components"] for item in values])
+    # Thesholded components (list of tuples (comp, threshold))
+    thresh_components = np.empty(components.shape)
+    thresholds = np.empty((N_COMP, N_FOLDS))
+    for l in range(N_FOLDS):
+        for k in range(N_COMP):
+            thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
+                                components[:, k, l],
+                                .99)
+            thresh_components[:, k, l] = thresh_comp
+            thresholds[k, l] = t
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
@@ -252,21 +283,80 @@ def reducer(key, values):
     av_l2 = l2.mean(axis=0)
     av_tv = tv.mean(axis=0)
 
-    # Compute correlations of components between folds
-    correlation = np.zeros((N_COMP,))
-    comp0 = comp_list[0]
-    comp1 = comp_list[1]
-    for i in range(N_COMP):
-        correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
+    # Compute correlations of components between all folds
+    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
+    correlations = np.zeros((N_COMP, n_corr))
+    for k in range(N_COMP):
+        R = np.corrcoef(np.abs(components[:, k, :].T))
+        # Extract interesting coefficients (upper-triangle)
+        correlations[k] = R[np.triu_indices_from(R, 1)]
+
+    # Transform to z-score
+    Z = 1. / 2. * np.log((1 + correlations) / (1 - correlations))
+    # Average for each component
+    z_bar = np.mean(Z, axis=1)
+    # Transform back to average correlation for each component
+    r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
+
+    # Compute fleiss_kappa and DICE on thresholded components
+    fleiss_kappas = np.empty(N_COMP)
+    dice_bars = np.empty(N_COMP)
+    for k in range(N_COMP):
+        # One component accross folds
+        thresh_comp = thresh_components[:, k, :]
+        try:
+            # Compute fleiss kappa statistics
+            # The "raters" are the folds and we have 3 variables:
+            #  - number of null coefficients
+            #  - number of > 0 coefficients
+            #  - number of < 0 coefficients
+            # We build a (N_FOLDS, 3) table
+            thresh_comp_signed = np.sign(thresh_comp)
+            table = np.zeros((N_FOLDS, 3))
+            table[:, 0] = np.sum(thresh_comp_signed == 0, 0)
+            table[:, 1] = np.sum(thresh_comp_signed == 1, 0)
+            table[:, 2] = np.sum(thresh_comp_signed == -1, 0)
+            fleiss_kappa_stat = fleiss_kappa(table)
+        except:
+            fleiss_kappa_stat = 0.
+        fleiss_kappas[k] = fleiss_kappa_stat
+        try:
+            # Paire-wise DICE coefficient (there is the same number than
+            # pair-wise correlations)
+            thresh_comp_n0 = thresh_comp != 0
+            # Index of lines (folds) to use
+            ij = [[i, j] for i in xrange(N_FOLDS)
+                         for j in xrange(i + 1, N_FOLDS)]
+            num = [np.sum(thresh_comp[idx[0], :] == thresh_comp[idx[1], :])
+                   for idx in ij]
+            denom = [(np.sum(thresh_comp_n0[idx[0], :]) + \
+                      np.sum(thresh_comp_n0[idx[1], :]))
+                     for idx in ij]
+            dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
+            dice_bar = dices.mean()
+        except:
+            dice_bar = 0.
+        dice_bars[k] = dice_bar
 
     scores = OrderedDict((
-        ('key', key),
+        ('model', key[0]),
+        ('global_pen', key[1]),
+        ('tv_ratio', key[2]),
+        ('l1_ratio', key[3]),
         ('frobenius_train', av_frobenius_train[0]),
         ('frobenius_test', av_frobenius_test[0]),
-        ('correlation_0', correlation[0]),
-        ('correlation_1', correlation[1]),
-        ('correlation_2', correlation[2]),
-        ('correlation_mean', np.mean(correlation)),
+        ('correlation_0', r_bar[0]),
+        ('correlation_1', r_bar[1]),
+        ('correlation_2', r_bar[2]),
+        ('correlation_mean', np.mean(r_bar)),
+        ('kappa_0', fleiss_kappas[0]),
+        ('kappa_1', fleiss_kappas[1]),
+        ('kappa_2', fleiss_kappas[2]),
+        ('kappa_mean', np.mean(fleiss_kappas)),
+        ('dice_bar_0', dice_bars[0]),
+        ('dice_bar_1', dice_bars[1]),
+        ('dice_bar_2', dice_bars[2]),
+        ('dice_bar_mean', np.mean(dice_bar)),
         ('evr_train_0', av_evr_train[0]),
         ('evr_train_1', av_evr_train[1]),
         ('evr_train_2', av_evr_train[2]),
@@ -304,31 +394,23 @@ def run_test(wd, config):
     mapreduce.DATA_RESAMPLED["X"] = [X, X]
     mapper(params, oc)
 
-#################
-# Actual script #
-#################
 
-if __name__ == "__main__":
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+def create_config(y, n_folds, output_dir, filename,
+                  include_full_resample=False):
 
-    # Read clinic status (used to split groups)
-    clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
-    clinic_subjects_id = clinic_data.index
-    print "Found", len(clinic_subjects_id), "clinic records"
+    full_output_dir = os.path.join(OUTPUT_DIR, output_dir)
+    if not os.path.exists(full_output_dir):
+        os.makedirs(full_output_dir)
 
-    # Stratification of subjects
-    y = clinic_data['SITE'].map({'FR': 0, 'GE': 1})
-    skf = StratifiedKFold(y=y, n_folds=2)
+    skf = StratifiedKFold(y=y,
+                          n_folds=n_folds)
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
+    if include_full_resample:
+        resample_index.insert(0, None)  # first fold is None
 
     # Copy the learning data & mask
-    shutil.copy(INPUT_DATASET, OUTPUT_DIR)
-    shutil.copy(INPUT_MASK, OUTPUT_DIR)
-
-    # Create files to synchronize with the cluster
-    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-    clust_utils.gabriel_make_sync_data_files(OUTPUT_DIR)
+    shutil.copy(INPUT_DATASET, full_output_dir)
+    shutil.copy(INPUT_MASK, full_output_dir)
 
     # Create config file
     user_func_filename = os.path.abspath(__file__)
@@ -338,18 +420,44 @@ if __name__ == "__main__":
                   params=PARAMS,
                   resample=resample_index,
                   map_output="results",
+                  n_folds=n_folds,
+                  full_resample=include_full_resample,
                   user_func=user_func_filename,
-                  ncore=4,
-                  reduce_input="results/*/*",
-                  reduce_group_by="results/.*/(.*)",
+                  reduce_group_by="params",
                   reduce_output="results.csv")
-    config_full_filename = os.path.join(OUTPUT_DIR, "config.json")
+    config_full_filename = os.path.join(full_output_dir, filename)
     json.dump(config, open(config_full_filename, "w"))
 
+    # Create files to synchronize with the cluster
+    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
+    clust_utils.gabriel_make_sync_data_files(full_output_dir)
+
     # Create job files
-    cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
-    clust_utils.gabriel_make_qsub_job_files(OUTPUT_DIR, cluster_cmd)
+    cluster_cmd = "mapreduce.py -m {dir}/{file}  --ncore 12".format(
+                            dir=CLUSTER_WD,
+                            file=filename)
+    clust_utils.gabriel_make_qsub_job_files(full_output_dir, cluster_cmd)
+
+    return config
+
+#################
+# Actual script #
+#################
+
+if __name__ == "__main__":
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+
+    # Read and map site (used to split groups)
+    clinic_data = pd.io.parsers.read_csv(INPUT_CSV, index_col=0)
+    clinic_subjects_id = clinic_data.index
+    print "Found", len(clinic_subjects_id), "clinic records"
+    y = clinic_data['SITE'].map({'FR': 0, 'GE': 1})
+
+    # Create config files
+    config_2folds = create_config(y, *(CONFIGS[0]))
+    config_5folds = create_config(y, *(CONFIGS[1]))
 
     DEBUG = False
     if DEBUG:
-        run_test(OUTPUT_DIR, config)
+        run_test(OUTPUT_DIR, config_2folds)
