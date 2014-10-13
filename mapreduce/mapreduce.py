@@ -426,7 +426,7 @@ if __name__ == "__main__":
                 print "This is probably because the mapper failed."
             except Exception as e:
                 print >> sys.stderr, "Reducer failed in {key}".format(key=k)
-                print >> sys.stderr, "Exception:", e
+                print >> sys.stderr, e.__class__.__name__, "exception:", e
                 sys.exit(os.EX_SOFTWARE)
             # Create df on first valid reducer (we cannot do it before
             # because we don't have the columns).
