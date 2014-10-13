@@ -317,9 +317,9 @@ if __name__ == "__main__":
     if (options.map) or (options.reduce):
         try:
             user_func.load_globals(config)
-        except:
+        except Exception as e:
                 print >> sys.stderr, "Cannot load data"
-                print >> sys.stderr, "Exception:", e
+                print >> sys.stderr, e.__class__.__name__, "exception:", e
                 sys.exit(os.EX_DATAERR)
 
     # =======================================================================
