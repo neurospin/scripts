@@ -312,15 +312,20 @@ if __name__ == "__main__":
     jobs = _build_job_table(config)
 
     # =======================================================================
-    # == MAP                                                               ==
+    # == Load globals                                                      ==
     # =======================================================================
-    if options.map:
-        ## Load globals
+    if (options.map) or (options.reduce):
         try:
             user_func.load_globals(config)
         except:
-            print >> sys.stderr, "Cannot load data"
-            sys.exit(os.EX_DATAERR)
+                print >> sys.stderr, "Cannot load data"
+                print >> sys.stderr, "Exception:", e
+                sys.exit(os.EX_DATAERR)
+
+    # =======================================================================
+    # == MAP                                                               ==
+    # =======================================================================
+    if options.map:
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
