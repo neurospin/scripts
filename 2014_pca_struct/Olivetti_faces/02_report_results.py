@@ -103,8 +103,6 @@ N_EX_IMAGES = len(EX_IMAGES)
 df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
                             index_col=[1, 2, 3, 4]).sort_index()
 
-struct_pca_df = df.xs('struct_pca')
-
 # Extract some cases & add a column based on name
 summary = df.loc[PARAMS][METRICS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
@@ -132,12 +130,18 @@ print "Found", n_indiv, "persons"
 # Plot metrics                                                                #
 ###############################################################################
 
+L1_RATIOS = [0.0, 0.5, 1.0]
+l1_ratio_filter = lambda v: v in L1_RATIOS
+df_noindex = df.reset_index()
+struct_pca_df = df_noindex.loc[(df_noindex.model == 'struct_pca') &
+                               (df_noindex.l1_ratio.apply(l1_ratio_filter))]
+
 for metric in METRICS:
     handles = plot_utilities.plot_lines(struct_pca_df,
-                                        x_col=1,
+                                        x_col="tv_ratio",
                                         y_col=metric,
-                                        splitby_col=0,
-                                        colorby_col=2)
+                                        splitby_col="global_pen",
+                                        colorby_col="l1_ratio")
     for val, handle in handles.items():
         filename = OUTPUT_CURVE_FILE_FORMAT.format(metric=metric,
                                                    global_pen=val)
