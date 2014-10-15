@@ -22,6 +22,8 @@ import skimage
 import skimage.color
 import skimage.transform
 import pandas as pd
+import matplotlib
+import matplotlib.pylab as plt
 
 ##################
 # Input & output #
@@ -41,6 +43,8 @@ if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 OUTPUT_DATASET = os.path.join(OUTPUT_DIR,
                              "X.npy")
+OUTPUT_VAR_FILE = os.path.join(OUTPUT_DIR,
+                               "pixel_var.png")
 
 ##############
 # Parameters #
@@ -88,3 +92,15 @@ if __name__ == "__main__":
 
     # Save
     np.save(OUTPUT_DATASET, local_centered_images)
+
+    # Pixel-wise variance
+    var = local_centered_images.var(axis=0).reshape(INPUT_RESIZE_SHAPE)
+    fig = plt.figure()
+    my_cmap = matplotlib.cm.get_cmap('gray')
+    im = plt.imshow(var,
+                cmap=my_cmap)
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(im, cax=cbar_ax)
+    fig.savefig(OUTPUT_VAR_FILE)
+    fig.show()
