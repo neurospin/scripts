@@ -312,15 +312,20 @@ if __name__ == "__main__":
     jobs = _build_job_table(config)
 
     # =======================================================================
+    # == Load globals                                                      ==
+    # =======================================================================
+    if (options.map) or (options.reduce):
+        try:
+            user_func.load_globals(config)
+        except Exception as e:
+                print >> sys.stderr, "Cannot load data"
+                print >> sys.stderr, e.__class__.__name__, "exception:", e
+                sys.exit(os.EX_DATAERR)
+
+    # =======================================================================
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
-        ## Load globals
-        try:
-            user_func.load_globals(config)
-        except:
-            print >> sys.stderr, "Cannot load data"
-            sys.exit(os.EX_DATAERR)
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
@@ -421,7 +426,7 @@ if __name__ == "__main__":
                 print "This is probably because the mapper failed."
             except Exception as e:
                 print >> sys.stderr, "Reducer failed in {key}".format(key=k)
-                print >> sys.stderr, "Exception:", e
+                print >> sys.stderr, e.__class__.__name__, "exception:", e
                 sys.exit(os.EX_SOFTWARE)
             # Create df on first valid reducer (we cannot do it before
             # because we don't have the columns).
