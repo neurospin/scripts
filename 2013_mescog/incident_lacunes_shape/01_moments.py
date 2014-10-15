@@ -188,12 +188,28 @@ moments["tensor_invariant_spherical_anisotropy"] = CS
 I = np.array(moments[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]])
 I /= np.sqrt(np.sum(I ** 2, axis=1)[:, np.newaxis])
 #np.sum(I ** 2, axis=1)
-
+"""
 P = np.array(moments[["perfo_orientation_0", "perfo_orientation_1", "perfo_orientation_2"]])
 P /= np.sqrt(np.sum(P ** 2, axis=1)[:, np.newaxis])
 IP = np.sum(I * P, axis=1)
 IP[IP < 0] = 1 + IP[IP < 0]
 moments["perfo_angle_inertia_max"] = np.arccos(IP)
+"""
+P = np.array(moments[["perfo_orientation_0", "perfo_orientation_1", "perfo_orientation_2"]])
+# n x 3 array
+P /= np.sqrt(np.sum(P ** 2, axis=1)[:, np.newaxis])  # normalize to 1
+
+cosine = np.sum(I * P, axis=1) # dot product of scaled vector == cosine
+# Error :
+# cosine[cosine < 0] = 1 + cosine[cosine < 0]  # damn ! it is wrong !
+# It would have been correct for sine !!!
+# even simpler
+cosine = np.abs(cosine)
+
+moments["perfo_angle_inertia_max"] = np.arccos(cosine)
+
+
+
 
 moments.to_csv(OUPUT_CSV, index=False)
 
