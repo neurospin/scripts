@@ -65,5 +65,60 @@ for filename in all_images:
 file_infos['file'] = all_images
 
 images_df = pd.DataFrame.from_dict(file_infos)
+
+# Map columns
+# We could use more elaborate mappings (using modulo of expr) but it's not woth
+
+# Session
+session_map = lambda expr: 0 if expr < 14 else 1
+images_df['session'] = images_df['expr'].map(session_map)
+
+# Expression
+# Possible values: NA, 'neutral', smile', 'anger', 'scream'
+# We only label the explicitely labelled images (most images could be
+# 'neutral').
+expression_map = {1: 'neutral',
+                  2: 'smile',
+                  3: 'anger',
+                  4: 'scream',
+                  14: 'neutral',
+                  15: 'smile',
+                  16: 'anger',
+                  17: 'scream'}
+images_df['expression'] = images_df['expr'].map(expression_map,
+                                                na_action='ignore')
+
+# Occlusion
+# Possible values: NA, 'sun glasses', 'scarf'
+occlusion_map = {8: 'sun glasses',
+                 9: 'sun glasses',
+                 10: 'sun glasses',
+                 11: 'scarf',
+                 12: 'scarf',
+                 13: 'scarf',
+                 21: 'sun glasses',
+                 22: 'sun glasses',
+                 23: 'sun glasses',
+                 24: 'scarf',
+                 25: 'scarf',
+                 26: 'scarf'}
+images_df['occlusion'] = images_df['expr'].map(occlusion_map,
+                                               na_action='ignore')
+
+# Lightning
+# Possible values: 'natural', 'left side', 'right side', 'both side'
+# I decided to label cases 8 and 11 as 'natural'
+def lightning_map(expr):
+    expr_mod = expr - 13 if expr > 13 else expr
+    if (expr_mod in (5, 9, 12)):
+        return 'left side'
+    if (expr_mod in (6, 10, 13)):
+        return 'right side'
+    if (expr_mod == 7):
+        return 'both side'
+    return 'natural'
+images_df['lighting'] = images_df['expr'].map(lightning_map,
+                                              na_action='ignore')
+
 images_df.to_csv(OUTPUT_POP,
                  index=False)
