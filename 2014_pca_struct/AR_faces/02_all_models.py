@@ -398,6 +398,7 @@ def create_config(input_dataset, y, output_dir, mask=None,
     user_func_filename = os.path.abspath(__file__)
 
     config = dict(data=dict(X=os.path.basename(input_dataset)),
+                  image_size=INPUT_SHAPE,
                   params=PARAMS,
                   resample=resample_index,
                   map_output="results",
