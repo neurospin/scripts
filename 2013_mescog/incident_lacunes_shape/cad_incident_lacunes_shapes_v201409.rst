@@ -3,8 +3,8 @@ Characterization of Incident Lacunes Shape
 ==========================================
 
 :Author: Edouard.Duchesnay@cea.fr
-:Date: 2014/09/15
-:Build: ``rst2pdfcad_incident_lacunes_shapes_v201409.rst``
+:Date: 2014/10/16
+:Build: ``rst2pdf cad_incident_lacunes_shapes_v201409.rst``
 :url: ftp://during@ftp.cea.fr/neuroimaging/CAD_incident_lacunes
 
 Characterization of incident lacunes shape using Invariant's moments and tensor's invariant.
@@ -75,7 +75,7 @@ tensor_invariant_mode                   tensor invariant: mode
 tensor_invariant_linear_anisotropy      tensor invariant: linear_anisotropy
 tensor_invariant_planar_anisotropy      tensor invariant: planar_anisotropy
 tensor_invariant_spherical_anisotropy   tensor invariant: spherical_anisotropy
-perfo_angle_inertia_max                 angle between perforator and max inertia
+perfo_angle_inertia_max                 angle between perforator and max inertia (in radian)
 =====================================   ====================================================
 
 
@@ -193,9 +193,10 @@ to **(3) bottom right**: low linear anisotropy and high planar anisotropy (high 
 3. No visible link between the shape and its orientation with the nearset perforator.
 
 .. figure:: results_moments_invariant/figures/mnts-inv_pc12_angle-with-perforator.png
+	:scale: 200 %
 
 	Scatter plot of lacunes within the two first components of a PCA on 9 Invariant's moments, colored by the angle
-	formed by the perforator and the main orientation of the lacune.
+	(radian in [0, PI/2]) formed by the perforator and the main orientation of the lacune.
 
 
 Directly use tensor's invariant
