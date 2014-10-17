@@ -17,6 +17,7 @@ from parsimony.estimators import LinearRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
+import matplotlib.pyplot as plt
 
 NFOLDS = 5
 NRNDPERMS = 1000
@@ -32,12 +33,14 @@ def load_globals(config):
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    #GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+        #GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+        #                    for k in GLOBAL.DATA}
+        # TODO permute first y then apply CV
         rnd_state = np.random.get_state()
+        #yp = np.random.permutation(GLOBAL.DATA['y'])
         np.random.seed(resample_nb)
         GLOBAL.DATA_RESAMPLED = dict(
             X=[GLOBAL.DATA['X'][idx, ...]
@@ -48,7 +51,6 @@ def resample(config, resample_nb):
     else:  # resample is None train == test
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
-
 
 
 def mapper(key, output_collector):
@@ -101,7 +103,7 @@ def reducer_(key, values):
     import glob, mapreduce
     BASE = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/rndperm"
     INPUT = BASE + "/%i/%s"
-    OUTPUT = BASE + "/arrays"
+    OUTPUT = BASE + "/../results/rndperm"
     keys = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
     for key in keys:
         #key = keys[0]
@@ -182,11 +184,22 @@ def reducer_(key, values):
                             dice_bar=dice_bar_perms)
         #
         perms = dict()
-        for key in keys:
+        fig, axis = plt.subplots(len(keys), 4)#, sharex='col')
+        for i, key in enumerate(keys):
             perms[key] = np.load(OUTPUT+"/perms_"+key+".npz")
+            n, bins, patches = axis[i, 0].hist(perms[key]['r2'], 50, normed=1, histtype='stepfilled')
+            axis[i, 0].set_title(key + "_r2")
+            n, bins, patches = axis[i, 1].hist(perms[key]['r_bar'], 50, normed=1, histtype='stepfilled')
+            axis[i, 1].set_title(key + "_r_bar")
+            n, bins, patches = axis[i, 2].hist(perms[key]['fleiss_kappa'], 50, histtype='stepfilled')
+            axis[i, 2].set_title(key + "_fleiss_kappa")
+            n, bins, patches = axis[i, 3].hist(perms[key]['dice_bar'], 50)#, 50, normed=1, histtype='stepfilled')
+            axis[i, 3].set_title(key + "_dice_bar")
+        plt.show()
 
         l1l2tv, l1tv, l1l2, l1 = ["0.001_0.3335_0.3335_0.333_-1",  "0.001_0.5_0_0.5_-1",  
                              "0.001_0.5_0.5_0_-1",  "0.001_1_0_0_-1"]
+
         # Read true scores
         import pandas as pd
         true = pd.read_csv(os.path.join(BASE, "..", "ADAS11-MCIc-CTL.csv"))
@@ -196,49 +209,50 @@ def reducer_(key, values):
         true_l1tv = true[(true.l1 == 0.5) & (true.tv == 0.5)].iloc[0]
         true_l1 = true[(true.l1 == 1.)].iloc[0]
 
-        # r2 pvals
+        # pvals
         nperms = float(len(perms[l1]['r2']))
-        np.sum(perms[l1]['r2'] > true_l1["r2"]) / nperms
-        np.sum(perms[l1tv]['r2'] > true_l1tv["r2"]) / nperms
-        np.sum(perms[l1l2]['r2'] > true_l1l2["r2"]) / nperms
-        np.sum(perms[l1l2tv]['r2'] > true_l1l2tv["r2"]) / nperms
+        from collections import OrderedDict
+        pvals = OrderedDict()
+        pvals["cond"] = ['l1', 'l1tv', 'l1l2', 'l1l2tv'] * 4 + \
+                ['l1 vs l1tv'] * 4  + ['l1l2 vs l1l2tv'] * 4
+        pvals["stat"] = ['r2'] * 4 + ['r_bar'] * 4 + ['fleiss_kappa'] * 4 + ['dice_bar'] * 4 +\
+                ['r2', 'r_bar', 'fleiss_kappa', 'dice_bar'] * 2
+        pvals["pval"] = [
+            np.sum(perms[l1]['r2'] > true_l1["r2"]),
+            np.sum(perms[l1tv]['r2'] > true_l1tv["r2"]),
+            np.sum(perms[l1l2]['r2'] > true_l1l2["r2"]),
+            np.sum(perms[l1l2tv]['r2'] > true_l1l2tv["r2"]),
+    
+            np.sum(perms[l1]['r_bar'] > true_l1["beta_r_bar"]),
+            np.sum(perms[l1tv]['r_bar'] > true_l1tv["beta_r_bar"]),
+            np.sum(perms[l1l2]['r_bar'] > true_l1l2["beta_r_bar"]),
+            np.sum(perms[l1l2tv]['r_bar'] > true_l1l2tv["beta_r_bar"]),
+    
+            np.sum(perms[l1]['fleiss_kappa'] > true_l1["beta_fleiss_kappa"]),
+            np.sum(perms[l1tv]['fleiss_kappa'] > true_l1tv["beta_fleiss_kappa"]),
+            np.sum(perms[l1l2]['fleiss_kappa'] > true_l1l2["beta_fleiss_kappa"]),
+            np.sum(perms[l1l2tv]['fleiss_kappa'] > true_l1l2tv["beta_fleiss_kappa"]),
+    
+            np.sum(perms[l1]['dice_bar'] > true_l1["beta_dice_bar"]),
+            np.sum(perms[l1tv]['dice_bar'] > true_l1tv["beta_dice_bar"]),
+            np.sum(perms[l1l2]['dice_bar'] > true_l1l2["beta_dice_bar"]),
+            np.sum(perms[l1l2tv]['dice_bar'] > true_l1l2tv["beta_dice_bar"]),
+    
+            # l1 vs l1tv
+            np.sum((perms[l1tv]['r2'] - perms[l1]['r2']) > (true_l1tv["r2"] - true_l1["r2"])),
+            np.sum((perms[l1tv]['r_bar'] - perms[l1]['r_bar']) > (true_l1tv["beta_r_bar"] - true_l1["beta_r_bar"])),
+            np.sum((perms[l1tv]['fleiss_kappa'] - perms[l1]['fleiss_kappa']) > (true_l1tv["beta_fleiss_kappa"] - true_l1["beta_fleiss_kappa"])),
+            np.sum((perms[l1tv]['dice_bar'] - perms[l1]['dice_bar']) > (true_l1tv["beta_dice_bar"] - true_l1["beta_dice_bar"])),
+    
+            # l1l2 vs l1l2tv
+            np.sum((perms[l1l2]['r2'] - perms[l1l2tv]['r2']) > (true_l1l2["r2"] - true_l1l2tv["r2"])),
+            np.sum((perms[l1l2tv]['r_bar'] - perms[l1l2]['r_bar']) > (true_l1l2tv["beta_r_bar"] - true_l1l2["beta_r_bar"])),
+            np.sum((perms[l1l2tv]['fleiss_kappa'] - perms[l1l2]['fleiss_kappa']) > (true_l1l2tv["beta_fleiss_kappa"] - true_l1l2["beta_fleiss_kappa"])),
+            np.sum((perms[l1l2tv]['dice_bar'] - perms[l1l2]['dice_bar']) > (true_l1l2tv["beta_dice_bar"] - true_l1l2["beta_dice_bar"]))]
 
-        # l1 vs l1tv
-        np.sum((perms[l1tv]['r2'] - perms[l1]['r2']) > (true_l1tv["r2"] - true_l1["r2"])) / nperms
-        np.sum((perms[l1tv]['r_bar'] - perms[l1]['r_bar']) > (true_l1tv["beta_r_bar"] - true_l1["beta_r_bar"])) / nperms
-        np.sum((perms[l1tv]['fleiss_kappa'] - perms[l1]['fleiss_kappa']) > (true_l1tv["beta_fleiss_kappa"] - true_l1["beta_fleiss_kappa"])) / nperms
-        np.sum((perms[l1tv]['dice_bar'] - perms[l1]['dice_bar']) > (true_l1tv["beta_dice_bar"] - true_l1["beta_dice_bar"])) / nperms
-
-        # l1l2 vs l1l2tv
-        np.sum((perms[l1l2]['r2'] - perms[l1l2tv]['r2']) > (true_l1l2["r2"] - true_l1l2tv["r2"])) / nperms
-        np.sum((perms[l1l2tv]['r_bar'] - perms[l1l2]['r_bar']) > (true_l1l2tv["beta_r_bar"] - true_l1l2["beta_r_bar"])) / nperms
-        np.sum((perms[l1l2tv]['fleiss_kappa'] - perms[l1l2]['fleiss_kappa']) > (true_l1l2tv["beta_fleiss_kappa"] - true_l1l2["beta_fleiss_kappa"])) / nperms
-        np.sum((perms[l1l2tv]['dice_bar'] - perms[l1l2]['dice_bar']) > (true_l1l2tv["beta_dice_bar"] - true_l1l2["beta_dice_bar"])) / nperms
-
-        
-
-        arrs.keys()['r_bar', 'fleiss_kappa', 'dice_bar', 'corr', 'r2']
-        #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-        a, l1, l2, tv, k = key
-        scores = OrderedDict()
-        scores['a'] = a
-        scores['l1'] = l1
-        scores['l2'] = l2
-        scores['tv'] = tv
-        left = float(1 - tv)
-        if left == 0: left = 1.
-        scores['l1l2_ratio'] = float(l1) / left
-        scores['r2'] = r2
-        scores['corr']= corr
-        scores['beta_r'] = str(R)
-        scores['beta_r_bar'] = r_bar
-        scores['beta_fleiss_kappa'] = fleiss_kappa_stat
-        scores['beta_dice_bar'] = dice_bar
-        scores['support'] = len(y_true)
-        scores['n_ite'] = n_ite
-        scores['key'] = key
-        scores['k'] = k
-        return scores
+        pvals = pd.DataFrame(pvals)
+        pvals["pval"] /= nperms
+        pvals.to_csv(os.path.join(OUTPUT, "pvals_stats_permutations.csv"), index=False)
 
 
 ##############################################################################

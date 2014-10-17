@@ -2,6 +2,9 @@ DEPMASK
 =======
 Provide by U1000 (Eric Artige)
 
+AAL
+---
+
 Frontal_Mid_Orb_L 
 Frontal_Mid_Orb_R 
 Frontal_Inf_Orb_L 
@@ -31,6 +34,39 @@ Insula_R
 Olfactory_L 
 Olfactory_R 
 
+AAL in 
+/neurospin/brainomics/neuroimaging_ressources/atlases/WFU_PickAtlas_3.0.3/wfu_pickatlas/MNI_atlas_templates
+AAL -> HO
+---
+
+Frontal_Mid_Orb_L 
+Frontal_Mid_Orb_R 
+Frontal_Inf_Orb_L 
+Frontal_Inf_Orb_R 
+Rectus_L 
+Rectus_R 
+Frontal_Mid_R 
+Frontal_Mid_L 
+Cingulum_Ant_L 
+Cingulum_Ant_R 
+Hippocampus_L 
+Hippocampus_R 
+Amygdala_L 
+Amygdala_R 
+Caudate_L 
+Caudate_R 
+Putamen_L 
+Putamen_R 
+Frontal_Sup_Medial_L 
+Frontal_Sup_Medial_R 
+Frontal_Med_Orb_L 
+Frontal_Med_Orb_R 
+Frontal_Sup_L 
+Frontal_Sup_R 
+Insula_L 
+Insula_R 
+Olfactory_L 
+Olfactory_R 
 BIBLIO
 ======
 Pannekoeka 2104 NeuroImage: Clinical
