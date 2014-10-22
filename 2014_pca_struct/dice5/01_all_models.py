@@ -49,7 +49,7 @@ INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 
 INPUT_SHAPE = (100, 100, 1)
 INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.2, 0.5, 1.0]
+INPUT_SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
 
 OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
