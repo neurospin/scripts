@@ -54,7 +54,7 @@ MODEL = 'struct_pca'
 CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
                                  'data_100_100_{snr}',
                                  '{metric}_{global_pen}.png')
-METRICS = ['recall_mean', 'evr_test_0']
+METRICS = ['recall_mean', 'fscore_mean']
 
 ##########
 # Script #
@@ -69,10 +69,11 @@ struct_pca_df = df.xs(MODEL)
 snr_groups = struct_pca_df.groupby('snr')
 for snr_val, snr_group in snr_groups:
     for metric in METRICS:
-        handles = plot_utilities.mapreduce_plot(snr_group, column=metric,
-                                                global_pen=0,
-                                                l1_ratio=2,
-                                                tv_ratio=1)
+        handles = plot_utilities.plot_lines(snr_group,
+                                            x_col=1,
+                                            y_col=metric,
+                                            splitby_col=0,
+                                            colorby_col=2)
         for val, handle in handles.items():
             filename = CURVE_FILE_FORMAT.format(metric=metric,
                                                 snr=snr_val,
