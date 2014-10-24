@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Map reduce for parsimony.
+Tool to resample data and explore a parameter grid based on MapReduce.
 """
 
 import time
@@ -15,9 +15,87 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 
+
+#############
+# Constants #
+#############
+
+_RESAMPLE_INDEX = 'resample_index'
+_PARAMS = 'params'
+_PARAMS_STR = 'params_str'
+_OUTPUT = 'output dir'
+_OUTPUT_COLLECTOR = 'output collector'
+
+GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
+DEFAULT_GROUP_BY = _PARAMS
+
 # Global data
 DATA = dict()
 param_sep = "_"
+
+
+# Detailed help topics
+
+execution = """
+Execution
+---------
+
+The script called functions define in a separate script. Before calling them,
+the script will cd to the folder of the config file.
+
+load_globals(config) will be executed once at the beginning to load the data
+    and define constants
+
+In map mode, resample(config, resample_nb) will be executed on each new
+resampling and then mapper(key) will be executed for each parameter.
+If the output directory for a given mapper already exists, it will be skipped
+(this allows parallelization between several computers that share a
+filesystem).
+
+In reducer mode, reducer(key, values) will be called for each group of output.
+
+Output hierarchy will be organized as follow:
+    <map_output>/<resample_nb>/<params>
+If no resampling is provided the output will be organized as follow:
+    <map_output>/0/<params>
+
+"""
+
+config_file = """
+Config file
+-----------
+
+The config file is a JSON-encoded dictionary.
+There are 3 required entries:
+    "data": (dictionnary) each key represents the name of a data and the value
+        is often the relative path to the file to load.
+        Ex: dict(X="/tmp/X.npy", y="/tmp/X.npy").
+    "params":  (list) list of parameters values.
+        mapper will be called for each value in this list (after resampling).
+        The value is often a list of values that will be interpreted in mapper.
+        Ex: [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]].
+    "map_output": (string) root directory of mappers output.
+    "user_func": (string) path to a python file that contains the user defined
+        functions.
+
+Important entries with a default value:
+    "reduce_group_by": (string; values """ + str(GROUP_BY_VALUES) + """,
+        default '""" + DEFAULT_GROUP_BY + """')
+
+Optional entries:
+    "resample": (list) list of resamplings.
+        Resample will be called for each value in this list
+        Ex: for cross-validation like resampling, use a list of list of list of
+            indices like [[[0, 2], [1, 3]], [[1, 3], [0, 2]]].
+        Ex: for bootstraping/permutation like resampling, use list of list of
+            indices, like [[0, 1, 2, 3], [1, 3, 0, 2]].
+
+Other optional values:
+    "reduce_output": (string) path where to store the reducer output
+        (CSV format). If not specified, output to stdout.
+
+Other fields can be included to be used by functions.
+"""
 
 example = """
 Example
@@ -28,8 +106,8 @@ n, p = 10, 5
 X = np.random.rand(n, p)
 beta = np.random.rand(p, 1)
 y = np.dot(X, beta)
-np.save('X.npy', X)
-np.save('y.npy', y)
+np.save("X.npy", X)
+np.save("y.npy", y)
 
 ## Create config file
 cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n, n_folds=2)]
@@ -42,24 +120,20 @@ config = dict(data=dict(X="X.npy", y="y.npy"),
               user_func="enet_userfunc.py",
               map_output="map_results",
               resample=cv,
-              ncore=2,
-              reduce_group_by="params_str")
+              reduce_group_by="params")
 json.dump(config, open("config.json", "w"))
 
 """
 
+epilog = "\n".join([execution, config_file, example])
+
+#############
+# Functions #
+#############
+
 
 def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
-
-_RESAMPLE_INDEX = 'resample_index'
-_PARAMS = 'params'
-_PARAMS_STR = 'params_str'
-_OUTPUT = 'output dir'
-_OUTPUT_COLLECTOR = 'output collector'
-
-GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
-DEFAULT_GROUP_BY = _PARAMS
 
 
 def _build_job_table(config):
@@ -212,7 +286,7 @@ class OutputCollector:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=__doc__, epilog=example)
+        description=__doc__, epilog=epilog)
 
     parser.add_argument('-m', '--map', action='store_true', default=False,
                         help="Run mapper: iterate over resamples and "
@@ -234,30 +308,7 @@ if __name__ == "__main__":
 
     # Config file
     parser.add_argument('config', help='Configuration json file that '
-        'contains a dictionary of configuration options. There are 4 '
-        'required arguments:'
-        '(1) "data": (Required) dict(X="/tmp/X.npy", y="/tmp/X.npy").'
-        '(2) "params":  (Required) List of list of parameters values. Ex:'
-        '[[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]]. '
-        '(3) "map_output":  (Required) Mapper output root directory. '
-        'Output hierarchy will be '
-        'organized as follow: <map_output>/<resample_nb>/<params> and '
-        ' <map_output>/0/<params> if no resampling is provided.'
-        'override config options.'
-        '(4) "user_func": (Required) Path to python file that contains 4 user '
-        'defined functions: '
-        '(i) load_globals(config): executed once at the beginning to load '
-        'all the data '
-        '(ii) resample() is executed on each new resampling'
-        '(iii) mapper(key) is executed on each parameters x reample item'
-        '(iv) reducer(key, values)'
-        '"resample": (Optional) List of list of list of indices. '
-        'Ex: [[[0, 2], [1, 3]], [[1, 3], [0, 2]]] for cross-validation like '
-        'resampling.'
-        'or list of list of indices, ex: [[0, 1, 2, 3], [1, 3, 0, 2]]. for '
-        'bootstraping/permuation like resampling. '
-        '"ncore", and "reduce_output": see command line argument.'
-        )
+                        'contains a dictionary of configuration options.')
 
     default_nproc = cpu_count()
     parser.add_argument('--ncore',
