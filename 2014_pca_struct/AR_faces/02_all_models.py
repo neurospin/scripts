@@ -40,17 +40,15 @@ import brainomics.cluster_gabriel as clust_utils
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/AR_faces"
 
+INPUT_DIR = os.path.join(INPUT_BASE_DIR,
+                         "dataset")
+
 INPUT_POPULATION = os.path.join(INPUT_BASE_DIR,
                                 "raw_data",
                                 "cropped_faces",
                                 "population.csv")
 
-INPUT_DATASET = os.path.join(INPUT_BASE_DIR,
-                             "dataset",
-                             "X.npy")
-
-OUTPUT_DIR = os.path.join(INPUT_BASE_DIR,
-                          "pca_tv")
+OUTPUT_BASE_DIR = INPUT_BASE_DIR
 
 ##############
 # Parameters #
@@ -62,7 +60,7 @@ N_FOLDS = 5
 # Shape of images
 INPUT_SHAPE = (38, 27)
 
-N_COMP = 3
+N_COMP = 5
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
 # Relative penalties
@@ -373,38 +371,33 @@ def run_test(wd, config):
     mapreduce.DATA_RESAMPLED["X"] = [X, X]
     mapper(params, oc)
 
-#################
-# Actual script #
-#################
 
-if __name__ == "__main__":
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+def create_config(input_dataset, y, output_dir, mask=None,
+                  filename="config.json"):
 
-    # Read population
-    population = pd.io.parsers.read_csv(INPUT_POPULATION)
+    full_output_dir = os.path.join(OUTPUT_BASE_DIR, output_dir)
+    if not os.path.exists(full_output_dir):
+        os.makedirs(full_output_dir)
 
-    # Stratification of subjects
-    skf = StratifiedKFold(y=population['id'],
+    if mask is not None:
+        mask = np.load(mask)
+        y = y[mask]
+
+    skf = StratifiedKFold(y=y,
                           n_folds=N_FOLDS,
                           shuffle=True,
                           random_state=RANDOM_STATE)
-
-    # Create resamplings
     resample_index = [[tr.tolist(), te.tolist()] for tr, te in skf]
+    # Include full resample
     resample_index.insert(0, None)  # first fold is None
 
-    # Copy dataset
-    shutil.copy2(INPUT_DATASET, OUTPUT_DIR)
-
-    # Create files to synchronize with the cluster
-    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-    clust_utils.gabriel_make_sync_data_files(OUTPUT_DIR)
+    # Copy the learning data
+    shutil.copy2(input_dataset, full_output_dir)
 
     # Create config file
     user_func_filename = os.path.abspath(__file__)
 
-    config = dict(data=dict(X=os.path.basename(INPUT_DATASET)),
+    config = dict(data=dict(X=os.path.basename(input_dataset)),
                   image_size=INPUT_SHAPE,
                   params=PARAMS,
                   resample=resample_index,
@@ -412,13 +405,52 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   reduce_group_by="params",
                   reduce_output="results.csv")
-    config_full_filename = os.path.join(OUTPUT_DIR, "config.json")
+    config_full_filename = os.path.join(full_output_dir, filename)
     json.dump(config, open(config_full_filename, "w"))
 
-    # Create job files
-    cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
-    clust_utils.gabriel_make_qsub_job_files(OUTPUT_DIR, cluster_cmd)
+    # Create files to synchronize with the cluster
+    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
+    clust_utils.gabriel_make_sync_data_files(full_output_dir)
 
-    DEBUG = False
-    if DEBUG:
-        run_test(OUTPUT_DIR, config)
+    # Create job files
+    cluster_cmd = "mapreduce.py -m {dir}/{file}  --ncore 12".format(
+                            dir=CLUSTER_WD,
+                            file=filename)
+    clust_utils.gabriel_make_qsub_job_files(full_output_dir, cluster_cmd)
+
+    return config
+
+
+#################
+# Actual script #
+#################
+
+if __name__ == "__main__":
+    # Read population
+    population = pd.io.parsers.read_csv(INPUT_POPULATION)
+    y = population['id']
+
+    # Config for whole dataset
+    input_dataset = os.path.join(INPUT_DIR,
+                                 "X.npy")
+    output_dir = os.path.join(INPUT_BASE_DIR,
+                              "whole_dataset")
+    create_config(input_dataset, y, output_dir)
+
+    # Config for non occluded dataset
+    input_dataset = os.path.join(INPUT_DIR,
+                                 "X.non_occluded.npy")
+    mask = os.path.join(INPUT_DIR,
+                        "non_occluded.npy")
+    output_dir = os.path.join(INPUT_BASE_DIR,
+                              "non_occluded")
+    create_config(input_dataset, y, output_dir, mask=mask)
+
+    # Config for non occluded normal lighting dataset
+    input_dataset = os.path.join(INPUT_DIR,
+                                 "X.nonl.npy")
+    mask = os.path.join(INPUT_DIR,
+                        "nonl.npy")
+    output_dir = os.path.join(INPUT_BASE_DIR,
+                              "nonl")
+    create_config(input_dataset, y, output_dir, mask=mask)

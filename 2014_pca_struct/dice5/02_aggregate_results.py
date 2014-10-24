@@ -23,7 +23,7 @@ INPUT_DIR = os.path.join(INPUT_BASE_DIR, "data")
 INPUT_DATASET_DIR_FORMAT = "data_{s[0]}_{s[1]}_{snr}"
 
 INPUT_SHAPE = (100, 100, 1)
-INPUT_SNRS = np.array([0.1, 0.5, 1.0])
+INPUT_SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
 
 INPUT_MODELS = ["pca", "sparse_pca", "struct_pca"]
 INPUT_RESULT_FILE = "results.csv"
@@ -54,13 +54,6 @@ for snr in INPUT_SNRS:
         n, p = df.shape
         print "Reading", full_filename, "(", n, "lines)"
         N += n
-        # Add a column for model, global penalization, l1 ratio and tv ratio
-        # from the key
-        # Model may contain '_' so I have to use this cryptic form
-        df['model'] = df['key'].map(lambda key: '_'.join(key.split('_')[:-3]))
-        df['global_pen'] = df['key'].map(lambda key: float(key.split('_')[-3]))
-        df['tv_ratio'] = df['key'].map(lambda key: float(key.split('_')[-2]))
-        df['l1_ratio'] = df['key'].map(lambda key: float(key.split('_')[-1]))
         # Add a column for SNR
         df['snr'] = pd.Series.from_array(np.asarray([snr]*n),
                                          name='SNR',
