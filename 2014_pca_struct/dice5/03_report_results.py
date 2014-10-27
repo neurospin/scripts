@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 
+from brainomics import plot_utilities
+
 ################
 # Input/Output #
 ################
@@ -37,20 +39,29 @@ OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 ##############
 
 SNRS = np.array([0.1, 0.5, 1.0])
-GLOBAL_PEN = 1.0
+N_COMP = 3
+
+# Plot of metrics
+EXAMPLE_MODEL = 'struct_pca'
+CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                 'data_100_100_{snr}',
+                                 '{metric}_{global_pen}.png')
+METRICS = ['recall_mean', 'fscore_mean']
+
+# Plot of components
+EXAMPLE_GLOBAL_PEN = 1.0
 COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
-        (('struct_pca', GLOBAL_PEN, 1.0, 0.0), 'Pure TV'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 1.0), 'Pure l1'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 0.0), 'Pure l2'),
-        (('struct_pca', GLOBAL_PEN, 0.5, 1.0), 'l1 + TV'),
-        (('struct_pca', GLOBAL_PEN, 0.5, 0.0), 'l2 + TV'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 0.5), 'l1 + l2'),
-        (('struct_pca', GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 1.0, 0.0), 'Pure TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 1.0), 'Pure l1'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 0.0), 'Pure l2'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.5, 1.0), 'l1 + TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.5, 0.0), 'l2 + TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 0.5), 'l1 + l2'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
 COLS = ['snr', 'correlation_mean', 'frobenius_test']
-EXAMPLE_FOLDS = 0
-N_COMP = 3
+EXAMPLE_FOLD = 0
 COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
                                       'data_100_100_{snr}',
                                       'results',
@@ -67,6 +78,10 @@ COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
 df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
                             index_col=[0, 2, 3, 4]).sort_index()
 
+#####################
+# Create summary df #
+#####################
+
 # Subsample it & add a column based on name
 summary = df.loc[PARAMS][COLS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
@@ -76,37 +91,63 @@ summary['name'] = name_serie
 # Write in a CSV
 summary.to_csv(OUTPUT_RESULTS_FILE)
 
-# Plot Fronenius distance for a given SNR
-width = 0.8
-ind = np.arange(len(COND))
-for snr in SNRS:
-    plt.figure()
-    ax = plt.gca()
-    plt.xticks(rotation=70)
-    data = summary.loc[summary.snr == snr]
-    plt.bar(ind, data[COLS[2]], width)
-    y_range = [min(data[COLS[2]]), max(data[COLS[2]])]
-    y_lim = plt.ylim()
-    plt.ylim(0.95 * y_range[0], y_lim[1])
-    ax.set_xticks(ind + (width / 2))
-    ax.set_xticklabels(data['name'])
-    plt.title(str(snr))
+################
+# Plot metrics #
+################
 
-# Plot correlation for a given SNR
-width = 0.8
-ind = np.arange(len(COND))
-for snr in SNRS:
-    plt.figure()
-    ax = plt.gca()
-    plt.xticks(rotation=70)
-    data = summary.loc[summary.snr == snr]
-    plt.bar(ind, data[COLS[1]], width)
-    y_range = [min(data[COLS[1]]), max(data[COLS[1]])]
-    y_lim = plt.ylim()
-    plt.ylim(0.95 * y_range[0], y_lim[1])
-    ax.set_xticks(ind + (width / 2))
-    ax.set_xticklabels(data['name'])
-    plt.title(str(snr))
+# Subsample df
+struct_pca_df = df.xs(EXAMPLE_MODEL)
+
+# Plot some metrics for struct_pca for each SNR value
+snr_groups = struct_pca_df.groupby('snr')
+for snr_val, snr_group in snr_groups:
+    for metric in METRICS:
+        handles = plot_utilities.plot_lines(snr_group,
+                                            x_col=1,
+                                            y_col=metric,
+                                            splitby_col=0,
+                                            colorby_col=2)
+        for val, handle in handles.items():
+            filename = CURVE_FILE_FORMAT.format(metric=metric,
+                                                snr=snr_val,
+                                                global_pen=val)
+            handle.savefig(filename)
+
+## Plot Fronenius distance for a given SNR
+#width = 0.8
+#ind = np.arange(len(COND))
+#for snr in SNRS:
+#    plt.figure()
+#    ax = plt.gca()
+#    plt.xticks(rotation=70)
+#    data = summary.loc[summary.snr == snr]
+#    plt.bar(ind, data[COLS[2]], width)
+#    y_range = [min(data[COLS[2]]), max(data[COLS[2]])]
+#    y_lim = plt.ylim()
+#    plt.ylim(0.95 * y_range[0], y_lim[1])
+#    ax.set_xticks(ind + (width / 2))
+#    ax.set_xticklabels(data['name'])
+#    plt.title(str(snr))
+#
+## Plot correlation for a given SNR
+#width = 0.8
+#ind = np.arange(len(COND))
+#for snr in SNRS:
+#    plt.figure()
+#    ax = plt.gca()
+#    plt.xticks(rotation=70)
+#    data = summary.loc[summary.snr == snr]
+#    plt.bar(ind, data[COLS[1]], width)
+#    y_range = [min(data[COLS[1]]), max(data[COLS[1]])]
+#    y_lim = plt.ylim()
+#    plt.ylim(0.95 * y_range[0], y_lim[1])
+#    ax.set_xticks(ind + (width / 2))
+#    ax.set_xticklabels(data['name'])
+#    plt.title(str(snr))
+
+###################
+# Plot components #
+###################
 
 # Load components
 components = np.zeros((len(SNRS), len(COND), 100*100, N_COMP))
@@ -114,7 +155,7 @@ for i, snr in enumerate(SNRS):
     for j, (params, _) in enumerate(COND):
         key = '_'.join([str(param) for param in params])
         filename = COMPONENTS_FILE_FORMAT.format(snr=snr,
-                                                 fold=EXAMPLE_FOLDS,
+                                                 fold=EXAMPLE_FOLD,
                                                  key=key)
         components[i, j, ...] = np.load(filename)['arr_0']
 data_min = components.min()
