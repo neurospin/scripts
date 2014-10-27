@@ -49,7 +49,7 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
        ]
 PARAMS = [item[0] for item in COND]
 COLS = ['snr', 'correlation_mean', 'frobenius_test']
-FOLDS = [0, 1]
+EXAMPLE_FOLDS = 0
 N_COMP = 3
 COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
                                       'data_100_100_{snr}',
@@ -109,40 +109,37 @@ for snr in SNRS:
     plt.title(str(snr))
 
 # Load components
-components = np.zeros((len(SNRS), len(COND), len(FOLDS), 100*100, N_COMP))
+components = np.zeros((len(SNRS), len(COND), 100*100, N_COMP))
 for i, snr in enumerate(SNRS):
     for j, (params, _) in enumerate(COND):
         key = '_'.join([str(param) for param in params])
-        for k, fold in enumerate(FOLDS):
-            filename = COMPONENTS_FILE_FORMAT.format(snr=snr,
-                                                     fold=fold,
-                                                     key=key)
-            components[i, j, k, ...] = np.load(filename)['arr_0']
+        filename = COMPONENTS_FILE_FORMAT.format(snr=snr,
+                                                 fold=EXAMPLE_FOLDS,
+                                                 key=key)
+        components[i, j, ...] = np.load(filename)['arr_0']
 data_min = components.min()
 data_max = components.max()
 # Plot components
-handles = np.zeros((len(SNRS), len(COND), len(FOLDS)), dtype='object')
+handles = np.zeros((len(SNRS), len(COND)), dtype='object')
 for i, snr in enumerate(SNRS):
     for j, (params, name) in enumerate(COND):
-        for k, fold in enumerate(FOLDS):
-            handles[i, j, k] = fig, axes = plt.subplots(nrows=1,
-                                                        ncols=N_COMP,
-                                                        figsize=(11.8,3.7))
-            f = plt.gcf()
-            for l, axe in zip(range(N_COMP), axes.flat):
-                data = components[i, j, k, :, l].reshape(100, 100)
-                im = axe.imshow(data, vmin=data_min, vmax=data_max, aspect="auto")
-            figtitle = "{name} (fold {fold})".format(name=name,
-                                                     fold=fold)
-            figname = figtitle.replace(' ', '_')
-            plt.suptitle(figtitle)
-#            fig.subplots_adjust(right=0.8)
-#            cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-#            fig.colorbar(im, cax=cbar_ax)
-            f.tight_layout()
-            fig.savefig(os.path.join(OUTPUT_DIR,
-                                     "data_100_100_{snr}".format(snr=snr),
-                                     ".".join([figname, "png"])))
+        handles[i, j] = fig, axes = plt.subplots(nrows=1,
+                                                 ncols=N_COMP,
+                                                 figsize=(11.8,3.7))
+        f = plt.gcf()
+        for l, axe in zip(range(N_COMP), axes.flat):
+            data = components[i, j, :, l].reshape(100, 100)
+            im = axe.imshow(data, vmin=data_min, vmax=data_max, aspect="auto")
+        figtitle = "{name}".format(name=name)
+        figname = figtitle.replace(' ', '_')
+        plt.suptitle(figtitle)
+        #fig.subplots_adjust(right=0.8)
+        #cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        #fig.colorbar(im, cax=cbar_ax)
+        f.tight_layout()
+        fig.savefig(os.path.join(OUTPUT_DIR,
+                                 "data_100_100_{snr}".format(snr=snr),
+                                 ".".join([figname, "png"])))
 # Create a colobar
 # http://matplotlib.org/examples/api/colorbar_only.html
 import matplotlib
@@ -154,4 +151,4 @@ cb = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
                                       norm=norm,
                                       orientation='horizontal')
 fig.savefig(os.path.join(OUTPUT_DIR,
-                         "colorbar.png"))
+                         "components_colorbar.png"))
