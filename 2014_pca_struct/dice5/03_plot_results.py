@@ -30,7 +30,7 @@ INPUT_RESULTS_FILE = os.path.join(INPUT_DIR, "consolidated_results.csv")
 # Parameters #
 ##############
 
-N_COMP=3
+N_COMP = 3
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
 # Relative penalties
