@@ -82,16 +82,12 @@ TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
 L1RATIO = np.array([1, 0.5, 1e-1, 1e-2, 1e-3, 0])
 
 PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
-SPARSE_PCA_PARAMS = list(product(['sparse_pca'],
-                                 GLOBAL_PENALTIES,
-                                 [0.0],
-                                 [1.0]))
 STRUCT_PCA_PARAMS = list(product(['struct_pca'],
                                  GLOBAL_PENALTIES,
                                  TVRATIO,
                                  L1RATIO))
 
-PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
+PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS
 
 #############
 # Functions #
@@ -409,8 +405,8 @@ def create_config(y, n_folds, output_dir, filename,
         resample_index.insert(0, None)  # first fold is None
 
     # Copy the learning data & mask
-    shutil.copy(INPUT_DATASET, full_output_dir)
-    shutil.copy(INPUT_MASK, full_output_dir)
+    shutil.copy2(INPUT_DATASET, full_output_dir)
+    shutil.copy2(INPUT_MASK, full_output_dir)
 
     # Create config file
     user_func_filename = os.path.abspath(__file__)

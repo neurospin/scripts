@@ -23,7 +23,6 @@ def load_globals(config):
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}

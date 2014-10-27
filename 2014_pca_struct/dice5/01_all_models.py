@@ -37,7 +37,7 @@ import metrics
 
 import brainomics.cluster_gabriel as clust_utils
 
-import dice5_pca
+import dice5_metrics
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
 INPUT_BASE_DATA_DIR = os.path.join(INPUT_BASE_DIR, "data")
@@ -49,7 +49,7 @@ INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 
 INPUT_SHAPE = (100, 100, 1)
 INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.2, 0.5, 1.0]
+INPUT_SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
 
 OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
@@ -202,7 +202,7 @@ def mapper(key, output_collector):
     for i in range(N_COMP):
         #masks.append(mask)
         precision[i], recall[i], fscore[i] = \
-          dice5_pca.dice_five_geometric_metrics(masks[i], V[:, i])
+          dice5_metrics.dice_five_geometric_metrics(masks[i], V[:, i])
         # Norms
         l0[i] = np.linalg.norm(V[:, i], 0)
         l1[i] = np.linalg.norm(V[:, i], 1)
