@@ -158,10 +158,19 @@ plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_max, s=50)
 plt.colorbar()
 plt.title(r"Angle maximum inertia axis - perforator (Rad) $\in[0, \pi/2]$"); plt.xlabel("PC1"); plt.ylabel("PC2")
 force_marging()
-
 pdf.savefig()
-plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_angle-with-perforator.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_max.svg")
 plt.clf()
+
+fig = plt.figure(); plt.axis('equal')
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_min, s=50)
+plt.colorbar()
+plt.title(r"Angle minimum inertia axis - perforator (Rad) $\in[0, \pi/2]$"); plt.xlabel("PC1"); plt.ylabel("PC2")
+force_marging()
+pdf.savefig()
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_min.svg")
+plt.clf()
+
 pdf.close()
 
 
