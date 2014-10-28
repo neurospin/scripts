@@ -30,10 +30,10 @@ import pandas as pd
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/mescog"
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,
                          "results")
-INPUT_RESULTS_FILE = os.path.join(INPUT_BASE_DIR, "consolidated_results.csv")
+INPUT_RESULTS_FILE = os.path.join(INPUT_BASE_DIR, "results.csv")
 
 INPUT_MASK = os.path.join(INPUT_BASE_DIR,
                           "mask_bin.nii")
@@ -44,6 +44,8 @@ OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 ##############
 # Parameters #
 ##############
+
+N_COMP = 3
 
 GLOBAL_PEN = 1.0
 COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
@@ -56,14 +58,17 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
         (('struct_pca', GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
+
 COLS = ['frobenius_test']
-FOLDS = [0, 1]
-N_COMP = 3
-COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
-                                      '{fold}',
-                                      '{key}',
-                                      'components.npz')
+
+EXAMPLE_FOLD = 0
+INPUT_COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                            '{fold}',
+                                            '{key}',
+                                            'components.npz')
 IM_SHAPE = (182, 218, 182)
+OUTPUT_COMPONENTS_FILE_FORMAT = os.path.join(OUTPUT_DIR,
+                                             '{name}.nii')
 
 ##########
 # Script #
@@ -106,18 +111,16 @@ plt.title('Mescog')
 # Load components and store them as nifti images
 for j, (params, name) in enumerate(COND):
     key = '_'.join([str(param) for param in params])
-    for k, fold in enumerate(FOLDS):
-        filename = COMPONENTS_FILE_FORMAT.format(fold=fold,
-                                                 key=key)
-        if os.path.exists(filename):
-            components = np.load(filename)['arr_0']
-        else:
-            print "No components for", COND[j][1]
-        im_data = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], N_COMP))
-        for l in range(N_COMP):
-            im_data[mask_indices[0], mask_indices[1], mask_indices[2], l] = components[:, l]
-        im = nib.Nifti1Image(im_data,                             
-                             affine=babel_mask.get_affine())
-        figname = "{name} (fold {fold})".format(name=name,
-                                                 fold=fold).replace(' ', '_')
-        nib.save(im, os.path.join(OUTPUT_DIR, ".".join([figname, "nii"])))
+    filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
+                                                   key=key)
+    if os.path.exists(filename):
+        components = np.load(filename)['arr_0']
+    else:
+        print "No components for", COND[j][1]
+    im_data = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], N_COMP))
+    for l in range(N_COMP):
+        im_data[mask_indices[0], mask_indices[1], mask_indices[2], l] = components[:, l]
+    im = nib.Nifti1Image(im_data,
+                         affine=babel_mask.get_affine())
+    figname = OUTPUT_COMPONENTS_FILE_FORMAT.format(name=name.replace(' ', '_'))
+    nib.save(im, os.path.join(OUTPUT_DIR, figname))
