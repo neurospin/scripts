@@ -38,15 +38,20 @@ OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 # Parameters #
 ##############
 
-SNRS = np.array([0.1, 0.5, 1.0])
+SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
 N_COMP = 3
+
+METRICS = ['recall_mean',
+           'fscore_mean',
+           'correlation_mean',
+           'kappa_mean',
+           'frobenius_test']
 
 # Plot of metrics
 EXAMPLE_MODEL = 'struct_pca'
 CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
                                  'data_100_100_{snr}',
                                  '{metric}_{global_pen}.png')
-METRICS = ['recall_mean', 'fscore_mean']
 
 # Plot of components
 EXAMPLE_GLOBAL_PEN = 1.0
@@ -60,7 +65,7 @@ COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
         (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
-COLS = ['snr', 'correlation_mean', 'frobenius_test']
+COLS = ['snr'] + METRICS
 EXAMPLE_FOLD = 0
 COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
                                       'data_100_100_{snr}',
