@@ -21,7 +21,7 @@ from sklearn.preprocessing import StandardScaler
 
 from parsimony import datasets
 
-import dice5_pca
+import dice5
 
 ################
 # Input/Output #
@@ -44,28 +44,38 @@ OUTPUT_MASK_FILE = "mask.npy"
 SHAPE = (100, 100, 1)
 N_SAMPLES = 100
 N_SUBSETS = 2
-# Variance of various objects
+# Object model (modulated by SNR)
 STDEV = np.asarray([1, 0.5, 0.5])
+MODEL = dict(
+        # Each point has an independant latent
+        l1=.0, l2=.0, l3=STDEV[1], l4=.0, l5=.0,
+        # Shared variance:
+        l12=STDEV[0], l45=STDEV[2], l12345=0.,
+        # Five dots contribute equally:
+        b1=1., b2=1., b3=1., b4=-1., b5=-1.)
 # SNR
-SNRS = np.linspace(0.1, 1, num=10)
+SNRS = np.append(np.linspace(0.1, 1, num=10), 0.25)
 
 ########
 # Code #
 ########
 
+# Number of samples to generate
+n = N_SUBSETS * N_SAMPLES
+
 # Generate data for various alpha parameter
 for snr in SNRS:
-    std = snr * STDEV
-    objects = dice5_pca.dice_five_with_union_of_pairs(SHAPE, std)
-    X3d, y, beta3d = datasets.regression.dice5.load(n_samples=N_SUBSETS*N_SAMPLES,
-                                                    shape=SHAPE,
-                                                    objects=objects, random_seed=1)
+    X3d, y, beta3d, objects = dice5.load(n_samples=n,
+                                         shape=SHAPE,
+                                         model=MODEL,
+                                         obj_pix_ratio=snr,
+                                         random_seed=1)
     # Save data and scaled data
     output_dir = OUTPUT_DIR_FORMAT.format(s=SHAPE,
                                           snr=snr)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    X = X3d.reshape(2*N_SAMPLES, np.prod(SHAPE))
+    X = X3d.reshape(n, np.prod(SHAPE))
     full_filename = os.path.join(output_dir, OUTPUT_DATASET_FILE)
     np.save(full_filename, X)
     scaler = StandardScaler(with_mean=True, with_std=False)
@@ -84,8 +94,11 @@ for snr in SNRS:
         np.save(full_filename, indices)
 
     # Generate mask with the last objects since they have the same geometry
+    # We only use union12, d3, union45
+    _, _, d3, _, _, union12, union45, _ = objects
+    sub_objects = [union12, d3, union45]
     full_mask = np.zeros(SHAPE, dtype=bool)
-    for i, o in enumerate(objects):
+    for i, o in enumerate(sub_objects):
         mask = o.get_mask()
         full_mask += mask
         filename = OUTPUT_OBJECT_MASK_FILE_FORMAT.format(i=i)
