@@ -35,6 +35,7 @@ import parsimony.functions.nesterov.tv
 import pca_tv
 import metrics
 
+from brainomics import array_utils
 import brainomics.cluster_gabriel as clust_utils
 
 import dice5_metrics
@@ -237,13 +238,26 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
-    global N_COMP
+    global N_COMP, INPUT_N_SUBSETS
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
     # Avoid taking into account the fold 0
     values = [item.load() for item in values[1:]]
 
-    comp_list = [item["components"] for item in values]
+    N_FOLDS = INPUT_N_SUBSETS
+    # Load components: each file is n_voxelsxN_COMP matrix.
+    # We stack them on the third dimension (folds)
+    components = np.dstack([item["components"] for item in values])
+    # Thesholded components (list of tuples (comp, threshold))
+    thresh_components = np.empty(components.shape)
+    thresholds = np.empty((N_COMP, N_FOLDS))
+    for l in range(N_FOLDS):
+        for k in range(N_COMP):
+            thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
+                                components[:, k, l],
+                                .99)
+            thresh_components[:, k, l] = thresh_comp
+            thresholds[k, l] = t
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     precisions = np.vstack([item["precision"] for item in values])
@@ -270,12 +284,60 @@ def reducer(key, values):
     av_l2 = l2.mean(axis=0)
     av_tv = tv.mean(axis=0)
 
-    # Compute correlations of components between folds
-    correlation = np.zeros((N_COMP,))
-    comp0 = comp_list[0]
-    comp1 = comp_list[1]
-    for i in range(N_COMP):
-        correlation[i] = metrics.abs_correlation(comp0[:, i], comp1[:, i])
+    # Compute correlations of components between all folds
+    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
+    correlations = np.zeros((N_COMP, n_corr))
+    for k in range(N_COMP):
+        R = np.corrcoef(np.abs(components[:, k, :].T))
+        # Extract interesting coefficients (upper-triangle)
+        correlations[k] = R[np.triu_indices_from(R, 1)]
+
+    # Transform to z-score
+    Z = 1. / 2. * np.log((1 + correlations) / (1 - correlations))
+    # Average for each component
+    z_bar = np.mean(Z, axis=1)
+    # Transform back to average correlation for each component
+    r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
+
+    # Compute fleiss_kappa and DICE on thresholded components
+    fleiss_kappas = np.empty(N_COMP)
+    dice_bars = np.empty(N_COMP)
+    for k in range(N_COMP):
+        # One component accross folds
+        thresh_comp = thresh_components[:, k, :]
+        try:
+            # Compute fleiss kappa statistics
+            # The "raters" are the folds and we have 3 variables:
+            #  - number of null coefficients
+            #  - number of > 0 coefficients
+            #  - number of < 0 coefficients
+            # We build a (N_FOLDS, 3) table
+            thresh_comp_signed = np.sign(thresh_comp)
+            table = np.zeros((N_FOLDS, 3))
+            table[:, 0] = np.sum(thresh_comp_signed == 0, 0)
+            table[:, 1] = np.sum(thresh_comp_signed == 1, 0)
+            table[:, 2] = np.sum(thresh_comp_signed == -1, 0)
+            fleiss_kappa_stat = fleiss_kappa(table)
+        except:
+            fleiss_kappa_stat = 0.
+        fleiss_kappas[k] = fleiss_kappa_stat
+        try:
+            # Paire-wise DICE coefficient (there is the same number than
+            # pair-wise correlations)
+            thresh_comp_n0 = thresh_comp != 0
+            # Index of lines (folds) to use
+            ij = [[i, j] for i in xrange(N_FOLDS)
+                         for j in xrange(i + 1, N_FOLDS)]
+            num = [np.sum(thresh_comp[idx[0], :] == thresh_comp[idx[1], :])
+                   for idx in ij]
+            denom = [(np.sum(thresh_comp_n0[idx[0], :]) + \
+                      np.sum(thresh_comp_n0[idx[1], :]))
+                     for idx in ij]
+            dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
+            dice_bar = dices.mean()
+        except:
+            dice_bar = 0.
+        dice_bars[k] = dice_bar
 
     scores = OrderedDict((
         ('model', key[0]),
@@ -296,10 +358,14 @@ def reducer(key, values):
         ('fscore_1', av_fscore[1]),
         ('fscore_2', av_fscore[2]),
         ('fscore_mean', np.mean(av_fscore)),
-        ('correlation_0', correlation[0]),
-        ('correlation_1', correlation[1]),
-        ('correlation_2', correlation[2]),
-        ('correlation_mean', np.mean(correlation)),
+        ('correlation_0', r_bar[0]),
+        ('correlation_1', r_bar[1]),
+        ('correlation_2', r_bar[2]),
+        ('correlation_mean', np.mean(r_bar)),
+        ('kappa_0', fleiss_kappas[0]),
+        ('kappa_1', fleiss_kappas[1]),
+        ('kappa_2', fleiss_kappas[2]),
+        ('kappa_mean', np.mean(fleiss_kappas)),
         ('evr_train_0', av_evr_train[0]),
         ('evr_train_1', av_evr_train[1]),
         ('evr_train_2', av_evr_train[2]),
