@@ -10,6 +10,7 @@ import os
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from patsy import dmatrices
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -27,8 +28,10 @@ pc = pd.read_csv(INPUT_PC)
 clinic = pd.read_csv(INPUT_CLINIC)
 
 clinic["ID"] = [int(x.replace("CAD_", "")) for x in clinic.ID.tolist()]
+clinic.SEX -= 1
 
 data = pd.merge(clinic, pc, left_on="ID", right_on="Subject ID")
+data.columns = [x.replace(".", "_") for x in data.columns]
 
 def get_pca(d):
     return d[(d.global_pen == 0) & (d.tv_ratio == 0) & (d.l1_ratio == 0)]
@@ -36,49 +39,68 @@ def get_pca(d):
 def get_l1l2tv(d):
     return d[(d.global_pen == 1) & (d.tv_ratio == .33) & (d.l1_ratio == .5)]
 
-models = dict(PCATV=get_l1l2tv, PCA=get_pca)
+methods = dict(PCATV=get_l1l2tv, PCA=get_pca)
 
 assert get_pca(data).shape == get_l1l2tv(data).shape == (301, 33)
 
 
-data["TMTB_TIME.CHANGE"] = data["TMTB_TIME.M36"] - data["TMTB_TIME"]
-data["MDRS_TOTAL.CHANGE"] = data["MDRS_TOTAL.M36"] - data["MDRS_TOTAL"]
-data["MRS.CHANGE"] = data["MRS.M36"] - data["MRS"]
-data["MMSE.CHANGE"] = data["MMSE.M36"] - data["MMSE"]
+data["TMTB_TIME_CHANGE"] = data["TMTB_TIME_M36"] - data["TMTB_TIME"]
+data["MDRS_TOTAL_CHANGE"] = data["MDRS_TOTAL_M36"] - data["MDRS_TOTAL"]
+data["MRS_CHANGE"] = data["MRS_M36"] - data["MRS"]
+data["MMSE_CHANGE"] = data["MMSE_M36"] - data["MMSE"]
 
-TARGETS = ["TMTB_TIME.M36", "MDRS_TOTAL.M36", "MRS.M36", "MMSE.M36",
+TARGETS = [
            "TMTB_TIME", "MDRS_TOTAL", "MRS", "MMSE",
-           "TMTB_TIME.CHANGE", "MDRS_TOTAL.CHANGE", "MRS.CHANGE", "MMSE.CHANGE"]
-import statsmodels.graphics as smg
+           "TMTB_TIME_M36", "MDRS_TOTAL_M36", "MRS_M36", "MMSE_M36",
+           "TMTB_TIME_CHANGE", "MDRS_TOTAL_CHANGE", "MRS_CHANGE", "MMSE_CHANGE"]
 
 pdf = PdfPages(os.path.join(OUTPUT, "pc_clinic_associations.pdf"))
+#print os.path.join(OUTPUT, "pc_clinic_associations.pdf")
 
-PCS = [2, 3]
+PCS = [1, 2, 3]
 res = list()
 for target in TARGETS:
     dt = data[data[target].notnull()]
-    fig, axarr = plt.subplots(2, 2)#, sharey=True)
-    for i, model in enumerate(models):
-        d = models[model](dt)
-        X = np.ones((d.shape[0], 2))
+    fig, axarr = plt.subplots(2, 3)#, sharey=True)
+    for i, method in enumerate(methods):
+        d = methods[method](dt)
+        #X = np.ones((d.shape[0], 2))
+        # --------------------------------
+        model = '%s~PC1+PC2+PC3' % target
+        # --------------------------------
+        y, X = dmatrices(model, data=d, return_type='dataframe')
+        mod = sm.OLS(y, X)
+        sm_fitted = mod.fit()
+        sm_ttest = sm_fitted.t_test([0, 1, 1, 1])
+        tval, pval =  sm_ttest.tvalue[0, 0], sm_ttest.pvalue[0, 0]
+        res.append([method, target, "PC1+PC2+PC3", model, tval, pval])
         for j, pc in enumerate(PCS):
-            y = d[target]
-            x = d["PC%i" % pc]
-            X[:, 0] = x
+            # --------------------------------
+            model = '%s~PC%i' % (target, pc)
+            # --------------------------------
+            y, X = dmatrices(model, data=d, return_type='dataframe')
             mod = sm.OLS(y, X)
             sm_fitted = mod.fit()
-            sm_ttest = sm_fitted.t_test([1, 0])
+            sm_ttest = sm_fitted.t_test([0, 1])
             tval, pval =  sm_ttest.tvalue[0, 0], sm_ttest.pvalue[0, 0]
-            res.append([model, target, pc, tval, pval])
-            #axarr[i, j].set_title('%s (T=%.3f, P=%.4g)' % (model, tval, pval))
+            res.append([method, target, pc, model, tval, pval])
             if i == 0:
                 axarr[i, j].set_title("PC%i" % pc)
-            axarr[i, j].scatter(x, y)
-            axarr[i, j].plot(x, sm_fitted.fittedvalues)
+            axarr[i, j].scatter(d["PC%i" % pc], y)
+            axarr[i, j].plot(d["PC%i" % pc], sm_fitted.fittedvalues, "black")
             axarr[i, j].set_xlabel('T=%.3f, P=%.4g' % (tval, pval))
             if j == 0:
-                axarr[i, j].set_ylabel(model, rotation=0, size='large')
+                axarr[i, j].set_ylabel(method, rotation=0, size='large')
             axarr[i, j].set_xticklabels([])
+            # --------------------------------
+            model = '%s~PC%i+AGE_AT_INCLUSION+SEX+EDUCATION+SITE' % (target, pc)
+            # --------------------------------
+            y, X = dmatrices(model, data=d, return_type='dataframe')
+            mod = sm.OLS(y, X)
+            sm_fitted = mod.fit()
+            sm_ttest = sm_fitted.t_test([0, 1] + [0] * (X.shape[1] - 2))
+            tval, pval =  sm_ttest.tvalue[0, 0], sm_ttest.pvalue[0, 0]
+            res.append([method, target, pc, model, tval, pval])
     fig.suptitle(target, size='large')
     fig.tight_layout()
     pdf.savefig()  # saves the current figure into a pdf page
@@ -87,38 +109,6 @@ for target in TARGETS:
 pdf.close()
 
 
-stats = pd.DataFrame(res, columns=["model", "var", "pc", "tval", "pval"])
+stats = pd.DataFrame(res, columns=["method", "var", "pc", "model", "tval", "pval"])
 
-print stats
 stats.to_csv(os.path.join(OUTPUT, "pc_clinic_associations.csv"), index=False)
-
-"""
-import matplotlib.pyplot as plt
-fig = plt.figure()
-ax1 = fig.add_subplot(2,1,1)
-ax1.scatter(1,1)
-ax2 = fig.add_subplot(2,1,2,sharex=ax1)
-ax2.scatter(1,1)
-
-
-#[left, bottom, width, height]
-ax = fig.add_axes( [0., 0., 1, 1] )
-ax.set_axis_off()
-ax.set_xlim(0, 1)
-ax.set_ylim(0, 1)
-ax.text( 
-    .05, 0.5, "left Label", rotation='vertical',
-    horizontalalignment='center', verticalalignment='center'
-)
-
-#[left, bottom, width, height]
-ax = fig.add_axes( [0., -1., 1, 1] )
-ax.set_axis_off()
-ax.set_xlim(0, 1)
-ax.set_ylim(0, 1)
-ax.text( 
-    .05, 0.5, "top Label",
-    horizontalalignment='center', verticalalignment='center'
-)
-plt.show()
-"""
