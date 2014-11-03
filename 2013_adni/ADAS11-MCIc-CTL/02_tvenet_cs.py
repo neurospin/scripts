@@ -176,6 +176,31 @@ def run_all(config):
     mapper(params, oc)
     #oc.collect(key=key, value=ret)
 
+def beta_count_nonnull_5cv():
+    import os, nibabel, glob, numpy as np, json
+    from brainomics import array_utils
+    WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
+    keys = ["0.001_0.3335_0.3335_0.333_-1.0",
+    "0.001_0.5_0.5_0.0_-1.0",
+    "0.001_0.09_0.81_0.1_-1.0",
+    "0.005_0.09_0.81_0.1_-1.0"]
+    config = json.load(open(os.path.join(WD, "config.json")))
+    config['penalty_start']
+    mask_ima = nibabel.load(os.path.join(WD, config['mask_filename']))
+    for key in keys:
+        #key = keys[0]
+        output_filename = os.path.join(WD, "results/weigths_map/beta_count_nonnull_5cv_%s.nii.gz" % key)
+        files = glob.glob(os.path.join(WD, "results", "*", key, "beta.npz"))[1:]
+        betas = np.vstack([np.load(f)['arr_0'].T for f in files])
+        betas = betas[:, config['penalty_start']:]
+        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+        assert betas_t.shape == (5, 286214)
+        arr = np.zeros(mask_ima.get_data().shape)
+        arr[mask_ima.get_data() != 0] = np.sum(betas_t != 0, axis=0)
+        out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+        out_im.to_filename(output_filename)
+        print "anatomist /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/results/weigths_map/beta_count_nonnull_5cv_0.00*"
+
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
     INPUT_DATA_X = os.path.join('X.npy')

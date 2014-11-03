@@ -57,18 +57,18 @@ print "Beta stat min, max, mean", beta3d[mask].min(), beta3d[mask].max(), beta3d
 #############################################################################
 beta = beta3d[mask]
 from brainomics import array_utils
-beta_thres, thres = array_utils.arr_threshold_from_norm2_ratio(beta, ratio = .99)
+beta_thres, THRESH = array_utils.arr_threshold_from_norm2_ratio(beta, ratio = .99)
 #THRESH = get_threshold_from_norm2_ratio(beta, ratio = .99)
 #beta_thres = np.zeros(beta.shape)
 #beta_thres[(np.sqrt(beta**2))>THRESH] = beta[(np.sqrt(beta**2))>THRESH]
-print "THRESH:", thres, ", Ratio:", np.sqrt(np.sum(beta_thres ** 2)) / np.sqrt(np.sum(beta ** 2))
+print "THRESH:", THRESH, ", Ratio:", np.sqrt(np.sum(beta_thres ** 2)) / np.sqrt(np.sum(beta ** 2))
 
 
 arr = np.zeros(mask.shape)
 arr[mask] = beta_thres
 im_out = nibabel.Nifti1Image(arr, affine=beta_image
 .get_affine())#, header=mask_image.get_header().copy())
-OUTPUT_DIR = os.path.splitext(INPUT_IMAGE)[0]+"_thresholded:%f" %thres
+OUTPUT_DIR = os.path.splitext(INPUT_IMAGE)[0]+"_thresholded:%f" %THRESH
 if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 im_out.to_filename(os.path.join(OUTPUT_DIR, os.path.basename(INPUT_IMAGE)))
@@ -87,7 +87,19 @@ outputs.update(do_brainvisa_mesh_cluster(OUTPUT_DIR,
                                               thresh_neg_bound=(-np.inf,-THRESH),
                                               thresh_pos_bound=(THRESH, np.inf)) )
 
+print "====================================================================="
 print outputs
+print get_sample_data("mni_1mm").mesh
+"""
+{'connected_components': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/connected_components.nii.gz',
+  'mesh_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters.mesh',
+  'cluster_mask_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters_mask.nii.gz',
+  'cluster_file': '/tmp/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii_thresholded:1.000000/clusters.nii.gz'}
+/home/ed203246/.local/share/nsap/MNI152_T1_1mm_Bothhemi.gii
+"""
+mesh_file = 
+white_mesh_file = /neurospin/brainomics/neuroimaging_ressources/mesh/MNI152_T1_1mm_Bothhemi.gii
+
 # run render
 do_mesh_cluster_rendering(mesh_file = outputs["mesh_file"],
                              texture_file = outputs["cluster_file"],

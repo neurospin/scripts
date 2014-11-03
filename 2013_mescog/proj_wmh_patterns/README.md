@@ -33,6 +33,8 @@ We have tried to detect outliers with the scripts `00_outliers_detection.py` and
     * mask_bin.nii: binary mask of WMH
     * X_center.npy: centerd data
     * means.npy: means used to center
+
+# Oldies scripts
 * `00_quality_control.py`: compute some basic statistics
 * `01_PCA.py`: apply PCA
   * output in: `/neurospin/mescog/proj_wmh_patterns/PCA`

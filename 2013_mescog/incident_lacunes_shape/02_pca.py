@@ -82,8 +82,8 @@ comp.to_csv(OUTPUT_MOMENT_INVARIANT_PCA+"_descriptive.csv", index=False)
 
 # SOME QC BEGIN
 a = pd.read_csv(OUTPUT_MOMENT_INVARIANT_PCA+".csv")
-b = pd.read_csv("/home/ed203246/data/mescog/incident_lacunes_shape/results_moments_invariant/mnts-inv_pc12_clusters.csv")
-assert np.all(a[[u'lacune_id', u'PC1', u'PC2']] == b[[u'lacune_id', u'PC1', u'PC2']])
+#b = pd.read_csv("/home/ed203246/data/mescog/incident_lacunes_shape/results_moments_invariant/mnts-inv_pc12_clusters.csv")
+#assert np.all(a[[u'lacune_id', u'PC1', u'PC2']] == b[[u'lacune_id', u'PC1', u'PC2']])
 # SOME QC END
 
 pdf = PdfPages(OUTPUT_MOMENT_INVARIANT_PC12+".pdf")
@@ -249,7 +249,19 @@ fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_max, s=50)
 plt.colorbar()
 plt.title("Angle maximum inertia axis - perforator"); plt.xlabel("PC1"); plt.ylabel("PC2")
-pdf.savefig(); plt.clf()
+pdf.savefig()
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_perfo_angle_inertia_max.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_perfo_angle_inertia_max.png")
+plt.clf()
+
+fig = plt.figure()#; plt.axis('equal')
+plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.perfo_angle_inertia_min, s=50)
+plt.colorbar()
+plt.title("Angle minimum inertia axis - perforator"); plt.xlabel("PC1"); plt.ylabel("PC2")
+pdf.savefig()
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_perfo_angle_inertia_min.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_perfo_angle_inertia_min.png")
+plt.clf()
 
 pdf.close()
 
@@ -266,7 +278,8 @@ fig = plt.figure(); plt.axis('equal')
 #plt.plot(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy, "ob")
 plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy)
 for i in xrange(len(moments["lacune_id"])):
-    plt.text(moments.tensor_invariant_linear_anisotropy[i], moments.tensor_invariant_planar_anisotropy[i], moments["lacune_id"][i])
+    plt.text(moments.tensor_invariant_linear_anisotropy[i],
+             moments.tensor_invariant_planar_anisotropy[i], moments["lacune_id"][i])
 
 plt.title("linear vs planar anisotropy")
 plt.xlabel("Linear"); plt.ylabel("Planar")
@@ -274,7 +287,8 @@ plt.xlabel("Linear"); plt.ylabel("Planar")
 pdf.savefig(); plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
-plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy, c=moments.tensor_invariant_fa, s=50)
+plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy,
+            c=moments.tensor_invariant_fa, s=50)
 plt.title("FA")
 plt.xlabel("Linear"); plt.ylabel("Planar")
 plt.colorbar()
@@ -282,12 +296,24 @@ pdf.savefig(); plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_fa.svg")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
-plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy, c=moments.perfo_angle_inertia_max, s=50)
+plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy,
+            c=moments.perfo_angle_inertia_max, s=50)
 plt.title(r"Angle maximum inertia axis - perforator, radian $\in [0, \pi/2]$")
 plt.xlabel("Linear"); plt.ylabel("Planar")
 plt.colorbar()
-plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_angle-with-perforator.pdf")
-plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_angle-with-perforator.png")
+plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_perfo_angle_inertia_max.svg")
+plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_perfo_angle_inertia_max.png")
+#tnsr-inv_lin-plan_angle-with-perforator.pdf
+pdf.savefig(); plt.clf()
+
+fig = plt.figure(); plt.axis('equal')
+plt.scatter(moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy,
+            c=moments.perfo_angle_inertia_min, s=50)
+plt.title(r"Angle minimum inertia axis - perforator, radian $\in [0, \pi/2]$")
+plt.xlabel("Linear"); plt.ylabel("Planar")
+plt.colorbar()
+plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_perfo_angle_inertia_min.svg")
+plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_perfo_angle_inertia_min.png")
 #tnsr-inv_lin-plan_angle-with-perforator.pdf
 pdf.savefig(); plt.clf()
 
