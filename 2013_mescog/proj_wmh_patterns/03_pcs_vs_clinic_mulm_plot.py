@@ -22,7 +22,7 @@ INPUT_BASE_PC = INPUT_BASE_CLINIC = BASE_DIR
 INPUT_PC = os.path.join(INPUT_BASE_PC, "data", "components.csv")
 # use the same file than in predcit cog decline
 INPUT_CLINIC = os.path.join(INPUT_BASE_CLINIC, "data", "dataset_clinic_niglob_20140728_nomissing_BPF-LLV_imputed.csv")
-OUTPUT = os.path.join(INPUT_BASE_PC, "results") 
+OUTPUT = os.path.join(INPUT_BASE_PC, "results")
 
 pc = pd.read_csv(INPUT_PC)
 clinic = pd.read_csv(INPUT_CLINIC)
@@ -37,7 +37,9 @@ def get_pca(d):
     return d[(d.global_pen == 0) & (d.tv_ratio == 0) & (d.l1_ratio == 0)]
 
 def get_l1l2tv(d):
-    return d[(d.global_pen == 1) & (d.tv_ratio == .33) & (d.l1_ratio == .5)]
+    d = d[(d.global_pen == 1) & (d.tv_ratio == .33) & (d.l1_ratio == .5)]
+    d.PC1 = -d.PC1  # get the opposite value of PC1 to harmonize
+    return d
 
 methods = dict(PCATV=get_l1l2tv, PCA=get_pca)
 
@@ -105,7 +107,7 @@ for target in TARGETS:
     fig.tight_layout()
     pdf.savefig()  # saves the current figure into a pdf page
     plt.close()
-    
+
 pdf.close()
 
 
