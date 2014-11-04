@@ -14,6 +14,8 @@ from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
+from brainomics import array_utils
+from statsmodels.stats.inter_rater import fleiss_kappa
 
 
 def load_globals(config):
@@ -94,7 +96,7 @@ def reducer(key, values):
     # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_0.5_0.5_-1.0/")]
     # Compute sd; ie.: compute results on each folds
     #values = [item.load() for item in values]
-    print key
+    print "key", key
     values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
@@ -105,9 +107,45 @@ def reducer(key, values):
     n_ite = None
     auc = roc_auc_score(y_true, y_post) #area under curve score.
     betas = np.hstack([item["beta"] for item in values]).T
+
+    ## Compute beta similarity measures
+
+    # Correlation
     R = np.corrcoef(betas)
-    beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
-    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+    R = R[np.triu_indices_from(R, 1)]
+    # Fisher z-transformation / average
+    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+    # bracktransform
+    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+
+    # threshold betas to compute fleiss_kappa and DICE
+    try:
+        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+        print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+        print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+                           rtol=0, atol=1e-02)
+    
+        # Compute fleiss kappa statistics
+        beta_signed = np.sign(betas_t)
+        table = np.zeros((beta_signed.shape[1], 3))
+        table[:, 0] = np.sum(beta_signed == 0, 0)
+        table[:, 1] = np.sum(beta_signed == 1, 0)
+        table[:, 2] = np.sum(beta_signed == -1, 0)
+        fleiss_kappa_stat = fleiss_kappa(table)
+    
+        # Paire-wise Dice coeficient
+        beta_n0 = betas_t != 0
+        ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
+        #print [[idx[0], idx[1]] for idx in ij]
+        dice_bar = np.mean([float(np.sum(beta_signed[idx[0], :] == beta_signed[idx[1], :])) /\
+             (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
+             for idx in ij])
+    except:
+        dice_bar = fleiss_kappa_stat = 0.
+
+#    R = np.corrcoef(betas)
+#    beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
+    a, l1, l2 , tv , k = key#[float(par) for par in key.split("_")]
     scores = OrderedDict()
     scores['a'] = a
     scores['l1'] = l1
@@ -121,7 +159,7 @@ def reducer(key, values):
     scores['recall_mean'] = r.mean()
     scores['recall_mean_std'] = recall_mean_std
     scores['auc'] = auc
-    scores['beta_cor_mean'] = beta_cor_mean
+#    scores['beta_cor_mean'] = beta_cor_mean
     scores['precision_0'] = p[0]
     scores['precision_1'] = p[1]
     scores['precision_mean'] = p.mean()
@@ -130,33 +168,17 @@ def reducer(key, values):
     scores['f1_mean'] = f.mean()
     scores['support_0'] = s[0]
     scores['support_1'] = s[1]
+#    scores['corr']= corr
+    scores['beta_r'] = str(R)
+    scores['beta_r_bar'] = r_bar
+    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+    scores['beta_dice_bar'] = dice_bar
     scores['n_ite'] = n_ite
     scores['k'] = k
     scores['key'] = key
     return scores
 
 
-##############################################################################
-## Run all
-def debug(config):
-    import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
-    key = '0.01_0.999_0.0_0.001_-1.0'
-    os.chdir(WD)
-    config = json.load(open("config_5cv.json"))
-    import mapreduce
-    GLOBAL = mapreduce
-    #class GLOBAL: DATA = dict()
-    load_globals(config)
-    resample(config, resample_nb=0)
-    oc = mapreduce.OutputCollector(os.path.join('5cv', key))
-    params = np.array([float(p) for p in key.split("_")])
-    mapper(params, oc)
-    alpha = np.load("/tmp/alpha.npy")
-    A = GLOBAL.A
-    import pickle
-    a = pickle.load(open("/tmp/a.pkl"))
-    
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
@@ -216,8 +238,8 @@ if __name__ == "__main__":
                   map_output="5cv",
                   penalty_start = 2,
                   user_func=user_func_filename,
-                  reduce_input="5cv/*/*",
-                  reduce_group_by="5cv/.*/(.*)",
+                  #reduce_input="5cv/*/*",
+                  reduce_group_by='params',
                   reduce_output="MCIc-CTL-FS.csv")
     json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
 
