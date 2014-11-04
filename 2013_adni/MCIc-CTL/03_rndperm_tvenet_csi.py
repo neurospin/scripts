@@ -18,6 +18,9 @@ import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
 
+NFOLDS = 5
+NRNDPERMS = 1000
+
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
@@ -29,15 +32,20 @@ def load_globals(config):
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    #GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+        rnd_state = np.random.get_state()
+        np.random.seed(resample_nb)
+        GLOBAL.DATA_RESAMPLED = dict(
+            X=[GLOBAL.DATA['X'][idx, ...]
+                for idx in resample],
+            y=[np.random.permutation(GLOBAL.DATA['y'][idx, ...])
+                for idx in resample])
+        np.random.set_state(rnd_state)
     else:  # resample is None train == test
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
-
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL # access to global variables:
@@ -177,27 +185,6 @@ def reducer(key, values):
     return scores
 
 
-
-##############################################################################
-## Run all
-def run_all(config):
-    import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_cs"
-    key = '0.01_0.01_0.98_0.01_10000'
-    #class GLOBAL: DATA = dict()
-    load_globals(config)
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = mapreduce.OutputCollector(OUTPUT)
-    #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'X.npy'))
-    y = np.load(os.path.join(WD,  'y.npy'))
-    mapreduce.DATA["X"] = [X, X]
-    mapreduce.DATA["y"] = [y, y]
-    params = np.array([float(p) for p in key.split("_")])
-    mapper(params, oc)
-    #oc.collect(key=key, value=ret)
-
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi"
     INPUT_DATA_X = os.path.join('X.npy')
@@ -213,57 +200,45 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    if os.path.exists("config.json"):
-        inf = open("config.json", "r")
+    if os.path.exists("config_rndperm.json"):
+        inf = open("config_rndperm.json", "r")
         old_conf = json.load(inf)
-        cv = old_conf["resample"]
+        rndperm = old_conf["resample"]
         inf.close()
     else:
-        cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
-    if cv[0] is not None: # Make sure first fold is None
-        cv.insert(0, None)
-    # parameters grid
-    # Re-run with
-    tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-    alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [100, 1000, 10000, 100000, -1]
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv.append(np.array([[0., 0., 1.]]))
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
-    params = [params.tolist() for params in alphal1l2tvk]
-    # User map/reduce function file:
-#    try:
-#        user_func_filename = os.path.abspath(__file__)
-#    except:
+        rndperm = [[tr.tolist(), te.tolist()] for perm in xrange(NRNDPERMS)
+            for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
+    params = \
+        [(0.01, 0.0, 1.0, 0.0, -1.0), # l2
+        (0.01, 0.0, 0.5, 0.5, -1.0),  # l2tv
+        (0.01, 1.0, 0.0, 0.0, -1.0),  # l1
+        (0.01, 0.5, 0.0, 0.5, -1.0),  # l1tv
+        (0.01, 0.0, 0.0, 1.0, -1.0),  # tv
+        (0.01, 0.5, 0.5, 0.0, -1.0),  # l1l2
+        (0.01, 0.35, 0.35, 0.3, -1.0)] #l1l2tv
+
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL",
-        "02_tvenet_csi.py")
+        "03_rndperm_tvenet_csi.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
-    #import sys
-    #sys.exit(0)
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
-                  params=params, resample=cv,
+                  params=params, resample=rndperm,
                   mask_filename=INPUT_MASK_PATH,
                   penalty_start = 3,
-                  map_output="5cv",
+                  map_output="rndperm",
                   user_func=user_func_filename,
-                  #reduce_input="rndperm/*/*",
                   reduce_group_by="params",
-                  reduce_output="MCIc-CTL_csi.csv")
-    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
+                  reduce_output="MCIc-CTL_csi_rndperm.csv")
+    json.dump(config, open(os.path.join(WD, "config_rndperm.json"), "w"))
 
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_rndperm.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
@@ -272,7 +247,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py --map %s/config.json --ncore 2" % WD
+    print "mapreduce.py --map %s/config_rndperm.json --ncore 2" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
@@ -287,4 +262,4 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --reduce %s/config.json" % WD
+    print "mapreduce.py --reduce %s/config_rndperm.json" % WD

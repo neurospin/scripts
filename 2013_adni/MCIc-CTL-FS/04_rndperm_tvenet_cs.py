@@ -37,11 +37,7 @@ def resample(config, resample_nb):
     #GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     if resample is not None:
-        #GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-        #                    for k in GLOBAL.DATA}
-        # TODO permute first y then apply CV
         rnd_state = np.random.get_state()
-        #yp = np.random.permutation(GLOBAL.DATA['y'])
         np.random.seed(resample_nb)
         GLOBAL.DATA_RESAMPLED = dict(
             X=[GLOBAL.DATA['X'][idx, ...]
