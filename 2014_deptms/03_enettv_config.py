@@ -304,7 +304,7 @@ if __name__ == "__main__":
         #    try:
         #        user_func_filename = os.path.abspath(__file__)
         #    except:
-            user_func_filename = os.path.join(os.environ["HOME"], "gits",
+            user_func_filename = os.path.join(os.environ["HOME"], "git",
                 "scripts", "2014_deptms", "03_enettv_config.py")
             #print __file__, os.path.abspath(__file__)
             print "user_func", user_func_filename
