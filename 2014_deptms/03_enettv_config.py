@@ -24,18 +24,16 @@ NFOLDS = 5
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
-    print "config data: ", config["data"]["X"]
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    print "ok"
     MODALITY = config["modality"]
     penalty_start = config["penalty_start"]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         STRUCTURE = nibabel.load(config["structure"])
-        A, _ = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
+        A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
 
     elif MODALITY == "MRI+PET":
         STRUCTURE = nibabel.load(config["structure"])
-        A1, _ = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
+        A1, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
         # construct matrix A
         # Ax, Ay, Az are block diagonale matrices and diagonal elements
         # are elements of A1
@@ -87,7 +85,7 @@ def mapper(key, output_collector):
             mask = STRUCTURE.get_data() != 0
             mask[mask] = aov.get_support()
             #print mask.sum()
-            A, _ = tv_helper.linear_operator_from_mask(mask)
+            A, _ = tv_helper.A_from_mask(mask)
             Xtr_r = np.hstack([Xtr[:, :penalty_start],
                                Xtr[:, penalty_start:][:, aov.get_support()]])
             Xte_r = np.hstack([Xte[:, :penalty_start],
@@ -106,14 +104,14 @@ def mapper(key, output_collector):
                             ytr.ravel())
             mask = STRUCTURE.get_data() != 0
             mask[mask] = aov_MRI.get_support()
-            A1, _ = tv_helper.linear_operator_from_mask(mask)
+            A1, _ = tv_helper.A_from_mask(mask)
 
             aov_PET = SelectKBest(k=k)
             aov_PET.fit(Xtr[..., (penalty_start + n_voxels):],
                             ytr.ravel())
             mask = STRUCTURE.get_data() != 0
             mask[mask] = aov_PET.get_support()
-            A2, _ = tv_helper.linear_operator_from_mask(mask) 
+            A2, _ = tv_helper.A_from_mask(mask) 
             # construct matrix A
             # Ax, Ay, Az are block diagonale matrices and diagonal elements
             # are elements of A1
