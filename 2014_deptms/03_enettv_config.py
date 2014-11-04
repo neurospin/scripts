@@ -19,11 +19,14 @@ import parsimony.functions.nesterov.tv as tv_helper
 import shutil
 from scipy import sparse
 
+NFOLDS = 5
+
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     MODALITY = config["modality"]
+    penalty_start = config["penalty_start"]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         STRUCTURE = nibabel.load(config["structure"])
         A, _ = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
@@ -41,6 +44,7 @@ def load_globals(config):
             A.append(a)
 
     GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.MODALITY = A, STRUCTURE, MODALITY
+    GLOBAL.PENALTY_START = penalty_start
 
 
 def resample(config, resample_nb):
@@ -67,7 +71,7 @@ def mapper(key, output_collector):
     n_voxels = np.count_nonzero(STRUCTURE.get_data())
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = 3
+    penalty_start = GLOBAL.PENALTY_START
     class_weight = "auto"  # unbiased
     alpha = float(key[0])
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
@@ -108,8 +112,7 @@ def mapper(key, output_collector):
                             ytr.ravel())
             mask = STRUCTURE.get_data() != 0
             mask[mask] = aov_PET.get_support()
-            A2, _ = tv_helper.linear_operator_from_mask(mask)
-            
+            A2, _ = tv_helper.linear_operator_from_mask(mask) 
             # construct matrix A
             # Ax, Ay, Az are block diagonale matrices and diagonal elements
             # are elements of A1
@@ -213,6 +216,8 @@ if __name__ == "__main__":
 
     OUTPUT_ENETTV = os.path.join(BASE_PATH,   "results_enettv")
 
+    penalty_start = 3
+
     #########################################################################
     ## Read ROIs csv
     atlas = []
@@ -250,52 +255,48 @@ if __name__ == "__main__":
             if not os.path.exists(WD):
                 os.makedirs(WD)
 
-            # copy X, y, mask file names in the current directory
-            shutil.copy2(os.path.join(DATA_MODALITY_PATH,
-                                      'X_' + modality + '_' + roi + '.npy'),
-                         WD)
-            shutil.copy2(os.path.join(DATA_MODALITY_PATH,
-                                      'y.npy'),
-                         WD)
-            INPUT_DATA_X = os.path.join(WD,
+            INPUT_DATA_X = os.path.join(DATA_MODALITY_PATH,
                                         'X_' + modality + '_' + roi + '.npy')
-            INPUT_DATA_y = os.path.join(WD, 'y.npy')
-            INPUT_MASK = os.path.join(WD,
+            INPUT_DATA_y = os.path.join(DATA_MODALITY_PATH,
+                                        'y.npy')
+            INPUT_MASK = os.path.join(DATA_MODALITY_PATH,
                                       'mask_' + modality + '_' + roi + '.nii')
-
+            
+            # copy X, y, mask file names in the current directory
+            shutil.copy2(INPUT_DATA_X, WD)
+            shutil.copy2(INPUT_DATA_y, WD)
+                         
             if np.logical_or(modality == "MRI", modality == "PET"):
-                shutil.copy2(os.path.join(DATA_MODALITY_PATH,
-                                      'mask_' + modality + '_' + roi + '.nii'),
-                             WD)
+                shutil.copy2(INPUT_MASK, WD)
             elif modality == "MRI+PET":
                 shutil.copy2(os.path.join(DATASET_PATH, "MRI",
                                       'mask_MRI_' + roi + '.nii'),
                              WD)
                 INPUT_MASK = os.path.join(WD, 'mask_MRI_' + roi + '.nii')
-
-            NFOLDS = 5
-
             #################################################################
             ## Create config file
             y = np.load(INPUT_DATA_y)
+            INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
+            INPUT_DATA_y = os.path.basename(INPUT_DATA_y)
+            INPUT_MASK = os.path.basename(INPUT_MASK)
             cv = [[tr.tolist(), te.tolist()]
                     for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
             # parameters grid
             # Re-run with
             tv_range = np.hstack([np.arange(0, 1., .1),
                                   [0.05, 0.01, 0.005, 0.001]])
-#            ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],
-#                               [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
-#                               [.001, .999, 1]])
-            ratios = np.array([[0., 1., 1], [.5, .5, 1],
+            ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],
                                [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                                [.001, .999, 1]])
+#            ratios = np.array([[0., 1., 1], [.5, .5, 1],
+#                               [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
+#                               [.001, .999, 1]])
             alphas = [.01, .05, .1, .5, 1.]
             k_range = [100, 1000, 10000, 100000, -1]
             l1l2tv = [np.array([[float(1 - tv),
                                  float(1 - tv),
                                  tv]]) * ratios for tv in tv_range]
-#            l1l2tv.append(np.array([[0., 0., 1.]]))
+            l1l2tv.append(np.array([[0., 0., 1.]]))
             l1l2tv = np.concatenate(l1l2tv)
             alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
             alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]] * alphal1l2tv.shape[0])] for k in k_range])
@@ -304,7 +305,7 @@ if __name__ == "__main__":
         #    try:
         #        user_func_filename = os.path.abspath(__file__)
         #    except:
-            user_func_filename = os.path.join(os.environ["HOME"], "gits",
+            user_func_filename = os.path.join(os.environ["HOME"], "git",
                 "scripts", "2014_deptms", "03_enettv_config.py")
             #print __file__, os.path.abspath(__file__)
             print "user_func", user_func_filename
@@ -318,6 +319,7 @@ if __name__ == "__main__":
                           user_func=user_func_filename,
                           reduce_group_by="params",
                           reduce_output="results.csv",
+                          penalty_start=penalty_start,
                           modality=modality,
                           roi=roi)
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
@@ -338,7 +340,7 @@ if __name__ == "__main__":
             os.system(sync_push_filename)
 
 
-        #########################################################################
+        """#########################################################################
         print "# Start by running Locally with 2 cores, to check that everything is OK)"
         print "mapreduce.py --map %s/config.json --ncore 2" % WD
         #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
@@ -355,4 +357,4 @@ if __name__ == "__main__":
         print sync_pull_filename
         #########################################################################
         print "# Reduce"
-        print "mapreduce.py --reduce %s/config.json" % WD
+        print "mapreduce.py --reduce %s/config.json" % WD"""
