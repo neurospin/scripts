@@ -24,7 +24,9 @@ NFOLDS = 5
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
+    print "config data: ", config["data"]["X"]
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    print "ok"
     MODALITY = config["modality"]
     penalty_start = config["penalty_start"]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
@@ -49,7 +51,6 @@ def load_globals(config):
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}
@@ -338,7 +339,6 @@ if __name__ == "__main__":
             # Sync to cluster
             print "Sync data to gabriel.intra.cea.fr: "
             os.system(sync_push_filename)
-
 
         """#########################################################################
         print "# Start by running Locally with 2 cores, to check that everything is OK)"
