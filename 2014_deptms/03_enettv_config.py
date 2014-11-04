@@ -284,18 +284,18 @@ if __name__ == "__main__":
             # Re-run with
             tv_range = np.hstack([np.arange(0, 1., .1),
                                   [0.05, 0.01, 0.005, 0.001]])
-#            ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],
-#                               [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
-#                               [.001, .999, 1]])
-            ratios = np.array([[0., 1., 1], [.5, .5, 1],
+            ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],
                                [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                                [.001, .999, 1]])
+#            ratios = np.array([[0., 1., 1], [.5, .5, 1],
+#                               [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
+#                               [.001, .999, 1]])
             alphas = [.01, .05, .1, .5, 1.]
             k_range = [100, 1000, 10000, 100000, -1]
             l1l2tv = [np.array([[float(1 - tv),
                                  float(1 - tv),
                                  tv]]) * ratios for tv in tv_range]
-#            l1l2tv.append(np.array([[0., 0., 1.]]))
+            l1l2tv.append(np.array([[0., 0., 1.]]))
             l1l2tv = np.concatenate(l1l2tv)
             alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
             alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]] * alphal1l2tv.shape[0])] for k in k_range])
@@ -338,7 +338,7 @@ if __name__ == "__main__":
             os.system(sync_push_filename)
 
 
-        #########################################################################
+        """#########################################################################
         print "# Start by running Locally with 2 cores, to check that everything is OK)"
         print "mapreduce.py --map %s/config.json --ncore 2" % WD
         #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
@@ -355,4 +355,4 @@ if __name__ == "__main__":
         print sync_pull_filename
         #########################################################################
         print "# Reduce"
-        print "mapreduce.py --reduce %s/config.json" % WD
+        print "mapreduce.py --reduce %s/config.json" % WD"""
