@@ -1,6 +1,4 @@
 Bilblio
 =======
 
-R. Jenatton, G. Obozinski, and F. Bach, “Structured sparse principal compo-
-nent analysis,” in Proceedings of International Workshop on Artificial Intelli-
-gence and Statistics (AISTATS), 2010.
+R. Jenatton, G. Obozinski, and F. Bach, “Structured sparse principal component analysis,” in Proceedings of International Workshop on Artificial Intelligence and Statistics (AISTATS), 2010.
