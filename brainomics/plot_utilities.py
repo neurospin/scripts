@@ -8,8 +8,8 @@ Created on Mon Aug 25 13:47:36 2014
 import matplotlib.pylab as plt
 
 
-def plot_lines(df, x_col, y_col, colorby_col=None,
-               splitby_col=None, color_map=None):
+def plot_lines(df, x_col, y_col, colorby_col=None, splitby_col=None,
+               color_map=None, use_suptitle=True):
     """Plot a metric of mapreduce as a function of parameters.
     Data are first grouped by split_by to produce one figure per value.
     In each figure, data are grouped by colorby_col to create one line per
@@ -35,6 +35,13 @@ def plot_lines(df, x_col, y_col, colorby_col=None,
 
     splitby_col: column name (or index level) that define how to split figures.
     One figure per level.
+
+    color_map: color map to use (if None, use default colors). It's a
+    dictionary whose key are the values of colorby_col and the values a
+    matplotlib color.
+
+    use_suptitle: if True, use values of splitby_col as suptitle (it's hard to
+    tune).
 
     Returns
     -------
@@ -71,7 +78,8 @@ def plot_lines(df, x_col, y_col, colorby_col=None,
     for splitby_col_val, splitby_col_group in fig_groups:
         h = plt.figure()
         handles[splitby_col_val] = h
-        plt.suptitle(splitby_col_val)
+        if use_suptitle:
+            plt.suptitle(splitby_col_val)
         try:
             # Try to group by column name
             color_groups = splitby_col_group.groupby(colorby_col)
