@@ -46,6 +46,11 @@ METRICS = ['recall_mean',
            'correlation_mean',
            'kappa_mean',
            'frobenius_test']
+METRICS_NAME = ['Mean recall rate',
+                'Mean f-score',
+                'Mean correlation across folds',
+                'Mean $\kappa$ across folds',
+                'Mean Frobenius distance on test sample']
 
 # Plot of metrics
 EXAMPLE_MODEL = 'struct_pca'
@@ -78,17 +83,16 @@ COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
 # Script #
 ##########
 
-# Open result file (index by model, total_penalization, tv_ratio, l1_ratio)
-# We have to explicitly sort the index in order to subsample
-df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
-                            index_col=[0, 2, 3, 4]).sort_index()
+# Open result file
+df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE)
+df_index = df.set_index(['model', 'global_pen', 'tv_ratio', 'l1_ratio'])
 
 #####################
 # Create summary df #
 #####################
 
 # Subsample it & add a column based on name
-summary = df.loc[PARAMS][COLS]
+summary = df_index.loc[PARAMS][COLS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
                        index=PARAMS)
 summary['name'] = name_serie
@@ -101,18 +105,27 @@ summary.to_csv(OUTPUT_RESULTS_FILE)
 ################
 
 # Subsample df
-struct_pca_df = df.xs(EXAMPLE_MODEL)
+struct_pca_df = df[df.model == EXAMPLE_MODEL]
 
 # Plot some metrics for struct_pca for each SNR value
 snr_groups = struct_pca_df.groupby('snr')
 for snr_val, snr_group in snr_groups:
-    for metric in METRICS:
+    for metric, metric_name in zip(METRICS, METRICS_NAME):
         handles = plot_utilities.plot_lines(snr_group,
-                                            x_col=1,
+                                            x_col='tv_ratio',
                                             y_col=metric,
-                                            splitby_col=0,
-                                            colorby_col=2)
+                                            splitby_col='global_pen',
+                                            colorby_col='l1_ratio',
+                                            use_suptitle=False)
         for val, handle in handles.items():
+            # Tune the figure
+            ax = handle.get_axes()[0]
+            ax.set_xlabel("TV ratio")
+            ax.set_ylabel(metric_name)
+            l = ax.get_legend()
+            l.set_title("$\ell_1$ ratio")
+            s = r'$ \alpha $ =' + str(val)
+            handle.suptitle(r'$ \alpha $ =' + str(val))
             filename = CURVE_FILE_FORMAT.format(metric=metric,
                                                 snr=snr_val,
                                                 global_pen=val)
