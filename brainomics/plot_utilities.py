@@ -5,11 +5,12 @@ Created on Mon Aug 25 13:47:36 2014
 @author: christophe
 """
 
+import math
 import matplotlib.pylab as plt
 
 
 def plot_lines(df, x_col, y_col, colorby_col=None, splitby_col=None,
-               color_map=None, use_suptitle=True):
+               color_map=None, use_suptitle=True, use_subplots=False):
     """Plot a metric of mapreduce as a function of parameters.
     Data are first grouped by split_by to produce one figure per value.
     In each figure, data are grouped by colorby_col to create one line per
@@ -31,10 +32,10 @@ def plot_lines(df, x_col, y_col, colorby_col=None, splitby_col=None,
     here).
 
     colorby_col: column name (or index level) that define colored lines.
-    One line per level.
+    One line per value or level.
 
     splitby_col: column name (or index level) that define how to split figures.
-    One figure per level.
+    One figure per value or level (see use_subplots).
 
     color_map: color map to use (if None, use default colors). It's a
     dictionary whose key are the values of colorby_col and the values a
@@ -43,10 +44,14 @@ def plot_lines(df, x_col, y_col, colorby_col=None, splitby_col=None,
     use_suptitle: if True, use values of splitby_col as suptitle (it's hard to
     tune).
 
+    use_subplots: create a subplot instead of a figure for each value of
+    splitby_col
+
     Returns
     -------
     handles: dictionnary of figure handles.
-    The key is the value of splitby_col and the value is the figure handler.
+    The key is the value of splitby_col and the value is the figure handler (or
+    the subplot if use_subplots is True).
     """
     # pandas.DataFrame.plot don't work properly if x_col is an index
     import pandas.core.common as com
@@ -75,9 +80,19 @@ def plot_lines(df, x_col, y_col, colorby_col=None, splitby_col=None,
         except:
             raise Exception("Cannot group by splitby_col.")
     handles = {}
-    for splitby_col_val, splitby_col_group in fig_groups:
-        h = plt.figure()
-        handles[splitby_col_val] = h
+    fig_created = False
+    for i, (splitby_col_val, splitby_col_group) in enumerate(fig_groups, 1):
+        if use_subplots:
+            if not fig_created:
+                h = plt.figure()
+                n_plots = len(fig_groups)
+                n_rows = math.floor(math.sqrt(n_plots))
+                n_cols = math.ceil(float(n_plots) / float(n_rows))
+                fig_created = True
+            handles[splitby_col_val] = plt.subplot(n_rows, n_cols, i)
+        else:
+            h = plt.figure()
+            handles[splitby_col_val] = h
         if use_suptitle:
             plt.suptitle(splitby_col_val)
         try:
