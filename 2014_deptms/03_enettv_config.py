@@ -3,6 +3,8 @@
 Created on Mon Oct 27 15:00:01 2014
 
 @author: cp243490
+Create the config file for several datasets and contains the map and reduce
+functions.
 """
 
 
@@ -50,7 +52,11 @@ def load_globals(config):
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
 
@@ -276,6 +282,8 @@ if __name__ == "__main__":
             y = np.load(INPUT_DATA_y)
             cv = [[tr.tolist(), te.tolist()]
                     for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
+            cv.insert(0, None)  # first fold is None
+
             INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
             INPUT_DATA_y = os.path.basename(INPUT_DATA_y)
             INPUT_MASK = os.path.basename(INPUT_MASK)
