@@ -478,6 +478,36 @@ The next step will be to perform multivariate analysis on these three ROIs.
 Multivariate Analysis: ElasticNet + TV
 =======================================
 
+We now realize a multivariate analysis to find relationships between the response to the treatment and sets of voxels in brain images. To do so we use a logistic regression model with TV-elastic Net penalty:
+
+- l1 penality: Lasso penalty which provides a scattered predictive pattern (sparsification)
+- l2 penality: Ridge penalty which provides shrinkage
+- TV: Total Variation which takes into account the spatial structure of brain images
+
+Method
+-------
+First: Search for the optimal set of hyperparameters (alpha, l1_ratio, l2_ratio, TV) that maximizes the correlation between predicted y values (response to treatment) via the Linear Model  and true ones using Elastic Net + TV algorithm, mapreduce and cross validation.
+
+We complete a cross validation for a set of parameters for the three modalities using the python modules mapreduce, scikit-learn, pylearn-parsimony
+
+**Script**
+::
+
+	03_enettv_config.py
+
+**OUTPUTS** for a pair (modality, ROI) considering the whole brain as a ROI
+::
+
+	/neurospin/brainomics/2014_deptms/
+		/results_enettv/
+			config.json
+			results/
+		
+	
+
+	
+Results
+-------	
 
 Conclusion
 ==========
