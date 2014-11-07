@@ -74,11 +74,12 @@ def mapper(key, output_collector):
     class_weight = "auto"  # unbiased
     alpha = float(key[0])
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
-    tv, k = alpha * float(key[3]), key[4]
-    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
-
+    tv, k_ratio = alpha * float(key[3]), key[4]
+    print "l1:%f, l2:%f, tv:%f, k_ratio:%f" % (l1, l2, tv, k_ratio)
+    n_voxels = Xtr.shape[1]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
-        if k != -1:
+        if k_ratio != -1:
+            k = n_voxels * k_ratio
             k = int(k)
             aov = SelectKBest(k=k)
             aov.fit(Xtr[..., penalty_start:], ytr.ravel())
@@ -97,7 +98,8 @@ def mapper(key, output_collector):
             A = GLOBAL.A
 
     elif MODALITY == "MRI+PET":
-        if k != -1:
+        if k_ratio != -1:
+            k = n_voxels * k_ratio
             k = int(k)
             aov_MRI = SelectKBest(k=k)
             aov_MRI.fit(Xtr[..., penalty_start:(penalty_start + n_voxels)],
@@ -111,7 +113,7 @@ def mapper(key, output_collector):
                             ytr.ravel())
             mask = STRUCTURE.get_data() != 0
             mask[mask] = aov_PET.get_support()
-            A2, _ = tv_helper.A_from_mask(mask) 
+            A2, _ = tv_helper.A_from_mask(mask)
             # construct matrix A
             # Ax, Ay, Az are block diagonale matrices and diagonal elements
             # are elements of A1
@@ -239,8 +241,8 @@ if __name__ == "__main__":
     rois.append("wb")  # add whole brain to rois
 
     #########################################################################
-    ## Build config file for all couple (Modality, roi)  
-    
+    ## Build config file for all couple (Modality, roi)
+
     for modality in MODALITIES:
         print "Modality: ", modality
         DATA_MODALITY_PATH = os.path.join(DATASET_PATH, modality)
@@ -248,8 +250,7 @@ if __name__ == "__main__":
         for roi in rois:
             print "ROI", roi
 
-            WD = os.path.join(OUTPUT_ENETTV,
-                              modality + '_' + roi)
+            WD = os.path.join(OUTPUT_ENETTV, modality + '_' + roi)
 
             if not os.path.exists(WD):
                 os.makedirs(WD)
@@ -260,11 +261,9 @@ if __name__ == "__main__":
                                         'y.npy')
             INPUT_MASK = os.path.join(DATA_MODALITY_PATH,
                                       'mask_' + modality + '_' + roi + '.nii')
-            
             # copy X, y, mask file names in the current directory
             shutil.copy2(INPUT_DATA_X, WD)
             shutil.copy2(INPUT_DATA_y, WD)
-                         
             if np.logical_or(modality == "MRI", modality == "PET"):
                 shutil.copy2(INPUT_MASK, WD)
             elif modality == "MRI+PET":
@@ -275,11 +274,11 @@ if __name__ == "__main__":
             #################################################################
             ## Create config file
             y = np.load(INPUT_DATA_y)
+            cv = [[tr.tolist(), te.tolist()]
+                    for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
             INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
             INPUT_DATA_y = os.path.basename(INPUT_DATA_y)
             INPUT_MASK = os.path.basename(INPUT_MASK)
-            cv = [[tr.tolist(), te.tolist()]
-                    for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
             # parameters grid
             # Re-run with
             tv_range = np.hstack([np.arange(0, 1., .1),
@@ -287,30 +286,19 @@ if __name__ == "__main__":
             ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],
                                [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                                [.001, .999, 1]])
-#            ratios = np.array([[0., 1., 1], [.5, .5, 1],
-#                               [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
-#                               [.001, .999, 1]])
             alphas = [.01, .05, .1, .5, 1.]
-            k_range = [100, 1000, 10000, 100000, -1]
+            k_range_ratio = [0.1/100., 1/100., 10/100., 50/100., -1]
             l1l2tv = [np.array([[float(1 - tv),
                                  float(1 - tv),
                                  tv]]) * ratios for tv in tv_range]
             l1l2tv.append(np.array([[0., 0., 1.]]))
             l1l2tv = np.concatenate(l1l2tv)
             alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-            alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]] * alphal1l2tv.shape[0])] for k in k_range])
+            alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k_ratio]] * alphal1l2tv.shape[0])] for k_ratio in k_range_ratio])
             params = [params.tolist() for params in alphal1l2tvk]
-            # User map/reduce function file:
-        #    try:
-        #        user_func_filename = os.path.abspath(__file__)
-        #    except:
             user_func_filename = os.path.join(os.environ["HOME"], "git",
                 "scripts", "2014_deptms", "03_enettv_config.py")
-            #print __file__, os.path.abspath(__file__)
             print "user_func", user_func_filename
-            #import sys
-            #sys.exit(0)
-            # Use relative path from config.json
             config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                           params=params, resample=cv,
                           structure=INPUT_MASK,
@@ -324,10 +312,7 @@ if __name__ == "__main__":
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
             #################################################################
-            # modality = "MRI"
-            # roi = "wb"
-            WD = os.path.join(OUTPUT_ENETTV, modality + '_' + roi)
-            # Build utils files: sync (push/pull) and PBS
+            # Build utils files: sync (lasso regressionpush/pull) and PBS
             import brainomics.cluster_gabriel as clust_utils
             sync_push_filename, sync_pull_filename, WD_CLUSTER = \
                 clust_utils.gabriel_make_sync_data_files(WD)
@@ -338,21 +323,21 @@ if __name__ == "__main__":
             print "Sync data to gabriel.intra.cea.fr: "
             os.system(sync_push_filename)
 
-        """#########################################################################
-        print "# Start by running Locally with 2 cores, to check that everything is OK)"
-        print "mapreduce.py --map %s/config.json --ncore 2" % WD
-        #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
-        print "# 1) Log on gabriel:"
-        print 'ssh -t gabriel.intra.cea.fr'
-        print "# 2) Run one Job to test"
-        print "qsub -I"
-        print "cd %s" % WD_CLUSTER
-        print "./job_Global_long.pbs"
-        print "# 3) Run on cluster"
-        print "qsub job_Global_long.pbs"
-        print "# 4) Log out and pull Pull"
-        print "exit"
-        print sync_pull_filename
-        #########################################################################
-        print "# Reduce"
-        print "mapreduce.py --reduce %s/config.json" % WD"""
+    """######################################################################
+    print "# Start by running Locally with 2 cores, to check that everything is OK)"
+    print "mapreduce.py --map %s/config.json --ncore 2" % WD
+    #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
+    print "# 1) Log on gabriel:"
+    print 'ssh -t gabriel.intra.cea.fr'
+    print "# 2) Run one Job to test"
+    print "qsub -I"
+    print "cd %s" % WD_CLUSTER
+    print "./job_Global_long.pbs"
+    print "# 3) Run on cluster"
+    print "qsub job_Global_long.pbs"
+    print "# 4) Log out and pull Pull"
+    print "exit"
+    print sync_pull_filename
+    #########################################################################
+    print "# Reduce"
+    print "mapreduce.py --reduce %s/config.json" % WD"""
