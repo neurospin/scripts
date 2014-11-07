@@ -81,6 +81,11 @@ def _build_job_table(config):
     # Create representation of parameters as a string
     params_str_list = [param_sep.join([str(p) for p in params])
                        for params in params_list]
+    # Check that we have resamplings otherwise fake it
+    if "resample" not in config:
+        resamples = [0]
+    else:
+        resamples = config["resample"]
     # The parameters are given as list of values.
     # As list are not hashable, we cast them to tuples.
     jobs = [[resample_i,
@@ -89,7 +94,7 @@ def _build_job_table(config):
              os.path.join(config["map_output"],
                           str(resample_i),
                           params_str)]
-            for resample_i in xrange(len(config["resample"]))
+            for resample_i in xrange(len(resamples))
             for (params, params_str) in zip(params_list, params_str_list)]
     jobs = pd.DataFrame.from_records(jobs,
                                      columns=[_RESAMPLE_INDEX,
@@ -326,6 +331,7 @@ if __name__ == "__main__":
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
+        do_resampling = "resample" in config
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
@@ -353,10 +359,11 @@ if __name__ == "__main__":
             except:
                 if not options.force:
                     continue
-            if (not resample_nb_cur and job[_RESAMPLE_INDEX]) or \
-               (resample_nb_cur != job[_RESAMPLE_INDEX]):  # Load
-                resample_nb_cur = job[_RESAMPLE_INDEX]
-                user_func.resample(config, resample_nb_cur)
+            if do_resampling:
+                if (not resample_nb_cur and job[_RESAMPLE_INDEX]) or \
+                   (resample_nb_cur != job[_RESAMPLE_INDEX]):  # Load
+                    resample_nb_cur = job[_RESAMPLE_INDEX]
+                    user_func.resample(config, resample_nb_cur)
             key = job[_PARAMS]
             output_collector = job[_OUTPUT_COLLECTOR]
             p = Process(target=user_func.mapper, args=(key, output_collector))
