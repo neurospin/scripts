@@ -7,7 +7,7 @@ Created on Fri Oct 24 18:41:43 2014
 Test that we correctly treat the case where no parameters is given.
 Copied from test_mapreduce.
 
-The mapper function uses hardcoded values
+The mapper function uses hardcoded values.
 
 """
 
@@ -57,6 +57,8 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
+    import mapreduce
+
     WD = tempfile.mkdtemp()
 
     ###########################################################################
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    # key = params[0]
+    key = mapreduce._NULL_PARAMS
     y_true = list()
     y_pred = list()
     for tr, te in cv:

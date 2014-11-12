@@ -61,6 +61,10 @@ _OUTPUT_COLLECTOR = 'output collector'
 GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
+# Default values for resample and params
+_NULL_RESAMPLE = 0
+_NULL_PARAMS = ["void"]
+
 
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
@@ -76,16 +80,22 @@ def _build_job_table(config):
     Note that the index respects the natural ordering of (resample, params) as
     given in the config file.
     """
-    params_list = json.load(open(config["params"])) \
-        if isinstance(config["params"], str) else config["params"]
+    # Check that we have resamplings; otherwise fake it
+    if "resample" not in config:
+        resamples = [_NULL_RESAMPLE]
+    else:
+        resamples = config["resample"]
+    # Check that we have parameters; otherwise fake it
+    if "params" not in config:
+        params = [_NULL_PARAMS]
+    else:
+        params = config["params"]
+    # If params are given as a file, load them
+    params_list = json.load(open(params)) \
+        if isinstance(params, str) else params
     # Create representation of parameters as a string
     params_str_list = [param_sep.join([str(p) for p in params])
                        for params in params_list]
-    # Check that we have resamplings otherwise fake it
-    if "resample" not in config:
-        resamples = [0]
-    else:
-        resamples = config["resample"]
     # The parameters are given as list of values.
     # As list are not hashable, we cast them to tuples.
     jobs = [[resample_i,
@@ -303,6 +313,11 @@ if __name__ == "__main__":
         print >> sys.stderr, 'Attribute "user_func" is required'
         sys.exit(os.EX_CONFIG)
     user_func = _import_user_func(config["user_func"])
+
+    # Check that we have at least resample or params
+    if ("resample" not in config) and ("params" not in config):
+        print >> sys.stderr, '"resample" or "params" is required'
+        sys.exit(os.EX_CONFIG)
 
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
