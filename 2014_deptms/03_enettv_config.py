@@ -87,7 +87,7 @@ def mapper(key, output_collector):
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
     tv, k_ratio = alpha * float(key[3]), key[4]
     print "l1:%f, l2:%f, tv:%f, k_ratio:%f" % (l1, l2, tv, k_ratio)
-    n_voxels = Xtr.shape[1]
+    n_voxels = np.count_nonzero(STRUCTURE)
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         if k_ratio != -1:
             k = n_voxels * k_ratio
@@ -146,6 +146,7 @@ def mapper(key, output_collector):
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
+
     mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
                                    class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
@@ -167,7 +168,7 @@ def reducer(key, values):
     # values = [mapreduce.OutputCollector(p)
     #        for p in glob.glob("/neurospin/brainomics/2014_deptms/MRI/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    values = [item.load() for item in values]
+    values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
             item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) \
             / np.sqrt(len(values))
@@ -183,13 +184,12 @@ def reducer(key, values):
     betas = np.hstack([item["beta"] for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
-    a, l1, l2, tv, k_ratio = [float(par) for par in key.split("_")]
     scores = OrderedDict()
-    scores['a'] = a
-    scores['l1'] = l1
-    scores['l2'] = l2
-    scores['tv'] = tv
-    scores['k_ratio'] = k_ratio
+    scores['a'] = key[0]
+    scores['l1'] = key[1]
+    scores['l2'] = key[2]
+    scores['tv'] = key[3]
+    scores['k_ratio'] = key[4]
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
@@ -205,6 +205,8 @@ def reducer(key, values):
     scores['n_ite'] = n_ite
     scores['auc'] = auc
     scores['beta_cor_mean'] = beta_cor_mean
+    
+    return scores
 
 
 ##############################################################################
@@ -323,7 +325,7 @@ if __name__ == "__main__":
                                [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                                [.001, .999, 1]])
             alphas = [.01, .05, .1, .5, 1.]
-            k_range_ratio = [0.1/100., 1/100., 10/100., 50/100., -1]
+            k_range_ratio = [0.1 / 100., 1 / 100., 10 / 100., 50 / 100., -1]
             l1l2tv = [np.array([[float(1 - tv),
                                  float(1 - tv),
                                  tv]]) * ratios for tv in tv_range]
