@@ -15,7 +15,7 @@ OUTPUT_DIR = /neurospin/mescog/proj_wmh_patterns
  - X.npy: concatenation of masked images
  - mask_atlas.nii: mask of WMH (with regions)
  - mask_bin.nii: binary mask of WMH
- - X_center.npy: centerd data
+ - X_center.npy: centered data
  - means.npy: means used to center
 
 """

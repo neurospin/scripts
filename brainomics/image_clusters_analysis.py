@@ -19,6 +19,7 @@ import scipy, scipy.ndimage
 from soma import aims
 import tempfile
 import pandas as pd
+from brainomics import array_utils
 
 
 def xyz_to_mm(trm, vox_size):
@@ -116,8 +117,12 @@ def mesh_large_clusters(arr, clust_labeled, clust_sizes, labels,
     large_clust_graph_filename = os.path.join(tempdir, "large_clusters.arg")
     cmd = 'AimsClusterArg --input %s --output %s' % \
     (large_clust_ima_filename, large_clust_graph_filename)
+    print "\n============="
+    print cmd
+    print "============="
     os.popen(cmd)
     graph = aims.read(large_clust_graph_filename)
+    print "-----"
     large_clust_meshs = None
     for v in graph.vertices():
         if large_clust_meshs is None:
@@ -140,6 +145,7 @@ if __name__ == "__main__":
     thresh_neg_high = 0
     thresh_pos_low = 0
     thresh_pos_high = np.inf
+    thresh_norm_ratio = 0.99
     referential = 'Talairach-MNI template-SPM'
     fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
@@ -160,6 +166,9 @@ if __name__ == "__main__":
         help='Positive lower bound threshold (default %f)' % thresh_pos_low, default=thresh_pos_low, type=float)
     parser.add_argument('--thresh_pos_high',
         help='Positive upper bound threshold (default %f)' % thresh_pos_high, default=thresh_pos_high, type=float)
+    parser.add_argument('-t', '--thresh_norm_ratio',
+        help='Threshold image such ||v[|v| >= t]||2 / ||v||2 == thresh_norm_ratio (default %f)'% thresh_norm_ratio,
+        default=thresh_norm_ratio, type=float)
 
     options = parser.parse_args()
     #print __doc__
@@ -174,6 +183,8 @@ if __name__ == "__main__":
     thresh_neg_high = options.thresh_neg_high
     thresh_pos_low = options.thresh_pos_low
     thresh_pos_high = options.thresh_pos_high
+    thresh_norm_ratio = options.thresh_norm_ratio
+
     ##########################################################################
     #map_filename = "/tmp/beta_0.001_0.5_0.5_0.0_-1.0.nii_thresholded:0.003706/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz"
 
@@ -182,9 +193,10 @@ if __name__ == "__main__":
         output, _ = os.path.splitext(output)
     if not os.path.exists(output):
         os.mkdir(output)
-    map_filename_symlink =  os.path.join(output, os.path.basename(map_filename))
-    if not os.path.exists(map_filename_symlink):
-        os.symlink(map_filename, map_filename_symlink)
+#    map_filename_symlink =  os.path.join(output, os.path.basename(map_filename))
+#    if not os.path.exists(map_filename_symlink):
+#        print map_filename, map_filename_symlink
+#        os.symlink(map_filename, map_filename_symlink)
     #print map_filename_symlink
     #sys.exit(0)
     output_csv_clusters_info_filename  = os.path.join(output, "clust_info.csv")
@@ -213,11 +225,15 @@ if __name__ == "__main__":
         ima = aims.read(map_filename)
     trm_xyz_to_mm = ima_get_trm_xyz_to_mm(ima)
     arr = np.asarray(ima).squeeze()
-
-    
+    if len(arr.shape) > 3:
+        print "input image is more thant 3D split them first using"
+        print 'fsl5.0-fslsplit %s ./%s -t' % (map_filename, output)
+        sys.exit(0)
     #MNI152_T1_1mm_brain.header()['referentials']
     ##########################################################################
     # Find clusters (connected component abov a given threshold)
+    if thresh_norm_ratio < 1:
+        arr = array_utils.arr_threshold_from_norm2_ratio(arr, .99)[0]
     clust_bool = np.zeros(arr.shape, dtype=bool)
     #((arr > thresh_neg_low) & (arr < thresh_neg_high) | (arr > thresh_pos_low) & (arr < thresh_pos_high)).sum()
     clust_bool[(arr > thresh_neg_low) & (arr < thresh_neg_high) |
@@ -267,7 +283,7 @@ if __name__ == "__main__":
 
     writer.write(clusters_mesh, output_clusters_mesh_filename)
     # warp  MNI152_T1_1mm into map referential
-    os.system(fsl_warp_cmd % (MNI152_T1_1mm_brain_filename, map_filename, 
+    os.system(fsl_warp_cmd % (MNI152_T1_1mm_brain_filename, map_filename,
                               output_MNI152_T1_1mm_brain_filename))
     #print MNI152_T1_1mm_brain_filename, map_filename, output_MNI152_T1_1mm_brain_filename
     # Force same referential

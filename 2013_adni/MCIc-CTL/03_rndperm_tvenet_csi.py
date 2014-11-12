@@ -7,16 +7,19 @@ Created on Fri May 30 20:03:12 2014
 
 import os
 import json
-from collections import OrderedDict
 import numpy as np
-from sklearn.cross_validation import KFold
+from collections import OrderedDict
+from sklearn.cross_validation import StratifiedKFold
 import nibabel
-from sklearn.metrics import r2_score
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
-from parsimony.estimators import LinearRegressionL1L2TV
+from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
+
+NFOLDS = 5
+NRNDPERMS = 1000
 
 
 def load_globals(config):
@@ -29,11 +32,17 @@ def load_globals(config):
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    #GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
     if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+        rnd_state = np.random.get_state()
+        np.random.seed(resample_nb)
+        GLOBAL.DATA_RESAMPLED = dict(
+            X=[GLOBAL.DATA['X'][idx, ...]
+                for idx in resample],
+            y=[np.random.permutation(GLOBAL.DATA['y'][idx, ...])
+                for idx in resample])
+        np.random.set_state(rnd_state)
     else:  # resample is None train == test
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
@@ -53,7 +62,7 @@ def mapper(key, output_collector):
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
     penalty_start = GLOBAL.CONFIG["penalty_start"]
-    #class_weight="auto" # unbiased
+    class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
     print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
@@ -72,10 +81,12 @@ def mapper(key, output_collector):
         Xtr_r = Xtr
         Xte_r = Xte
         A = GLOBAL.A
-    mod = LinearRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start)
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
+                                   class_weight=class_weight)
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask)
+    proba_pred = mod.predict_probability(Xte_r)
+    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte, beta=mod.beta,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -86,23 +97,30 @@ def reducer(key, values):
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
     #import glob, mapreduce
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2014_mlc/GM_UNIV/results/*/0.05_0.45_0.45_0.1_-1.0/")]
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/AD-CTL/results/*/0.1_0.0_0.0_1.0_-1.0/")]
+    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-MCInc_cs/results/*/0.1_0.0_0.0_1.0_-1.0/")]
+    # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_1.0_0.0_-1.0/")]
+    # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_0.5_0.5_-1.0/")]
     # Compute sd; ie.: compute results on each folds
-    print key#, values[1:]
     values = [item.load() for item in values[1:]]
+    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
+        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
+    prob_pred = [item["proba_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
-    r2 = r2_score(y_true, y_pred)
-    corr = np.corrcoef(y_true.ravel(), y_pred.ravel())[0, 1]
+    prob_pred = np.concatenate(prob_pred)
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
+    n_ite = None
     betas = np.hstack([item["beta"] for item in values]).T
-
     ## Compute beta similarity measures
-
     # Correlation
     R = np.corrcoef(betas)
+    #print R
     R = R[np.triu_indices_from(R, 1)]
+    print R
     # Fisher z-transformation / average
     z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
     # bracktransform
@@ -132,9 +150,8 @@ def reducer(key, values):
              for idx in ij])
     except:
         dice_bar = fleiss_kappa_stat = 0.
-    n_ite = None
-    #a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-    a, l1, l2, tv, k = key
+    
+    a, l1, l2 , tv , k = key#[float(par) for par in key.split("_")]
     scores = OrderedDict()
     scores['a'] = a
     scores['l1'] = l1
@@ -143,117 +160,85 @@ def reducer(key, values):
     left = float(1 - tv)
     if left == 0: left = 1.
     scores['l1l2_ratio'] = float(l1) / left
-    scores['r2'] = r2
-    scores['corr']= corr
+    scores['recall_0'] = r[0]
+    scores['recall_1'] = r[1]
+    scores['recall_mean'] = r.mean()
+    scores['recall_mean_std'] = recall_mean_std
+    scores['auc'] = auc
+#    scores['beta_cor_mean'] = beta_cor_mean
+    scores['precision_0'] = p[0]
+    scores['precision_1'] = p[1]
+    scores['precision_mean'] = p.mean()
+    scores['f1_0'] = f[0]
+    scores['f1_1'] = f[1]
+    scores['f1_mean'] = f.mean()
+    scores['support_0'] = s[0]
+    scores['support_1'] = s[1]
+#    scores['corr']= corr
     scores['beta_r'] = str(R)
     scores['beta_r_bar'] = r_bar
     scores['beta_fleiss_kappa'] = fleiss_kappa_stat
     scores['beta_dice_bar'] = dice_bar
-    scores['support'] = len(y_true)
     scores['n_ite'] = n_ite
-    scores['key'] = key
     scores['k'] = k
+    scores['key'] = key
     return scores
 
 
-##############################################################################
-## Run all
-def run_all(config):
-    import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
-    key = '0.01_0.01_0.98_0.01_10000'
-    #class GLOBAL: DATA = dict()
-    load_globals(config)
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = mapreduce.OutputCollector(OUTPUT)
-    #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'X.npy'))
-    y = np.load(os.path.join(WD,  'y.npy'))
-    mapreduce.DATA["X"] = [X, X]
-    mapreduce.DATA["y"] = [y, y]
-    params = np.array([float(p) for p in key.split("_")])
-    mapper(params, oc)
-    #oc.collect(key=key, value=ret)
-
-def beta_count_nonnull_5cv():
-    import os, nibabel, glob, numpy as np, json
-    from brainomics import array_utils
-    WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
-    keys = ["0.001_0.3335_0.3335_0.333_-1.0",
-    "0.001_0.5_0.5_0.0_-1.0",
-    "0.001_0.09_0.81_0.1_-1.0",
-    "0.005_0.09_0.81_0.1_-1.0"]
-    config = json.load(open(os.path.join(WD, "config.json")))
-    config['penalty_start']
-    mask_ima = nibabel.load(os.path.join(WD, config['mask_filename']))
-    for key in keys:
-        #key = keys[0]
-        output_filename = os.path.join(WD, "results/weigths_map/beta_count_nonnull_5cv_%s.nii.gz" % key)
-        files = glob.glob(os.path.join(WD, "results", "*", key, "beta.npz"))[1:]
-        betas = np.vstack([np.load(f)['arr_0'].T for f in files])
-        betas = betas[:, config['penalty_start']:]
-        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
-        assert betas_t.shape == (5, 286214)
-        arr = np.zeros(mask_ima.get_data().shape)
-        arr[mask_ima.get_data() != 0] = np.sum(betas_t != 0, axis=0)
-        out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-        out_im.to_filename(output_filename)
-        print "anatomist /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/results/weigths_map/beta_count_nonnull_5cv_0.00*"
-
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi"
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
-    INPUT_MASK_PATH = os.path.join("mask.nii.gz")
+    INPUT_MASK_PATH = os.path.join("mask.nii")
     NFOLDS = 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
-    if not os.path.exists(WD): os.makedirs(WD)
+    if not os.path.exists(WD):
+        os.makedirs(WD)
+
     os.chdir(WD)
 
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = [[tr.tolist(), te.tolist()] for tr,te in KFold(n=len(y), n_folds=5, random_state=0)]
-    cv.insert(0, None)  # first fold is None
-    # parameters grid
-    # Re-run with
-    tv_range = np.array([0., 1e-3, 5e-3, 1e-2, 5e-2, .1, .2, .3, .333, .4, .5, .6, .7, .8, .9])
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-    alphas = [0.0001, 0.0005, 0.001, 0.005, .01, .05, .1 , .5, 1.,  10.]
-    #k_range = [100, 1000, 10000, 100000, -1]
-    k_range = [-1]
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv.append(np.array([[0., 0., 1.]]))
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
-    params = [params.tolist() for params in alphal1l2tvk]
-    # User map/reduce function file:
+    if os.path.exists("config_rndperm.json"):
+        inf = open("config_rndperm.json", "r")
+        old_conf = json.load(inf)
+        rndperm = old_conf["resample"]
+        inf.close()
+    else:
+        rndperm = [[tr.tolist(), te.tolist()] for perm in xrange(NRNDPERMS)
+            for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
+    params = \
+        [(0.01, 0.0, 1.0, 0.0, -1.0), # l2
+        (0.01, 0.0, 0.5, 0.5, -1.0),  # l2tv
+        (0.01, 1.0, 0.0, 0.0, -1.0),  # l1
+        (0.01, 0.5, 0.0, 0.5, -1.0),  # l1tv
+        (0.01, 0.0, 0.0, 1.0, -1.0),  # tv
+        (0.01, 0.5, 0.5, 0.0, -1.0),  # l1l2
+        (0.01, 0.35, 0.35, 0.3, -1.0)] #l1l2tv
+
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "ADAS11-MCIc-CTL",
-        "02_tvenet_cs.py")
+        "git", "scripts", "2013_adni", "MCIc-CTL",
+        "03_rndperm_tvenet_csi.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
-                  params=params, resample=cv,
+                  params=params, resample=rndperm,
                   mask_filename=INPUT_MASK_PATH,
                   penalty_start = 3,
-                  map_output="results",
+                  map_output="rndperm",
                   user_func=user_func_filename,
-                  #reduce_input="rndperm/*/*",
                   reduce_group_by="params",
-                  reduce_output="ADAS11-MCIc-CTL.csv")
-    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
+                  reduce_output="MCIc-CTL_csi_rndperm.csv")
+    json.dump(config, open(os.path.join(WD, "config_rndperm.json"), "w"))
 
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_rndperm.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
@@ -262,7 +247,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py --map %s/config.json --ncore 2" % WD
+    print "mapreduce.py --map %s/config_rndperm.json --ncore 2" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
@@ -277,16 +262,4 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --reduce %s/config.json" % WD
-
-
-"""scp gabriel://neurospin/tmp/ed203246/ADAS11-MCIc-CTL/config.json ./
-
-import json
-fd = open("config.json")
-config = json.load(fd); fd.close()
-config["reduce_group_by"] = 'params'
-fd = open("config.json", "wb")
-json.dump(config, fd)
-fd.close()
-"""
+    print "mapreduce.py --reduce %s/config_rndperm.json" % WD

@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 29 18:22:21 2014
+Created on Fri Oct 24 18:41:43 2014
 
-@author: edouard.duchesnay@cea.fr
+@author: md238665
 
-Same as test_mapreduce but group by resampling.
+Test that we correctly treat the case where no parameters is given.
+Copied from test_mapreduce.
+
+The mapper function uses hardcoded values.
+
 """
 
 import os
@@ -36,14 +40,14 @@ def mapper(key, output_collector):
     Xtest = GLOBAL.DATA_RESAMPLED["X"][1]
     ytrain = GLOBAL.DATA_RESAMPLED["y"][0].ravel()
     ytest = GLOBAL.DATA_RESAMPLED["y"][1].ravel()
-    mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
+    mod = ElasticNet(alpha=1.0, l1_ratio=0.5)
     y_pred = mod.fit(Xtrain, ytrain).predict(Xtest)
     output_collector.collect(key, dict(y_pred=y_pred, y_true=ytest))
 
 
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
-    # load return dict correspondning to mapper ouput. they need to be loaded.
+    # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
@@ -53,6 +57,8 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
+    import mapreduce
+
     WD = tempfile.mkdtemp()
 
     ###########################################################################
@@ -68,18 +74,15 @@ if __name__ == "__main__":
     ###########################################################################
     ## Create config file
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=2)]
-    params = [[alpha, l1_ratio] for alpha in [0.1, 1] for l1_ratio
-        in [.1, .5, 1.]]
     user_func_filename = os.path.abspath(__file__)
 
     # mapreduce will set its WD to the directory that contains the config file
     # use relative path
     config = dict(data=dict(X="X.npy",
                             y="y.npy"),
-                  params=params, resample=cv,
+                  resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_group_by="resample_index",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -94,26 +97,28 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    for i, (tr, te) in enumerate(cv):
-        # key = params[0]
-        y_true = list()
-        y_pred = list()
-        for key in params:
-            # tr, te = cv[0]
-            Xtrain = X[tr, :]
-            Xtest = X[te, :]
-            ytrain = y[tr, :].ravel()
-            ytest = y[te, :].ravel()
-            mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
-            y_pred.append(mod.fit(Xtrain, ytrain).predict(Xtest))
-            y_true.append(ytest)
-        y_true = np.hstack(y_true)
-        y_pred = np.hstack(y_pred)
-        res.append([i, r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["resample_index", "r2"])
+    key = mapreduce._NULL_PARAMS
+    y_true = list()
+    y_pred = list()
+    for tr, te in cv:
+        # tr, te = cv[0]
+        Xtrain = X[tr, :]
+        Xtest = X[te, :]
+        ytrain = y[tr, :].ravel()
+        ytest = y[te, :].ravel()
+        mod = ElasticNet(alpha=1.0, l1_ratio=0.5)
+        y_pred.append(mod.fit(Xtrain, ytrain).predict(Xtest))
+        y_true.append(ytest)
+    y_true = np.hstack(y_true)
+    y_pred = np.hstack(y_pred)
+    # As we reload mapreduce results, the params will be interpreted as
+    # strings representation of tuples.
+    # Here we apply the same representation
+    res.append([str(tuple(key)), r2_score(y_true, y_pred)])
+    true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.resample_index) == np.sort(mr.resample_index))
-    m = pd.merge(true, mr, on="resample_index", suffixes=["_true", "_mr"])
+    assert np.all(true.params == mr.params)
+    m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

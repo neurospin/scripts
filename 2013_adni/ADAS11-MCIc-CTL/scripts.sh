@@ -63,4 +63,11 @@ exit
 # Reduce
 mapreduce.py --reduce /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/config_rndperm.json
 
+#######################
+## nun null count CV
+/home/ed203246/git/scripts/brainomics/image_clusters_analysis.py --input  /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/results/weigths_map/beta_count_nonnull_5cv_0.001_0.3335_0.3335_0.333_-1.0.nii.gz
+
+/home/ed203246/git/scripts/brainomics/image_clusters_analysis.py --input /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/results/weigths_map/beta_count_nonnull_5cv_0.001_0.5_0.5_0.0_-1.0.nii.gz
+
+/home/ed203246/git/scripts/brainomics/image_clusters_rendering.py --input /neurospin/brainomics/2013_adni/ADAS11-MCIc-CTL/results/weigths_map/beta_count_nonnull_5cv_0.001_0.5_0.5_0.0_-1.0
 

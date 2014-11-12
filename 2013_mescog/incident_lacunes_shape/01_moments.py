@@ -89,7 +89,7 @@ for filename in filenames:
         elif item[0] == 'Inerty':
             values = [float(v) for v in item[1].split(";")]
             lacune_keys_values += \
-                [['orientation_inertia_%i' % i, values[i]] for i in xrange(len(values))]
+                [['orientation_v%i_inertia' % (i+1), values[i]] for i in xrange(len(values))]
         elif item[0] == 'V1':
             values = [float(v) for v in item[1].strip("()").split(",")]
             lacune_keys_values += \
@@ -160,7 +160,7 @@ moments["compactness"] = moments["vol_mesh"] ** (2. / 3) / moments["area_mesh"]
 # - CS: spherical anisotropy()
 # - Mode: diffusion tensor mode
 
-A = np.array(moments[["orientation_inertia_0", "orientation_inertia_1", "orientation_inertia_2"]])
+A = np.array(moments[["orientation_v1_inertia", "orientation_v2_inertia", "orientation_v3_inertia"]])
 Am = A.mean(axis=1)
 Atilde = A - Am[:, None]
 FA = np.sqrt(3. / 2.) * \
@@ -185,30 +185,23 @@ moments["tensor_invariant_spherical_anisotropy"] = CS
 #moments["inertia_max_norm"] = I[:, 0] ** 2 / np.sum(A ** 2, axis=1)
 #moments["inertia_min_norm"] = I[:, 2] ** 2 / np.sum(A ** 2, axis=1)
 #
-I = np.array(moments[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]])
-I /= np.sqrt(np.sum(I ** 2, axis=1)[:, np.newaxis])
-#np.sum(I ** 2, axis=1)
-"""
+# Lacune orientation max
+Lo1 = np.array(moments[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]])
+Lo1 /= np.sqrt(np.sum(Lo1 ** 2, axis=1)[:, np.newaxis])
+
+Lo3 = np.array(moments[["orientation_v3_0", "orientation_v3_1", "orientation_v3_2"]])
+Lo3 /= np.sqrt(np.sum(Lo3 ** 2, axis=1)[:, np.newaxis])
+
 P = np.array(moments[["perfo_orientation_0", "perfo_orientation_1", "perfo_orientation_2"]])
-P /= np.sqrt(np.sum(P ** 2, axis=1)[:, np.newaxis])
-IP = np.sum(I * P, axis=1)
-IP[IP < 0] = 1 + IP[IP < 0]
-moments["perfo_angle_inertia_max"] = np.arccos(IP)
-"""
-P = np.array(moments[["perfo_orientation_0", "perfo_orientation_1", "perfo_orientation_2"]])
-# n x 3 array
 P /= np.sqrt(np.sum(P ** 2, axis=1)[:, np.newaxis])  # normalize to 1
 
-cosine = np.sum(I * P, axis=1) # dot product of scaled vector == cosine
-# Error :
-# cosine[cosine < 0] = 1 + cosine[cosine < 0]  # damn ! it is wrong !
-# It would have been correct for sine !!!
-# even simpler
-cosine = np.abs(cosine)
+cosine_perf_lo1 = np.sum(Lo1 * P, axis=1) # dot product of scaled vector == cosine
+cosine_perf_lo1 = np.abs(cosine_perf_lo1)
+moments["perfo_angle_inertia_max"] = np.arccos(cosine_perf_lo1)
 
-moments["perfo_angle_inertia_max"] = np.arccos(cosine)
-
-
+cosine_perf_lo3 = np.sum(Lo3 * P, axis=1) # dot product of scaled vector == cosine
+cosine_perf_lo3 = np.abs(cosine_perf_lo3)
+moments["perfo_angle_inertia_min"] = np.arccos(cosine_perf_lo3)
 
 
 moments.to_csv(OUPUT_CSV, index=False)

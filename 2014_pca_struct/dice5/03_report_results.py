@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 
+from brainomics import plot_utilities
+
 ################
 # Input/Output #
 ################
@@ -36,21 +38,43 @@ OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 # Parameters #
 ##############
 
-SNRS = np.array([0.1, 0.5, 1.0])
-GLOBAL_PEN = 1.0
+SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
+N_COMP = 3
+
+METRICS = ['recall_mean',
+           'fscore_mean',
+           'correlation_mean',
+           'kappa_mean',
+           'frobenius_test']
+METRICS_NAME = ['Mean recall rate',
+                'Mean f-score',
+                'Mean correlation across folds',
+                'Mean $\kappa$ across folds',
+                'Mean Frobenius distance on test sample']
+
+TAB_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                 '{metric}_summary.tex')
+
+# Plot of metrics
+EXAMPLE_MODEL = 'struct_pca'
+CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                 'data_100_100_{snr}',
+                                 '{metric}_{global_pen}.png')
+
+# Plot of components
+EXAMPLE_GLOBAL_PEN = 1.0
 COND = [(('pca', 0.0, 0.0, 0.0), 'Ordinary PCA'),
-        (('struct_pca', GLOBAL_PEN, 1.0, 0.0), 'Pure TV'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 1.0), 'Pure l1'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 0.0), 'Pure l2'),
-        (('struct_pca', GLOBAL_PEN, 0.5, 1.0), 'l1 + TV'),
-        (('struct_pca', GLOBAL_PEN, 0.5, 0.0), 'l2 + TV'),
-        (('struct_pca', GLOBAL_PEN, 0.0, 0.5), 'l1 + l2'),
-        (('struct_pca', GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 1.0, 0.0), 'Pure TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 1.0), 'Pure l1'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 0.0), 'Pure l2'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.5, 1.0), 'l1 + TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.5, 0.0), 'l2 + TV'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.0, 0.5), 'l1 + l2'),
+        (('struct_pca', EXAMPLE_GLOBAL_PEN, 0.33, 0.5), 'l1 + l2 + TV')
        ]
 PARAMS = [item[0] for item in COND]
-COLS = ['snr', 'correlation_mean', 'frobenius_test']
-FOLDS = [0, 1]
-N_COMP = 3
+COLS = ['snr'] + METRICS
+EXAMPLE_FOLD = 0
 COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
                                       'data_100_100_{snr}',
                                       'results',
@@ -62,13 +86,16 @@ COMPONENTS_FILE_FORMAT = os.path.join(INPUT_DIR,
 # Script #
 ##########
 
-# Open result file (index by model, total_penalization, tv_ratio, l1_ratio)
-# We have to explicitly sort the index in order to subsample
-df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE,
-                            index_col=[0, 2, 3, 4]).sort_index()
+# Open result file
+df = pd.io.parsers.read_csv(INPUT_RESULTS_FILE)
+df_index = df.set_index(['model', 'global_pen', 'tv_ratio', 'l1_ratio'])
+
+#####################
+# Create summary df #
+#####################
 
 # Subsample it & add a column based on name
-summary = df.loc[PARAMS][COLS]
+summary = df_index.loc[PARAMS][COLS]
 name_serie = pd.Series([item[1] for item in COND], name='Name',
                        index=PARAMS)
 summary['name'] = name_serie
@@ -76,73 +103,79 @@ summary['name'] = name_serie
 # Write in a CSV
 summary.to_csv(OUTPUT_RESULTS_FILE)
 
-# Plot Fronenius distance for a given SNR
-width = 0.8
-ind = np.arange(len(COND))
-for snr in SNRS:
-    plt.figure()
-    ax = plt.gca()
-    plt.xticks(rotation=70)
-    data = summary.loc[summary.snr == snr]
-    plt.bar(ind, data[COLS[2]], width)
-    y_range = [min(data[COLS[2]]), max(data[COLS[2]])]
-    y_lim = plt.ylim()
-    plt.ylim(0.95 * y_range[0], y_lim[1])
-    ax.set_xticks(ind + (width / 2))
-    ax.set_xticklabels(data['name'])
-    plt.title(str(snr))
+################
+# Plot metrics #
+################
 
-# Plot correlation for a given SNR
-width = 0.8
-ind = np.arange(len(COND))
-for snr in SNRS:
-    plt.figure()
-    ax = plt.gca()
-    plt.xticks(rotation=70)
-    data = summary.loc[summary.snr == snr]
-    plt.bar(ind, data[COLS[1]], width)
-    y_range = [min(data[COLS[1]]), max(data[COLS[1]])]
-    y_lim = plt.ylim()
-    plt.ylim(0.95 * y_range[0], y_lim[1])
-    ax.set_xticks(ind + (width / 2))
-    ax.set_xticklabels(data['name'])
-    plt.title(str(snr))
+# Subsample df
+struct_pca_df = df[df.model == EXAMPLE_MODEL]
+
+# GroupBy SNR
+snr_groups = struct_pca_df.groupby('snr')
+# Summary per SNR value (pivot the table to have better display)
+for metric, metric_name in zip(METRICS, METRICS_NAME):
+    summary = pd.DataFrame(snr_groups[metric].describe()).unstack(1)[0]
+    filename = TAB_FILE_FORMAT.format(metric=metric)
+    summary.to_latex(open(filename, 'w'))
+# Plot some metrics for struct_pca for each SNR value
+for snr_val, snr_group in snr_groups:
+    for metric, metric_name in zip(METRICS, METRICS_NAME):
+        handles = plot_utilities.plot_lines(snr_group,
+                                            x_col='tv_ratio',
+                                            y_col=metric,
+                                            splitby_col='global_pen',
+                                            colorby_col='l1_ratio',
+                                            use_suptitle=False)
+        for val, handle in handles.items():
+            # Tune the figure
+            ax = handle.get_axes()[0]
+            ax.set_xlabel("TV ratio")
+            ax.set_ylabel(metric_name)
+            l = ax.get_legend()
+            l.set_title("$\ell_1$ ratio")
+            s = r'$ \alpha $ =' + str(val)
+            handle.suptitle(r'$ \alpha $ =' + str(val))
+            filename = CURVE_FILE_FORMAT.format(metric=metric,
+                                                snr=snr_val,
+                                                global_pen=val)
+            handle.savefig(filename)
+
+###################
+# Plot components #
+###################
 
 # Load components
-components = np.zeros((len(SNRS), len(COND), len(FOLDS), 100*100, N_COMP))
+components = np.zeros((len(SNRS), len(COND), 100*100, N_COMP))
 for i, snr in enumerate(SNRS):
     for j, (params, _) in enumerate(COND):
         key = '_'.join([str(param) for param in params])
-        for k, fold in enumerate(FOLDS):
-            filename = COMPONENTS_FILE_FORMAT.format(snr=snr,
-                                                     fold=fold,
-                                                     key=key)
-            components[i, j, k, ...] = np.load(filename)['arr_0']
+        filename = COMPONENTS_FILE_FORMAT.format(snr=snr,
+                                                 fold=EXAMPLE_FOLD,
+                                                 key=key)
+        components[i, j, ...] = np.load(filename)['arr_0']
 data_min = components.min()
 data_max = components.max()
 # Plot components
-handles = np.zeros((len(SNRS), len(COND), len(FOLDS)), dtype='object')
+handles = np.zeros((len(SNRS), len(COND)), dtype='object')
 for i, snr in enumerate(SNRS):
     for j, (params, name) in enumerate(COND):
-        for k, fold in enumerate(FOLDS):
-            handles[i, j, k] = fig, axes = plt.subplots(nrows=1,
-                                                        ncols=N_COMP,
-                                                        figsize=(11.8,3.7))
-            f = plt.gcf()
-            for l, axe in zip(range(N_COMP), axes.flat):
-                data = components[i, j, k, :, l].reshape(100, 100)
-                im = axe.imshow(data, vmin=data_min, vmax=data_max, aspect="auto")
-            figtitle = "{name} (fold {fold})".format(name=name,
-                                                     fold=fold)
-            figname = figtitle.replace(' ', '_')
-            plt.suptitle(figtitle)
-#            fig.subplots_adjust(right=0.8)
-#            cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-#            fig.colorbar(im, cax=cbar_ax)
-            f.tight_layout()
-            fig.savefig(os.path.join(OUTPUT_DIR,
-                                     "data_100_100_{snr}".format(snr=snr),
-                                     ".".join([figname, "png"])))
+        handles[i, j] = fig, axes = plt.subplots(nrows=1,
+                                                 ncols=N_COMP,
+                                                 figsize=(11.8,3.7))
+        f = plt.gcf()
+        for l, axe in zip(range(N_COMP), axes.flat):
+            data = components[i, j, :, l].reshape(100, 100)
+            im = axe.imshow(data, vmin=data_min, vmax=data_max, aspect="auto")
+        figtitle = "{name}".format(name=name)
+        figname = figtitle.replace(' ', '_')
+        plt.suptitle(figtitle)
+        #fig.subplots_adjust(right=0.8)
+        #cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        #fig.colorbar(im, cax=cbar_ax)
+        f.tight_layout()
+        fig.savefig(os.path.join(OUTPUT_DIR,
+                                 "data_100_100_{snr}".format(snr=snr),
+                                 ".".join([figname, "png"])))
 # Create a colobar
 # http://matplotlib.org/examples/api/colorbar_only.html
 import matplotlib
@@ -154,4 +187,4 @@ cb = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
                                       norm=norm,
                                       orientation='horizontal')
 fig.savefig(os.path.join(OUTPUT_DIR,
-                         "colorbar.png"))
+                         "components_colorbar.png"))
