@@ -44,7 +44,7 @@ execution = """
 Execution
 ---------
 
-The script called functions define in a separate script. Before calling them,
+The script calls functions defined in a separate script. Before calling them,
 the script will cd to the folder of the config file.
 
 load_globals(config) will be executed once at the beginning to load the data
@@ -52,9 +52,9 @@ load_globals(config) will be executed once at the beginning to load the data
 
 In map mode, resample(config, resample_nb) will be executed on each new
 resampling and then mapper(key) will be executed for each parameter.
+The program can use multiple cores to paralellize mappers.
 If the output directory for a given mapper already exists, it will be skipped
-(this allows parallelization between several computers that share a
-filesystem).
+(this allows parallelization between several computers with shared filesystem).
 
 In reducer mode, reducer(key, values) will be called for each group of output.
 
@@ -62,7 +62,7 @@ Output hierarchy will be organized as follow:
     <map_output>/<resample_nb>/<params>
 If no resampling is provided the output will be organized as follow:
     <map_output>/0/<params>
-If no parameters are provided the output will be orgnized as follow:
+If no parameters are provided the output will be organized as follow:
      <map_output>/<resample_nb>/void
 If no parameters and no resamplins are provided the script stops.
 
@@ -74,20 +74,15 @@ Config file
 
 The config file is a JSON-encoded dictionary.
 There are 3 required entries:
-    "data": (dictionnary) each key represents the name of a data and the value
-        is often the relative path to the file to load.
-        Ex: dict(X="/tmp/X.npy", y="/tmp/X.npy").
     "map_output": (string) root directory of mappers output.
     "user_func": (string) path to a python file that contains the user defined
         functions.
-
-Important entries with a default value:
     "reduce_group_by": (string; values """ + str(GROUP_BY_VALUES) + """,
         default '""" + DEFAULT_GROUP_BY + """')
 
-Optional entries:
+Moreover at least one of the following entries are needed:
     "resample": (list) list of resamplings.
-        Resample will be called for each value in this list
+        resample will be called for each value in this list
         Ex: for cross-validation like resampling, use a list of list of list of
             indices like [[[0, 2], [1, 3]], [[1, 3], [0, 2]]].
         Ex: for bootstraping/permutation like resampling, use list of list of
@@ -101,7 +96,9 @@ Other optional values:
     "reduce_output": (string) path where to store the reducer output
         (CSV format). If not specified, output to stdout.
 
-Other fields can be included to be used by functions.
+Other fields can be included to be used by functions. For example there is
+often a field called "data" which contains the relative path to the data that
+is used in load_globals (see example).
 """
 
 example = """
@@ -370,14 +367,20 @@ if __name__ == "__main__":
 
     # Check that we have at least resample or params
     if ("resample" not in config) and ("params" not in config):
-        print >> sys.stderr, '"resample" or "params" is required'
+        print >> sys.stderr, 'Attributes "resample" or "params" are required'
         sys.exit(os.EX_CONFIG)
 
+    # Check that we have map_output
+    if "map_output" not in config:
+        print >> sys.stderr, 'map_output" is required'
+        sys.exit(os.EX_CONFIG)
+
+    # Check that we have reduce_group_by or use default value
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
     if config["reduce_group_by"] not in GROUP_BY_VALUES:
         print >> sys.stderr, 'Attribute "reduce_group_by" must be one of', \
-                             GROUP_BY_VALUES
+                             GROUP_BY_VALUES, "or absent"
         sys.exit(os.EX_CONFIG)
 
     # =======================================================================
