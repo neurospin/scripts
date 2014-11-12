@@ -52,6 +52,9 @@ METRICS_NAME = ['Mean recall rate',
                 'Mean $\kappa$ across folds',
                 'Mean Frobenius distance on test sample']
 
+TAB_FILE_FORMAT = os.path.join(INPUT_DIR,
+                                 '{metric}_summary.tex')
+
 # Plot of metrics
 EXAMPLE_MODEL = 'struct_pca'
 CURVE_FILE_FORMAT = os.path.join(INPUT_DIR,
@@ -107,8 +110,14 @@ summary.to_csv(OUTPUT_RESULTS_FILE)
 # Subsample df
 struct_pca_df = df[df.model == EXAMPLE_MODEL]
 
-# Plot some metrics for struct_pca for each SNR value
+# GroupBy SNR
 snr_groups = struct_pca_df.groupby('snr')
+# Summary per SNR value (pivot the table to have better display)
+for metric, metric_name in zip(METRICS, METRICS_NAME):
+    summary = pd.DataFrame(snr_groups[metric].describe()).unstack(1)[0]
+    filename = TAB_FILE_FORMAT.format(metric=metric)
+    summary.to_latex(open(filename, 'w'))
+# Plot some metrics for struct_pca for each SNR value
 for snr_val, snr_group in snr_groups:
     for metric, metric_name in zip(METRICS, METRICS_NAME):
         handles = plot_utilities.plot_lines(snr_group,
@@ -130,38 +139,6 @@ for snr_val, snr_group in snr_groups:
                                                 snr=snr_val,
                                                 global_pen=val)
             handle.savefig(filename)
-
-## Plot Fronenius distance for a given SNR
-#width = 0.8
-#ind = np.arange(len(COND))
-#for snr in SNRS:
-#    plt.figure()
-#    ax = plt.gca()
-#    plt.xticks(rotation=70)
-#    data = summary.loc[summary.snr == snr]
-#    plt.bar(ind, data[COLS[2]], width)
-#    y_range = [min(data[COLS[2]]), max(data[COLS[2]])]
-#    y_lim = plt.ylim()
-#    plt.ylim(0.95 * y_range[0], y_lim[1])
-#    ax.set_xticks(ind + (width / 2))
-#    ax.set_xticklabels(data['name'])
-#    plt.title(str(snr))
-#
-## Plot correlation for a given SNR
-#width = 0.8
-#ind = np.arange(len(COND))
-#for snr in SNRS:
-#    plt.figure()
-#    ax = plt.gca()
-#    plt.xticks(rotation=70)
-#    data = summary.loc[summary.snr == snr]
-#    plt.bar(ind, data[COLS[1]], width)
-#    y_range = [min(data[COLS[1]]), max(data[COLS[1]])]
-#    y_lim = plt.ylim()
-#    plt.ylim(0.95 * y_range[0], y_lim[1])
-#    ax.set_xticks(ind + (width / 2))
-#    ax.set_xticklabels(data['name'])
-#    plt.title(str(snr))
 
 ###################
 # Plot components #
