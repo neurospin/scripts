@@ -424,6 +424,7 @@ if __name__ == "__main__":
                       "data.".format(key=k)
                 print "Exception:", e
                 print "This is probably because the mapper failed."
+                continue
             except Exception as e:
                 print >> sys.stderr, "Reducer failed in {key}".format(key=k)
                 print >> sys.stderr, e.__class__.__name__, "exception:", e
