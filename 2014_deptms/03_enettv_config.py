@@ -87,7 +87,6 @@ def mapper(key, output_collector):
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
     tv, k_ratio = alpha * float(key[3]), key[4]
     print "l1:%f, l2:%f, tv:%f, k_ratio:%f" % (l1, l2, tv, k_ratio)
-    n_voxels = np.count_nonzero(STRUCTURE)
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         if k_ratio != -1:
             k = n_voxels * k_ratio
@@ -350,16 +349,16 @@ if __name__ == "__main__":
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
             #################################################################
-            # Build utils files: sync (lasso regressionpush/pull) and PBS
-            import brainomics.cluster_gabriel as clust_utils
-            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-                clust_utils.gabriel_make_sync_data_files(WD)
-            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+#            # Build utils files: sync (lasso regressionpush/pull) and PBS
+#            import brainomics.cluster_gabriel as clust_utils
+#            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+#                clust_utils.gabriel_make_sync_data_files(WD)
+#            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+#            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
             #################################################################
             # Sync to cluster
-            print "Sync data to gabriel.intra.cea.fr: "
-            os.system(sync_push_filename)
+#            print "Sync data to gabriel.intra.cea.fr: "
+#            os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
