@@ -29,6 +29,10 @@ _OUTPUT_COLLECTOR = 'output collector'
 GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
+# Default values for resample and params
+_NULL_RESAMPLE = 0
+_NULL_PARAMS = ["void"]
+
 # Global data
 DATA = dict()
 param_sep = "_"
@@ -58,6 +62,9 @@ Output hierarchy will be organized as follow:
     <map_output>/<resample_nb>/<params>
 If no resampling is provided the output will be organized as follow:
     <map_output>/0/<params>
+If no parameters are provided the output will be orgnized as follow:
+     <map_output>/<resample_nb>/void
+If no parameters and no resamplins are provided the script stops.
 
 """
 
@@ -70,10 +77,6 @@ There are 3 required entries:
     "data": (dictionnary) each key represents the name of a data and the value
         is often the relative path to the file to load.
         Ex: dict(X="/tmp/X.npy", y="/tmp/X.npy").
-    "params":  (list) list of parameters values.
-        mapper will be called for each value in this list (after resampling).
-        The value is often a list of values that will be interpreted in mapper.
-        Ex: [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]].
     "map_output": (string) root directory of mappers output.
     "user_func": (string) path to a python file that contains the user defined
         functions.
@@ -89,6 +92,10 @@ Optional entries:
             indices like [[[0, 2], [1, 3]], [[1, 3], [0, 2]]].
         Ex: for bootstraping/permutation like resampling, use list of list of
             indices, like [[0, 1, 2, 3], [1, 3, 0, 2]].
+    "params":  (list) list of parameters values.
+        mapper will be called for each value in this list (after resampling).
+        The value is often a list of values that will be interpreted in mapper.
+        Ex: [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]].
 
 Other optional values:
     "reduce_output": (string) path where to store the reducer output
@@ -134,10 +141,6 @@ epilog = "\n".join([execution, config_file, example])
 
 def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
-
-# Default values for resample and params
-_NULL_RESAMPLE = 0
-_NULL_PARAMS = ["void"]
 
 
 def _build_job_table(config):
