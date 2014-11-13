@@ -239,6 +239,7 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     global N_COMP, INPUT_N_SUBSETS
+    import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
     # Avoid taking into account the fold 0
@@ -260,9 +261,9 @@ def reducer(key, values):
             thresholds[k, l] = t
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-    precisions = np.vstack([item["precision"] for item in values])
-    recalls = np.vstack([item["recall"] for item in values])
-    fscores = np.vstack([item["fscore"] for item in values])
+#    precisions = np.vstack([item["precision"] for item in values])
+#    recalls = np.vstack([item["recall"] for item in values])
+#    fscores = np.vstack([item["fscore"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
@@ -271,12 +272,36 @@ def reducer(key, values):
     evr_test = np.vstack([item["evr_test"] for item in values])
     times = [item["time"] for item in values]
 
+    # Compute precision/recall for each component and fold
+    # Note that this has been done in mapper
+    precisions = np.zeros((N_COMP, N_FOLDS))
+    recalls = np.zeros((N_COMP, N_FOLDS))
+    fscores = np.zeros((N_COMP, N_FOLDS))
+    for k in range(N_COMP):
+        for n in range(N_FOLDS):
+            c = components[:, k, n]
+            precisions[k, n], recalls[k, n], fscores[k, n] = \
+              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+
+    # Compute precision/recall for each thresholded component and fold
+    thresh_precisions = np.zeros((N_COMP, N_FOLDS))
+    thresh_recalls = np.zeros((N_COMP, N_FOLDS))
+    thresh_fscores = np.zeros((N_COMP, N_FOLDS))
+    for k in range(N_COMP):
+        for n in range(N_FOLDS):
+            c = thresh_components[:, k, n]
+            thresh_precisions[k, n], thresh_recalls[k, n], thresh_fscores[k, n] = \
+              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+
     # Average precision/recall across folds for each component
     av_frobenius_train = frobenius_train.mean(axis=0)
     av_frobenius_test = frobenius_test.mean(axis=0)
-    av_precision = precisions.mean(axis=0)
-    av_recall = recalls.mean(axis=0)
-    av_fscore = fscores.mean(axis=0)
+    av_precision = precisions.mean(axis=1)
+    av_recall = recalls.mean(axis=1)
+    av_fscore = fscores.mean(axis=1)
+    av_thresh_precision = thresh_precisions.mean(axis=1)
+    av_thresh_recall = thresh_recalls.mean(axis=1)
+    av_thresh_fscore = thresh_fscores.mean(axis=1)
     av_evr_train = evr_train.mean(axis=0)
     av_evr_test = evr_test.mean(axis=0)
     av_l0 = l0.mean(axis=0)
@@ -305,47 +330,18 @@ def reducer(key, values):
     for k in range(N_COMP):
         # One component accross folds
         thresh_comp = thresh_components[:, k, :]
-        try:
-            # Compute fleiss kappa statistics
-            # The "raters" are the folds and we have 3 variables:
-            #  - number of null coefficients
-            #  - number of > 0 coefficients
-            #  - number of < 0 coefficients
-            # We build a (N_FOLDS, 3) table
-            thresh_comp_signed = np.sign(thresh_comp)
-            table = np.zeros((N_FOLDS, 3))
-            table[:, 0] = np.sum(thresh_comp_signed == 0, 0)
-            table[:, 1] = np.sum(thresh_comp_signed == 1, 0)
-            table[:, 2] = np.sum(thresh_comp_signed == -1, 0)
-            fleiss_kappa_stat = fleiss_kappa(table)
-        except:
-            fleiss_kappa_stat = 0.
-        fleiss_kappas[k] = fleiss_kappa_stat
-        try:
-            # Paire-wise DICE coefficient (there is the same number than
-            # pair-wise correlations)
-            thresh_comp_n0 = thresh_comp != 0
-            # Index of lines (folds) to use
-            ij = [[i, j] for i in xrange(N_FOLDS)
-                         for j in xrange(i + 1, N_FOLDS)]
-            num = [np.sum(thresh_comp[idx[0], :] == thresh_comp[idx[1], :])
-                   for idx in ij]
-            denom = [(np.sum(thresh_comp_n0[idx[0], :]) + \
-                      np.sum(thresh_comp_n0[idx[1], :]))
-                     for idx in ij]
-            dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
-            dice_bar = dices.mean()
-        except:
-            dice_bar = 0.
-        dice_bars[k] = dice_bar
+        fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
+        dice_bars[k] = metrics.dice_bar(thresh_comp)
 
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
         ('tv_ratio', key[2]),
         ('l1_ratio', key[3]),
+
         ('frobenius_train', av_frobenius_train[0]),
         ('frobenius_test', av_frobenius_test[0]),
+
         ('recall_0', av_recall[0]),
         ('recall_1', av_recall[1]),
         ('recall_2', av_recall[2]),
@@ -358,6 +354,20 @@ def reducer(key, values):
         ('fscore_1', av_fscore[1]),
         ('fscore_2', av_fscore[2]),
         ('fscore_mean', np.mean(av_fscore)),
+
+        ('thresh_recall_0', av_thresh_recall[0]),
+        ('thresh_recall_1', av_thresh_recall[1]),
+        ('thresh_recall_2', av_thresh_recall[2]),
+        ('thresh_recall_mean', np.mean(av_thresh_recall)),
+        ('thresh_precision_0', av_thresh_precision[0]),
+        ('thresh_precision_1', av_thresh_precision[1]),
+        ('thresh_precision_2', av_thresh_precision[2]),
+        ('thresh_precision_mean', np.mean(av_thresh_precision)),
+        ('thresh_fscore_0', av_thresh_fscore[0]),
+        ('thresh_fscore_1', av_thresh_fscore[1]),
+        ('thresh_fscore_2', av_thresh_fscore[2]),
+        ('thresh_fscore_mean', np.mean(av_thresh_fscore)),
+
         ('correlation_0', r_bar[0]),
         ('correlation_1', r_bar[1]),
         ('correlation_2', r_bar[2]),
@@ -366,6 +376,10 @@ def reducer(key, values):
         ('kappa_1', fleiss_kappas[1]),
         ('kappa_2', fleiss_kappas[2]),
         ('kappa_mean', np.mean(fleiss_kappas)),
+        ('dice_bar_0', dice_bars[0]),
+        ('dice_bar_1', dice_bars[1]),
+        ('dice_bar_2', dice_bars[2]),
+        ('dice_bar_mean', np.mean(dice_bars)),
         ('evr_train_0', av_evr_train[0]),
         ('evr_train_1', av_evr_train[1]),
         ('evr_train_2', av_evr_train[2]),

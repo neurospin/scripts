@@ -43,11 +43,15 @@ N_COMP = 3
 
 METRICS = ['recall_mean',
            'fscore_mean',
+           'thresh_recall_mean',
+           'thresh_fscore_mean',
            'correlation_mean',
            'kappa_mean',
            'frobenius_test']
 METRICS_NAME = ['Mean recall rate',
                 'Mean f-score',
+                'Mean recall on thresholded components',
+                'Mean f-score on thresholded components',
                 'Mean correlation across folds',
                 'Mean $\kappa$ across folds',
                 'Mean Frobenius distance on test sample']
