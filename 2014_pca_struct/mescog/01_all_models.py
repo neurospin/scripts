@@ -300,39 +300,8 @@ def reducer(key, values):
     for k in range(N_COMP):
         # One component accross folds
         thresh_comp = thresh_components[:, k, :]
-        try:
-            # Compute fleiss kappa statistics
-            # The "raters" are the folds and we have 3 variables:
-            #  - number of null coefficients
-            #  - number of > 0 coefficients
-            #  - number of < 0 coefficients
-            # We build a (N_FOLDS, 3) table
-            thresh_comp_signed = np.sign(thresh_comp)
-            table = np.zeros((N_FOLDS, 3))
-            table[:, 0] = np.sum(thresh_comp_signed == 0, 0)
-            table[:, 1] = np.sum(thresh_comp_signed == 1, 0)
-            table[:, 2] = np.sum(thresh_comp_signed == -1, 0)
-            fleiss_kappa_stat = fleiss_kappa(table)
-        except:
-            fleiss_kappa_stat = 0.
-        fleiss_kappas[k] = fleiss_kappa_stat
-        try:
-            # Paire-wise DICE coefficient (there is the same number than
-            # pair-wise correlations)
-            thresh_comp_n0 = thresh_comp != 0
-            # Index of lines (folds) to use
-            ij = [[i, j] for i in xrange(N_FOLDS)
-                         for j in xrange(i + 1, N_FOLDS)]
-            num = [np.sum(thresh_comp[idx[0], :] == thresh_comp[idx[1], :])
-                   for idx in ij]
-            denom = [(np.sum(thresh_comp_n0[idx[0], :]) + \
-                      np.sum(thresh_comp_n0[idx[1], :]))
-                     for idx in ij]
-            dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
-            dice_bar = dices.mean()
-        except:
-            dice_bar = 0.
-        dice_bars[k] = dice_bar
+        fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
+        dice_bars[k] = metrics.dice_bar(thresh_comp)
 
     scores = OrderedDict((
         ('model', key[0]),
@@ -352,7 +321,7 @@ def reducer(key, values):
         ('dice_bar_0', dice_bars[0]),
         ('dice_bar_1', dice_bars[1]),
         ('dice_bar_2', dice_bars[2]),
-        ('dice_bar_mean', np.mean(dice_bar)),
+        ('dice_bar_mean', np.mean(dice_bars)),
         ('evr_train_0', av_evr_train[0]),
         ('evr_train_1', av_evr_train[1]),
         ('evr_train_2', av_evr_train[2]),
