@@ -34,12 +34,19 @@ We have tried to detect outliers with the scripts `00_outliers_detection.py` and
     * X_center.npy: centerd data
     * means.npy: means used to center
 
-# Oldies scripts
-* `00_quality_control.py`: compute some basic statistics
-* `01_PCA.py`: apply PCA
-  * output in: `/neurospin/mescog/proj_wmh_patterns/PCA`
-* `01_clustering.Ward.py`: apply Ward clustering
- * output in: `/neurospin/mescog/proj_wmh_patterns/clustering/Ward`
-* `01_clustering.kmeans.py`: apply k-means clustering
- * output in: `/neurospin/mescog/proj_wmh_patterns/clustering/kmeans`
-* `02_mulm_plot_PCA.py` `02_mulm_plot_PCA.R`: plots for PCA interpretation
+* `01_all_models.py`: compute PCA and PCA struct for many models
+
+* `03_pcs_vs_clinic_mulm_plot.py`: calculate association with clinic
+
+# Results
+Findings Fronto-temporo-Inusla patern (protector) vs Deep white matter (worsen)
+
+# TODO
+
+Build material for Eric
+
+Coronal slices
+47 82 113 137
+
+Sagital slices
+98 108

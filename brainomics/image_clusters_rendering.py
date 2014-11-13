@@ -8,6 +8,8 @@ Created on Wed Oct  8 18:51:15 2014
 """
 
 import os, sys, argparse
+import math
+
 import warnings
 # Qt
 try:
@@ -15,6 +17,8 @@ try:
 except:
     warnings.warn('Qt not installed: the mdodule may not work properly, \
                    please investigate')
+
+from soma import aims
 
 try:
     import anatomist.api as anatomist
@@ -26,9 +30,10 @@ except:
 
 import shutil
 
-def do_mesh_cluster_rendering(mesh_file,
-                              texture_file,
-                              white_mesh_file,
+def do_mesh_cluster_rendering(title,
+                              clust_mesh_file,
+                              clust_texture_file,
+                              brain_mesh_file,
                               anat_file,
                               palette_file="palette_signed_values_blackcenter",
                               a = None,
@@ -38,11 +43,11 @@ def do_mesh_cluster_rendering(mesh_file,
 
     Parameters
     ----------
-    mesh_file : str (mandatory)
+    clust_mesh_file : str (mandatory)
         a mesh file of interest.
-    texture_file : str (mandatory)
+    clust_texture_file : str (mandatory)
         an image from which to extract texture (for the mesh file).
-    white_mesh_file : str (mandatory)
+    brain_mesh_file : str (mandatory)
         a mesh file of the underlying neuroanatomy.
     anat_file : str (mandatory)
         an image of the underlying neuroanatomy.
@@ -60,16 +65,17 @@ def do_mesh_cluster_rendering(mesh_file,
     # instance of anatomist
     if a is None:
         a = anatomist.Anatomist()
-
+    # ------------
     # load objects
-    a_mesh = a.loadObject(mesh_file)
-    a_wm_mesh = a.loadObject(white_mesh_file)
-    a_texture = a.loadObject(texture_file)
+    # ------------
+    clust_mesh = a.loadObject(clust_mesh_file)
+    brain_mesh = a.loadObject(brain_mesh_file)
+    clust_texture = a.loadObject(clust_texture_file)
     a_anat = a.loadObject(anat_file)
 
     # mesh option
     material = a.Material(diffuse=[0.8, 0.8, 0.8, 0.7])
-    a_wm_mesh.setMaterial(material)
+    brain_mesh.setMaterial(material)
 
     # change palette
     #palette_file = get_sample_data("brainvisa_palette").edouard
@@ -81,59 +87,90 @@ def do_mesh_cluster_rendering(mesh_file,
 #    if not os.path.isfile(bv_rgb_file):
 #        shutil.copyfile(palette_file, bv_rgb_file)
     palette = a.getPalette(palette_file)
-    a_texture.setPalette(palette, minVal=-10, maxVal=10,
+    clust_texture.setPalette(palette, minVal=-10, maxVal=10,
                          absoluteMode=True)
 
     # view object
-    block = a.createWindowsBlock(1)
-    w1 = a.createWindow("3D", block=block)
-    w2 = a.createWindow("3D", block=block)
-
-    # fusion 3D
-    fusion3d = a.fusionObjects([a_mesh, a_texture], "Fusion3DMethod")
-    w1.addObjects([fusion3d, a_wm_mesh])
+    block = a.createWindowsBlock(2)
+    windows = list()
+    objects = list()
+    # --------------------------------
+    # 3D view = fusion 3D + brain_mesh
+    # --------------------------------
+    win = a.createWindow("3D", block=block)
+    fusion3d = a.fusionObjects([clust_mesh, clust_texture], "Fusion3DMethod")
+    win.addObjects([fusion3d, brain_mesh])
     a.execute("Fusion3DParams", object=fusion3d, step=0.1, depth=5.,
               sumbethod="max", method="line_internal")
-
+    windows.append(win)
+    objects.append(fusion3d)
+    # -------------------------------------
+    # Slices view = three views offusion 2D
+    # -------------------------------------
+    for i in xrange(3):
+        win = a.createWindow("3D", block=block)
+#    win_coronal = a.createWindow("3D", block=block)
+#    win_sagital = a.createWindow("3D", block=block)
     # fusion 2D
-    fusion2d = a.fusionObjects([a_anat, a_texture], "Fusion2DMethod")
-    a.execute("Fusion2DMethod", object=fusion2d)
+        fusion2d = a.fusionObjects([a_anat, clust_texture], "Fusion2DMethod")
+        a.execute("Fusion2DMethod", object=fusion2d)
 
-    # change 2D fusion settings
-    a.execute("TexturingParams", texture_index=1, objects=[fusion2d, ],
-              mode="linear_A_if_B_black", rate=0.1)
+        # change 2D fusion settings
+        a.execute("TexturingParams", texture_index=1, objects=[fusion2d, ],
+                  mode="linear_A_if_B_black", rate=0.1)
 
-    # fusion cut mesh
-    fusionmesh = a.fusionObjects([a_wm_mesh, fusion2d], "FusionCutMeshMethod")
-    fusionmesh.addInWindows(w2)
-    a.execute("FusionCutMeshMethod", object=fusionmesh)
+        # fusion cut mesh
+        fusionmesh = a.fusionObjects([brain_mesh, fusion2d], "FusionCutMeshMethod")
+        a.execute("FusionCutMeshMethod", object=fusionmesh)
+        fusionmesh.addInWindows(win)
+        windows.append(win)
+        objects.append([fusion2d, fusionmesh])
 
-    # start loop
-    sys.exit(app.exec_())
+    #fusionmesh.addInWindows(win_coronal)
+    #fusionmesh.addInWindows(win_sagital)
+
+    # Global windows info
+    block.widgetProxy().widget.setWindowTitle(str(title))
+
+    # rotation
+#    rot_quat_coronal = aims.Quaternion()
+#    rot_quat_coronal.fromAxis([0, 0, 1], math.pi/2)  # rotate x 90°
+#    print rot_quat_coronal, math.pi/2
+#    win_axial.camera(slice_quaternion=rot_quat_coronal.vector())
+
+    #app.exec_()
+    #print 1
+    #sys.exit(app.exec_())
+    return a, [clust_mesh, brain_mesh, clust_texture, a_anat, material, palette, block,
+               windows, objects]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input',
-        help='Input directory: output of "image_cluster_analysis" command', type=str)
+    parser.add_argument('inputs',  nargs='+',
+        help='Input directory(ies): output(s) of "image_cluster_analysis" command', type=str)
     options = parser.parse_args()
-    #print __doc__
-    if options.input is None:
+    if options.inputs is None:
         print "Error: Input is missing."
         parser.print_help()
         exit(-1)
-
-    mesh_file = os.path.join(options.input, "clust.gii")
-    texture_file = os.path.join(options.input, "clust_values.nii.gz")
-    white_mesh_file = white_mesh_file = "/neurospin/brainomics/neuroimaging_ressources/mesh/MNI152_T1_1mm_Bothhemi.gii"
-    anat_file = os.path.join(options.input, "MNI152_T1_1mm_brain.nii.gz")
-    
-    # Set default values to parameters
-    print 'mesh_file = "%s"' % mesh_file
-    print 'texture_file = "%s"' % texture_file
-    print 'white_mesh_file = "%s"' %  white_mesh_file
-    print 'anat_file = "%s"' % anat_file
-    
-    do_mesh_cluster_rendering(mesh_file=mesh_file,
-                              texture_file=texture_file,
-                              white_mesh_file=white_mesh_file,
-                              anat_file=anat_file)
+    a = None
+    gui_objs = list()
+    for input_dirname in options.inputs:
+        print input_dirname
+        title = os.path.basename(input_dirname)
+        clust_mesh_file = os.path.join(input_dirname, "clust.gii")
+        clust_texture_file = os.path.join(input_dirname, "clust_values.nii.gz")
+        brain_mesh_file = "/neurospin/brainomics/neuroimaging_ressources/mesh/MNI152_T1_1mm_Bothhemi.gii"
+        anat_file = os.path.join(input_dirname, "MNI152_T1_1mm_brain.nii.gz")
+        print 'clust_mesh_file = "%s"' % clust_mesh_file
+        print 'clust_texture_file = "%s"' % clust_texture_file
+        print 'brain_mesh_file = "%s"' %  brain_mesh_file
+        print 'anat_file = "%s"' % anat_file
+        a, objs = do_mesh_cluster_rendering(title=title,
+            clust_mesh_file=clust_mesh_file,
+            clust_texture_file=clust_texture_file,
+            brain_mesh_file=brain_mesh_file,
+            anat_file=anat_file,
+            a=a)
+        gui_objs.append(objs)
+    sys.exit(app.exec_())
