@@ -109,21 +109,20 @@ def mapper(key, output_collector):
 
     elif MODALITY == "MRI+PET":
         if k_ratio != -1:
-            k = n_voxels * k_ratio
+            k = 2 * n_voxels * k_ratio
             k = int(k)
-            aov_MRI = SelectKBest(k=k)
-            aov_MRI.fit(Xtr[..., penalty_start:(penalty_start + n_voxels)],
+            aov = SelectKBest(k=k)
+            aov.fit(Xtr[..., penalty_start:],
                             ytr.ravel())
-            mask = STRUCTURE.get_data() != 0
-            mask[mask] = aov_MRI.get_support()
-            A1, _ = tv_helper.A_from_mask(mask)
+            support_mask = aov.get_support()
+            # Create 3D mask for MRI
+            mask_MRI = STRUCTURE.get_data() != 0
+            mask_MRI[mask_MRI] = support_mask[:n_voxels]
+            A1, _ = tv_helper.A_from_mask(mask_MRI)
 
-            aov_PET = SelectKBest(k=k)
-            aov_PET.fit(Xtr[..., (penalty_start + n_voxels):],
-                            ytr.ravel())
-            mask = STRUCTURE.get_data() != 0
-            mask[mask] = aov_PET.get_support()
-            A2, _ = tv_helper.A_from_mask(mask)
+            mask_PET = STRUCTURE.get_data() != 0
+            mask_PET[mask_PET] = support_mask[n_voxels:]
+            A2, _ = tv_helper.A_from_mask(mask_PET)
             # construct matrix A
             # Ax, Ay, Az are block diagonale matrices and diagonal elements
             # are elements of A1
@@ -133,12 +132,12 @@ def mapper(key, output_collector):
                 a = sparse.bmat([[A1[i], None], [None, A2[i]]])
                 A.append(a)
 
+            mask = np.vstack([mask_MRI, mask_PET])            
+
             Xtr_r = np.hstack([Xtr[:, :penalty_start],
-                               Xtr[:, penalty_start:(penalty_start + n_voxels)][:, aov_MRI.get_support()],
-                               Xtr[:, (penalty_start + n_voxels):][:, aov_PET.get_support()]])
+                               Xtr[:, penalty_start:][:, support_mask]])
             Xte_r = np.hstack([Xte[:, :penalty_start],
-                               Xte[:, penalty_start:(penalty_start + n_voxels)][:, aov_MRI.get_support()],
-                               Xte[:, (penalty_start + n_voxels):][:, aov_PET.get_support()]])
+                               Xte[:, penalty_start:][:, support_mask]])
 
         else:
             mask = np.ones(Xtr.shape[0], dtype=bool)
@@ -204,7 +203,9 @@ def reducer(key, values):
     scores['n_ite'] = n_ite
     scores['auc'] = auc
     scores['beta_cor_mean'] = beta_cor_mean
-    
+    # proportion of non zeros elements in betas matrix over all folds
+    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) / \
+                                    float(np.prod(betas.shape))
     return scores
 
 
