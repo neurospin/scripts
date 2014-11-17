@@ -118,11 +118,17 @@ def mapper(key, output_collector):
             # Create 3D mask for MRI
             mask_MRI = STRUCTURE.get_data() != 0
             mask_MRI[mask_MRI] = support_mask[:n_voxels]
-            A1, _ = tv_helper.A_from_mask(mask_MRI)
+            if np.count_nonzero(mask_MRI)==0:
+                A1 = [sparse.csr_matrix((n_voxels, n_voxels)) for i in xrange(3)]
+            else: 
+                A1, _ = tv_helper.A_from_mask(mask_MRI)
 
             mask_PET = STRUCTURE.get_data() != 0
             mask_PET[mask_PET] = support_mask[n_voxels:]
-            A2, _ = tv_helper.A_from_mask(mask_PET)
+            if np.count_nonzero(mask_PET)==0:
+                A2 = [sparse.csr_matrix((n_voxels, n_voxels)) for i in xrange(3)]
+            else: 
+                A2, _ = tv_helper.A_from_mask(mask_PET)
             # construct matrix A
             # Ax, Ay, Az are block diagonale matrices and diagonal elements
             # are elements of A1
