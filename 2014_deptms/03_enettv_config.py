@@ -165,6 +165,7 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
+    import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
@@ -172,6 +173,7 @@ def reducer(key, values):
     # values = [mapreduce.OutputCollector(p)
     #        for p in glob.glob("/neurospin/brainomics/2014_deptms/MRI/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
+    penalty_start = GLOBAL.PENALTY_START
     values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
             item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) \
@@ -185,7 +187,7 @@ def reducer(key, values):
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, prob_pred)  # area under curve score.
     n_ite = None
-    betas = np.hstack([item["beta"] for item in values]).T
+    betas = np.hstack([item["beta"][penalty_start:]  for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
     scores = OrderedDict()
