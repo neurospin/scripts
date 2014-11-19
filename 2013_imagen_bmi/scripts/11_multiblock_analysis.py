@@ -78,6 +78,7 @@ PARAM_SET = list(itertools.product(C_PARAM_SET, L1_PARAM_SET))
 #N_PROCESSES = 5
 
 global BASE_SGCCA_CMD, BASE_PREDICT_CMD, BASE_SVD_CMD
+# this path to the git repos "brainomics-team "
 SGCCA_PATH = "/home/md238665/Code/brainomics-team/SGCCA_py"
 BASE_SGCCA_CMD = ["python", os.path.join(SGCCA_PATH, "SGCCA.py")]
 BASE_PREDICT_CMD = ["python", os.path.join(SGCCA_PATH, "simple_predict.py")]
