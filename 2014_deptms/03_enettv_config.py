@@ -118,25 +118,30 @@ def mapper(key, output_collector):
             # Create 3D mask for MRI
             mask_MRI = STRUCTURE.get_data() != 0
             mask_MRI[mask_MRI] = support_mask[:n_voxels]
-            if np.count_nonzero(mask_MRI)==0:
-                A1 = [sparse.csr_matrix((n_voxels, n_voxels)) for i in xrange(3)]
-            else: 
-                A1, _ = tv_helper.A_from_mask(mask_MRI)
 
             mask_PET = STRUCTURE.get_data() != 0
             mask_PET[mask_PET] = support_mask[n_voxels:]
-            if np.count_nonzero(mask_PET)==0:
-                A2 = [sparse.csr_matrix((n_voxels, n_voxels)) for i in xrange(3)]
-            else: 
+
+            # We construct matrix A, it size is k*k
+            # If k_MRI and k_PET are both different to 0 we construct
+            # a matrix A for each modality and then concatenate them
+            # If one of the modality is empty, the matrix A is constructed
+            # from the other modality only
+            k_MRI = np.count_nonzero(mask_MRI)
+            k_PET = np.count_nonzero(mask_PET)
+            # k_MRI and k_Pet can not be simultaneously equal to zero
+            assert (k_MRI + k_PET == k)
+            if (k_MRI == 0) and (k_PET != 0):
+                A, _ = tv_helper.A_from_mask(mask_PET)
+            if (k_PET == 0) and (k_MRI != 0):
+                A, _ = tv_helper.A_from_mask(mask_MRI)
+            if (k_MRI != 0) and (k_PET != 0):
+                A1, _ = tv_helper.A_from_mask(mask_MRI)
                 A2, _ = tv_helper.A_from_mask(mask_PET)
-            # construct matrix A
-            # Ax, Ay, Az are block diagonale matrices and diagonal elements
-            # are elements of A1
-            # eg: Ax = diagblock(A1x, A1x)
-            A = []
-            for i in range(3):
-                a = sparse.bmat([[A1[i], None], [None, A2[i]]])
-                A.append(a)
+                A = []
+                for i in range(3):
+                    a = sparse.bmat([[A1[i], None], [None, A2[i]]])
+                    A.append(a)
 
             mask = np.vstack([mask_MRI, mask_PET])            
 
