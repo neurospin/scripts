@@ -14,6 +14,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score
 from parsimony.estimators import LogisticRegression
 from parsimony.estimators import LogisticRegressionL1L2TV
+from sklearn.cross_validation import StratifiedKFold
 import shutil
 import statsmodels.discrete.discrete_model as sm
 from scipy import sparse
@@ -180,8 +181,11 @@ if __name__ == "__main__":
     #################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    cv = json.load(open(os.path.join(BASE_PATH, 'results_enettv',
-                                     'MRI_wb', 'config.json')))['resample']
+    SEED = 23071991
+    cv = [[tr.tolist(), te.tolist()]
+                    for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
+                      shuffle=True, random_state=SEED)]
+    cv.insert(0, None)  # first fold is None
 
     INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
     INPUT_DATA_y = os.path.basename(INPUT_DATA_y)
@@ -201,14 +205,14 @@ if __name__ == "__main__":
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #################################################################
-    # Build utils files: sync (lasso regressionpush/pull) and PBS
+    # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     ################################################################
-    #Sync to cluster
+    # Sync to cluster
     print "Sync data to gabriel.intra.cea.fr: "
     os.system(sync_push_filename)
 

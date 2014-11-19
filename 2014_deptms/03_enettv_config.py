@@ -18,6 +18,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
+from parsimony.algorithms.utils import Info
 import parsimony.functions.nesterov.tv as tv_helper
 import shutil
 from scipy import sparse
@@ -155,14 +156,15 @@ def mapper(key, output_collector):
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
-
+    info=[Info.num_iter]
     mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
-                                   class_weight=class_weight)
+                                   class_weight=class_weight,
+                                   algorithm_params={'info':info})
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
     proba_pred = mod.predict_probability(Xte_r)  # a posteriori probability
     ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
-               beta=mod.beta,  mask=mask)
+               beta=mod.beta,  mask=mask, n_iter=mod.get_info()['num_iter'])
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -191,7 +193,7 @@ def reducer(key, values):
     prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, prob_pred)  # area under curve score.
-    n_ite = None
+    n_ite = np.mean(np.array([item["n_ite"] for item in values]))
     betas = np.hstack([item["beta"][penalty_start:]  for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
@@ -200,6 +202,10 @@ def reducer(key, values):
     scores['l1'] = key[1]
     scores['l2'] = key[2]
     scores['tv'] = key[3]
+    left = float(1 - tv)
+    if left == 0:
+        left = 1.
+    scores['l1l2_ratio'] = float(key[1]) / left
     scores['k_ratio'] = key[4]
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
@@ -213,7 +219,7 @@ def reducer(key, values):
     scores['f1_mean'] = f.mean()
     scores['support_0'] = s[0]
     scores['support_1'] = s[1]
-    scores['n_ite'] = n_ite
+    scores['n_ite_mean'] = n_ite
     scores['auc'] = auc
     scores['beta_cor_mean'] = beta_cor_mean
     # proportion of non zeros elements in betas matrix over all folds
@@ -265,6 +271,8 @@ if __name__ == "__main__":
     INPUT_ROIS_CSV = os.path.join(BASE_DATA_PATH,  "ROI_labels.csv")
 
     OUTPUT_ENETTV = os.path.join(BASE_PATH,   "results_enettv")
+    if not os.path.exists(OUTPUT_ENETTV):
+        os.makedirs(OUTPUT_ENETTV)
 
     penalty_start = 3
 
@@ -323,8 +331,11 @@ if __name__ == "__main__":
             #################################################################
             ## Create config file
             y = np.load(INPUT_DATA_y)
+            
+            SEED = 23071991
             cv = [[tr.tolist(), te.tolist()]
-                    for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS)]
+                    for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
+                      shuffle=True, random_state = SEED)]
             cv.insert(0, None)  # first fold is None
 
             INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
