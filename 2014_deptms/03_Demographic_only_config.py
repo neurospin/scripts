@@ -80,7 +80,20 @@ def mapper(key, output_collector):
         mod = LogisticRegressionL1L2TV(l1, l2, tv, A,
                                        penalty_start=penalty_start,
                                        class_weight=class_weight)
-        mod = LogisticRegression()
+        mod.fit(Xtr, ytr)
+        y_pred = mod.predict(Xte)
+        prob_pred = mod.predict_probability(Xte)  # a posteriori probability
+        beta = mod.beta
+    elif method == 'enettv_parsimony_early_stopping':
+        # enettv with l1, l2, tv null
+        l1, l2, tv = 0, 0, 0
+        class_weight = "auto"
+        penalty_start = 1
+        A = [sparse.csr_matrix((2, 2)) for i in xrange(3)]
+        mod = LogisticRegressionL1L2TV(l1, l2, tv, A,
+                                       penalty_start=penalty_start,
+                                       class_weight=class_weight,
+                                       algorithm_params={'max_iter': 100})
         mod.fit(Xtr, ytr)
         y_pred = mod.predict(Xte)
         prob_pred = mod.predict_probability(Xte)  # a posteriori probability
@@ -174,7 +187,8 @@ if __name__ == "__main__":
     INPUT_DATA_y = os.path.basename(INPUT_DATA_y)
     # parameters grid
     # Re-run with
-    params = [["statsmodels"], ["log_parsimony"], ['enettv_parsimony']]
+    params = [["statsmodels"], ["log_parsimony"],
+              ['enettv_parsimony'], ['enettv_parsimony_early_stopping']]
     user_func_filename = os.path.abspath(__file__)
     print "user_func", user_func_filename
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
@@ -187,16 +201,16 @@ if __name__ == "__main__":
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     #################################################################
-#            # Build utils files: sync (lasso regressionpush/pull) and PBS
-#            import brainomics.cluster_gabriel as clust_utils
-#            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-#                clust_utils.gabriel_make_sync_data_files(WD)
-#            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-#            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    #################################################################
-    # Sync to cluster
-#            print "Sync data to gabriel.intra.cea.fr: "
-#            os.system(sync_push_filename)
+    # Build utils files: sync (lasso regressionpush/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(WD)
+    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+    ################################################################
+    #Sync to cluster
+    print "Sync data to gabriel.intra.cea.fr: "
+    os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
