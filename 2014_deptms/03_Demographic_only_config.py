@@ -160,12 +160,12 @@ if __name__ == "__main__":
 
     modality = "MRI"
     INPUT_MOD_DIR = os.path.join(DATASET_PATH, modality)
-    
+
     #OUTPUT_PATH = "/volatile/2014_deptms"
     #########################################################################
     ## Build config file
 
-    WD = os.path.join(BASE_PATH,   "results_Demographic_only")
+    WD = os.path.join(BASE_PATH,   "results_demographic_only")
 
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -181,6 +181,7 @@ if __name__ == "__main__":
     #################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
+    # create a set of resampling with the same seed as in 03_enettv_config.py
     SEED = 23071991
     cv = [[tr.tolist(), te.tolist()]
                     for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
