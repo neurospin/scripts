@@ -33,7 +33,7 @@ NFOLDS = 5
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    prob_class1 = config["prob_class1"]
+    GLOBAL.PROB_CLASS1 = config["prob_class1"]
     MODALITY = config["modality"]
     penalty_start = config["penalty_start"]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
@@ -53,7 +53,7 @@ def load_globals(config):
             A.append(a)
 
     GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.MODALITY = A, STRUCTURE, MODALITY
-    GLOBAL.PENALTY_START = penalty_start, GLOBAL.PROB_CLASS1 = prob_class1
+    GLOBAL.PENALTY_START = penalty_start
 
 
 def resample(config, resample_nb):
@@ -85,7 +85,6 @@ def mapper(key, output_collector):
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
     penalty_start = GLOBAL.PENALTY_START
-    prob_success = GLOBAL.PROB_SUCCESS
     class_weight = "auto"  # unbiased
     alpha = float(key[0])
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
