@@ -52,7 +52,7 @@ import pandas as pd
 import nibabel as nib
 from scipy import ndimage
 
-REP_MAP = {"norep": 0, "rep": 1}
+REP_MAP = {"N": 0, "Y": 1}
 
 MODALITIES = ["MRI", "PET", "MRI+PET"]
 
@@ -71,7 +71,7 @@ if not os.path.exists(OUTPUT_DATASET):
 #############################################################################
 ## Read pop csv
 pop = pd.read_csv(INPUT_CSV, sep="\t")
-pop['rep_norep.num'] = pop["rep_norep"].map(REP_MAP)
+pop['Response.num'] = pop["Response"].map(REP_MAP)
 
 #############################################################################
 ## Read ROIs csv
@@ -99,9 +99,12 @@ for MODALITY in MODALITIES:
     print "Modality: ", MODALITY
 
     OUTPUT_MODALITY = os.path.join(OUTPUT_DATASET, MODALITY)
+    OUTPUT_PET = os.path.join(OUTPUT_DATASET, "PET")
 
     if not os.path.exists(OUTPUT_MODALITY):
         os.makedirs(OUTPUT_MODALITY)
+    if not os.path.exists(OUTPUT_PET):
+        os.makedirs(OUTPUT_PET)
 
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         #####################################################################
@@ -110,7 +113,7 @@ for MODALITY in MODALITIES:
         assert n == 34
         Z = np.zeros((n, 3))  # Intercept + Age + Gender
         Z[:, 0] = 1  # Intercept
-        y = np.zeros((n, 1))  # rep_norep
+        y = np.zeros((n, 1))  # Response
         images = list()
         fileName = ""
         image_path = ""
@@ -132,7 +135,7 @@ for MODALITY in MODALITIES:
             babel_image = nib.load(imagefile_name)
             images.append(babel_image.get_data().ravel())
             Z[i, 1:] = np.asarray(cur[["Age", "Sex"]]).ravel()
-            y[i, 0] = cur["rep_norep.num"]
+            y[i, 0] = cur["Response.num"]
 
         shape = babel_image.get_data().shape
         #####################################################################
