@@ -62,7 +62,7 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 
 N_COMP = 3
 # Global penalty
-GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
+GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 1e1, 1e2])
 # Relative penalties
 # 0.33 ensures that there is a case with TV = L1 = L2
 TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
@@ -128,8 +128,9 @@ def mapper(key, output_collector):
         ll1 = global_pen
     if model_name == 'struct_pca':
         ltv = global_pen * tv_ratio
-        ll1 = l1_ratio * global_pen * (1 - ltv)
+        ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+        assert((ll1 + ll2 + ltv) == global_pen)
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -191,7 +192,6 @@ def mapper(key, output_collector):
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
 
     # Compute geometric metrics and norms of components
-    masks = GLOBAL.masks
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
     l0 = np.zeros((N_COMP,))
     l1 = np.zeros((N_COMP,))
@@ -201,9 +201,6 @@ def mapper(key, output_collector):
     precision = np.zeros((N_COMP,))
     fscore = np.zeros((N_COMP,))
     for i in range(N_COMP):
-        #masks.append(mask)
-        precision[i], recall[i], fscore[i] = \
-          dice5_metrics.dice_five_geometric_metrics(masks[i], V[:, i])
         # Norms
         l0[i] = np.linalg.norm(V[:, i], 0)
         l1[i] = np.linalg.norm(V[:, i], 1)
@@ -238,12 +235,13 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
+    output_collectors = values
     global N_COMP, INPUT_N_SUBSETS
     import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
     # Avoid taking into account the fold 0
-    values = [item.load() for item in values[1:]]
+    values = [item.load() for item in output_collectors[1:]]
 
     N_FOLDS = INPUT_N_SUBSETS
     # Load components: each file is n_voxelsxN_COMP matrix.
@@ -259,11 +257,12 @@ def reducer(key, values):
                                 .99)
             thresh_components[:, k, l] = thresh_comp
             thresholds[k, l] = t
+    # Save thresholded comp
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+        filename = os.path.join(oc.output_dir, "thresh_comp.npz")
+        np.savez(filename, thresh_components[:, :, l])
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-#    precisions = np.vstack([item["precision"] for item in values])
-#    recalls = np.vstack([item["recall"] for item in values])
-#    fscores = np.vstack([item["fscore"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
     l1 = np.vstack([item["l1"] for item in values])
     l2 = np.vstack([item["l2"] for item in values])
@@ -273,7 +272,6 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Compute precision/recall for each component and fold
-    # Note that this has been done in mapper
     precisions = np.zeros((N_COMP, N_FOLDS))
     recalls = np.zeros((N_COMP, N_FOLDS))
     fscores = np.zeros((N_COMP, N_FOLDS))
@@ -324,12 +322,29 @@ def reducer(key, values):
     # Transform back to average correlation for each component
     r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
 
+    # Align sign of loading vectors to the first fold for each component
+    aligned_thresh_comp = np.copy(thresh_components)
+    REF_FOLD_NUMBER = 0
+    for k in range(N_COMP):
+        for i in range(N_FOLDS):
+            ref = thresh_components[:, k, REF_FOLD_NUMBER].T
+            if i != REF_FOLD_NUMBER:
+                r = np.corrcoef(thresh_components[:, k, i].T,
+                                ref)
+                if r[0, 1] < 0:
+                    #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
+                    aligned_thresh_comp[:, k, i] *= -1
+    # Save aligned comp
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+        filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
+        np.savez(filename, aligned_thresh_comp[:, :, l])
+
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
     dice_bars = np.empty(N_COMP)
     for k in range(N_COMP):
         # One component accross folds
-        thresh_comp = thresh_components[:, k, :]
+        thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
         dice_bars[k] = metrics.dice_bar(thresh_comp)
 
