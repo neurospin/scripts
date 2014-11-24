@@ -27,13 +27,13 @@ filenames = glob.glob(os.path.join(INPUT_IMAGES, "*", "*LacBL.nii*"))
 #filename = "/home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_images/027/027_1046-M18_LacBL.nii.gz"
 filename = "/home/ed203246/data/mescog/incident_lacunes_shape/incident_lacunes_images/075/075_2005-M18_LacBL.nii.gz"
 area_vol_all = list()
-for filename in filenames:
+for filename in filenames: #filename = filenames[0]
     lacune_id = int(os.path.basename(os.path.dirname(filename)))
     print lacune_id
     m = data[data["lacune_id"] == lacune_id]
     if len(m) == 0:
         continue
-    inerties = m[["orientation_inertia_0", "orientation_inertia_1", "orientation_inertia_2"]].values.ravel()
+    inerties = m[["orientation_v1_inertia", "orientation_v2_inertia", "orientation_v3_inertia"]].values.ravel()
     mass_center = m[["center_of_mass_0", "center_of_mass_1", "center_of_mass_2"]].values.ravel()
     v1 = m[["orientation_v1_0", "orientation_v1_1", "orientation_v1_2"]].values.T
     v2 = m[["orientation_v2_0", "orientation_v2_1", "orientation_v2_2"]].values.T

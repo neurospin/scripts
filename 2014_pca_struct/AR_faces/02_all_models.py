@@ -122,7 +122,7 @@ def mapper(key, output_collector):
         ltv = global_pen * tv_ratio
         ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
-        assert((ll1 + ll2 + ltv) == global_pen)
+        assert(np.allclose(ll1 + ll2 + ltv, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape

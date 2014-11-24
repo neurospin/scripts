@@ -60,7 +60,7 @@ def mesh_arrays(mesh, nibabel=True):
    cor = mesh_.getArraysFromIntent("NIFTI_INTENT_POINTSET")[0].data
    tri = mesh_.getArraysFromIntent("NIFTI_INTENT_TRIANGLE")[0].data
    return cor, tri
-   
+
 
 def mesh_from_arrays(coord, triangles, path=None):
     """ Create a mesh object from two arrays
@@ -68,12 +68,38 @@ def mesh_from_arrays(coord, triangles, path=None):
     fixme:  intent should be set !
     """
     carray = GiftiDataArray().from_array(coord.astype(np.float32),
-                                         "NIFTI_INTENT_POINTSET")
-    tarray = GiftiDataArray().from_array(triangles, "NIFTI_INTENT_TRIANGLE")
+        "NIFTI_INTENT_POINTSET",
+        encoding='B64BIN')
+        #endian="LittleEndian")
+    tarray = GiftiDataArray().from_array(triangles.astype(np.int32),
+        "NIFTI_INTENT_TRIANGLE",
+        encoding='B64BIN')
+        #endian="LittleEndian")
     img = GiftiImage(darrays=[carray, tarray])
     if path is not None:
-        write(img, path)
+        try:
+            from soma import aims
+            mesh = aims.AimsTimeSurface(3)
+            mesh.vertex().assign([aims.Point3df(x)for x in coord])
+            mesh.polygon().assign([aims.AimsVector_U32_3(x)for x in triangles])
+            aims.write(mesh, path)
+        except:
+            print "soma writing failed"
+            write(img, path)
     return img
+
+#def mesh_from_arrays(coord, triangles, path=None):
+#    """ Create a mesh object from two arrays
+#
+#    fixme:  intent should be set !
+#    """
+#    carray = GiftiDataArray().from_array(coord.astype(np.float32),
+#                                         "NIFTI_INTENT_POINTSET")
+#    tarray = GiftiDataArray().from_array(triangles, "NIFTI_INTENT_TRIANGLE")
+#    img = GiftiImage(darrays=[carray, tarray])
+#    if path is not None:
+#        write(img, path)
+#    return img
 
 def load_texture(path):
     """Return an array from texture data stored in a gifti file
@@ -106,28 +132,35 @@ the corresponding data
     return tex_data
 
 
-def save_texture(path, data, intent='NIFTI_INTENT_NONE', verbose=False):
-    """
-volume saving utility for textures
-Parameters
-----------
-path, string, output image path
-data, array of shape (nnode)
-data to be put in the volume
-intent: string, optional
-intent
+#def save_texture(path, data, intent='NIFTI_INTENT_NONE', verbose=False):
+#    """
+#volume saving utility for textures
+#Parameters
+#----------
+#path, string, output image path
+#data, array of shape (nnode)
+#data to be put in the volume
+#intent: string, optional
+#intent
+#
+#Fixme
+#-----
+#Missing checks
+#Handle the case where data is multi-dimensional ?
+#"""
+#    from nibabel.gifti import write, GiftiDataArray, GiftiImage
+#    if verbose:
+#        print 'Warning: assuming a float32 gifti file'
+#    darray = GiftiDataArray().from_array(data.astype(np.float32), intent)
+#    img = GiftiImage(darrays=[darray])
+#    write(img, path)
 
-Fixme
------
-Missing checks
-Handle the case where data is multi-dimensional ?
-"""
-    from nibabel.gifti import write, GiftiDataArray, GiftiImage
-    if verbose:
-        print 'Warning: assuming a float32 gifti file'
-    darray = GiftiDataArray().from_array(data.astype(np.float32), intent)
-    img = GiftiImage(darrays=[darray])
-    write(img, path)
+def save_texture(filename, data):
+    from soma import aims
+    tex = aims.TimeTexture()
+    tex[0].assign(data)
+    aims.write(tex, filename)
+
 
 
 def spherical_coordinates(mesh):
@@ -160,11 +193,11 @@ def poly_to_graph(nnodes, poly, coord=None):
     for i in range(E):
         sa = poly[i][0]
         sb = poly[i][1]
-        sc = poly[i][2]        
+        sc = poly[i][2]
         edges[3 * i] = np.array([sa, sb])
         edges[3 * i + 1] = np.array([sa, sc])
-        edges[3 * i + 2] = np.array([sb, sc])    
-            
+        edges[3 * i + 2] = np.array([sb, sc])
+
     G = fg.WeightedGraph(nnodes, edges, weights)
 
     # symmeterize the graph
@@ -172,7 +205,7 @@ def poly_to_graph(nnodes, poly, coord=None):
 
     # remove redundant edges
     G.cut_redundancies()
-    
+
     if coord is not None:
         # make it a metric graph
         G.set_euclidian(coord)
@@ -185,7 +218,7 @@ def cut_mesh(mesh_path, vertex_mask, output_path=None):
     """
     vertex_mask = vertex_mask.ravel()
     coord, triangles = mesh_arrays(mesh_path)
-                
+
     if vertex_mask.size != coord.shape[0]:
         raise ValueError('incorrect mask provided')
 
@@ -194,16 +227,16 @@ def cut_mesh(mesh_path, vertex_mask, output_path=None):
     for t in triangles:
         if np.prod(vertex_mask[np.array(t)]) != 0:
             reduced_triangles.append(t)
-            
+
     mapping = np.cumsum(vertex_mask) - 1
     reduced_triangles = mapping[np.array(reduced_triangles)]
-     
+
     return mesh_from_arrays(reduced_coord, reduced_triangles, output_path)
 
 def node_area(mesh):
     """
     returns a vector of are values, one for each mesh,
-    which is the averge area of the triangles around it 
+    which is the averge area of the triangles around it
     """
     vertices, poly = mesh_arrays(mesh)
     E = poly.shape[0]
@@ -217,7 +250,7 @@ def node_area(mesh):
         narea[sa] += ar
         narea[sb] += ar
         narea[sc] += ar
-        
+
     narea /= 6
     # because division by 2 has been 'forgotten' in area computation
     # the area of a triangle is divided into the 3 vertices
@@ -256,7 +289,7 @@ def mesh_integrate(mesh, tex, coord=None):
     coord = np.zeros((3, 3))
     E = poly.size()
     data = np.array(tex.data())
-        
+
     for i in range(E):
         sa = poly[i][0]
         sb = poly[i][1]
@@ -265,7 +298,7 @@ def mesh_integrate(mesh, tex, coord=None):
         b = vertices[sb] - vertices[sc]
         mval = (data[sa] + data[sb] + data[sc]) / 3
         integral += mval * area(a, b) / 2
-        
+
     return integral
 
 #def flatten(mesh):
@@ -281,7 +314,7 @@ def mesh_integrate(mesh, tex, coord=None):
 
 def isomap_patch(mesh, mask, show=False):
     """return low-dimensional coordinates for the the patch
-    
+
     Parameters
     ==========
     mesh: string or nibabel mesh,
@@ -305,14 +338,14 @@ def isomap_patch(mesh, mask, show=False):
     xy = Isomap().fit_transform(coord)
 
     # try to make the sign invariant and repect the orientations
-    xy *= np.sign((xy ** 3).sum(0)) 
+    xy *= np.sign((xy ** 3).sum(0))
     a, b, c = tri[0]
     xy[:, 1] *= np.sign(np.linalg.det(np.vstack((xy[b] - xy[a], xy[c] -xy[a]))))
-    
+
     if show:
         import matplotlib.pyplot as plt
         plt.figure()
-        plt.tripcolor(xy.T[0], xy.T[1], tri, (xy ** 2).sum(1), 
+        plt.tripcolor(xy.T[0], xy.T[1], tri, (xy ** 2).sum(1),
                         shading='faceted')
         plt.show()
     return xy
@@ -354,7 +387,7 @@ def isomap_patch(mesh, mask, show=False):
 #   f.edges, f.weights = f.edges[order], f.weights[order]
 #   f.normalize(0)
 #   niter = (sigma * 1. / lsigma) ** 2
-#   
+#
 #   if input_texture[-4:] == '.tex':
 #       import tio as tio
 #       data = tio.Texture("").read(input_texture).data
@@ -372,14 +405,14 @@ def isomap_patch(mesh, mask, show=False):
 #       if output_texture[-4:] == '.tex':
 #           import tio as tio
 #           tio.Texture("", data=data.T).write(output_texture)
-#           print 'tex' 
+#           print 'tex'
 #       else:
 #           intent = 0
 #           wdata = data
 #           if mask is not None:
 #               wdata = mask.astype(np.float)
 #               wdata[mask > 0] = data
-#           darray = GiftiDataArray().from_array(wdata.astype(np.float32), 
+#           darray = GiftiDataArray().from_array(wdata.astype(np.float32),
 #                                                intent)
 #           img = GiftiImage(darrays=[darray])
 #           write(img, output_texture)
@@ -388,14 +421,14 @@ def isomap_patch(mesh, mask, show=False):
 
 def compute_normal_vertex(mesh, mask=None):
     """ Compute the normal vector at each vertex of the mesh
-    
+
     Parameters
     ---------
     mesh: string, a path to a mesh file
 
     Returns
     -------
-    normals: array of shape (mesh.n_vertices, 3) 
+    normals: array of shape (mesh.n_vertices, 3)
              the normal vector at each mesh node
      mask: string, optional, a path to mask texture for that mesh/subject,
            so that only part of the vertices are conssidered.
@@ -407,9 +440,9 @@ def compute_normal_vertex(mesh, mask=None):
     coord, triangles = mesh_arrays(mesh)
     if mask == None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
-    else: 
+    else:
         mask = read(mask).darrays[0].data.astype(np.bool)
-    
+
     # compute the normal for each triangle
     norms = np.zeros((mask.size, 3))
     for triangle in triangles:
@@ -430,7 +463,7 @@ def compute_normal_vertex(mesh, mask=None):
 
 def texture_gradient(mesh, texture, mask=None):
     """ Compute the gradient of a given texture at each point of the mesh
-        
+
     Parameters
     ---------
     mesh: string, a path to a mesh file
@@ -439,13 +472,13 @@ def texture_gradient(mesh, texture, mask=None):
           so that only part of the vertices are conssidered.
     Returns
     -------
-    gradient: array of shape (mesh.n_vertices, 3) 
+    gradient: array of shape (mesh.n_vertices, 3)
     the gradient vector at each mesh node.
-       
+
     fixme
     -----
     Put in mesh_processing
-    
+
     Note
     ----
     the gradient is expressedn in 3D space, note on surface coordinates
@@ -454,7 +487,7 @@ def texture_gradient(mesh, texture, mask=None):
     coord, triangles = mesh_arrays(mesh)
     if mask == None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
-    else: 
+    else:
         mask = read(mask).darrays[0].data.astype(np.bool)
 
     # compute the neighborhood system
@@ -502,13 +535,13 @@ def remesh(input_path, src, target, output_path=None):
         lam, gam = isin[v][1:3]
         output_coord[v] = lam * origv[1] + gam * origv[2] +\
                              (1. - lam - gam) * origv[0]
-    
+
     output_mesh = mesh_from_arrays(output_coord, ref_triangles, output_path)
     return output_mesh
 
 def remesh_step1(src, target):
     """Computation of mesh resampling parameters
-    
+
     Parameters
     ==========
     src: mesh to be resampled or path such a mesh
@@ -553,7 +586,7 @@ def _remesh(uvertex, ufaces, svertex):
         print "\n WARNING : different mean or max(0) \n"
     polycenters = uvertex[ufaces].mean(1)
     maxs = np.sum((uvertex[ufaces] - polycenters[:, np.newaxis]) ** 2, 2).max(1)
-    
+
     # precompute some stuffs
     dmax = np.sqrt(maxs.max())
     smin, smax = svertex.min(0) - 2 * dmax, svertex.max(0) + 2 * dmax
@@ -577,7 +610,7 @@ def _remesh(uvertex, ufaces, svertex):
         if i % 30000 == 0:
             print i, "/", len(polycenters)
         # find closest points of p : first a rough filter, then an exact filter
-        binxyz = [np.searchsorted(grid_xyz[x], p[x]) for x in (0, 1, 2)] 
+        binxyz = [np.searchsorted(grid_xyz[x], p[x]) for x in (0, 1, 2)]
         W = d[0][binxyz[0]].intersection(d[1][binxyz[1]]).intersection(
             d[2][binxyz[2]])
         W = np.fromiter(W, int, len(W))
@@ -654,11 +687,11 @@ def brainvisa_to_gifti(bv_mesh, gii_mesh):
 
     def buildMeshImage(vertices, faces,
                        encoding=GiftiEncoding.GIFTI_ENCODING_ASCII):
-        """ build a GiftiImage from arrays of vertices and faces 
-        
+        """ build a GiftiImage from arrays of vertices and faces
+
         NOTE : this is doing the same as the gifti.GiftiImage_fromTriangles
         function and is only redefined here for demonstration purpose"""
-    
+
         k = GiftiImage_fromarray(vertices)
         k.arrays[0].intentString = "NIFTI_INTENT_POINTSET"
         k.addDataArray_fromarray(faces, GiftiIntentCode.NIFTI_INTENT_TRIANGLE)

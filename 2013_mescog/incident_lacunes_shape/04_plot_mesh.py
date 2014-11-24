@@ -111,9 +111,10 @@ mesh_processing.mesh_from_arrays(coord_anisotropy_linear_planar_all, tri_all, pa
 for k in textures:
     textures[k] = np.hstack(textures[k])
     print textures[k]
-    mesh_processing.save_texture(path=os.path.join(OUTPUT,"tex_%s.gii" % k), data=textures[k], intent='NIFTI_INTENT_NONE')
+    mesh_processing.save_texture(filename=os.path.join(OUTPUT,"tex_%s.gii" % k), data=textures[k])#, intent='NIFTI_INTENT_NONE')
 
 """
 anatomist /tmp/mesh_*.gii
+freeview -f mnts-inv_pc12_scaled.gii:overlay=tex_tensor_invariant_fa.gii
 """
 
