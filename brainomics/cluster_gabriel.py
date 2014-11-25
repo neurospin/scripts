@@ -18,7 +18,7 @@ job_header = """#!/bin/bash
 #PBS -S /bin/bash
 """
 
-opt_string_format = "{option}={value}"
+lim_string_format = "{option}={value}"
 
 def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     """Create sync_pull.sh and sync_push.sh files in the wd.
@@ -90,49 +90,49 @@ def gabriel_make_qsub_job_files(output_dirname, cmd, suffix="",
     """
     project_name = os.path.basename(output_dirname)
     job_name = project_name
-    options = OrderedDict()
-    # Fill options for nodes and ppn
-    options['host'] = OrderedDict()
-    options['host']['nodes'] = nodes
+    limits = OrderedDict()
+    # Fill limits for nodes and ppn
+    limits['host'] = OrderedDict()
+    limits['host']['nodes'] = nodes
     if mem is not None:
-        options['mem'] = mem
+        limits['mem'] = mem
     if walltime is None:
-        options['walltime'] = "48:00:00"
+        limits['walltime'] = "48:00:00"
     else:
-        options['walltime'] = walltime
+        limits['walltime'] = walltime
 
     queue = "Cati_LowPrio"
-    options['host']['ppn'] = 12
+    limits['host']['ppn'] = 12
     job_filename = os.path.join(output_dirname,
                                 'job_%s%s.pbs' % (queue, suffix))
     write_job_file(job_filename=job_filename,
                    job_name=job_name,
                    cmd=cmd,
                    queue=queue,
-                   job_options=options)
+                   job_limits=limits)
 
     queue = "Cati_long"
-    options['host']['ppn'] = 12
+    limits['host']['ppn'] = 12
     job_filename = os.path.join(output_dirname,
                                 'job_%s%s.pbs' % (queue, suffix))
     write_job_file(job_filename=job_filename,
                    job_name=job_name,
                    cmd=cmd,
                    queue=queue,
-                   job_options=options)
+                   job_limits=limits)
 
     queue = "Global_long"
-    options['host']['ppn'] = 8
+    limits['host']['ppn'] = 8
     job_filename = os.path.join(output_dirname,
                                 'job_%s%s.pbs' % (queue, suffix))
     write_job_file(job_filename=job_filename,
                    job_name=job_name,
                    cmd=cmd,
                    queue=queue,
-                   job_options=options)
+                   job_limits=limits)
 
 
-def write_job_file(job_filename, job_name, cmd, queue, job_options=None):
+def write_job_file(job_filename, job_name, cmd, queue, job_limits=None):
     """
     Generates a PBS configration file.
 
@@ -146,33 +146,33 @@ def write_job_file(job_filename, job_name, cmd, queue, job_options=None):
 
     queue (string): queue on which to run the job
 
-    job_options (dict whose values are either strings or dict): job options.
+    job_limits (dict whose values are either strings or dict): job limits.
     If the value is a string, the pair (key, value) will be written on one line
     as key=value.
     If the value is a dict, the key is discarded and the value is written in
-    one line as key0=value0:[key1=value1[:...]]. This is useful for options
+    one line as key0=value0:[key1=value1[:...]]. This is useful for limits
     like nodes and ppn which must be on the same line.
     You can use OrderedDict to maintain order.
     """
-    def opt_string_from_dict(opt_dict):
-        opt_strings = []
-        for option, value in opt_dict.iteritems():
-            opt_strings.append(opt_string_format.format(option=option,
+    def lim_string_from_dict(opt_dict):
+        lim_strings = []
+        for limit, value in opt_dict.iteritems():
+            lim_strings.append(lim_string_format.format(option=limit,
                                                         value=value))
-        opt_str = ":".join(opt_strings)
-        return opt_str
+        lim_str = ":".join(lim_strings)
+        return lim_str
 
     with open(job_filename, 'wb') as f:
         f.write(job_header)
         f.write("""#PBS -N %s\n""" % job_name)
-        if job_options is not None:
-            for option, value in job_options.iteritems():
+        if job_limits is not None:
+            for limit, value in job_limits.iteritems():
                 if isinstance(value, str):
-                    opt_str = opt_string_format.format(option=option,
+                    lim_str = lim_string_format.format(option=limit,
                                                        value=value)
                 if isinstance(value, dict):
-                    opt_str = opt_string_from_dict(value)
-                f.write("""#PBS -l %s\n""" % opt_str)
+                    lim_str = lim_string_from_dict(value)
+                f.write("""#PBS -l %s\n""" % lim_str)
         f.write("""#PBS -q %s\n""" % queue)
         f.write("\n")
         f.write("%s\n" % cmd)
