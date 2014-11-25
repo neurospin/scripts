@@ -94,12 +94,12 @@ def gabriel_make_qsub_job_files(output_dirname, cmd, suffix="",
     # Fill options for nodes and ppn
     options['host'] = OrderedDict()
     options['host']['nodes'] = nodes
+    if mem is not None:
+        options['mem'] = mem
     if walltime is None:
         options['walltime'] = "48:00:00"
     else:
         options['walltime'] = walltime
-    if mem is not None:
-        options['mem'] = mem
 
     queue = "Cati_LowPrio"
     options['host']['ppn'] = 12
