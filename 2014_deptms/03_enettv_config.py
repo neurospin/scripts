@@ -105,7 +105,7 @@ def mapper(key, output_collector):
             Xte_r = np.hstack([Xte[:, :penalty_start],
                                Xte[:, penalty_start:][:, aov.get_support()]])
         else:
-            mask = np.ones(Xtr.shape[0], dtype=bool)
+            mask = STRUCTURE.get_data() != 0
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
@@ -146,15 +146,16 @@ def mapper(key, output_collector):
                     a = sparse.bmat([[A1[i], None], [None, A2[i]]])
                     A.append(a)
 
-            mask = np.vstack([mask_MRI, mask_PET])
-
             Xtr_r = np.hstack([Xtr[:, :penalty_start],
                                Xtr[:, penalty_start:][:, support_mask]])
             Xte_r = np.hstack([Xte[:, :penalty_start],
                                Xte[:, penalty_start:][:, support_mask]])
 
         else:
-            mask = np.ones(Xtr.shape[0], dtype=bool)
+            k_MRI = n_voxels
+            k_PET = n_voxels
+            mask_MRI = STRUCTURE.get_data() != 0
+            mask_PET = STRUCTURE.get_data() != 0
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
@@ -165,8 +166,19 @@ def mapper(key, output_collector):
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
     proba_pred = mod.predict_probability(Xte_r)  # a posteriori probability
-    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
-               beta=mod.beta,  mask=mask, n_iter=mod.get_info()['num_iter'])
+    beta = mod.beta
+    if (MODALITY == "MRI") or (MODALITY == "PET"):
+        ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
+                   beta=beta,  mask=mask,
+                   n_iter=mod.get_info()['num_iter'])
+    elif MODALITY == "MRI+PET":
+        beta_MRI = beta[:(penalty_start + k_MRI)]
+        beta_PET = np.vstack([beta[:penalty_start],
+                              beta[(penalty_start + k_MRI):]])
+        ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
+                   beta=beta, beta_MRI=beta_MRI, beta_PET=beta_PET,
+                   mask_MRI=mask_MRI, mask_PET=mask_PET,
+                   n_iter=mod.get_info()['num_iter'])
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -200,8 +212,8 @@ def reducer(key, values):
     betas = np.hstack([item["beta"][penalty_start:]  for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
-    success = int(r * s)
-    assert (r * s) == int(r * s)
+    success = r * s
+    success = success.astype('int')
     pvalue_class0 = binom_test(success[0], s[0], 1 - prob_class1)
     pvalue_class1 = binom_test(success[1], s[1], prob_class1)
     a, l1, l2 = float(key[0]), float(key[1]), float(key[2])
@@ -213,13 +225,14 @@ def reducer(key, values):
     scores['a'] = a
     scores['l1'] = l1
     scores['l2'] = l2
-    scores['tv'] = tv
     scores['l1l2_ratio'] = l1 / left
+    scores['tv'] = tv
     scores['k_ratio'] = k_ratio
     scores['recall_0'] = r[0]
     scores['pvalue_recall_0'] = pvalue_class0
     scores['recall_1'] = r[1]
     scores['pvalue_recall_1'] = pvalue_class1
+    scores['max_pvalue_recall'] = np.maximum(pvalue_class0, pvalue_class1)
     scores['recall_mean'] = r.mean()
     scores['recall_mean_std'] = recall_mean_std
     scores['precision_0'] = p[0]
@@ -297,7 +310,7 @@ if __name__ == "__main__":
         label_ho = cur["label_ho"].values[0]
         atlas_ho = cur["atlas_ho"].values[0]
         roi_name = cur["ROI_name_deptms"].values[0]
-        if ((not cur.isnull()["label_ho"].values[0])
+        if ((not cur.isnull()["atlas_ho"].values[0])
             and (not cur.isnull()["ROI_name_deptms"].values[0])):
             if not roi_name in dict_rois:
                 labels = np.asarray(label_ho.split(), dtype="int")
@@ -306,7 +319,7 @@ if __name__ == "__main__":
 
     rois = list(set(df_rois["ROI_name_deptms"].values.tolist()))
     rois = [x for x in rois if str(x) != 'nan']
-    rois.append("wb")  # add whole brain to rois
+    rois.append("brain")  # add whole brain to rois
 
     #########################################################################
     ## Build config file for all couple (Modality, roi)
@@ -335,7 +348,7 @@ if __name__ == "__main__":
             if np.logical_or(modality == "MRI", modality == "PET"):
                 shutil.copy2(INPUT_MASK, WD)
             elif modality == "MRI+PET":
-                shutil.copy2(os.path.join(DATASET_PATH, "MRI",
+                shutil.copy2(os.path.join(DATA_MODALITY_PATH,
                                       'mask_MRI_' + roi + '.nii'),
                              WD)
                 INPUT_MASK = os.path.join(WD, 'mask_MRI_' + roi + '.nii')
@@ -386,7 +399,7 @@ if __name__ == "__main__":
                           reduce_group_by="params",
                           reduce_output="results.csv",
                           penalty_start=penalty_start,
-                          prob_class1 = prob_class1,
+                          prob_class1=prob_class1,
                           modality=modality,
                           roi=roi)
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
@@ -399,9 +412,9 @@ if __name__ == "__main__":
             cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
             clust_utils.gabriel_make_qsub_job_files(WD, cmd)
             ################################################################
-            # Sync to cluster
-            print "Sync data to gabriel.intra.cea.fr: "
-            os.system(sync_push_filename)
+#                # Sync to cluster
+#                print "Sync data to gabriel.intra.cea.fr: "
+#                os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"

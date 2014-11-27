@@ -10,9 +10,10 @@ import os
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from patsy import dmatrices
+#from patsy import dmatrices
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from dtm.stat.mulm_dataframe import mulm_df
 
 #INPUT_BASE_CLINIC = "/neurospin/mescog/proj_predict_cog_decline/data"
 #INPUT_BASE_PC = "/neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds"
@@ -30,8 +31,8 @@ clinic = pd.read_csv(INPUT_CLINIC)
 clinic["ID"] = [int(x.replace("CAD_", "")) for x in clinic.ID.tolist()]
 clinic.SEX -= 1
 
-data = pd.merge(clinic, pc, left_on="ID", right_on="Subject ID")
-data.columns = [x.replace(".", "_") for x in data.columns]
+data_all = pd.merge(clinic, pc, left_on="ID", right_on="Subject ID")
+data_all.columns = [x.replace(".", "_") for x in data_all.columns]
 
 def get_pca(d):
     return d[(d.global_pen == 0) & (d.tv_ratio == 0) & (d.l1_ratio == 0)]
@@ -43,19 +44,50 @@ def get_l1l2tv(d):
 
 methods = dict(PCATV=get_l1l2tv, PCA=get_pca)
 
-assert get_pca(data).shape == get_l1l2tv(data).shape == (301, 33)
+assert get_pca(data_all).shape == get_l1l2tv(data_all).shape == (301, 33)
 
 
-data["TMTB_TIME_CHANGE"] = data["TMTB_TIME_M36"] - data["TMTB_TIME"]
-data["MDRS_TOTAL_CHANGE"] = data["MDRS_TOTAL_M36"] - data["MDRS_TOTAL"]
-data["MRS_CHANGE"] = data["MRS_M36"] - data["MRS"]
-data["MMSE_CHANGE"] = data["MMSE_M36"] - data["MMSE"]
+data_all["TMTB_TIME_CHANGE"] = data_all["TMTB_TIME_M36"] - data_all["TMTB_TIME"]
+data_all["MDRS_TOTAL_CHANGE"] = data_all["MDRS_TOTAL_M36"] - data_all["MDRS_TOTAL"]
+data_all["MRS_CHANGE"] = data_all["MRS_M36"] - data_all["MRS"]
+data_all["MMSE_CHANGE"] = data_all["MMSE_M36"] - data_all["MMSE"]
 
-TARGETS = [
-           "TMTB_TIME", "MDRS_TOTAL", "MRS", "MMSE",
-           "TMTB_TIME_M36", "MDRS_TOTAL_M36", "MRS_M36", "MMSE_M36",
-           "TMTB_TIME_CHANGE", "MDRS_TOTAL_CHANGE", "MRS_CHANGE", "MMSE_CHANGE"]
+TARGETS_CLIN_BL = ["TMTB_TIME", "MDRS_TOTAL", "MRS", "MMSE"]
+TARGETS_CLIN_M36 = ["TMTB_TIME_M36", "MDRS_TOTAL_M36", "MRS_M36", "MMSE_M36"]
+TARGETS_CLIN_CHANGE = ["TMTB_TIME_CHANGE", "MDRS_TOTAL_CHANGE", "MRS_CHANGE", "MMSE_CHANGE"]
+TARGETS_NI_GLOB = ['LLV', 'BPF', 'WMHV', 'MBcount']
 
+TARGETS = TARGETS_CLIN_BL + TARGETS_CLIN_M36 + TARGETS_CLIN_CHANGE + TARGETS_NI_GLOB
+REGRESSORS = ['PC1', 'PC2', 'PC3']
+COVARS = [None,
+          "AGE_AT_INCLUSION+SEX+EDUCATION",
+          "AGE_AT_INCLUSION+SEX+EDUCATION+SITE"]
+
+
+stats_pcatv = mulm_df(data=methods["PCATV"](data_all),
+                targets=TARGETS, regressors=REGRESSORS,
+                covar_models=COVARS, full_model=True)
+stats_pcatv["method"] = "PCATV"
+
+summary = stats_pcatv[
+    (stats_pcatv.covariate.isin(REGRESSORS))&
+    stats_pcatv.target.isin(TARGETS_CLIN_BL+TARGETS_NI_GLOB)]
+
+
+
+stats_pca = mulm_df(data=methods["PCA"](data_all),
+                targets=TARGETS, regressors=REGRESSORS,
+                covar_models=COVARS, full_model=True)
+stats_pca["method"] = "PCA"
+
+
+
+with pd.ExcelWriter(os.path.join(OUTPUT, "pc_clinic_associations.xls")) as writer:
+    stats_pcatv.to_excel(writer, sheet_name='PCATV', index=False)
+    summary.to_excel(writer, sheet_name='PCATV short', index=False)
+    stats_pca.to_excel(writer, sheet_name='PCA', index=False)
+
+"""
 pdf = PdfPages(os.path.join(OUTPUT, "pc_clinic_associations.pdf"))
 #print os.path.join(OUTPUT, "pc_clinic_associations.pdf")
 
@@ -85,7 +117,7 @@ for target in TARGETS:
             sm_fitted = mod.fit()
             sm_ttest = sm_fitted.t_test([0, 1])
             tval, pval =  sm_ttest.tvalue[0, 0], sm_ttest.pvalue[0, 0]
-            res.append([method, target, pc, model, tval, pval])
+            res.append([method, target, "PC%i" % pc, model, tval, pval])
             if i == 0:
                 axarr[i, j].set_title("PC%i" % pc)
             axarr[i, j].scatter(d["PC%i" % pc], y)
@@ -114,3 +146,4 @@ pdf.close()
 stats = pd.DataFrame(res, columns=["method", "var", "pc", "model", "tval", "pval"])
 
 stats.to_csv(os.path.join(OUTPUT, "pc_clinic_associations.csv"), index=False)
+"""
