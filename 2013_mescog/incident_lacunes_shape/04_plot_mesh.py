@@ -82,7 +82,8 @@ for ima_filename in ima_filenames: # ima_filename = ima_filenames[0]
     lacune_id = int(os.path.basename(os.path.dirname(ima_filename)))
     print lacune_id
     mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_native_1_0.gii")
-    ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%s-Perf.nii.gz" % lacune_id)
+    #ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%s-Perf.nii.gz" % lacune_id)
+    ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%03d-Perf.nii.gz" % lacune_id)
     #mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_1_0.nii.gii")
     mesh_lacunes__max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
     mesh_lacunes__perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_perfo_to_yaxis.nii.gii")

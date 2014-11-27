@@ -16,7 +16,7 @@ Rotation: align main inertie axis such
 import numpy as np
 import glob
 import pandas as pd
-import os
+import os, os.path
 #import scipy.ndimage as ndimage
 from soma import aims
 import sys
@@ -44,7 +44,9 @@ for ima_filename in ima_filenames: #filename = filenames[0]
     lacune_id = int(os.path.basename(os.path.dirname(ima_filename)))
     print lacune_id
     mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_native_1_0.gii")
-    ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%s-Perf.nii.gz" % lacune_id)
+    ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%03d-Perf.nii.gz" % lacune_id)
+    if not os.path.exists(ima_perforator_filename):
+        raise Exception("File %s not found" % ima_perforator_filename)
     #mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_1_0.nii.gii")
     mesh_lacunes_max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
     mesh_lacunes_perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_perfo_to_yaxis.nii.gii")
