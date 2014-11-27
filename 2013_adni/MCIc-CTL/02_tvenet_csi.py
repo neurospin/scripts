@@ -69,7 +69,7 @@ def mapper(key, output_collector):
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
     else:
-        mask = np.ones(Xtr.shape[0], dtype=bool)
+        mask = STRUCTURE.get_data() != 0
         Xtr_r = Xtr
         Xte_r = Xte
         A = GLOBAL.A

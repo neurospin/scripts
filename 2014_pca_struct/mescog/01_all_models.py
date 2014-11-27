@@ -53,7 +53,7 @@ INPUT_DIR = os.path.join("/neurospin/",
                          "mescog", "proj_wmh_patterns")
 
 INPUT_DATASET = os.path.join(INPUT_DIR,
-                             "X.npy")
+                             "X_center.npy")
 INPUT_MASK = os.path.join(INPUT_DIR,
                           "mask_bin.nii")
 INPUT_CSV = os.path.join(INPUT_DIR,
@@ -134,7 +134,7 @@ def mapper(key, output_collector):
         ltv = global_pen * tv_ratio
         ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
-        assert((ll1 + ll2 + ltv) == global_pen)
+        assert(np.allclose(ll1 + ll2 + ltv, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -420,11 +420,24 @@ def create_config(y, n_folds, output_dir, filename,
     clust_utils.gabriel_make_sync_data_files(full_output_dir)
 
     # Create job files
-    cluster_cmd = "mapreduce.py -m {dir}/{file}  --ncore 12".format(
+    # As the dataset is big we don't use standard files
+    limits = OrderedDict()
+    limits['host'] = OrderedDict()
+    limits['host']['nodes'] = 10
+    limits['host']['ppn'] = 6
+    limits['mem'] = "25gb"
+    limits['walltime'] = "96:00:00"
+    queue = "Cati_long"
+    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
                             dir=CLUSTER_WD,
-                            file=filename)
-    clust_utils.gabriel_make_qsub_job_files(full_output_dir, cluster_cmd)
-
+                            file=filename,
+                            ppn=limits['host']['ppn'])
+    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
+    clust_utils.write_job_file(job_file_name,
+                               job_name=output_dir,
+                               cmd=cluster_cmd,
+                               queue=queue,
+                               job_limits=limits)
     return config
 
 #################
