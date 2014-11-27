@@ -152,6 +152,8 @@ def mapper(key, output_collector):
                                Xte[:, penalty_start:][:, support_mask]])
 
         else:
+            k_MRI = n_voxels
+            k_PET = n_voxels
             mask_MRI = STRUCTURE.get_data() != 0
             mask_PET = STRUCTURE.get_data() != 0
             Xtr_r = Xtr
@@ -171,7 +173,7 @@ def mapper(key, output_collector):
                    n_iter=mod.get_info()['num_iter'])
     elif MODALITY == "MRI+PET":
         beta_MRI = beta[:(penalty_start + k_MRI)]
-        beta_PET = np.hstack([beta[:penalty_start],
+        beta_PET = np.vstack([beta[:penalty_start],
                               beta[(penalty_start + k_MRI):]])
         ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
                    beta=beta, beta_MRI=beta_MRI, beta_PET=beta_PET,
@@ -223,13 +225,14 @@ def reducer(key, values):
     scores['a'] = a
     scores['l1'] = l1
     scores['l2'] = l2
-    scores['tv'] = tv
     scores['l1l2_ratio'] = l1 / left
+    scores['tv'] = tv
     scores['k_ratio'] = k_ratio
     scores['recall_0'] = r[0]
     scores['pvalue_recall_0'] = pvalue_class0
     scores['recall_1'] = r[1]
     scores['pvalue_recall_1'] = pvalue_class1
+    scores['max_pvalue_recall'] = np.maximum(pvalue_class0, pvalue_class1)
     scores['recall_mean'] = r.mean()
     scores['recall_mean_std'] = recall_mean_std
     scores['precision_0'] = p[0]
@@ -402,16 +405,16 @@ if __name__ == "__main__":
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
             #################################################################
-#            # Build utils files: sync (push/pull) and PBS
-#            import brainomics.cluster_gabriel as clust_utils
-#            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-#                clust_utils.gabriel_make_sync_data_files(WD)
-#            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-#            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-#            ################################################################
-#            # Sync to cluster
-#            print "Sync data to gabriel.intra.cea.fr: "
-#            os.system(sync_push_filename)
+            # Build utils files: sync (push/pull) and PBS
+            import brainomics.cluster_gabriel as clust_utils
+            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+                clust_utils.gabriel_make_sync_data_files(WD)
+            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+            ################################################################
+#                # Sync to cluster
+#                print "Sync data to gabriel.intra.cea.fr: "
+#                os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
