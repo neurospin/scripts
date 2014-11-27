@@ -170,8 +170,9 @@ def mapper(key, output_collector):
                    beta=beta,  mask=mask,
                    n_iter=mod.get_info()['num_iter'])
     elif MODALITY == "MRI+PET":
-        beta_MRI = beta[:k_MRI]
-        beta_PET = beta[k_MRI:]
+        beta_MRI = beta[:(penalty_start + k_MRI)]
+        beta_PET = np.hstack([beta[:penalty_start],
+                              beta[(penalty_start + k_MRI):]])
         ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
                    beta=beta, beta_MRI=beta_MRI, beta_PET=beta_PET,
                    mask_MRI=mask_MRI, mask_PET=mask_PET,
