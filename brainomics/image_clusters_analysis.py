@@ -145,7 +145,7 @@ if __name__ == "__main__":
     thresh_neg_high = 0
     thresh_pos_low = 0
     thresh_pos_high = np.inf
-    thresh_norm_ratio = 0.99
+    thresh_norm_ratio = 1.
     referential = 'Talairach-MNI template-SPM'
     fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
@@ -153,8 +153,7 @@ if __name__ == "__main__":
     # parse command line options
     #parser = optparse.OptionParser(description=__doc__)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input',
-        help='Input map volume', type=str)
+    parser.add_argument('input', help='Input map volume', type=str)
     parser.add_argument('--thresh_size',
         help='Threshold, in voxels nb, between small and large clusters'
         ' (default %i).' % thresh_size, default=thresh_size, type=float)
@@ -232,12 +231,14 @@ if __name__ == "__main__":
     #MNI152_T1_1mm_brain.header()['referentials']
     ##########################################################################
     # Find clusters (connected component abov a given threshold)
+    print thresh_neg_low, thresh_neg_high, thresh_pos_low, thresh_pos_high
     if thresh_norm_ratio < 1:
         arr = array_utils.arr_threshold_from_norm2_ratio(arr, .99)[0]
     clust_bool = np.zeros(arr.shape, dtype=bool)
     #((arr > thresh_neg_low) & (arr < thresh_neg_high) | (arr > thresh_pos_low) & (arr < thresh_pos_high)).sum()
-    clust_bool[(arr > thresh_neg_low) & (arr < thresh_neg_high) |
-               (arr > thresh_pos_low) & (arr < thresh_pos_high)] = True
+    clust_bool[((arr > thresh_neg_low) & (arr < thresh_neg_high)) |
+               ((arr > thresh_pos_low) & (arr < thresh_pos_high))] = True
+    arr[np.logical_not(clust_bool)] = False
     clust_labeled, n_clusts = scipy.ndimage.label(clust_bool)
     clust_sizes = scipy.ndimage.measurements.histogram(clust_labeled, 1,
                                                        n_clusts, n_clusts)
@@ -246,7 +247,8 @@ if __name__ == "__main__":
     # _clusters.nii.gz
     clusters_values_ima = aims.Volume(ima)
     clusters_values_ima_arr = np.asarray(clusters_values_ima).squeeze()
-    clusters_values_ima_arr[clust_bool] = arr[clust_bool]
+    #clusters_values_ima_arr[clust_bool] = arr[clust_bool]
+    clusters_values_ima_arr[::] = arr[::]
     writer = aims.Writer()
     writer.write(clusters_values_ima, output_clusters_values_filename)
     # _clusters_labels.nii.gz

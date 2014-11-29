@@ -130,8 +130,10 @@ def do_mesh_cluster_rendering(title,
     #fusionmesh.addInWindows(win_sagital)
 
     # Global windows info
-    block.widgetProxy().widget.setWindowTitle(str(title))
-
+    try:
+        block.widgetProxy().widget.setWindowTitle(str(title))
+    except:
+        print "could not set name"
     # rotation
 #    rot_quat_coronal = aims.Quaternion()
 #    rot_quat_coronal.fromAxis([0, 0, 1], math.pi/2)  # rotate x 90°
