@@ -3,6 +3,10 @@
 Created on Mon Aug 11 12:33:56 2014
 
 @author: edouard.duchesnay@cea.fr
+
+OTUPUT:
+    incident_lacunes_moments.csv
+    incident_lacunes_moments_descriptive.xls
 """
 
 import os, os.path
@@ -14,10 +18,11 @@ import nibabel
 from soma import aims
 import sys
 
-sys.path.append("/home/ed203246/git/scripts/2013_mescog/incident_lacunes_shape")
+SRC_PATH = "/home/ed203246/git/scripts/2013_mescog/incident_lacunes_shape"
+
+sys.path.append(SRC_PATH)
 
 from math_transformation import angle_between_vectors
-
 BASE_PATH = "/home/ed203246/data/mescog/incident_lacunes_shape"
 INPUT_IMAGES = os.path.join(BASE_PATH, "incident_lacunes_images")
 OUPUT_CSV = os.path.join(BASE_PATH, "incident_lacunes_moments.csv")
@@ -185,8 +190,8 @@ FA = np.sqrt(3. / 2.) * \
     np.sqrt(np.sum(A ** 2, axis=1))
 
 # mode
-mode = np.prod(A, axis=1) / \
-(np.sqrt(np.sum(Atilde ** 2, axis=1)) ** 3)
+mode = np.prod(A, axis=1) / (np.sqrt(np.sum(Atilde ** 2, axis=1)) ** 3)
+#np.where(mode == mode.max())
 
 CL = (A[:, 0] - A[:, 1]) / np.sum(A, axis=1)
 CP = 2 * (A[:, 1] - A[:, 2]) / np.sum(A, axis=1)
@@ -213,8 +218,8 @@ moments["perfo_angle_inertia_min"] = \
 moments.to_csv(OUPUT_CSV, index=False)
 
 # descriptive statistics
-out = os.popen('python ~/git/datamind/descriptive/descriptive_statistics.py -i %s -o %s' %
-(OUPUT_CSV, OUPUT_CSV.replace(".csv", "_descriptive.xls")))
+out = os.popen('python %s/descriptive_statistics.py -i %s -o %s' %
+    (SRC_PATH, OUPUT_CSV, OUPUT_CSV.replace(".csv", "_descriptive.xls")))
 # run -i /home/ed203246/git/scripts/2013_mescog/incident_lacunes_shape/01_calc_lacunes_moments.py
 
 
