@@ -44,7 +44,7 @@ def load_globals(config):
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
-    if resample is not None:
+    if (resample is not None) & (resample[3] is not None):
         GLOBAL.DATA_RESAMPLED_VALIDMODEL = {k: [GLOBAL.DATA[k][idx, ...]
                         for idx in resample[1:3]]
                             for k in GLOBAL.DATA}
@@ -53,10 +53,21 @@ def resample(config, resample_nb):
                         for idx in resample[3:]]
                             for k in GLOBAL.DATA}
         GLOBAL.N_FOLD = resample[0]
-
-    else:  # resample is None train == test
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in xrange(4)]
+    elif (resample is not None) & (resample[3] is None):
+        # test = train for model selection and as before for model validation
+        GLOBAL.DATA_RESAMPLED_VALIDMODEL = {k: [GLOBAL.DATA[k][idx, ...]
+                        for idx in resample[1:3]]
                             for k in GLOBAL.DATA}
+        GLOBAL.DATA_RESAMPLED_SELECTMODEL = {k: [
+                    GLOBAL.DATA_RESAMPLED_VALIDMODEL[k][0]
+                        for idx in [0, 1]]
+                            for k in GLOBAL.DATA}
+        GLOBAL.N_FOLD = resample[0]
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED_VALIDMODEL = {k: [GLOBAL.DATA[k]
+                        for idx in [0, 1]] for k in GLOBAL.DATA}
+        GLOBAL.DATA_RESAMPLED_SELECTMODEL = {k: [GLOBAL.DATA[k]
+                        for idx in [0, 1]] for k in GLOBAL.DATA}
         GLOBAL.N_FOLD = 0
 
 
@@ -291,6 +302,7 @@ if __name__ == "__main__":
             assert((len(val) + len(tr)) == len(calib))
             dcv.append([n_fold, calib.tolist(), te.tolist(),
                         val.tolist(), tr.tolist()])
+            dcv.append([n_fold, calib.tolist(), te.tolist(), None])
         n_fold += 1
     dcv.insert(0, None)  # first fold is None
 
