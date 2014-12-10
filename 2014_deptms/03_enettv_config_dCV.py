@@ -45,10 +45,12 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
     if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [[GLOBAL.DATA[k][idx1, ...]
-                        for idx1 in resample[1:3]],
-                                    [GLOBAL.DATA_RESAMPLED[k][idx2, ...]
-                        for idx2 in resample[3:]]]
+        GLOBAL.DATA_RESAMPLED_VALIDMODEL = {k: [GLOBAL.DATA[k][idx, ...]
+                        for idx in resample[1:3]]
+                            for k in GLOBAL.DATA}
+        GLOBAL.DATA_RESAMPLED_SELECTMODEL = {k: [
+                    GLOBAL.DATA_RESAMPLED_VALIDMODEL[k][0][idx, ...]
+                        for idx in resample[3:]]
                             for k in GLOBAL.DATA}
         GLOBAL.N_FOLD = resample[0]
 
@@ -65,14 +67,14 @@ def mapper(key, output_collector):
     # GLOBAL.DATA ::= {"X":[Xtrain, Xtest], "y":[ytrain, ytest]}
     # key: list of parameters
     n_fold = GLOBAL.N_FOLD
-    Xcalib = GLOBAL.DATA_RESAMPLED["X"][0][0]
-    Xte = GLOBAL.DATA_RESAMPLED["X"][0][1]
-    Xtr = Xcalib["X"][1][0]
-    Xval = GLOBAL.DATA_RESAMPLED["X"][1][1]
-    ycalib = GLOBAL.DATA_RESAMPLED["y"][0][0]
-    yte = GLOBAL.DATA_RESAMPLED["y"][0][1]
-    ytr = GLOBAL.DATA_RESAMPLED["y"][1][0]
-    yval = GLOBAL.DATA_RESAMPLED["y"][1][1]
+    Xcalib = GLOBAL.DATA_RESAMPLED_VALIDMODEL["X"][0]
+    Xte = GLOBAL.DATA_RESAMPLED_VALIDMODEL["X"][1]
+    Xtr = GLOBAL.DATA_RESAMPLED_SELECTMODEL["X"][0]
+    Xval = GLOBAL.DATA_RESAMPLED_SELECTMODEL["X"][1]
+    ycalib = GLOBAL.DATA_RESAMPLED_VALIDMODEL["y"][0]
+    yte = GLOBAL.DATA_RESAMPLED_VALIDMODEL["y"][1]
+    ytr = GLOBAL.DATA_RESAMPLED_SELECTMODEL["y"][0]
+    yval = GLOBAL.DATA_RESAMPLED_SELECTMODEL["y"][1]
     print key, "Data shape:", Xcalib.shape, Xte.shape, Xtr.shape, Xval.shape,
     print ycalib.shape, yte.shape, ytr.shape, yval.shape
     STRUCTURE = GLOBAL.STRUCTURE
