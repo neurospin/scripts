@@ -62,23 +62,19 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 
 N_COMP = 3
 # Global penalty
-GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 1e1, 1e2])
+GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 1e1])
 # Relative penalties
 # 0.33 ensures that there is a case with TV = L1 = L2
 TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
 L1RATIO = np.array([1, 0.5, 1e-1, 1e-2, 1e-3, 0])
 
 PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
-SPARSE_PCA_PARAMS = list(product(['sparse_pca'],
-                                 GLOBAL_PENALTIES,
-                                 [0.0],
-                                 [1.0]))
 STRUCT_PCA_PARAMS = list(product(['struct_pca'],
                                  GLOBAL_PENALTIES,
                                  TVRATIO,
                                  L1RATIO))
 
-PARAMS = PCA_PARAMS + SPARSE_PCA_PARAMS + STRUCT_PCA_PARAMS
+PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS
 
 #############
 # Functions #

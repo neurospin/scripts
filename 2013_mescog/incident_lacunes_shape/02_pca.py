@@ -23,6 +23,8 @@ if not os.path.exists(OUTPUT_MOMENT_INVARIANT):
         os.makedirs(OUTPUT_MOMENT_INVARIANT)
 #OUTPUT_MOMENT_INVARIANT_CLUST = os.path.join(OUTPUT_MOMENT_INVARIANT, "pc1-pc2_clusters")
 OUTPUT_MOMENT_INVARIANT_PC12 = os.path.join(OUTPUT_MOMENT_INVARIANT, "figures", "mnts-inv_pc12")
+if not os.path.exists(os.path.dirname(OUTPUT_MOMENT_INVARIANT_PC12)):
+        os.makedirs(os.path.dirname(OUTPUT_MOMENT_INVARIANT_PC12))
 OUTPUT_MOMENT_INVARIANT_PCA = os.path.join(OUTPUT_MOMENT_INVARIANT, "mnts-inv_pca")
 
 OUTPUT_TENSOR_INVARIANT = os.path.join(BASE_PATH, "results_tensor_invariant")
@@ -30,7 +32,8 @@ if not os.path.exists(OUTPUT_TENSOR_INVARIANT):
         os.makedirs(OUTPUT_TENSOR_INVARIANT)
 OUTPUT_TENSOR_INVARIANT_PCA = os.path.join(OUTPUT_TENSOR_INVARIANT, "tnsr-inv_pca")
 OUTPUT_TENSOR_INVARIANT_PC12 = os.path.join(OUTPUT_TENSOR_INVARIANT, "figures", "tnsr-inv_pc12")
-
+if not os.path.exists(os.path.dirname(OUTPUT_TENSOR_INVARIANT_PC12)):
+        os.makedirs(os.path.dirname(OUTPUT_TENSOR_INVARIANT_PC12))
 #OUTPUT_ANISOTROPY_LIN_PLAN = os.path.join(BASE_PATH, "results_tensor_anisotropy_linear_planar")
 #if not os.path.exists(OUTPUT_ANISOTROPY_LIN_PLAN):
 #        os.makedirs(OUTPUT_ANISOTROPY_LIN_PLAN)
@@ -46,8 +49,12 @@ def force_marging():
     axes.set_xlim([xmin-xmarg, xmax+xmarg])
     axes.set_ylim([ymin-ymarg, ymax+ymarg])
 
-##############################################################################
+#############################################################################
+##
 ## PCA  on Moment invariants
+##
+#############################################################################
+
 # Sun et al. Automatic Inference of Sulcus Patterns Using 3D Moment Invariants
 # we noticed that I6 and I10 were presenting bimodal distributions for some sulci. One mode was made
 # up of positive values and the other one of negative values. There is no apparent
@@ -59,6 +66,7 @@ col_invar.remove('moment_invariant_5')
 col_invar.remove('moment_invariant_9')
 
 col_tensor = [col for col in moments.columns if col.count('tensor_invariant')]
+col_tensor.remove('tensor_invariant_mode')
 
 ## PCA
 X = moments[col_invar]
@@ -66,12 +74,14 @@ X -= X.mean(axis=0)
 pca = sklearn.decomposition.PCA()
 pca.fit(X)
 PCs = pca.transform(X)
+moments["lacune_id"] = ["%03d" % x for x in moments["lacune_id"]]
 
-pca_df = pd.DataFrame(np.hstack([moments["lacune_id"][:, np.newaxis], PCs]), columns=["lacune_id"] + ["PC%s"%i for i in xrange(1, PCs.shape[1]+1)])
+pca_df = pd.DataFrame(np.hstack([moments["lacune_id"][:, np.newaxis], PCs]),
+                      columns=["lacune_id"] + ["PC%02d"%i for i in xrange(1, PCs.shape[1]+1)])
 pca_df.to_csv(OUTPUT_MOMENT_INVARIANT_PCA+".csv", index=False)
 
 comp = pd.DataFrame(dict(
-    comp=["PC%s"%i for i in xrange(1, pca.components_.shape[1]+1)],
+    comp=["PC%02d"%i for i in xrange(1, pca.components_.shape[1]+1)],
     explained_variance_ratio = pca.explained_variance_ratio_,
     explained_variance_cumulative =np.cumsum(pca.explained_variance_ratio_)
 ))
@@ -110,6 +120,7 @@ plt.title("Tensor's invariant: FA"); plt.xlabel("PC1"); plt.ylabel("PC2")
 force_marging()
 plt.colorbar()
 pdf.savefig();plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_fa.svg")
+pdf.savefig();plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_fa.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
@@ -126,6 +137,7 @@ force_marging()
 plt.colorbar()
 pdf.savefig()  # saves the current figure into a pdf page
 plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_linear_anisotropy.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_linear_anisotropy.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
@@ -135,6 +147,7 @@ force_marging()
 plt.colorbar()
 pdf.savefig()  # saves the current figure into a pdf page
 plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_planar_anisotropy.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_planar_anisotropy.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
@@ -144,6 +157,7 @@ force_marging()
 plt.colorbar()
 pdf.savefig()  # saves the current figure into a pdf page
 plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_spherical_anisotropy.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_spherical_anisotropy.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
@@ -160,6 +174,7 @@ plt.title(r"Angle maximum inertia axis - perforator (Rad) $\in[0, \pi/2]$"); plt
 force_marging()
 pdf.savefig()
 plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_max.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_max.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')
@@ -169,24 +184,30 @@ plt.title(r"Angle minimum inertia axis - perforator (Rad) $\in[0, \pi/2]$"); plt
 force_marging()
 pdf.savefig()
 plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_min.svg")
+plt.savefig(OUTPUT_MOMENT_INVARIANT_PC12+"_perfo_angle_inertia_min.png")
 plt.clf()
 
 pdf.close()
 
 
-##############################################################################
+#############################################################################
+##
 ## PCA on Tensor invariants
+##
+#############################################################################
+
 X = moments[col_tensor]
 X -= X.mean(axis=0)
+X /= X.std(axis=0)
 pca = sklearn.decomposition.PCA()
 pca.fit(X)
 PCs = pca.transform(X)
 
-pca_df = pd.DataFrame(np.hstack([moments["lacune_id"][:, np.newaxis], PCs]), columns=["lacune_id"] + ["PC%s"%i for i in xrange(1, PCs.shape[1]+1)])
+pca_df = pd.DataFrame(np.hstack([moments["lacune_id"][:, np.newaxis], PCs]), columns=["lacune_id"] + ["PC%02d"%i for i in xrange(1, PCs.shape[1]+1)])
 pca_df.to_csv(OUTPUT_TENSOR_INVARIANT_PCA+".csv", index=False)
 
 comp = pd.DataFrame(dict(
-    comp=["PC%s"%i for i in xrange(1, pca.components_.shape[1]+1)],
+    comp=["PC%02d"%i for i in xrange(1, pca.components_.shape[1]+1)],
     explained_variance_ratio = pca.explained_variance_ratio_,
     explained_variance_cumulative =np.cumsum(pca.explained_variance_ratio_)
 ))
@@ -214,30 +235,42 @@ fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_fa, s=50)
 plt.colorbar()
 plt.title("Tensor's invariant: FA"); plt.xlabel("PC1"); plt.ylabel("PC2")
-pdf.savefig(); plt.clf()
+pdf.savefig()
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_fa.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_fa.png")
+plt.clf()
 
-fig = plt.figure()#; plt.axis('equal')
-plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_mode, s=50)
-plt.colorbar()
-plt.title("Tensor's invariant: Mode"); plt.xlabel("PC1"); plt.ylabel("PC2")
-pdf.savefig(); plt.clf()
+#fig = plt.figure()#; plt.axis('equal')
+#plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_mode, s=50)
+#plt.colorbar()
+#plt.title("Tensor's invariant: Mode"); plt.xlabel("PC1"); plt.ylabel("PC2")
+#pdf.savefig(); plt.clf()
 
 fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_linear_anisotropy, s=50)
 plt.colorbar()
 plt.title("Tensor's invariant: linear anisotropy"); plt.xlabel("PC1"); plt.ylabel("PC2")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_linear_anisotropy.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_linear_anisotropy.png")
 pdf.savefig(); plt.clf()
 
 fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_planar_anisotropy, s=50)
+plt.colorbar()
 plt.title("Tensor's invariant: planar anisotropy"); plt.xlabel("PC1"); plt.ylabel("PC2")
-pdf.savefig(); plt.clf()
+pdf.savefig()
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_planar_anisotropy.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_planar_anisotropy.png")
+plt.clf()
 
 fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.tensor_invariant_spherical_anisotropy, s=50)
 plt.colorbar()
 plt.title("Tensor's invariant: spherical anisotropy"); plt.xlabel("PC1"); plt.ylabel("PC2")
-pdf.savefig(); plt.clf()
+pdf.savefig()
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_spherical_anisotropy.svg")
+plt.savefig(OUTPUT_TENSOR_INVARIANT_PC12+"_spherical_anisotropy.png")
+plt.clf()
 
 fig = plt.figure()#; plt.axis('equal')
 plt.scatter(PCs[:, 0], PCs[:, 1], c=moments.compactness, s=50)
@@ -265,8 +298,12 @@ plt.clf()
 
 pdf.close()
 
-##############################################################################
+#############################################################################
+##
 ## 2D linear x planar
+##
+#############################################################################
+
 pdf = PdfPages(OUTPUT_ANISOTROPY_LIN_PLAN_2D+".pdf")
 
 #mi, mx = np.min([moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy]), np.max([moments.tensor_invariant_linear_anisotropy, moments.tensor_invariant_planar_anisotropy])
@@ -293,6 +330,7 @@ plt.title("FA")
 plt.xlabel("Linear"); plt.ylabel("Planar")
 plt.colorbar()
 pdf.savefig(); plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_fa.svg")
+pdf.savefig(); plt.savefig(OUTPUT_ANISOTROPY_LIN_PLAN_2D+"_fa.png")
 plt.clf()
 
 fig = plt.figure(); plt.axis('equal')

@@ -40,24 +40,34 @@ ima_filenames = glob.glob(os.path.join(INPUT_IMAGES, "*", "*LacBL.nii*"))
 brain_mesh_lacunes = None
 brain_mesh_perfo = None
 
-for ima_filename in ima_filenames: #filename = filenames[0]
+for ima_filename in ima_filenames: #ima_filename = ima_filenames[0]
     lacune_id = int(os.path.basename(os.path.dirname(ima_filename)))
     print lacune_id
+    ### =======================================================================
+    ### I/O filenames
+    ### =======================================================================
+    #mesh_lacunes__max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
+    #mesh_lacunes_perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_perfo_to_yaxis.nii.gii")
+    #mesh_perfo__native_filename = ima_perfo__filename.replace(".nii.gz", "_native.gii")
+    #mesh_perfo__centered_filename = ima_perfo__filename.replace(".nii.gz", "_centered.gii")
+    #mesh_perfo__max_inertia_to_yaxis_filename = ima_perfo__filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
     mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_native_1_0.gii")
-    ima_perforator_filename = os.path.join(os.path.dirname(ima_filename), "%03d-Perf.nii.gz" % lacune_id)
-    if not os.path.exists(ima_perforator_filename):
-        raise Exception("File %s not found" % ima_perforator_filename)
-    #mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_1_0.nii.gii")
-    mesh_lacunes_max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
-    mesh_lacunes_perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_perfo_to_yaxis.nii.gii")
-    mesh_perfo_native_filename = ima_perforator_filename.replace(".nii.gz", "_native.gii")
-    mesh_perfo_centered_filename = ima_perforator_filename.replace(".nii.gz", "_centered.gii")
-#    mesh_filename = ima_filename.replace(".nii.gz", "_1_0.nii.gii")
-#    mesh_lacunes_max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_1_0_lacunes_max_inertia_to_yaxis.gii")
-#    mesh_lacunes_perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_1_0_lacunes_perfo_to_yaxis.nii.gii")
-#    mesh_filename_perfo = ima_filename.replace(".nii.gz", "_perfo.gii")
-#    mesh_filename_perfo = ima_filename.replace(".nii.gz", "_perfo.gii")
+    ima_perfo__filename = os.path.join(os.path.dirname(ima_filename), "%03d-Perf.nii.gz" % lacune_id)
+    mesh_lacunes__max_inertia_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
+    mesh_lacunes__perfo_to_yaxis_filename = ima_filename.replace(".nii.gz", "_centered_perfo_to_yaxis.nii.gii")
+    mesh_perfo__native_filename = ima_perfo__filename.replace(".nii.gz", "_native.gii")
+    mesh_perfo__centered_filename = ima_perfo__filename.replace(".nii.gz", "_centered.gii")
+    mesh_perfo__max_inertia_to_yaxis_filename = ima_perfo__filename.replace(".nii.gz", "_centered_max_inertia_to_yaxis.gii")
 
+    #mesh_lacunes_filename = ima_filename.replace(".nii.gz", "_native_1_0.gii")
+    #ima_perfo__filename = os.path.join(os.path.dirname(ima_filename), "%03d-Perf.nii.gz" % lacune_id)
+    if not os.path.exists(ima_perfo__filename):
+        raise Exception("File %s not found" % ima_perfo__filename)
+
+
+    ### =======================================================================
+    ### Read info from csv
+    ### =======================================================================
     m = data[data["lacune_id"] == lacune_id]
     if len(m) == 0:
         continue
@@ -66,12 +76,26 @@ for ima_filename in ima_filenames: #filename = filenames[0]
     v1 = m[["orientation_v1_x", "orientation_v1_y", "orientation_v1_z"]].values.T
     v2 = m[["orientation_v2_x", "orientation_v2_y", "orientation_v2_z"]].values.T
     v3 = m[["orientation_v3_x", "orientation_v3_y", "orientation_v3_z"]].values.T
-    perfo = unit_vector(np.array(m[["perfo_orientation_x",
+    perfo_vec = unit_vector(np.array(m[["perfo_orientation_x",
                                     "perfo_orientation_y",
                                     "perfo_orientation_z"]]).ravel())
-    ###
-    ### 1) QC check center_of_mass == the one computed by AimsMoments
-    ###
+    perfo_ext1 = m[['perfo_ext1_x', 'perfo_ext1_y', 'perfo_ext1_z']].values.ravel()
+    perfo_ext2 = m[['perfo_ext2_x', 'perfo_ext2_y', 'perfo_ext2_z']].values.ravel()
+
+
+    ### =======================================================================
+    ### Mesh perforator by a cylindre, centered on the lacune gravity center
+    ### =======================================================================
+    mesh_perfo = aims.SurfaceGenerator.cylinder(perfo_ext1, perfo_ext2, .5, .5, 100, 1, 1)
+    aims.write(mesh_perfo, mesh_perfo__native_filename)
+    perfo_ext1_centered = perfo_ext1 - mass_center
+    perfo_ext2_centered = perfo_ext2 - mass_center
+    mesh_perfo_centered = aims.SurfaceGenerator.cylinder(perfo_ext1_centered, perfo_ext2_centered, 1, 1, 100, 1, 1)
+    aims.write(mesh_perfo_centered, mesh_perfo__centered_filename)
+
+    ### =======================================================================
+    ### QC check center_of_mass == the one computed by AimsMoments
+    ### =======================================================================
     ima = aims.Reader().read(ima_filename)
     mesh_lacune = aims.Reader().read(mesh_lacunes_filename)
     mesh_xyz = np.array(mesh_lacune.vertex())
@@ -100,11 +124,11 @@ for ima_filename in ima_filenames: #filename = filenames[0]
     assert np.allclose(xyz_mm.mean(axis=0), [0, 0, 0])
     # Find rotation that aligns perforator to y-axis
     y_axis = unit_vector(np.array([0., 1., 0.]))
-    Rperf_align = rotation_matrix(angle_between_vectors(perfo, y_axis), vector_product(perfo, y_axis))
-    # check perfo is aligned to y-axis
+    Rperf_align = rotation_matrix(angle_between_vectors(perfo_vec, y_axis), vector_product(perfo_vec, y_axis))
+    # check perfo_vec is aligned to y-axis
     assert np.allclose(unit_vector(y_axis),
-                       unit_vector(np.dot(perfo, Rperf_align[:3,:3].T)))
-    # Rotate lacune with perfo to y-axis rotation
+                       unit_vector(np.dot(perfo_vec, Rperf_align[:3,:3].T)))
+    # Rotate lacune with perfo_vec to y-axis rotation
     xyz_perfo = np.dot(xyz_mm, Rperf_align[:3,:3].T)
     # Find rotation that aligns ax inertia in (x-z plan) to x-axis
     x_axis = unit_vector(np.array([1., 0, 0.]))
@@ -126,16 +150,12 @@ for ima_filename in ima_filenames: #filename = filenames[0]
     # Apply transfo to mesh
     mesh_xyz_perfo_to_yaxis = np.dot((mesh_xyz - mass_center),  Rcomp[:3,:3].T)
     mesh_processing.mesh_from_arrays(mesh_xyz_perfo_to_yaxis,
-                                     mesh_tri, path=mesh_lacunes_perfo_to_yaxis_filename)
+                                     mesh_tri, path=mesh_perfo__max_inertia_to_yaxis_filename)
 
     ### =======================================================================
     ### Rotate mesh such:
-    ### Max inertia is aligned to y-axis
+    ### Max inertia is aligned to y-axis: v1 => y, 2 => x, v3 => z
     ### =======================================================================
-    # Compute rotation such
-    #v1 => y
-    #v2 => x
-    #v3 => z
     V = np.hstack([v2, v1, v3])
     # Find rotation matrix
     A = np.zeros((9, 9))
@@ -159,20 +179,16 @@ for ima_filename in ima_filenames: #filename = filenames[0]
     for i in xrange(mesh_xyz.shape[0]):
         mesh_xyz_new[i, :] = np.dot(rot, (mesh_xyz[i, :] - mass_center))
     mesh_processing.mesh_from_arrays(mesh_xyz_new, mesh_tri,
-                                     path=mesh_lacunes_max_inertia_to_yaxis_filename)
+                                     path=mesh_lacunes__max_inertia_to_yaxis_filename)
+    # rotate perforator mesh as well
+    mesh_perfo_centered_xyz = np.array(mesh_perfo_centered.vertex())
+    mesh_perfo_centered_tri = np.array(mesh_perfo_centered.polygon())
+    mesh_perfo_centered_xyz_new = np.zeros(mesh_perfo_centered_xyz.shape)
+    for i in xrange(mesh_perfo_centered_xyz.shape[0]):
+        mesh_perfo_centered_xyz_new[i, :] = np.dot(rot, (mesh_perfo_centered_xyz[i, :]))
+    mesh_processing.mesh_from_arrays(mesh_perfo_centered_xyz_new, mesh_perfo_centered_tri,
+                                     path=mesh_perfo__max_inertia_to_yaxis_filename)
 
-    ### =======================================================================
-    ### Mesh perforator by a cylindre, centered on the lacune gravity center
-    ### =======================================================================
-    ext1 = m[['perfo_ext1_x', 'perfo_ext1_y', 'perfo_ext1_z']].values.ravel()
-    ext2 = m[['perfo_ext2_x', 'perfo_ext2_y', 'perfo_ext2_z']].values.ravel()
-    mesh_perfo = aims.SurfaceGenerator.cylinder(ext1, ext2, .5, .5, 100, 1, 1)
-    aims.write(mesh_perfo, mesh_perfo_native_filename)
-    ext1 -= mass_center
-    ext2 -= mass_center
-    #print ext1, ext2, "=>",mesh_filename_perfo
-    mesh_perfo_centered = aims.SurfaceGenerator.cylinder(ext1, ext2, 1, 1, 100, 1, 1)
-    aims.write(mesh_perfo_centered, mesh_perfo_centered_filename)
 
 
 """
