@@ -201,82 +201,82 @@ if __name__ == "__main__":
    penalty_start = 3
    dilatation = ["dilatation_masks", "dilatation_within-brain_masks"]
 
-#########################################################################
-## Build config file for all couple (Modality, roi)
-
-for dilat in dilatation:
-    if dilat == "dilatation_masks":
-        dilat_process = "dilatation"
-    elif dilat == "dilatation_within-brain_masks":
-        dilat_process = "dilatation_within-brain"
-    WD = os.path.join(ENETTV_PATH, dilat)
-
-    if not os.path.exists(WD):
-        os.makedirs(WD)
-
-    INPUT_DATA_X = os.path.join(DATASET_PATH, dilat,
-                                'X_' + dilat_process + '.npy')
-    INPUT_DATA_y = os.path.join(DATASET_PATH, dilat,
-                                'y.npy')
-    INPUT_MASK = os.path.join(DATASET_PATH, dilat,
-                              'mask_' + dilat_process + '.nii')
-    # copy X, y, mask file names in the current directory
-    shutil.copy2(INPUT_DATA_X, os.path.join(WD, 'X.npy'))
-    shutil.copy2(INPUT_DATA_y, WD)
-    shutil.copy2(INPUT_MASK, os.path.join(WD, 'mask.nii'))
-    #################################################################
-    ## Create config file
-    y = np.load(INPUT_DATA_y)
-    prob_class1 = np.count_nonzero(y) / float(len(y))
-
-    SEED = 23071991
-    cv = [[tr.tolist(), te.tolist()]
-            for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
-              shuffle=True, random_state=SEED)]
-    cv.insert(0, None)  # first fold is None
-
-    INPUT_DATA_X = 'X.npy'
-    INPUT_DATA_y = 'y.npy'
-    INPUT_MASK = 'mask.nii'
-        # parameters grid
-    # Re-run with
-    l1 = np.array([[0], [0.3], [0.7], [1]])
-    l1l2tv = np.hstack([l1, l1 - l1, 1 - l1])
-    alphas = [.01, .05, .1, .5, 1.]
-    k_ratio = 1
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
-                                                   l1l2tv.shape[0]),
-                                        l1l2tv] for alpha in alphas])
-    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv,
-                                         np.array([[k_ratio]] * \
-                                                 alphal1l2tv.shape[0])]])
-    params = [params.tolist() for params in alphal1l2tvk]
-    user_func_filename = os.path.join(os.environ["HOME"], "git",
-        "scripts", "2014_deptms", "03_enettv_config_maskdep.py")
-    print "user_func", user_func_filename
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
-                  params=params, resample=cv,
-                  dilatation_pocess=dilat_process,
-                  structure=INPUT_MASK,
-                  map_output="results",
-                  user_func=user_func_filename,
-                  reduce_group_by="params",
-                  reduce_output="results.csv",
-                  penalty_start=penalty_start,
-                  prob_class1=prob_class1)
-    json.dump(config, open(os.path.join(WD, "config.json"), "w"))
-
-    #################################################################
-    # Build utils files: sync (push/pull) and PBS
-    import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-    ################################################################
-    # Sync to cluster
-    print "Sync data to gabriel.intra.cea.fr: "
-    os.system(sync_push_filename)
+    #########################################################################
+    ## Build config file for all couple (Modality, roi)
+    
+    for dilat in dilatation:
+        if dilat == "dilatation_masks":
+            dilat_process = "dilatation"
+        elif dilat == "dilatation_within-brain_masks":
+            dilat_process = "dilatation_within-brain"
+        WD = os.path.join(ENETTV_PATH, dilat)
+    
+        if not os.path.exists(WD):
+            os.makedirs(WD)
+    
+        INPUT_DATA_X = os.path.join(DATASET_PATH, dilat,
+                                    'X_' + dilat_process + '.npy')
+        INPUT_DATA_y = os.path.join(DATASET_PATH, dilat,
+                                    'y.npy')
+        INPUT_MASK = os.path.join(DATASET_PATH, dilat,
+                                  'mask_' + dilat_process + '.nii')
+        # copy X, y, mask file names in the current directory
+        shutil.copy2(INPUT_DATA_X, os.path.join(WD, 'X.npy'))
+        shutil.copy2(INPUT_DATA_y, WD)
+        shutil.copy2(INPUT_MASK, os.path.join(WD, 'mask.nii'))
+        #################################################################
+        ## Create config file
+        y = np.load(INPUT_DATA_y)
+        prob_class1 = np.count_nonzero(y) / float(len(y))
+    
+        SEED = 23071991
+        cv = [[tr.tolist(), te.tolist()]
+                for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
+                  shuffle=True, random_state=SEED)]
+        cv.insert(0, None)  # first fold is None
+    
+        INPUT_DATA_X = 'X.npy'
+        INPUT_DATA_y = 'y.npy'
+        INPUT_MASK = 'mask.nii'
+            # parameters grid
+        # Re-run with
+        l1 = np.array([[0], [0.3], [0.7], [1]])
+        l1l2tv = np.hstack([l1, l1 - l1, 1 - l1])
+        alphas = [.01, .05, .1, .5, 1.]
+        k_ratio = 1
+        alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
+                                                       l1l2tv.shape[0]),
+                                            l1l2tv] for alpha in alphas])
+        alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv,
+                                             np.array([[k_ratio]] * \
+                                                     alphal1l2tv.shape[0])]])
+        params = [params.tolist() for params in alphal1l2tvk]
+        user_func_filename = os.path.join(os.environ["HOME"], "git",
+            "scripts", "2014_deptms", "03_enettv_config_maskdep.py")
+        print "user_func", user_func_filename
+        config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+                      params=params, resample=cv,
+                      dilatation_pocess=dilat_process,
+                      structure=INPUT_MASK,
+                      map_output="results",
+                      user_func=user_func_filename,
+                      reduce_group_by="params",
+                      reduce_output="results.csv",
+                      penalty_start=penalty_start,
+                      prob_class1=prob_class1)
+        json.dump(config, open(os.path.join(WD, "config.json"), "w"))
+    
+        #################################################################
+        # Build utils files: sync (push/pull) and PBS
+        import brainomics.cluster_gabriel as clust_utils
+        sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+            clust_utils.gabriel_make_sync_data_files(WD)
+        cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+        clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+        ################################################################
+        # Sync to cluster
+        print "Sync data to gabriel.intra.cea.fr: "
+        os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
