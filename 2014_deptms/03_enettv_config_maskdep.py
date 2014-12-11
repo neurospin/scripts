@@ -8,17 +8,14 @@ Created on Thu Dec 11 09:39:02 2014
 import os
 import json
 import numpy as np
-import pandas as pd
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score
-from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 from parsimony.algorithms.utils import Info
 import parsimony.functions.nesterov.tv as tv_helper
 import shutil
-from scipy import sparse
 from scipy.stats import binom_test
 
 from collections import OrderedDict
@@ -61,7 +58,6 @@ def mapper(key, output_collector):
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
     print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
     STRUCTURE = GLOBAL.STRUCTURE
-    n_voxels = np.count_nonzero(STRUCTURE.get_data())
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
     penalty_start = GLOBAL.PENALTY_START
@@ -189,31 +185,31 @@ def run_all(config):
 
 if __name__ == "__main__":
 
-   #########################################################################
+    #########################################################################
     ## load data
-   MASKDEP_PATH = "/neurospin/brainomics/2014_deptms/maskdep"
+    MASKDEP_PATH = "/neurospin/brainomics/2014_deptms/maskdep"
 
-   DATASET_PATH = os.path.join(MASKDEP_PATH,    "datasets")
-   ENETTV_PATH = os.path.join(MASKDEP_PATH, 'results_enettv')
-   if not os.path.exists(ENETTV_PATH):
-       os.makedirs(ENETTV_PATH)
+    DATASET_PATH = os.path.join(MASKDEP_PATH,    "datasets")
+    ENETTV_PATH = os.path.join(MASKDEP_PATH, 'results_enettv')
+    if not os.path.exists(ENETTV_PATH):
+        os.makedirs(ENETTV_PATH)
 
-   penalty_start = 3
-   dilatation = ["dilatation_masks", "dilatation_within-brain_masks"]
+    penalty_start = 3
+    dilatation = ["dilatation_masks", "dilatation_within-brain_masks"]
 
     #########################################################################
     ## Build config file for all couple (Modality, roi)
-    
+
     for dilat in dilatation:
         if dilat == "dilatation_masks":
             dilat_process = "dilatation"
         elif dilat == "dilatation_within-brain_masks":
             dilat_process = "dilatation_within-brain"
         WD = os.path.join(ENETTV_PATH, dilat)
-    
+
         if not os.path.exists(WD):
             os.makedirs(WD)
-    
+
         INPUT_DATA_X = os.path.join(DATASET_PATH, dilat,
                                     'X_' + dilat_process + '.npy')
         INPUT_DATA_y = os.path.join(DATASET_PATH, dilat,
@@ -228,17 +224,17 @@ if __name__ == "__main__":
         ## Create config file
         y = np.load(INPUT_DATA_y)
         prob_class1 = np.count_nonzero(y) / float(len(y))
-    
+
         SEED = 23071991
         cv = [[tr.tolist(), te.tolist()]
                 for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
                   shuffle=True, random_state=SEED)]
         cv.insert(0, None)  # first fold is None
-    
+
         INPUT_DATA_X = 'X.npy'
         INPUT_DATA_y = 'y.npy'
         INPUT_MASK = 'mask.nii'
-            # parameters grid
+        # parameters grid
         # Re-run with
         l1 = np.array([[0], [0.3], [0.7], [1]])
         l1l2tv = np.hstack([l1, l1 - l1, 1 - l1])
@@ -265,7 +261,7 @@ if __name__ == "__main__":
                       penalty_start=penalty_start,
                       prob_class1=prob_class1)
         json.dump(config, open(os.path.join(WD, "config.json"), "w"))
-    
+
         #################################################################
         # Build utils files: sync (push/pull) and PBS
         import brainomics.cluster_gabriel as clust_utils
