@@ -307,16 +307,16 @@ if __name__ == "__main__":
                                "w"))
 
         #################################################################
-#        # Build utils files: sync (push/pull) and PBS
-#        import brainomics.cluster_gabriel as clust_utils
-#        sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-#            clust_utils.gabriel_make_sync_data_files(WD)
-#        cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-#        clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-#        ################################################################
-#        # Sync to cluster
-#        print "Sync data to gabriel.intra.cea.fr: "
-#        os.system(sync_push_filename)
+        # Build utils files: sync (push/pull) and PBS
+        import brainomics.cluster_gabriel as clust_utils
+        sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+            clust_utils.gabriel_make_sync_data_files(WD)
+        cmd = "mapreduce.py --map  %s/config_more_params.json" % WD_CLUSTER
+        clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+        ################################################################
+        # Sync to cluster
+        print "Sync data to gabriel.intra.cea.fr: "
+        os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
