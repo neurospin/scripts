@@ -69,7 +69,7 @@ def mapper(key, output_collector):
     print "l1:%f, l2:%f, tv:%f, k_ratio:%f" % (l1, l2, tv, k_ratio)
 
     n_voxels = np.count_nonzero(STRUCTURE.get_data())
-    if k_ratio != 1:
+    if k_ratio != -1:
         k = n_voxels * k_ratio
         k = int(k)
         aov = SelectKBest(k=k)
@@ -283,7 +283,7 @@ if __name__ == "__main__":
 #        l1 = np.array([[0], [0.3], [0.7], [1]])
 #        l1l2tv = np.hstack([l1, l1 - l1, 1 - l1])
 #        alphas = [.01, .05, .1, .5, 1.]
-#        k_ratio = 1
+#        k_ratio = -1
 #        alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
 #                                                       l1l2tv.shape[0]),
 #                                            l1l2tv] for alpha in alphas])
