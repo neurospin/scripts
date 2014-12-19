@@ -140,7 +140,7 @@ for MODALITY in MODALITIES:
         # resample one anat
         fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s" % \
         ("/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz",
-        cur["mri_path"],
+        imagefile_name,
         os.path.join(BASE_DATA_PATH, "images", "atlases",
                      "MNI152_T1_1mm_brain.nii.gz"))
 

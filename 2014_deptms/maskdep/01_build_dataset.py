@@ -35,12 +35,12 @@ BASE_PATH = "/neurospin/brainomics/2014_deptms/"
 BASE_DATA_PATH = os.path.join(BASE_PATH,    "base_data")
 
 INPUT_CSV = os.path.join(BASE_DATA_PATH,    "clinic", "deprimPetInfo.csv")
-INPUT_ROIS_CSV = os.path.join(BASE_DATA_PATH,    "ROI_labels.csv")
+INPUT_ROIS_CSV = os.path.join(BASE_DATA_PATH,         "ROI_labels.csv")
 
-OUTPUT_PATH = os.path.join(BASE_PATH,    "maskdep")
+OUTPUT_PATH = os.path.join(BASE_PATH,        "maskdep")
 DATASETS_PATH = os.path.join(OUTPUT_PATH,    "datasets")
 DILATE_PATH = os.path.join(DATASETS_PATH,    "dilatation_masks")
-DILATE_WB_PATH = os.path.join(DATASETS_PATH,    "dilatation_within-brain_masks")
+DILATE_WB_PATH = os.path.join(DATASETS_PATH, "dilatation_within-brain_masks")
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
 if not os.path.exists(DATASETS_PATH):

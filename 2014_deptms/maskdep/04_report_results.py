@@ -23,8 +23,8 @@ from brainomics import plot_utilities
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_deptms/maskdep"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR, "results_enettv")
 
-INPUT_DILATE_DIR = os.path.join(INPUT_DIR, 'dilatation_masks')
-INPUT_RESULTS = os.path.join(INPUT_DILATE_DIR, "results.csv")
+INPUT_DILATE_DIR = os.path.join(INPUT_DIR, 'dilatation_within-brain_masks')
+INPUT_RESULTS = os.path.join(INPUT_DILATE_DIR, "results_more_params.csv")
 
 MASK_FILENAME = os.path.join(INPUT_DILATE_DIR,
                              "mask.nii")
@@ -37,7 +37,7 @@ penalty_start = 3
 ### Create a file beta.nii to read it with anatomist ##
 #######################################################
 for key_path in glob.glob(os.path.join(INPUT_DILATE_DIR,
-                                       'results/0/*')):
+                                       'results_more_params/0/*')):
     print key_path
     k = float(os.path.basename(key_path).split('_')[-1])
     beta_file = np.load(os.path.join(key_path, 'beta.npz'))
