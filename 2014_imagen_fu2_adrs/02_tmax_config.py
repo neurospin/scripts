@@ -35,7 +35,12 @@ def mapper(key, output_collector):
     muols.fit()
     tvals_perm, _, _ = muols.t_test(contrasts=contrast, pval=False,
                                             two_tailed=True)
-    output_collector.collect(key, dict(tvals_perm=tvals_perm))
+
+    ret = dict(tvals_perm=tvals_perm, confirm="ok", key=key)
+    if output_collector:
+        output_collector.collect(key, ret)
+    else:
+        return ret
 
 
 def reducer(key, values):
