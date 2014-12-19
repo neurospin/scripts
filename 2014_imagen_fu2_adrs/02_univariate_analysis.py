@@ -36,8 +36,8 @@ del X
 
 print "ok read"
 
-##############################################################################
-# BASIC MULM
+###############################################################################
+## BASIC MULM
 DesignMat = np.zeros((Z.shape[0], Z.shape[1] + 1))
 DesignMat[:, 0] = (y.ravel() - y.ravel().mean())  # y
 DesignMat[:, 1] = 1  # intercept
@@ -46,7 +46,7 @@ DesignMat[:, 3] = Z[:, 2]  # gender
 
 from mulm import MUOLS
 contrasts = np.array([[1, 0, 0, 0]])
-
+#
 #muols = MUOLS(Y=Y, X=DesignMat)
 #print "ok muols"
 #muols.fit()
@@ -117,5 +117,4 @@ arr[mask_arr] = log10_pvals_perm[0]
 out_im = nib.Nifti1Image(arr, affine=mask_ima.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE,
          "ptmax-log10_adrs.nii.gz"))
-     
 print "ok permutations"

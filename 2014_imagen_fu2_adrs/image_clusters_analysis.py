@@ -258,8 +258,8 @@ if __name__ == "__main__":
     fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
     
-    atlas_cort_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_dataset/atlas/HarvardOxford-cort-maxprob-thr0-1mm-nn.nii.gz"
-    atlas_sub_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_dataset/atlas/HarvardOxford-sub-maxprob-thr0-1mm-nn.nii.gz"
+    atlas_cort_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_datasets/atlas/HarvardOxford-cort-maxprob-thr0-1mm-nn.nii.gz"
+    atlas_sub_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_datasets/atlas/HarvardOxford-sub-maxprob-thr0-1mm-nn.nii.gz"
 
     # parse command line options
     #parser = optparse.OptionParser(description=__doc__)
