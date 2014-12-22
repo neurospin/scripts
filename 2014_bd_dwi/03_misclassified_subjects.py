@@ -106,15 +106,19 @@ for dataset in INPUT_DATASETS:
             full_results_dir = os.path.join(dataset_full_dir,
                                             job["output dir"])
 
-            y_pred_file = os.path.join(full_results_dir,
-                                       INPUT_PRED_FILENAME)
-            print "Loading", y_pred_file
-            y_pred = np.load(y_pred_file)['arr_0']
+            y_pred_filename = os.path.join(full_results_dir,
+                                           INPUT_PRED_FILENAME)
+            print "Loading", y_pred_filename
+            y_pred_file = np.load(y_pred_filename)
+            y_pred = y_pred_file['arr_0']
+            y_pred_file.close()
 
-            y_true_file = os.path.join(full_results_dir,
-                                       INPUT_TRUE_FILENAME)
-            print "Loading", y_true_file
-            y_true = np.load(y_true_file)['arr_0']
+            y_true_filename = os.path.join(full_results_dir,
+                                           INPUT_TRUE_FILENAME)
+            print "Loading", y_true_filename
+            y_true_file = np.load(y_true_filename)
+            y_true = y_true_file['arr_0']
+            y_true_file.close()
 
             param_res.loc[subjects] = (y_pred != y_true)
         missclassif.loc[loc] = param_res['classif']
