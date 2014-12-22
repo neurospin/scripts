@@ -80,26 +80,31 @@ for dataset in INPUT_DATASETS:
                         for params in params_list]
         index = pd.MultiIndex.from_tuples(index_levels,
                                           names=['dataset',
-                                                 'a', 'tv', 'l1', 'l2',
+                                                 'a', 'l1', 'l2', 'tv',
                                                  'k'])
-        missclassif = pd.DataFrame(columns=subjects_id,
+        data = np.empty((len(index), len(subjects_id)),
+                        dtype='int')
+        data[:] = -1
+        missclassif = pd.DataFrame(data=data,
+                                   columns=subjects_id,
                                    index=index,
-                                   dtype='bool')
+                                   dtype='int')
 
     # Group by params
     groups = jobs.groupby("params")
 
-    # Reload data and count misclassifications per subject
-    # We skip resample[0] (whole population)
+    # Inspect folds for each parameter (param_jobs are the jobs of this
+    # parameter)
     for params, param_jobs in groups:
+        loc = (dataset, ) + params
+        param_res = pd.DataFrame(index=subjects_id,
+                                 columns=['classif'],
+                                 dtype='bool')
+        # Reload data and detect misclassifications
+        # We skip resample[0] (whole population)
         for i, job in param_jobs.iterrows():
-            param_res = pd.DataFrame(index=subjects_id,
-                                     columns=['classif'],
-                                     dtype='bool')
             if job["resample_index"] == 0:
                 continue
-                params = job.params
-            loc = (dataset, ) + params
             resample_index = job.resample_index
             subjects = subjects_id[resamples_list[resample_index][1]]
 
@@ -121,7 +126,7 @@ for dataset in INPUT_DATASETS:
             y_true_file.close()
 
             param_res.loc[subjects] = (y_pred != y_true)
-        missclassif.loc[loc] = param_res['classif']
+        missclassif.loc[loc] = param_res['classif'].astype('int')
 
 # Store results
 missclassif.to_csv(OUTPUT_MISSCLASSIF_FILE)
