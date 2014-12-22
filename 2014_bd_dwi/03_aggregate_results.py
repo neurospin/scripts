@@ -52,14 +52,14 @@ for dataset in INPUT_DATASETS:
         N += n
         # Add a column for SNR
         df['dataset'] = pd.Series.from_array(np.asarray([dataset]*n),
-                                         name='Dataset',
-                                         index=pd.Index(np.arange(n)))
+                                             name='Dataset',
+                                             index=pd.Index(np.arange(n)))
         # Append to large df
         if total_df is None:
             total_df = df
         else:
             total_df = total_df.append(df)
-# Create multiindex (dataset, params, k, a, tv, l1, l2)
-total_df.set_index(['dataset', 'params', 'k', 'a', 'tv', 'l1', 'l2'],
+# Create multiindex (dataset, params, a, l1, l2, tv, k)
+total_df.set_index(['dataset', 'params', 'a', 'l1', 'l2', 'tv', 'k'],
                    inplace=True, drop=True)
 total_df.to_csv(OUTPUT_RESULTS_FILE)
