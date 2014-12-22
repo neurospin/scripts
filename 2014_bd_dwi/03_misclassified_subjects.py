@@ -96,27 +96,28 @@ for dataset in INPUT_DATASETS:
             param_res = pd.DataFrame(index=subjects_id,
                                      columns=['classif'],
                                      dtype='bool')
-            if job["resample_index"] != 0:
+            if job["resample_index"] == 0:
+                continue
                 params = job.params
-                index = (dataset, ) + params
-                resample_index = job.resample_index
-                subjects = subjects_id[resamples_list[resample_index][1]]
+            loc = (dataset, ) + params
+            resample_index = job.resample_index
+            subjects = subjects_id[resamples_list[resample_index][1]]
 
-                full_results_dir = os.path.join(dataset_full_dir,
-                                                job["output dir"])
+            full_results_dir = os.path.join(dataset_full_dir,
+                                            job["output dir"])
 
-                y_pred_file = os.path.join(full_results_dir,
-                                           INPUT_PRED_FILENAME)
-                print "Loading", y_pred_file
-                y_pred = np.load(y_pred_file)['arr_0']
+            y_pred_file = os.path.join(full_results_dir,
+                                       INPUT_PRED_FILENAME)
+            print "Loading", y_pred_file
+            y_pred = np.load(y_pred_file)['arr_0']
 
-                y_true_file = os.path.join(full_results_dir,
-                                           INPUT_TRUE_FILENAME)
-                print "Loading", y_true_file
-                y_true = np.load(y_true_file)['arr_0']
+            y_true_file = os.path.join(full_results_dir,
+                                       INPUT_TRUE_FILENAME)
+            print "Loading", y_true_file
+            y_true = np.load(y_true_file)['arr_0']
 
-                param_res.loc[subjects] = (y_pred != y_true)
-            missclassif.loc[index] = param_res['classif']
+            param_res.loc[subjects] = (y_pred != y_true)
+        missclassif.loc[loc] = param_res['classif']
 
 # Store results
 missclassif.to_csv(OUTPUT_MISSCLASSIF_FILE)
