@@ -266,7 +266,7 @@ if __name__ == "__main__":
         config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                       params=params, resample=cv,
                       structure=INPUT_MASK,
-                      map_output="results",
+                      map_output="results_less_range",
                       user_func=user_func_filename,
                       reduce_group_by="params",
                       reduce_output="results_less_range.csv",
