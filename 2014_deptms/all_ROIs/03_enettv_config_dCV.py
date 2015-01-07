@@ -29,7 +29,6 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     GLOBAL.PARAMS = config["params"]
-    GLOBAL.DILATATION = config['dilatation']
     GLOBAL.MAP_OUTPUT = config['map_output']
     GLOBAL.OUTPUT_VALIDATION = config['output_validation']
     GLOBAL.OUTPUT_SELECTION = config['output_selection']
@@ -38,6 +37,7 @@ def load_globals(config):
     STRUCTURE = nibabel.load(config["structure"])
     GLOBAL.A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.STRUCTURE = STRUCTURE
+    GLOBAL.ROI = config["roi"]
 
 
 def resample(config, resample_nb):
@@ -129,15 +129,16 @@ def reducer(key, values):
     # values = [mapreduce.OutputCollector(p)
     #        for p in glob.glob("/neurospin/brainomics/2014_deptms/MRI/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
+    roi = GLOBAL.ROI
     criteria = {'recall_mean': [np.argmax, np.max],
-                'min_recall': [np.argmax, np.max], 
+                'min_recall': [np.argmax, np.max],
                 'max_pvalue_recall': [np.argmin, np.min]}
-    dilatation = GLOBAL.DILATATION
     output_validation = GLOBAL.OUTPUT_VALIDATION
     output_selection = GLOBAL.OUTPUT_SELECTION
     map_output = GLOBAL.MAP_OUTPUT
-    BASE = os.path.join("/neurospin/brainomics/2014_deptms/maskdep",
-                        "results_enettv", dilatation, map_output)
+    BASE = os.path.join("/neurospin/brainomics/2014_deptms/results_enettv/",
+                        "MRI_" + roi,
+                        map_output)
     print BASE
     INPUT = BASE + "/%i/%s"
     penalty_start = GLOBAL.PENALTY_START
@@ -413,7 +414,8 @@ if __name__ == "__main__":
                       output_validation="results_dCV.csv",
                       output_selection="summary_selection.csv",
                       penalty_start=penalty_start,
-                      prob_class1=prob_class1)
+                      prob_class1=prob_class1,
+                      roi=roi)
                       #reduce_output="results_dCV.csv")
         json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
 
