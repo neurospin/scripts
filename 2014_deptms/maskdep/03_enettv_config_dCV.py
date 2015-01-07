@@ -237,14 +237,11 @@ def reducer(key, values):
         scores_tab = pd.read_csv(output_validation)
         fold_groups = scores_tab.groupby('n_fold')
         compt = 0
-        print "ok1"
         for fold_val, fold_group in fold_groups:
             scores_dCV = OrderedDict()
             scores_dCV['n_fold'] = fold_val
             n_crit = 0
-            print "ok2"
             for item, val in criteria.items():
-                print "ok3"
                 n_crit += 1
                 scores_dCV['criteria_' + str(n_crit)] = item
                 loc_opt = val[0](fold_group[item])
@@ -264,89 +261,7 @@ def reducer(key, values):
             compt += 1
 
         scores_select_model.to_csv(output_selection, index=False)
-    return {}
-
-#    dict_dcv = OrderedDict()
-#    dict_dcv["n_fold"] = n_fold
-#    dict_dcv["y_true"] = y_true
-#    dict_dcv["y_pred"] = y_pred
-#    dict_dcv["prob_pred"] = prob_pred
-#    dict_dcv["betas"] = betas
-#    dict_dcv["n_iter"] = n_iter
-#    dict_dcv = pd.DataFrame.from_dict(dict_dcv)
-#    n_fold_groups = dict_dcv.groupby("n_fold")
-#
-##    scores_CV['n_fold'], scores_CV['a'], scores_CV['l1'] = [], [], []
-##    scores_CV['tv'], scores_CV['recall_0'] = [], []
-##    scores_CV['pvalue_recall_0'], scores_CV['recall_1'] = [], []
-##    scores_CV['pvalue_recall_1'], scores_CV['min_recall'] = [], []
-##    scores_CV['min_recall'], scores_CV['max_pvalue_recall'] = [], []
-##    scores_CV['recall_mean'], scores_CV['precision_0'] = [], []
-##    scores_CV['precision_1'], scores_CV['precision_mean'] = [], []
-##    scores_CV['f1_0'], scores_CV['f1_1'], scores_CV['f1_mean'] = [], [], []
-##    scores_CV['support_0'], scores_CV['support_1'] = [], []
-##    scores_CV['n_ite_mean'], scores_CV['auc'] = [], []
-##    scores_CV['beta_cor_mean'], scores_CV['prop_non_zeros_mean'] = [], []
-#    for n_fold_val, n_fold_group in n_fold_groups:
-#        y_true = np.hstack(n_fold_group.y_true[:-1])
-#        y_pred = np.hstack((n_fold_group.y_pred[:-1]))
-#        prob_pred = np.hstack((n_fold_group.prob_pred[:-1]))
-#        p, r, f, s = precision_recall_fscore_support(y_true, y_pred,
-#                                                     average=None)
-#        auc = roc_auc_score(y_true, prob_pred)  # area under curve score.
-#        n_ite = np.mean(np.array(n_fold_group.n_iter))
-#        betas = np.hstack(n_fold_group.betas).T
-#        R = np.corrcoef(betas)
-#        beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
-#        success = r * s
-#        success = success.astype('int')
-#        pvalue_class0 = binom_test(success[0], s[0], 1 - prob_class1)
-#        pvalue_class1 = binom_test(success[1], s[1], prob_class1)
-#        a, l1, tv = float(key[0]), float(key[1]), float(key[2])
-#        scores_CV['n_fold'] = n_fold_val
-#        scores_CV['a'] = a
-#        scores_CV['l1'] = l1
-#        scores_CV['tv'] = tv
-#        scores_CV['recall_0'] = r[0]
-#        scores_CV['pvalue_recall_0'] = pvalue_class0
-#        scores_CV['recall_1'] = r[1]
-#        scores_CV['pvalue_recall_1'] = pvalue_class1
-#        scores_CV['min_recall'] = np.minimum(r[0], r[1])
-#        scores_CV['max_pvalue_recall'] = np.maximum(pvalue_class0,
-#                                                    pvalue_class1)
-#        scores_CV['recall_mean'] = r.mean()
-#        scores_CV['precision_0'] = p[0]
-#        scores_CV['precision_1'] = p[1]
-#        scores_CV['precision_mean'] = p.mean()
-#        scores_CV['f1_0'] = f[0]
-#        scores_CV['f1_1'] = f[1]
-#        scores_CV['f1_mean'] = f.mean()
-#        scores_CV['support_0'] = s[0]
-#        scores_CV['support_1'] = s[1]
-#        scores_CV['n_ite_mean'] = n_ite
-#        scores_CV['auc'] = auc
-#        scores_CV['beta_cor_mean'] = beta_cor_mean
-#        # proportion of non zeros elements in betas matrix over all folds
-#        scores_CV['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) \
-#                                        / float(np.prod(betas.shape))
-#    fold_groups = scores_CV.groupby('fold')
-#    scores_dCV = OrderedDict()
-#    criteria = ['recall_mean', 'min_recall']
-#    for fold_val, fold_group in fold_groups:
-#        scores_dCV['n_fold'] = fold_val
-#        for i, crit in enumerate(criteria):
-#            scores_dCV['criteria_' + i] = criteria
-#            loc_opt = np.argmax(fold_group[crit])
-#            value_opt = np.max(fold_group['crit'])
-#            scores_dCV['value_criteria_' + i] = value_opt
-#            a_opt = fold_group.a[loc_opt], l1_opt = fold_group.l1[loc_opt]
-#            tv_opt = fold_group.tv[loc_opt]
-#            scores_dCV['a_opt_' + i] = a_opt
-#            scores_dCV['l1_opt_' + i] = l1_opt
-#            scores_dCV['tv_opt_' + i] = tv_opt
-##    return scores_dCV
-#    return scores_CV
-
+    return None
 
 ##############################################################################
 ## Run all
