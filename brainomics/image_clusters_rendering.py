@@ -9,6 +9,7 @@ Created on Wed Oct  8 18:51:15 2014
 
 import os, sys, argparse
 import math
+import numpy as np
 
 import warnings
 # Qt
@@ -29,6 +30,16 @@ except:
                    please investigate')
 
 import shutil
+
+# composition of rotation in quaternion
+def product_quaternion(Q1, Q2):
+    a1, a2 = Q1[0], Q2[0]
+    v1, v2 = Q1[1:], Q2[1:]
+    v1, v2 = np.asarray(v1), np.asarray(v2)
+    a = a1 * a2 - np.inner(v1, v2)
+    v = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+    Q = np.hstack([a, v])
+    return Q.tolist()
 
 def do_mesh_cluster_rendering(title,
                               clust_mesh_file,
@@ -74,7 +85,7 @@ def do_mesh_cluster_rendering(title,
     a_anat = a.loadObject(anat_file)
 
     # mesh option
-    material = a.Material(diffuse=[0.8, 0.8, 0.8, 0.7])
+    material = a.Material(diffuse=[0.8, 0.8, 0.8, 0.6])
     brain_mesh.setMaterial(material)
 
     # change palette
@@ -98,33 +109,93 @@ def do_mesh_cluster_rendering(title,
     # 3D view = fusion 3D + brain_mesh
     # --------------------------------
     win = a.createWindow("3D", block=block)
+    # orientation front left
+    Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, 0]
     fusion3d = a.fusionObjects([clust_mesh, clust_texture], "Fusion3DMethod")
     win.addObjects([fusion3d, brain_mesh])
     a.execute("Fusion3DParams", object=fusion3d, step=0.1, depth=5.,
               sumbethod="max", method="line_internal")
+    #define point of view
+    Q1 = win.getInfos()["view_quaternion"]  # current point of view
+    Q = product_quaternion(Q1, Q_rot)
+    a.execute("Camera", windows=[win], view_quaternion=Q)
     windows.append(win)
     objects.append(fusion3d)
+
     # -------------------------------------
     # Slices view = three views offusion 2D
     # -------------------------------------
-    for i in xrange(3):
-        win = a.createWindow("3D", block=block)
-#    win_coronal = a.createWindow("3D", block=block)
-#    win_sagital = a.createWindow("3D", block=block)
-    # fusion 2D
-        fusion2d = a.fusionObjects([a_anat, clust_texture], "Fusion2DMethod")
-        a.execute("Fusion2DMethod", object=fusion2d)
-
-        # change 2D fusion settings
-        a.execute("TexturingParams", texture_index=1, objects=[fusion2d, ],
+    #fusion 2D
+    fusion2d = a.fusionObjects([a_anat, clust_texture], "Fusion2DMethod")
+    a.execute("Fusion2DMethod", object=fusion2d)
+    # change 2D fusion settings
+    a.execute("TexturingParams", texture_index=1, objects=[fusion2d, ],
                   mode="linear_A_if_B_black", rate=0.1)
 
-        # fusion cut mesh
-        fusionmesh = a.fusionObjects([brain_mesh, fusion2d], "FusionCutMeshMethod")
-        a.execute("FusionCutMeshMethod", object=fusionmesh)
-        fusionmesh.addInWindows(win)
-        windows.append(win)
-        objects.append([fusion2d, fusionmesh])
+    ##############
+    #Coronal view
+    win_coronal = a.createWindow("3D", block=block)
+    cut_plane_coronal = [0, 1, 0, -90]
+
+    # fusion cut mesh
+    fusionmesh_coronal = a.fusionObjects([brain_mesh, fusion2d],
+                                         "FusionCutMeshMethod")
+    a.execute("FusionCutMeshMethod", object=fusionmesh_coronal)
+    fusionmesh_coronal.addInWindows(win_coronal)
+    # Coronal view
+    a.execute("SliceParams", objects=[fusionmesh_coronal],
+              plane=cut_plane_coronal)
+    #define point of view
+    #a.execute("Camera", windows=[win_coronal], )
+    windows.append(win_coronal)
+    a.execute
+    objects.append([fusion2d, fusionmesh_coronal])
+
+    ##############
+    #Axial view
+    win_axial = a.createWindow("3D", block=block)
+    #cut_plane_axial = [0,0,1,-90]
+    # orientation front top left
+    Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, np.sin(np.pi / 8.)]
+    # fusion cut mesh
+    fusionmesh_axial = a.fusionObjects([brain_mesh, fusion2d],
+                                       "FusionCutMeshMethod")
+    a.execute("FusionCutMeshMethod", object=fusionmesh_axial)
+    fusionmesh_axial.addInWindows(win_axial)
+    # Axial view
+    #a.execute("SliceParams", objects=[fusionmesh_axial],
+             #plane=cut_plane_axial)
+    #define point of view
+    Q1 = win_axial.getInfos()["view_quaternion"]  # current point of view
+    Q = product_quaternion(Q1, Q_rot)
+    a.execute("Camera", windows=[win_axial], view_quaternion=Q, zoom=0.8)
+    windows.append(win_axial)
+    a.execute
+    objects.append([fusion2d, fusionmesh_axial])
+
+    ##############
+    #Sagital view
+    win_sagital = a.createWindow("3D", block=block)
+    cut_plane_sagital = [1, 0, 0, -90]
+    #rotation -Pi/4 --> orientation right
+    Q_rot = [np.sqrt(2) / 2., -np.sqrt(2) / 2., 0, 0]
+
+    # fusion cut mesh
+    fusionmesh_sagital = a.fusionObjects([brain_mesh, fusion2d],
+                                         "FusionCutMeshMethod")
+    a.execute("FusionCutMeshMethod", object=fusionmesh_sagital)
+    fusionmesh_sagital.addInWindows(win_sagital)
+    # Sagital view
+    a.execute("SliceParams", objects=[fusionmesh_sagital],
+              plane=cut_plane_sagital)
+    #define point of view
+    Q1 = win_sagital.getInfos()["view_quaternion"]  # current point of view
+    Q = product_quaternion(Q1, Q_rot)
+    a.execute("Camera", windows=[win_sagital], view_quaternion=Q, zoom=0.9)
+
+    windows.append(win_sagital)
+    a.execute
+    objects.append([fusion2d, fusionmesh_sagital])
 
     #fusionmesh.addInWindows(win_coronal)
     #fusionmesh.addInWindows(win_sagital)
