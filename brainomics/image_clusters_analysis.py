@@ -20,6 +20,7 @@ from soma import aims
 import tempfile
 import pandas as pd
 from brainomics import array_utils
+from numpy import linalg as LA
 
 
 def xyz_to_mm(trm, vox_size):
@@ -27,6 +28,25 @@ def xyz_to_mm(trm, vox_size):
     trmcp.scale(aims.Point3d(vox_size), aims.Point3d(1, 1, 1))
     return trmcp
 
+
+def harvardOxford_atlases_infos():
+    import xml.etree.ElementTree as ET
+    xml_cort_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford-Cortical.xml'
+    xml_sub_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford-Subcortical.xml'
+    tree_cort, tree_sub = ET.parse(xml_cort_filename), ET.parse(xml_sub_filename)
+    root_cort, root_sub = tree_cort.getroot(), tree_sub.getroot()
+    dict_label_cort, dict_label_sub = {}, {}
+
+    for label in root_cort.iter('label'):
+        index_lab = label.attrib['index']
+        dict_label_cort[index_lab] = label.text
+
+    for label in root_sub.iter('label'):
+        index_lab = label.attrib['index']
+        dict_label_sub[index_lab] = label.text
+
+    return dict_label_cort, dict_label_sub
+    
 
 # Transformation operation
 def ima_get_trm_xyz_to_mm(ima, refNb=0):
@@ -39,37 +59,133 @@ def ima_get_trm_xyz_to_mm(ima, refNb=0):
 
 
 def clusters_info(arr, clust_labeled, clust_sizes, labels, centers,
-                 trm_xyz_to_mm):
+                 trm_xyz_to_mm, atlas_cort, atlas_sub):
     """Compute Information about cluster: label, size, mean, max, min,
-    min_coord_mm, max_coord_mm, center_coord_mm"""
+    min_coord_mm, max_coord_mm, center_coord_mm, regions_involved"""
     clusters_info = list()
-    arr_abs = np.abs(arr)
+    #arr_abs = np.abs(arr)
+
+    # get harvard_oxford atalses (sub and cort) infos
+    ima_atlas_cort = aims.read(atlas_cort)
+    arr_atlas_cort = np.asarray(ima_atlas_cort).squeeze()
+    ima_atlas_sub = aims.read(atlas_sub)
+    arr_atlas_sub = np.asarray(ima_atlas_sub).squeeze()
+    dict_label_cort, dict_label_sub = harvardOxford_atlases_infos()
     print "Scan clusters:"
     for i in xrange(len(labels)):
-        print i,
+        print i
         mask = clust_labeled == labels[i]
         center_xyz = centers[i]
         center_mm = np.round(np.asarray(trm_xyz_to_mm.transform(center_xyz)),
                              3)
+
+#        atlas_sub_clust = np.copy(arr_atlas_sub)
+#        atlas_sub_clust[np.logical_not(mask)]=0
+#        atlas_cort_clust = np.copy(arr_atlas_cort)
+#        atlas_cort_clust[np.logical_not(mask)]=0
+        atlas_sub_clust = arr_atlas_sub[mask]
+        atlas_cort_clust = arr_atlas_cort[mask]
+        labels_sub_ROI = np.unique(atlas_sub_clust)
+        labels_cort_ROI = np.unique(atlas_cort_clust)
+        regions_cort_atlas = {}
+        regions_sub_atlas = {}
+        regions_cort_atlas_weight = {}
+        regions_sub_atlas_weight = {}
+        # subcortical atlas
+        for lab_sub in labels_sub_ROI:
+            lab_cluster = arr[np.logical_and(mask, arr_atlas_sub == lab_sub)]
+            if lab_sub == 0:
+                ROI_name = "outside"
+            elif lab_sub > 0:
+                ROI_name = dict_label_sub[str(int(lab_sub - 1))]
+            regions_sub_atlas[ROI_name] = int(np.round(
+                                      np.sum(atlas_sub_clust == lab_sub) \
+                                        / float(clust_sizes[i]) * 100))
+            regions_sub_atlas_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
+                                                / float(LA.norm(arr[mask])) * 100))
+        # cortical atlas
+        for lab_cort in labels_cort_ROI:
+            lab_cluster = arr[np.logical_and(mask, arr_atlas_cort == lab_cort)]
+            if lab_cort == 0:
+                ROI_name = "outside"
+            elif lab_cort > 0:
+                ROI_name = dict_label_cort[str(int(lab_cort - 1))]
+            regions_cort_atlas[ROI_name] = int(np.round(
+                                      np.sum(atlas_cort_clust == lab_cort) / \
+                                        float(clust_sizes[i]) * 100))                                
+            regions_cort_atlas_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
+                                                / float(LA.norm(arr[mask])) * 100))
+
         if clust_sizes[i] > 1:
-            max_val = np.max(np.abs(arr[mask]))
+            max_val, max_ind = np.max((arr[mask])), np.argmax(arr[mask])
+            # max_xyz = np.asarray([c[0] for c in
+            #   np.where((arr_abs == max_val) & mask)])
             max_xyz = np.asarray([c[0] for c in
-                np.where((arr_abs == max_val) & mask)])
+                np.where((arr == max_val) & mask)])
             max_mm = np.round(np.asarray(trm_xyz_to_mm.transform(max_xyz)), 3)
-            min_val = np.min(arr[mask])
+            min_val, min_ind = np.min(arr[mask]), np.argmin(arr[mask])
+            # min_xyz = np.asarray([c[0] for c in
+            #    np.where((arr_abs == min_val) & mask)])
+            min_xyz = np.asarray([c[0] for c in
+                np.where((arr == min_val) & mask)])
+            min_mm = np.round(np.asarray(trm_xyz_to_mm.transform(min_xyz)), 3)
             mean_val = np.mean(arr[mask])
+
         else:
             max_val = min_val = mean_val = arr[mask][0]
+            max_ind = min_ind = 0
             max_mm = center_mm
-        info = [labels[i], clust_sizes[i]] + \
-        max_mm.tolist() + center_mm.tolist() + [mean_val, max_val, min_val]
-        clusters_info.append(info)
-        header = ["label", "size",
-                  "x_max_mm",  "y_max_mm",  "z_max_mm",
-                   "x_center_mm",  "y_center_mm", "z_center_mm",
-                  "mean", "max", "min"]
-    return header, clusters_info
+            min_mm = center_mm
 
+        prop_norm2_weight = LA.norm(arr[mask]) / float(LA.norm(arr))
+
+        # negative peak (cortical and subcortical atlases)
+        if min_val >= 0:
+            region_cort_peak_neg, region_sub_peak_neg = None, None
+        else:
+            lab_cort = atlas_cort_clust.ravel()[min_ind]
+            if lab_cort == 0:
+                region_cort_peak_neg = "outside"
+            else:
+                region_cort_peak_neg = dict_label_cort[str(int(lab_cort - 1))]
+            lab_sub = atlas_sub_clust.ravel()[min_ind]
+            if lab_sub == 0:
+                region_sub_peak_neg = "outside"
+            else:
+                region_sub_peak_neg = dict_label_sub[str(int(lab_sub - 1))]
+        # positive peak (cortical and subcortical atlases)
+        if max_val <= 0:
+            region_cort_peak_pos, region_sub_peak_pos = None, None
+        else:
+            lab_cort = atlas_cort_clust.ravel()[max_ind]
+            if lab_cort == 0:
+                region_cort_peak_pos = "outside"
+            else:
+                region_cort_peak_pos = dict_label_cort[str(int(lab_cort - 1))]
+            lab_sub = atlas_sub_clust.ravel()[max_ind]
+            if lab_sub == 0:
+                region_sub_peak_pos = "outside"
+            else:
+                region_sub_peak_pos = dict_label_sub[str(int(lab_sub - 1))]
+
+        info = [labels[i], clust_sizes[i], prop_norm2_weight] + \
+        max_mm.tolist() + min_mm.tolist() + center_mm.tolist() + \
+        [mean_val, max_val, min_val,
+         regions_cort_atlas, regions_cort_atlas_weight, region_cort_peak_pos,
+         region_cort_peak_neg, regions_sub_atlas, regions_sub_atlas_weight,
+         region_sub_peak_pos, region_sub_peak_neg]
+        clusters_info.append(info)
+        header = ["label", "size", "prop_norm2_weight",
+                  "x_max_mm",  "y_max_mm",  "z_max_mm",
+                  "x_min_mm",  "y_min_mm",  "z_min_mm",
+                  "x_center_mm",  "y_center_mm", "z_center_mm",
+                  "mean", "max", "min", "Regions_cort_prop (%)",
+                  "Regions_cort_weight_prop (%)", "Region_cort_peak_pos",
+                  "Region_cort_peak_neg", "Regions_sub_prop (%)",
+                  "Regions_sub_weight_prop (%)",
+                  "Region_sub_peak_pos", "Region_sub_peak_neg"
+                  ]
+    return header, clusters_info
 
 def mesh_small_clusters(arr, clust_labeled, clust_sizes, labels,
     output_clusters_small_mesh_filename, centers, ima, thresh_size):
@@ -149,6 +265,8 @@ if __name__ == "__main__":
     referential = 'Talairach-MNI template-SPM'
     fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
+    atlas_cort_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz'
+    atlas_sub_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz'
 
     # parse command line options
     #parser = optparse.OptionParser(description=__doc__)
@@ -168,7 +286,12 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--thresh_norm_ratio',
         help='Threshold image such ||v[|v| >= t]||2 / ||v||2 == thresh_norm_ratio (default %f)'% thresh_norm_ratio,
         default=thresh_norm_ratio, type=float)
-
+    parser.add_argument('--atlas_cort',
+        help='Resampled HarvardOxford cortical atlas into reference (default %s)' % atlas_cort_filename,
+        default=atlas_cort_filename, type=str),
+    parser.add_argument('--atlas_sub',
+        help='Resampled HarvardOxford subcortical atlas into reference (default %s)' % atlas_sub_filename,
+        default=atlas_sub_filename, type=str)
     options = parser.parse_args()
     #print __doc__
     if options.input is None:
@@ -183,7 +306,8 @@ if __name__ == "__main__":
     thresh_pos_low = options.thresh_pos_low
     thresh_pos_high = options.thresh_pos_high
     thresh_norm_ratio = options.thresh_norm_ratio
-
+    atlas_cort = options.atlas_cort
+    atlas_sub = options.atlas_sub
     ##########################################################################
     #map_filename = "/tmp/beta_0.001_0.5_0.5_0.0_-1.0.nii_thresholded:0.003706/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz"
 
@@ -260,7 +384,8 @@ if __name__ == "__main__":
     ##########################################################################
     # Get clusters information
     header_info, info = clusters_info(arr, clust_labeled, clust_sizes, labels,
-                                     centers, trm_xyz_to_mm)
+                                     centers, trm_xyz_to_mm,
+                                     atlas_cort, atlas_sub)
     df = pd.DataFrame(info, columns=header_info)
     df.to_csv(output_csv_clusters_info_filename, index=False)
 
