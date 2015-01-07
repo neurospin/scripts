@@ -17,6 +17,7 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     GLOBAL.contrast = np.asarray(config["contrast"])
+    print "ok load data"
 
 
 def resample(config, resample_nb):
@@ -24,23 +25,32 @@ def resample(config, resample_nb):
     perm = config["resample"][resample_nb]
     GLOBAL.DATA_PERM = {"Xp": GLOBAL.DATA["X"][perm, ...],
                         "Y": GLOBAL.DATA["Y"]}
+    print "ok resample"
 
 
 def mapper(key, output_collector):
+    print "start map"
+    print "key: ", key
     import mapreduce as GLOBAL  # access to global variables
     Xp = GLOBAL.DATA_PERM["Xp"]
+    print "ok Xp"
     Y = GLOBAL.DATA_PERM["Y"]
+    print "ok Y"
     contrast = GLOBAL.contrast
     muols = MUOLS(Y, Xp)
+    del Y
+    print "ok muols"
     muols.fit()
+    print "ok fit"
     tvals_perm, _, _ = muols.t_test(contrasts=contrast, pval=False,
                                             two_tailed=True)
-
-    ret = dict(tvals_perm=tvals_perm, confirm="ok", key=key)
+    print "ok t_test"                                        
+    ret = dict(tvals_perm=tvals_perm, key=key)
     if output_collector:
         output_collector.collect(key, ret)
     else:
         return ret
+    print "ok map"
 
 
 def reducer(key, values):
