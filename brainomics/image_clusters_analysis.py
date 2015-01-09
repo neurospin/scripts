@@ -356,8 +356,10 @@ if __name__ == "__main__":
     ##########################################################################
     # Find clusters (connected component abov a given threshold)
     print thresh_neg_low, thresh_neg_high, thresh_pos_low, thresh_pos_high
+    #print thresh_norm_ratio
     if thresh_norm_ratio < 1:
-        arr = array_utils.arr_threshold_from_norm2_ratio(arr, .99)[0]
+        arr, thres = array_utils.arr_threshold_from_norm2_ratio(arr, thresh_norm_ratio)
+        print "Threshold image as %f" % thres
     clust_bool = np.zeros(arr.shape, dtype=bool)
     #((arr > thresh_neg_low) & (arr < thresh_neg_high) | (arr > thresh_pos_low) & (arr < thresh_pos_high)).sum()
     clust_bool[((arr > thresh_neg_low) & (arr < thresh_neg_high)) |

@@ -27,6 +27,7 @@ import nibabel as nib
 import pandas as pd
 
 from brainomics import plot_utilities
+import parsimony.utils.check_arrays as check_arrays
 
 ################
 # Input/Output #
@@ -90,6 +91,35 @@ INPUT_PROJECTIONS_FILE_FORMAT = os.path.join(INPUT_DIR,
 OUTPUT_COMPONENTS_FILE_FORMAT = os.path.join(OUTPUT_DIR,
                                              '{name}.nii')
 
+def transform(V, X, n_components, in_place=False):
+    """ Project a (new) dataset onto the components.
+    Return the projected data and the associated d.
+    We have to recompute U and d because the argument may not have the same
+    number of lines.
+    The argument must have the same number of columns than the datset used
+    to fit the estimator.
+    """
+    Xk = check_arrays(X)
+    if not in_place:
+        Xk = Xk.copy()
+    n, p = Xk.shape
+    if p != V.shape[0]:
+        raise ValueError(
+                    "The argument must have the same number of columns "
+                    "than the datset used to fit the estimator.")
+    U = np.zeros((n, n_components))
+    d = np.zeros((n_components, ))
+    for k in range(n_components):
+        # Project on component j
+        vk = V[:, k].reshape(-1, 1)
+        uk = np.dot(X, vk)
+        uk /= np.linalg.norm(uk)
+        U[:, k] = uk[:, 0]
+        dk = np.dot(uk.T, np.dot(Xk, vk))
+        d[k] = dk
+        # Residualize
+        Xk -= dk * np.dot(uk, vk.T)
+    return U, d
 
 ################
 # Plot results #
@@ -174,9 +204,12 @@ for j, (params, name) in enumerate(COND):
         projections[:, i] = sign * projections[:, i]
         components[:, i] = sign * components[:, i]
     # Loading as images
-    loadings_arr = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], N_COMP))
+    loadings_arr = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], N_COMP+1))
     for l in range(N_COMP):
         loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l] = components[:, l]
+    comp_sumpc12 = components[:, 1] + components[:, 2]
+    loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l+1] = comp_sumpc12
+    
     im = nib.Nifti1Image(loadings_arr,
                          affine=mask_ima.get_affine())
     figname = OUTPUT_COMPONENTS_FILE_FORMAT.format(name=name.replace(' ', '_'))
@@ -191,3 +224,29 @@ pop.to_csv(OUTPUT_COMPONENTS)
 
 cmd = 'rsync -avu %s %s/' % (OUTPUT_DIR, "/home/ed203246/data/mescog/wmh_patterns")
 os.system(cmd)
+
+"""
+cd
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20000.nii.gz
+#Threshold image as 0.000537
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20001.nii.gz
+#Threshold image as 0.000591
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20002.nii.gz
+#Threshold image as 0.000675
+
+~/git/scripts/brainomics/image_clusters_rendering.py tvl1l20000 tvl1l20001 tvl1l20002
+
+
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20000.nii.gz
+Threshold image as 0.001407
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20001.nii.gz
+Threshold image as 0.001554
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20002.nii.gz
+Threshold image as 0.001876
+
+"""
