@@ -28,13 +28,12 @@ from parsimony.estimators import LogisticRegressionL1L2TV
 from parsimony.algorithms.utils import Info
 import parsimony.functions.nesterov.tv as tv_helper
 import shutil
-from scipy import sparse
 from scipy.stats import binom_test
 
 from collections import OrderedDict
 
 
-NFOLDS = 5
+NFOLDS = 10
 
 
 def load_globals(config):
@@ -126,8 +125,11 @@ def reducer(key, values):
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
     success = r * s
     success = success.astype('int')
-    pvalue_class0 = binom_test(success[0], s[0], 1 - prob_class1)
-    pvalue_class1 = binom_test(success[1], s[1], prob_class1)
+    accuracy = (r[0] * s[0] + r[1] * s[1])
+    accuracy = accuracy.astype('int')
+    pvalue_recall0 = binom_test(success[0], s[0], 1 - prob_class1)
+    pvalue_recall1 = binom_test(success[1], s[1], prob_class1)
+    pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
     a, l1, l2 = float(key[0]), float(key[1]), float(key[2])
     tv, k_ratio = float(key[3]), float(key[4])
     left = float(1 - tv)
@@ -141,12 +143,14 @@ def reducer(key, values):
     scores['tv'] = tv
     scores['k_ratio'] = k_ratio
     scores['recall_0'] = r[0]
-    scores['pvalue_recall_0'] = pvalue_class0
+    scores['pvalue_recall_0'] = pvalue_recall0
     scores['recall_1'] = r[1]
-    scores['pvalue_recall_1'] = pvalue_class1
-    scores['max_pvalue_recall'] = np.maximum(pvalue_class0, pvalue_class1)
+    scores['pvalue_recall_1'] = pvalue_recall1
+    scores['max_pvalue_recall'] = np.maximum(pvalue_recall0, pvalue_recall1)
     scores['recall_mean'] = r.mean()
     scores['recall_mean_std'] = recall_mean_std
+    scores['accuracy'] = accuracy / float(s[0] + s[1])
+    scores['pvalue_accuracy'] = pvalue_accuracy
     scores['precision_0'] = p[0]
     scores['precision_1'] = p[1]
     scores['precision_mean'] = p.mean()
@@ -232,7 +236,6 @@ if __name__ == "__main__":
         #################################################################
         ## Create config file
         y = np.load(os.path.join(WD, 'y.npy'))
-        print y.shape
         prob_class1 = np.count_nonzero(y) / float(len(y))
 
         SEED = 23071991
@@ -246,13 +249,13 @@ if __name__ == "__main__":
         INPUT_MASK = 'mask.nii'
         # parameters grid
         # Re-run with
-        tv_range = np.array([0, 1 / 3, 2 / 3])
+        tv = 0.3
         ratios = np.array([[0.1, 0.9, 1], [0.9, 0.1, 1]])
         alphas = [.05, .5]
         k_ratio = 1
         l1l2tv = [np.array([[float(1 - tv),
                              float(1 - tv),
-                             tv]]) * ratios for tv in tv_range]
+                             tv]]) * ratios]
         l1l2tv = np.concatenate(l1l2tv)
         alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
                                                        l1l2tv.shape[0]),
