@@ -22,7 +22,7 @@ from scipy.stats import binom_test
 from collections import OrderedDict
 
 
-NFOLDS = 5
+NFOLDS = 10
 
 
 def load_globals(config):
@@ -30,8 +30,8 @@ def load_globals(config):
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     GLOBAL.PARAMS = config["params"]
     GLOBAL.MAP_OUTPUT = config['map_output']
-    GLOBAL.OUTPUT_VALIDATION = config['output_validation']
     GLOBAL.OUTPUT_SELECTION = config['output_selection']
+    GLOBAL.OUTPUT_SUMMARY = config['output_summary']
     GLOBAL.PROB_CLASS1 = config["prob_class1"]
     GLOBAL.PENALTY_START = config["penalty_start"]
     STRUCTURE = nibabel.load(config["structure"])
@@ -132,9 +132,11 @@ def reducer(key, values):
     roi = GLOBAL.ROI
     criteria = {'recall_mean': [np.argmax, np.max],
                 'min_recall': [np.argmax, np.max],
-                'max_pvalue_recall': [np.argmin, np.min]}
-    output_validation = GLOBAL.OUTPUT_VALIDATION
+                'max_pvalue_recall': [np.argmin, np.min],
+                'accuracy': [np.argmax, np.max],
+                'pvalue_accuracy': [np.argmin, np.min]}
     output_selection = GLOBAL.OUTPUT_SELECTION
+    output_summary = GLOBAL.OUTPUT_SUMMARY
     map_output = GLOBAL.MAP_OUTPUT
     BASE = os.path.join("/neurospin/brainomics/2014_deptms/results_enettv/",
                         "MRI_" + roi,
@@ -147,10 +149,10 @@ def reducer(key, values):
     keys = ['_'.join(str(e) for e in a) for a in params]
 
     compt = 0
-    if not os.path.isfile(output_validation):
+    if not os.path.isfile(output_selection):
         print "Model Construction, first cross-validation"
         # loop for the validation of the model
-        for fold in xrange(1, NFOLDS + 1):
+        for fold in xrange(0, NFOLDS + 1):
             print "fold: ", fold
             # folds for the selection of the model associated to the test fold
             idx_block = range((fold - 1) * (NFOLDS + 1) + 1,
@@ -187,8 +189,11 @@ def reducer(key, values):
                 beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
                 success = r * s
                 success = success.astype('int')
+                accuracy = (r[0] * s[0] + r[1] * s[1])
+                accuracy = accuracy.astype('int')
                 pvalue_class0 = binom_test(success[0], s[0], 1 - prob_class1)
                 pvalue_class1 = binom_test(success[1], s[1], prob_class1)
+                pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
                 k = key.split('_')
                 a, l1 = float(k[0]), float(k[1])
                 l2, tv = float(k[2]), float(k[3])
@@ -210,6 +215,8 @@ def reducer(key, values):
                                                             pvalue_class1)
                 scores_CV['recall_mean'] = r.mean()
                 scores_CV['recall_mean_std'] = recall_mean_std
+                scores_CV['accuracy'] = accuracy / float(s[0] + s[1])
+                scores_CV['pvalue_accuracy'] = pvalue_accuracy
                 scores_CV['precision_0'] = p[0]
                 scores_CV['precision_1'] = p[1]
                 scores_CV['precision_mean'] = p.mean()
@@ -229,21 +236,18 @@ def reducer(key, values):
                     scores_tab = pd.DataFrame(columns=scores_CV.keys())
                 scores_tab.loc[compt, ] = scores_CV.values()
                 compt += 1
-        scores_tab.to_csv(output_validation, index=False)
+        scores_tab.to_csv(output_selection, index=False)
 
-    if not os.path.isfile(output_selection):
+    if not os.path.isfile(output_summary):
         print "Model Selection"
-        scores_tab = pd.read_csv(output_validation)
+        scores_tab = pd.read_csv(output_selection)
         fold_groups = scores_tab.groupby('n_fold')
         compt = 0
-        print "ok1"
         for fold_val, fold_group in fold_groups:
             scores_dCV = OrderedDict()
             scores_dCV['n_fold'] = fold_val
             n_crit = 0
-            print "ok2"
             for item, val in criteria.items():
-                print "ok3"
                 n_crit += 1
                 scores_dCV['criteria_' + str(n_crit)] = item
                 loc_opt = val[0](fold_group[item])
@@ -262,7 +266,7 @@ def reducer(key, values):
             scores_select_model.loc[compt, ] = scores_dCV.values()
             compt += 1
 
-        scores_select_model.to_csv(output_selection, index=False)
+        scores_select_model.to_csv(output_summary, index=False)
     return None
 
 
@@ -311,7 +315,7 @@ if __name__ == "__main__":
         os.makedirs(OUTPUT_ENETTV)
 
     penalty_start = 3
-    
+
     #########################################################################
     ## Read ROIs csv
     atlas = []
@@ -332,7 +336,7 @@ if __name__ == "__main__":
     rois = list(set(df_rois["ROI_name_deptms"].values.tolist()))
     rois = [x for x in rois if str(x) != 'nan']
     rois.append("brain")  # add whole brain to rois
-    
+
     #########################################################################
     ## Build config file for all couple (Modality, roi)
     modality = "MRI"
@@ -369,32 +373,51 @@ if __name__ == "__main__":
         SEED_CV1 = 23071991
         SEED_CV2 = 5061931
         dcv = []
-        n_fold = 1
-        for calib, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
-                                       shuffle=True, random_state=SEED_CV1):
-            assert((len(calib) + len(te)) == len(y))
-            y_calib = np.array([y[i] for i in calib.tolist()])
-            for val, tr in StratifiedKFold(y_calib.ravel(), n_folds=NFOLDS,
+        n_fold = 0
+        for i in xrange(2):
+            # if fold ext 0: y_calib and y_te = y
+            if n_fold == 0:
+                y_calib = y
+                y_te = y
+                calib = np.array([i for i in xrange(len(y))])
+                te = np.array([i for i in xrange(len(y))])
+                for val, tr in StratifiedKFold(y_calib.ravel(), n_folds=NFOLDS,
                                        shuffle=True, random_state=SEED_CV2):
-                assert((len(val) + len(tr)) == len(calib))
-                dcv.append([n_fold, calib.tolist(), te.tolist(),
+                    assert((len(val) + len(tr)) == len(calib))
+                    dcv.append([n_fold, calib.tolist(), te.tolist(),
                             val.tolist(), tr.tolist()])
-            dcv.append([n_fold, calib.tolist(), te.tolist(), None])
-            n_fold += 1
-        dcv.insert(0, None)  # first fold is None
+                # y_val and y_tr = y_calib
+                dcv.append([n_fold, calib.tolist(), te.tolist(), None])
+                n_fold += 1
+            else:
+                for calib, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
+                                         shuffle=True, random_state=SEED_CV1):
+                    assert((len(calib) + len(te)) == len(y))
+                    y_calib = np.array([y[i] for i in calib.tolist()])
+                    for val, tr in StratifiedKFold(y_calib.ravel(),
+                                                   n_folds=NFOLDS,
+                                                   shuffle=True,
+                                                   random_state=SEED_CV2):
+                        assert((len(val) + len(tr)) == len(calib))
+                        dcv.append([n_fold, calib.tolist(), te.tolist(),
+                                    val.tolist(), tr.tolist()])
+                    # y_val and y_tr = y_calib
+                    dcv.append([n_fold, calib.tolist(), te.tolist(), None])
+                    n_fold += 1
+#        dcv.insert(0, None)  # first fold is None
 
         INPUT_DATA_X = 'X.npy'
         INPUT_DATA_y = 'y.npy'
         INPUT_MASK = 'mask.nii'
         # parameters grid
         # Re-run with
-        tv_range = np.array([0, 1/3., 2/3.])
+        tv = 0.3
         ratios = np.array([[0.1, 0.9, 1], [0.9, 0.1, 1]])
         alphas = [.05, .5]
         k_ratio = 1
         l1l2tv = [np.array([[float(1 - tv),
                              float(1 - tv),
-                             tv]]) * ratios for tv in tv_range]
+                             tv]]) * ratios]
         l1l2tv = np.concatenate(l1l2tv)
         alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
                                                        l1l2tv.shape[0]),
@@ -408,23 +431,25 @@ if __name__ == "__main__":
         config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                       params=params, resample=dcv,
                       structure=INPUT_MASK,
-                      map_output="results_dCV",
+                      map_output="results_dCV_selection",
+                      map_output_validation="results_dCV_validation",
                       user_func=user_func_filename,
                       reduce_group_by="resample_index",
-                      output_validation="results_dCV.csv",
-                      output_selection="summary_selection.csv",
+                      output_selection="results_dCV_selection.csv",
+                      output_summary="summary_selection.csv",
+                      output_validation="results_dCV_validation.csv",
                       penalty_start=penalty_start,
                       prob_class1=prob_class1,
                       roi=roi)
                       #reduce_output="results_dCV.csv")
-        json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+        json.dump(config, open(os.path.join(WD, "config_dCV_selection.json"), "w"))
 
         #################################################################
         # Build utils files: sync (push/pull) and PBS
         import brainomics.cluster_gabriel as clust_utils
         sync_push_filename, sync_pull_filename, WD_CLUSTER = \
             clust_utils.gabriel_make_sync_data_files(WD)
-        cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
+        cmd = "mapreduce.py --map  %s/config_dCV_selection.json" % WD_CLUSTER
         clust_utils.gabriel_make_qsub_job_files(WD, cmd)
 #        ################################################################
 #        # Sync to cluster
