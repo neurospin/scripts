@@ -41,15 +41,19 @@ INPUT_RESULTS_FILE = os.path.join(INPUT_BASE_DIR, "results.csv")
 INPUT_MASK = os.path.join(INPUT_BASE_DIR,
                           "mask_bin.nii")
 
-OUTPUT_DIR = os.path.join(INPUT_BASE_DIR, "summary")
-OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
 
 INPUT_MESCOG_DIR = "/neurospin/mescog/proj_wmh_patterns"
 
 INPUT_POPULATION_FILE = os.path.join(INPUT_MESCOG_DIR,
                                      "population.csv")
+INPUT_DATASET = os.path.join(INPUT_MESCOG_DIR,
+                             "X_center.npy")
+
+OUTPUT_DIR = os.path.join(INPUT_BASE_DIR, "summary")
 OUTPUT_COMPONENTS = os.path.join(OUTPUT_DIR,
                                  "components.csv")
+OUTPUT_RESULTS_FILE = os.path.join(OUTPUT_DIR, "summary.csv")
+
 ##############
 # Parameters #
 ##############
@@ -172,8 +176,12 @@ mask_arr = mask_ima.get_data() != 0
 mask_indices = np.where(mask_arr)
 #n_voxels_in_mask = np.count_nonzero(bin_mask)
 IM_SHAPE = mask_arr.shape
-
+# 
+X = np.load(INPUT_DATASET)
+# 
 pop = pd.read_csv(INPUT_POPULATION_FILE)
+
+# 
 
 #clinal_var = ['MMSE', 'MRS', 'TMTB_TIME', 'MDRS_TOTAL']
 #pop.loc[:, clinal_var].corr()
@@ -184,9 +192,11 @@ pop = pd.read_csv(INPUT_POPULATION_FILE)
 #MDRS_TOTAL  0.866949 -0.698889  -0.898043    1.000000
 
 # Load components and store them as nifti images
+j, (params, name) = 0, COND[0]
 for j, (params, name) in enumerate(COND):
     #j, (params, name) = 0, COND[0]
     key = '_'.join([str(param) for param in params])
+    print "process", key
     components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
                                                    key=key)
     projections_filename = INPUT_PROJECTIONS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
@@ -203,22 +213,49 @@ for j, (params, name) in enumerate(COND):
         print name, i, R, sign#, np.corrcoef(pop.TMTB_TIME, projections[:, i])
         projections[:, i] = sign * projections[:, i]
         components[:, i] = sign * components[:, i]
+    # QC recompute projection from loading
+    if name  == "pca":
+        import sklearn.decomposition
+        pca = sklearn.decomposition.PCA(n_components=N_COMP)
+        #model.fit(X)
+        pca.components_ = components.T
+        pca.mean_ = X.mean(axis = 0)
+        U = pca.transform(X)
+    else:
+        U, d = transform(V=components, X=X, n_components=components.shape[1], in_place=False)
+    print "np.max(np.abs(projections - U))", np.max(np.abs(projections - U))
+    assert np.allclose(projections, U)
+    # projections_plus the 3 components + the sum
+    components_plus = np.zeros((components.shape[0], components.shape[1]+1))
+    components_plus[:, :components.shape[1]] = components
+    components_plus[:, components.shape[1]] = components[:, 1] + components[:, 2]
+    if name  == "pca":
+        pca.components_ = components_plus[:, [0, components.shape[1]]].T
+        U = pca.transform(X)
+    else:
+        U, d = transform(V=components_plus[:, [0, components.shape[1]]], X=X, n_components=2, in_place=False)
+    assert np.allclose(projections[:, 0], U[:, 0])
+    projections_plus = np.zeros((projections.shape[0], projections.shape[1]+1))
+    projections_plus[:, :projections.shape[1]] = projections
+    projections_plus[:, projections.shape[1]] = U[:, 1]
     # Loading as images
-    loadings_arr = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], N_COMP+1))
-    for l in range(N_COMP):
-        loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l] = components[:, l]
-    comp_sumpc12 = components[:, 1] + components[:, 2]
-    loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l+1] = comp_sumpc12
+    loadings_arr = np.zeros((IM_SHAPE[0], IM_SHAPE[1], IM_SHAPE[2], components_plus.shape[1]))
+    for l in range(components_plus.shape[1]):
+        loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l] = components_plus[:, l]
+    #comp_sumpc12 = components[:, 1] + components[:, 2]
+    #loadings_arr[mask_indices[0], mask_indices[1], mask_indices[2], l+1] = comp_sumpc12
     
     im = nib.Nifti1Image(loadings_arr,
                          affine=mask_ima.get_affine())
     figname = OUTPUT_COMPONENTS_FILE_FORMAT.format(name=name.replace(' ', '_'))
     nib.save(im, os.path.join(OUTPUT_DIR, figname))
     # projection to csv
-    for i in xrange(projections.shape[1]):
-        pc_name = 'pc{i}__{name}'.format(name=name, i=i+1)
-        pop[pc_name] = projections[:, i]  
-
+    for i in xrange(projections_plus.shape[1]):
+        if ((i+1) < projections_plus.shape[1]):
+            pc_name = 'pc{i}__{name}'.format(name=name, i=i+1)
+        else:
+            pc_name = 'pc_sum23__{name}'.format(name=name)
+        pop[pc_name] = projections_plus[:, i]  
 
 pop.to_csv(OUTPUT_COMPONENTS)
 
@@ -226,27 +263,28 @@ cmd = 'rsync -avu %s %s/' % (OUTPUT_DIR, "/home/ed203246/data/mescog/wmh_pattern
 os.system(cmd)
 
 """
-cd
-~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20000.nii.gz
-#Threshold image as 0.000537
+python ~/git/scripts/2014_pca_struct/mescog/02_report_results.py
 
-~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20001.nii.gz
-#Threshold image as 0.000591
 
-~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20002.nii.gz
-#Threshold image as 0.000675
-
-~/git/scripts/brainomics/image_clusters_rendering.py tvl1l20000 tvl1l20001 tvl1l20002
-
+cd /home/ed203246/data/mescog/wmh_patterns/summary/cluster_mesh
+fsl5.0-fslsplit tvl1l2.nii ./tvl1l2 -t
 
 
 ~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20000.nii.gz
-Threshold image as 0.001407
+# Threshold image as 0.001407
 
 ~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20001.nii.gz
-Threshold image as 0.001554
+# Threshold image as 0.001554
 
 ~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20002.nii.gz
-Threshold image as 0.001876
+# Threshold image as 0.001876
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20003.nii.gz
+Threshold image as 0.002078
+
+#
+~/git/scripts/brainomics/image_clusters_rendering.py tvl1l20000 tvl1l20001 tvl1l20002 tvl1l20003
+
+
 
 """
