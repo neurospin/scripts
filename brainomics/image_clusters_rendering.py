@@ -5,6 +5,16 @@ Created on Wed Oct  8 18:51:15 2014
 
 @author:  edouard.duchesnay@cea.fr
 @license: BSD-3-Clause
+
+####################################################
+## DO SNAPSHOTS
+
+http://brainvisa.info/forum/viewtopic.php?f=6&t=1610
+Explain how:
+    1. Scene - Tools - uncheck 'Display Cursor' (I don't want any cursor visible)
+    3. Window - Save, to export this standardized view as a jpg or png or whatever...
+
+Still need how to add a menu item
 """
 
 import os, sys, argparse
@@ -31,6 +41,64 @@ except:
 
 import shutil
 
+anatomist_instance = None
+
+class SnapshotAction(anatomist.cpp.Action):
+    def name( self ):
+        return 'Snapshot'
+
+    def left_click(self, x, y, globx, globy):
+        global anatomist_instance
+        a = anatomist_instance
+        print 'coucou', x,y
+
+    def linked_cursor_disable(self):
+        global anatomist_instance
+        print "linked_cursor_disable"
+        anatomist_instance.execute('WindowConfig', windows=[self.view().window()], cursor_visibility=0)
+
+    def linked_cursor_enable(self):
+        global anatomist_instance
+        print "linked_cursor_enable"
+        anatomist_instance.execute('WindowConfig', windows=[self.view().window()], cursor_visibility=1)
+
+    def snapshot_single(self):
+        global anatomist_instance
+        print "snapshot_single"
+        win = self.view().window()
+        #print "==="
+        #print win
+        #print self.view().aWindow()
+        #print "==="
+        #print self.view().getInfos()
+        #win_info = win.getInfos()
+        #print win_info["view_name"]
+        # FIXME !!!
+        fi = open("/tmp/snapshot/current")
+        prefix = fi.readline().strip()
+        fi.close()
+        filename = '%s.png' % prefix
+        print "save in to", filename
+        anatomist_instance.execute('WindowConfig', windows=[win], snapshot=filename)
+    #print 'takePolygon', x, y
+
+
+    
+class SnapshotControl(anatomist.cpp.Control):
+    def __init__(self, prio = 25 ):
+        anatomist.cpp.Control.__init__( self, prio, 'SnapshotControl' )
+    def eventAutoSubscription(self, pool):
+        key = QtCore.Qt
+        NoModifier = key.NoModifier
+        self.mousePressButtonEventSubscribe(key.LeftButton, NoModifier,
+                                            pool.action( 'SnapshotAction' ).left_click)
+        self.keyPressEventSubscribe(key.Key_D, NoModifier, 
+                                 pool.action( 'SnapshotAction' ).linked_cursor_disable)
+        self.keyPressEventSubscribe(key.Key_E, NoModifier, 
+                                 pool.action( 'SnapshotAction' ).linked_cursor_enable)
+        self.keyPressEventSubscribe(key.Key_S, NoModifier, 
+                                 pool.action( 'SnapshotAction' ).snapshot_single)
+
 # composition of rotation in quaternion
 def product_quaternion(Q1, Q2):
     a1, a2 = Q1[0], Q2[0]
@@ -47,7 +115,7 @@ def do_mesh_cluster_rendering(title,
                               brain_mesh_file,
                               anat_file,
                               palette_file="palette_signed_values_blackcenter",
-                              a = None,
+                              #a = None,
                               check=False,
                               verbose=True):
     """ Vizualization of signed stattistic map or weigths.
@@ -72,10 +140,20 @@ def do_mesh_cluster_rendering(title,
     None
     """
     #FunctionSummary(check, verbose)
-
+    global anatomist_instance
     # instance of anatomist
-    if a is None:
-        a = anatomist.Anatomist()
+    if anatomist_instance is None:
+        anatomist_instance = anatomist.Anatomist()
+        # Add new SnapshotControl button
+        pix = QtGui.QPixmap( 'control.xpm' )
+        anatomist.cpp.IconDictionary.instance().addIcon('Snap', pix)
+        ad = anatomist.cpp.ActionDictionary.instance()
+        ad.addAction( 'SnapshotAction', lambda: SnapshotAction() )
+        cd = anatomist.cpp.ControlDictionary.instance()
+        cd.addControl( 'Snap', lambda: SnapshotControl(), 25 )
+        cm = anatomist.cpp.ControlManager.instance()
+        cm.addControl( 'QAGLWidget3D', '', 'Snap' )
+    a = anatomist_instance
     # ------------
     # load objects
     # ------------
@@ -108,18 +186,20 @@ def do_mesh_cluster_rendering(title,
     # --------------------------------
     # 3D view = fusion 3D + brain_mesh
     # --------------------------------
-    win = a.createWindow("3D", block=block)
+    win3d = a.createWindow("3D", block=block)
+    win3d_info = win3d.getInfos()
+    win3d_info["view_name"] = "3d"
     # orientation front left
     Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, 0]
     fusion3d = a.fusionObjects([clust_mesh, clust_texture], "Fusion3DMethod")
-    win.addObjects([fusion3d, brain_mesh])
+    win3d.addObjects([fusion3d, brain_mesh])
     a.execute("Fusion3DParams", object=fusion3d, step=0.1, depth=5.,
               sumbethod="max", method="line_internal")
     #define point of view
-    Q1 = win.getInfos()["view_quaternion"]  # current point of view
+    Q1 = win3d.getInfos()["view_quaternion"]  # current point of view
     Q = product_quaternion(Q1, Q_rot)
-    a.execute("Camera", windows=[win], view_quaternion=Q)
-    windows.append(win)
+    a.execute("Camera", windows=[win3d], view_quaternion=Q)
+    windows.append(win3d)
     objects.append(fusion3d)
 
     # -------------------------------------
@@ -135,6 +215,9 @@ def do_mesh_cluster_rendering(title,
     ##############
     #Coronal view
     win_coronal = a.createWindow("3D", block=block)
+    print "win_coronal", win_coronal
+    win_coronal_info = win_coronal.getInfos()
+    win_coronal_info["view_name"] = "coronal"
     cut_plane_coronal = [0, 1, 0, -90]
 
     # fusion cut mesh
@@ -154,6 +237,10 @@ def do_mesh_cluster_rendering(title,
     ##############
     #Axial view
     win_axial = a.createWindow("3D", block=block)
+    print "win_axial", win_axial
+    win_axial_info = win_axial.getInfos()
+    win_axial_info["view_name"] = "axial"
+
     #cut_plane_axial = [0,0,1,-90]
     # orientation front top left
     Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, np.sin(np.pi / 8.)]
@@ -172,10 +259,13 @@ def do_mesh_cluster_rendering(title,
     windows.append(win_axial)
     a.execute
     objects.append([fusion2d, fusionmesh_axial])
-
+    
     ##############
     #Sagital view
     win_sagital = a.createWindow("3D", block=block)
+    print "win_sagital", win_sagital
+    win_sagital_info = win_sagital.getInfos()
+    win_sagital_info["view_name"] = "sagital"
     cut_plane_sagital = [1, 0, 0, -90]
     #rotation -Pi/4 --> orientation right
     Q_rot = [np.sqrt(2) / 2., -np.sqrt(2) / 2., 0, 0]
@@ -205,6 +295,7 @@ def do_mesh_cluster_rendering(title,
         block.widgetProxy().widget.setWindowTitle(str(title))
     except:
         print "could not set name"
+
     # rotation
 #    rot_quat_coronal = aims.Quaternion()
 #    rot_quat_coronal.fromAxis([0, 0, 1], math.pi/2)  # rotate x 90°
@@ -214,7 +305,7 @@ def do_mesh_cluster_rendering(title,
     #app.exec_()
     #print 1
     #sys.exit(app.exec_())
-    return a, [clust_mesh, brain_mesh, clust_texture, a_anat, material, palette, block,
+    return [clust_mesh, brain_mesh, clust_texture, a_anat, material, palette, block,
                windows, objects]
 
 if __name__ == "__main__":
@@ -226,7 +317,7 @@ if __name__ == "__main__":
         print "Error: Input is missing."
         parser.print_help()
         exit(-1)
-    a = None
+    #a = None
     gui_objs = list()
     for input_dirname in options.inputs:
         print input_dirname
@@ -239,11 +330,11 @@ if __name__ == "__main__":
         print 'clust_texture_file = "%s"' % clust_texture_file
         print 'brain_mesh_file = "%s"' %  brain_mesh_file
         print 'anat_file = "%s"' % anat_file
-        a, objs = do_mesh_cluster_rendering(title=title,
+        objs = do_mesh_cluster_rendering(title=title,
             clust_mesh_file=clust_mesh_file,
             clust_texture_file=clust_texture_file,
             brain_mesh_file=brain_mesh_file,
-            anat_file=anat_file,
-            a=a)
+            anat_file=anat_file)#,
+            #a=a)
         gui_objs.append(objs)
     sys.exit(app.exec_())
