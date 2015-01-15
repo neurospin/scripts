@@ -42,6 +42,8 @@ except:
 import shutil
 
 anatomist_instance = None
+views = dict()
+image = None
 
 class SnapshotAction(anatomist.cpp.Action):
     def name( self ):
@@ -54,15 +56,21 @@ class SnapshotAction(anatomist.cpp.Action):
 
     def linked_cursor_disable(self):
         global anatomist_instance
+        global views
         print "linked_cursor_disable"
-        anatomist_instance.execute('WindowConfig', windows=[self.view().window()], cursor_visibility=0)
+        for name, view_type in views:
+            #print name, view_type, views[(name, view_type)]
+            anatomist_instance.execute('WindowConfig', windows=[views[(name, view_type)][0]], cursor_visibility=0)
 
     def linked_cursor_enable(self):
         global anatomist_instance
+        global views
         print "linked_cursor_enable"
-        anatomist_instance.execute('WindowConfig', windows=[self.view().window()], cursor_visibility=1)
+        for name, view_type in views:
+            #print name, view_type, views[(name, view_type)]
+            anatomist_instance.execute('WindowConfig', windows=[views[(name, view_type)][0]], cursor_visibility=1)
 
-    def snapshot_single(self):
+    def snapshot_single2(self):
         global anatomist_instance
         print "snapshot_single"
         win = self.view().window()
@@ -82,22 +90,33 @@ class SnapshotAction(anatomist.cpp.Action):
         anatomist_instance.execute('WindowConfig', windows=[win], snapshot=filename)
     #print 'takePolygon', x, y
 
+    def snapshot(self):
+        global anatomist_instance
+        global anatomist_instance
+        global views
+        global image
+        image_dim = image.header()['volume_dimension'].arraydata()[:3]
+        for name, view_type in views:
+            #, views[(name, view_type)]
+            win, mesh = views[(name, view_type)]
+            print name, view_type, win, mesh
+            if name == "axial":
+                sclice_axial(fusionmesh_axial, -(image_dim / 2)[2])
 
-    
 class SnapshotControl(anatomist.cpp.Control):
     def __init__(self, prio = 25 ):
-        anatomist.cpp.Control.__init__( self, prio, 'SnapshotControl' )
+        anatomist.cpp.Control.__init__( self, prio, 'SnapshotControl')
     def eventAutoSubscription(self, pool):
         key = QtCore.Qt
         NoModifier = key.NoModifier
         self.mousePressButtonEventSubscribe(key.LeftButton, NoModifier,
-                                            pool.action( 'SnapshotAction' ).left_click)
-        self.keyPressEventSubscribe(key.Key_D, NoModifier, 
-                                 pool.action( 'SnapshotAction' ).linked_cursor_disable)
-        self.keyPressEventSubscribe(key.Key_E, NoModifier, 
-                                 pool.action( 'SnapshotAction' ).linked_cursor_enable)
-        self.keyPressEventSubscribe(key.Key_S, NoModifier, 
-                                 pool.action( 'SnapshotAction' ).snapshot_single)
+                                            pool.action('SnapshotAction').left_click)
+        self.keyPressEventSubscribe(key.Key_D, NoModifier,
+                                 pool.action('SnapshotAction').linked_cursor_disable)
+        self.keyPressEventSubscribe(key.Key_E, NoModifier,
+                                 pool.action('SnapshotAction').linked_cursor_enable)
+        self.keyPressEventSubscribe(key.Key_S, NoModifier,
+                                 pool.action('SnapshotAction').snapshot)
 
 # composition of rotation in quaternion
 def product_quaternion(Q1, Q2):
@@ -109,6 +128,34 @@ def product_quaternion(Q1, Q2):
     Q = np.hstack([a, v])
     return Q.tolist()
 
+def sclice_axial(fusionmesh, sclice=-90):
+    global anatomist_instance
+    cut_plane_axial = [0, 0, 1, sclice]
+    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+          plane=cut_plane_axial)
+
+def sclice_coronal(fusionmesh, sclice=-90):
+    global anatomist_instance
+    cut_plane_coronal = [0, 1, 0, sclice]
+    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+          plane=cut_plane_coronal)
+
+def sclice_sagital(fusionmesh, sclice=-90):
+    global anatomist_instance
+    cut_plane_sagital = [1, 0, 0, sclice]
+    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+          plane=cut_plane_sagital)
+"""
+def xyz_to_mm(trm, vox_size):
+    trmcp = aims.Motion(trm)
+    trmcp.scale(aims.Point3d(vox_size), aims.Point3d(1, 1, 1))
+    return trmcp
+
+def ima_get_trm_xyz_to_mm(ima, refNb=0):
+    trm_ima_mm2ref_mm = aims.Motion(ima.header()['transformations'][refNb])
+    ima_voxel_size = ima.header()['voxel_size'][:3]
+    return(xyz_to_mm(trm_ima_mm2ref_mm, ima_voxel_size))
+"""
 def do_mesh_cluster_rendering(title,
                               clust_mesh_file,
                               clust_texture_file,
@@ -141,6 +188,8 @@ def do_mesh_cluster_rendering(title,
     """
     #FunctionSummary(check, verbose)
     global anatomist_instance
+    global views
+    global image
     # instance of anatomist
     if anatomist_instance is None:
         anatomist_instance = anatomist.Anatomist()
@@ -160,6 +209,27 @@ def do_mesh_cluster_rendering(title,
     clust_mesh = a.loadObject(clust_mesh_file)
     brain_mesh = a.loadObject(brain_mesh_file)
     clust_texture = a.loadObject(clust_texture_file)
+    image = aims.Reader().read(clust_texture_file)
+    image_dim = image.header()['volume_dimension'].arraydata()[:3]
+    """
+    cd /home/ed203246/mega/data/mescog/wmh_patterns/summary/cluster_mesh/tvl1l20001
+    from soma import aims
+    clust_texture_file = "clust_values.nii.gz"
+
+
+    trm_ima_mm2ref_mm = aims.Motion(ima.header()['transformations'][0])
+
+    trm_xyz_to_mm = ima_get_trm_xyz_to_mm(ima)
+    min_mm = trm_ima_mm2ref_mm.transform([0, 0, 0])
+    #a=ima.header()['volume_dimension']
+    ima_dim_xyz = ima.header()['volume_dimension'].arraydata()[:3]
+    max_mm = trm_ima_mm2ref_mm.transform(ima_dim_xyz)
+
+    trm_ima_mm2ref_mm = aims.Motion(ima.header()['transformations'][0])
+    ima_voxel_size = ima.header()['voxel_size'][:3]
+    xyz_to_mm(trm_ima_mm2ref_mm, ima_voxel_size)
+    """
+    #print clust_texture.header()#['volume_dimension']
     a_anat = a.loadObject(anat_file)
 
     # mesh option
@@ -187,8 +257,6 @@ def do_mesh_cluster_rendering(title,
     # 3D view = fusion 3D + brain_mesh
     # --------------------------------
     win3d = a.createWindow("3D", block=block)
-    win3d_info = win3d.getInfos()
-    win3d_info["view_name"] = "3d"
     # orientation front left
     Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, 0]
     fusion3d = a.fusionObjects([clust_mesh, clust_texture], "Fusion3DMethod")
@@ -201,11 +269,11 @@ def do_mesh_cluster_rendering(title,
     a.execute("Camera", windows=[win3d], view_quaternion=Q)
     windows.append(win3d)
     objects.append(fusion3d)
-
+    views[(title, "3d")] = [win3d, fusion3d]
     # -------------------------------------
     # Slices view = three views offusion 2D
     # -------------------------------------
-    #fusion 2D
+    # fusion 2D
     fusion2d = a.fusionObjects([a_anat, clust_texture], "Fusion2DMethod")
     a.execute("Fusion2DMethod", object=fusion2d)
     # change 2D fusion settings
@@ -213,82 +281,67 @@ def do_mesh_cluster_rendering(title,
                   mode="linear_A_if_B_black", rate=0.1)
 
     ##############
-    #Coronal view
+    # Coronal view
     win_coronal = a.createWindow("3D", block=block)
     print "win_coronal", win_coronal
-    win_coronal_info = win_coronal.getInfos()
-    win_coronal_info["view_name"] = "coronal"
-    cut_plane_coronal = [0, 1, 0, -90]
-
-    # fusion cut mesh
+    # Fusion cut mesh
     fusionmesh_coronal = a.fusionObjects([brain_mesh, fusion2d],
                                          "FusionCutMeshMethod")
     a.execute("FusionCutMeshMethod", object=fusionmesh_coronal)
     fusionmesh_coronal.addInWindows(win_coronal)
     # Coronal view
-    a.execute("SliceParams", objects=[fusionmesh_coronal],
-              plane=cut_plane_coronal)
-    #define point of view
-    #a.execute("Camera", windows=[win_coronal], )
+    # Slice
+    #sclice_coronal(fusionmesh_coronal, -90)
+    sclice_coronal(fusionmesh_coronal, -(image_dim / 2)[1])
+    # Store
     windows.append(win_coronal)
-    a.execute
+    #a.execute
     objects.append([fusion2d, fusionmesh_coronal])
+    views[(title, "coronal")] = [win_coronal, fusionmesh_coronal]
 
     ##############
-    #Axial view
+    # Axial view
     win_axial = a.createWindow("3D", block=block)
-    print "win_axial", win_axial
-    win_axial_info = win_axial.getInfos()
-    win_axial_info["view_name"] = "axial"
-
-    #cut_plane_axial = [0,0,1,-90]
-    # orientation front top left
-    Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, np.sin(np.pi / 8.)]
-    # fusion cut mesh
+    print "win_axial", win_axial, win_axial.getInfos()
+    # Fusion cut mesh
     fusionmesh_axial = a.fusionObjects([brain_mesh, fusion2d],
                                        "FusionCutMeshMethod")
     a.execute("FusionCutMeshMethod", object=fusionmesh_axial)
     fusionmesh_axial.addInWindows(win_axial)
-    # Axial view
-    #a.execute("SliceParams", objects=[fusionmesh_axial],
-             #plane=cut_plane_axial)
-    #define point of view
+    # Axial view, orientation front top left
+    Q_rot = [np.cos(np.pi / 8.), np.sin(np.pi / 8.), 0, np.sin(np.pi / 8.)]
     Q1 = win_axial.getInfos()["view_quaternion"]  # current point of view
     Q = product_quaternion(Q1, Q_rot)
     a.execute("Camera", windows=[win_axial], view_quaternion=Q, zoom=0.8)
+    # Slice
+    sclice_axial(fusionmesh_axial, -(image_dim / 2)[2])
+    # Store
     windows.append(win_axial)
-    a.execute
+    #a.execute
     objects.append([fusion2d, fusionmesh_axial])
-    
+    views[(title, "axial")] = [win_axial, fusionmesh_axial]
+
     ##############
     #Sagital view
     win_sagital = a.createWindow("3D", block=block)
     print "win_sagital", win_sagital
-    win_sagital_info = win_sagital.getInfos()
-    win_sagital_info["view_name"] = "sagital"
-    cut_plane_sagital = [1, 0, 0, -90]
-    #rotation -Pi/4 --> orientation right
-    Q_rot = [np.sqrt(2) / 2., -np.sqrt(2) / 2., 0, 0]
-
-    # fusion cut mesh
+    # Fusion cut mesh
     fusionmesh_sagital = a.fusionObjects([brain_mesh, fusion2d],
                                          "FusionCutMeshMethod")
     a.execute("FusionCutMeshMethod", object=fusionmesh_sagital)
     fusionmesh_sagital.addInWindows(win_sagital)
-    # Sagital view
-    a.execute("SliceParams", objects=[fusionmesh_sagital],
-              plane=cut_plane_sagital)
-    #define point of view
+    # Sagital view: rotation -Pi/4 --> orientation right
+    Q_rot = [np.sqrt(2) / 2., -np.sqrt(2) / 2., 0, 0]
     Q1 = win_sagital.getInfos()["view_quaternion"]  # current point of view
     Q = product_quaternion(Q1, Q_rot)
     a.execute("Camera", windows=[win_sagital], view_quaternion=Q, zoom=0.9)
-
+    # Slice
+    sclice_sagital(fusionmesh_sagital, -(image_dim / 2)[0])
+    # Store
     windows.append(win_sagital)
-    a.execute
+    #a.execute
     objects.append([fusion2d, fusionmesh_sagital])
-
-    #fusionmesh.addInWindows(win_coronal)
-    #fusionmesh.addInWindows(win_sagital)
+    views[(title, "sagital")] = [win_sagital, fusionmesh_sagital]
 
     # Global windows info
     try:
@@ -296,17 +349,8 @@ def do_mesh_cluster_rendering(title,
     except:
         print "could not set name"
 
-    # rotation
-#    rot_quat_coronal = aims.Quaternion()
-#    rot_quat_coronal.fromAxis([0, 0, 1], math.pi/2)  # rotate x 90°
-#    print rot_quat_coronal, math.pi/2
-#    win_axial.camera(slice_quaternion=rot_quat_coronal.vector())
-
-    #app.exec_()
-    #print 1
-    #sys.exit(app.exec_())
-    return [clust_mesh, brain_mesh, clust_texture, a_anat, material, palette, block,
-               windows, objects]
+    return [clust_mesh, brain_mesh, clust_texture, a_anat, material, palette,
+            block, windows, objects]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
