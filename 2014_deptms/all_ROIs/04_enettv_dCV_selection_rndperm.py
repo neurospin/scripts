@@ -37,6 +37,7 @@ def load_globals(config):
     GLOBAL.A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.STRUCTURE = STRUCTURE
     GLOBAL.ROI = config["roi"]
+    GLOBAL.OUTPUT_PATH = config["output_path"]
 
 
 def resample(config, resample_nb):
@@ -117,7 +118,7 @@ def mapper(key, output_collector):
         return ret
 
 
-def reducer_(key, values):
+def reducer(key, values):
     # key : string of intermediary key
     # load return dict correspondning to mapper ouput. they need to be loaded.
     # DEBUG
@@ -129,27 +130,34 @@ def reducer_(key, values):
                 'pvalue_accuracy': [np.argmin, np.min]}
     output_selection = GLOBAL.OUTPUT_SELECTION
     output_summary = GLOBAL.OUTPUT_SUMMARY
+    output_path = GLOBAL.OUTPUT_PATH
     map_output = GLOBAL.MAP_OUTPUT
+    roi = GLOBAL.ROI
     BASE = os.path.join("/neurospin/brainomics/2014_deptms/results_enettv/",
                         "MRI_" + roi,
                         map_output)
     INPUT = BASE + "/%i/%s"
+    OUTPUT = BASE + "/../" + output_path
+    if not os.path.exists(OUTPUT):
+        os.makedirs(OUTPUT)
     prob_class1 = GLOBAL.PROB_CLASS1
     params = GLOBAL.PARAMS
     keys = ['_'.join(str(e) for e in a) for a in params]
     compt = 0
-    if not os.path.isfile(os.path.join(BASE, output_selection)):
+    if not os.path.isfile(os.path.join(OUTPUT, output_selection)):
         print "Model Construction, first cross-validation"
         for key in keys:
+            print "key: ", key
             paths_dCV_all = [INPUT % (perm, key) \
                     for perm in xrange(NFOLDS * NFOLDS * NRNDPERMS)]
             idx_dCV_blocks = range(0,
-                                   (NFOLDS * NFOLDS * NRNDPERMS),
-                                    NFOLDS * NFOLDS)
+                             (NFOLDS * NFOLDS * NRNDPERMS) + NFOLDS * NFOLDS,
+                             NFOLDS * NFOLDS)
             for perm in xrange(NRNDPERMS):
+                print "perm: ", perm
                 paths_dCV_blocks = paths_dCV_all[idx_dCV_blocks[perm]:\
                                                 idx_dCV_blocks[perm + 1]]
-                idx_fold_blocks = range(0, NFOLDS * NFOLDS, NFOLDS)
+                idx_fold_blocks = range(0, NFOLDS * NFOLDS + NFOLDS, NFOLDS)
                 # for each outer fold
                 for fold in xrange(0, NFOLDS):
                     path_fold_blocks = paths_dCV_blocks[idx_fold_blocks[fold]:\
@@ -158,7 +166,7 @@ def reducer_(key, values):
                     values = [GLOBAL.OutputCollector(p) \
                                     for p in path_fold_blocks]
                     values = [item.load() for item in values]
-                    n_fold = [item["n_fold"] for item in values]
+                    n_fold = [item["nfold"] for item in values]
                     assert n_fold == ([fold for i in xrange(NFOLDS)])
                     y_true = [item["y_true"].ravel() for item in values]
                     y_true = np.hstack(y_true)
@@ -200,15 +208,15 @@ def reducer_(key, values):
                         scores_tab = pd.DataFrame(columns=scores_CV.keys())
                     scores_tab.loc[compt, ] = scores_CV.values()
                     compt += 1
-        scores_tab.to_csv(os.path.join(BASE, output_selection), index=False)
+        scores_tab.to_csv(os.path.join(OUTPUT, output_selection), index=False)
 
-    if not os.path.isfile(os.path.join(BASE, output_summary)):
+    if not os.path.isfile(os.path.join(OUTPUT, output_summary)):
         print "Model Selection"
         compt = 0
-        scores_tab = pd.read_csv(os.path.join(BASE, output_selection))
+        scores_tab = pd.read_csv(os.path.join(OUTPUT, output_selection))
         perm_groups = scores_tab.groupby('permutation')
         for perm_val, perm_group in perm_groups:
-            fold_groups = scores_tab.groupby('n_fold')
+            fold_groups = perm_group.groupby('n_fold')
             for fold_val, fold_group in fold_groups:
                 scores_dCV = OrderedDict()
                 scores_dCV['permutation'] = perm_val
@@ -227,7 +235,7 @@ def reducer_(key, values):
                                                    columns=scores_dCV.keys())
                 scores_select_model.loc[compt, ] = scores_dCV.values()
                 compt += 1
-        scores_select_model.to_csv(os.path.join(BASE, output_summary),
+        scores_select_model.to_csv(os.path.join(OUTPUT, output_summary),
                                    index=False)
     return {}
 
@@ -360,14 +368,14 @@ if __name__ == "__main__":
                   penalty_start=3,
                   map_output="rndperm_selection",
                   output_selection="results_rndperm_dCV_selection.csv",
+                  output_path="rndperm_results",
                   output_summary="summary_rndperm_selection.csv",
                   output_validation="results_rndperm_dCV_validation.csv",
                   prob_class1=config_selection["prob_class1"],
                   output_permutations="pvals_stats_permutations.csv",
                   user_func=user_func_filename,
                   reduce_group_by="params",
-                  roi=roi,
-                  reduce_output="rndperm.csv")
+                  roi=roi)
     json.dump(config,
               open(os.path.join(WD, "config_rndperm_dCV_selection.json"),
                    "w"))

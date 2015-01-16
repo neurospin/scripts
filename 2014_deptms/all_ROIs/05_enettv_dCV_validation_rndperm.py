@@ -26,15 +26,15 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     GLOBAL.CRITERIA = config["params"]
-    GLOBAL.MAP_OUTPUT = config['map_output']
+    GLOBAL.MAP_OUTPUT = config["map_output"]
+    GLOBAL.OUTPUT_PATH = config["output_path"]
     GLOBAL.OUTPUT_PERMUTATIONS = config["output_permutations"]
-    GLOBAL.PROB_CLASS1 = config["prob_class1"]
     GLOBAL.PENALTY_START = config["penalty_start"]
     STRUCTURE = nibabel.load(config["structure"])
     GLOBAL.A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.STRUCTURE = STRUCTURE
     GLOBAL.ROI = config["roi"]
-    GLOBAL.SELECTION = pd.read_csv(os.path.join(config["map_output_selection"],
+    GLOBAL.SELECTION = pd.read_csv(os.path.join(config["output_path"],
                                                 config["output_summary"]))
 
 
@@ -108,10 +108,14 @@ def reducer_(key, values):
     import mapreduce as GLOBAL
     output_permutations = GLOBAL.OUTPUT_PERMUTATIONS
     map_output = GLOBAL.MAP_OUTPUT
+    output_path = GLOBAL.OUTPUT_PATH
     BASE = os.path.join("/neurospin/brainomics/2014_deptms/results_enettv/",
                         "MRI_" + roi,
                         map_output)
     INPUT = BASE + "/%i/%s"
+    OUTPUT = BASE + "/../" + output_path
+    if not os.path.exists(OUTPUT):
+        os.makedirs(OUTPUT)
     params = GLOBAL.PARAMS
     keys = ['_'.join(str(e) for e in a) for a in params]
     OK = 0
@@ -152,7 +156,7 @@ def reducer_(key, values):
                 auc_perms[perm] = auc
             # END PERMS
             print "save", key
-            np.savez_compressed(BASE + "/perms_" + key + ".npz",
+            np.savez_compressed(OUTPUT + "/perms_" + key + ".npz",
                             recall_0=recall_0_perms, recall_1=recall_1_perms,
                             recall_mean=recall_mean_perms,
                             accuracy=accuracy_perms,
@@ -200,7 +204,7 @@ def reducer_(key, values):
 
         pvals = pd.DataFrame(pvals)
         pvals["pval"] /= nperms
-        pvals.to_csv(os.path.join(BASE, "pvals_stats_permutations.csv"),
+        pvals.to_csv(os.path.join(OUTPUT, "pvals_stats_permutations.csv"),
                      index=False)
     return {}
 
@@ -293,7 +297,7 @@ if __name__ == "__main__":
                   structure=INPUT_MASK,
                   penalty_start=3,
                   map_output="rndperm_validation",
-                  map_output_selection=config_permutation["map_output"],
+                  output_path=config_permutation["output_path"],
                   output_summary=config_permutation["output_summary"],
                   output_permutations=config_permutation["output_permutations"],
                   user_func=user_func_filename,
