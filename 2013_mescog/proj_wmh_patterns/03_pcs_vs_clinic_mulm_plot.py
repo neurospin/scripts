@@ -15,9 +15,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from mulm.dataframe.descriptive_statistics import describe_df_basic
 from mulm.dataframe.mulm_dataframe import MULM
+from statsmodels.sandbox.stats.multicomp import multipletests
 
-#INPUT_BASE_CLINIC = "/neurospin/mescog/proj_predict_cog_decline/data"
-#INPUT_BASE_PC = "/neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds"
 BASE_DIR = "/home/ed203246/data/mescog/wmh_patterns"
 INPUT_BASE_PC = INPUT_BASE_CLINIC = BASE_DIR
 
@@ -27,103 +26,106 @@ INPUT_CLINIC = os.path.join(INPUT_BASE_CLINIC, "dataset_clinic_niglob_20140728_n
 OUTPUT = os.path.join(INPUT_BASE_PC, "summary")
 
 data = pd.read_csv(INPUT_PC)
-
-"""
-clinic = pd.read_csv(INPUT_CLINIC)
-
-clinic["ID"] = [int(x.replace("CAD_", "")) for x in clinic.ID.tolist()]
-clinic.SEX -= 1
-
-data = pd.merge(clinic, pc, left_on="ID", right_on="Subject ID")
-
-
-def get_pca(d):
-    return d[(d.global_pen == 0) & (d.tv_ratio == 0) & (d.l1_ratio == 0)]
-
-def get_l1l2tv(d):
-    d = d[(d.global_pen == 1) & (d.tv_ratio == .33) & (d.l1_ratio == .5)]
-    d.PC1 = -d.PC1  # get the opposite value of PC1 to harmonize
-    return d
-
-methods = dict(PCATV=get_l1l2tv, PCA=get_pca)
-
-assert get_pca(data).shape == get_l1l2tv(data).shape == (301, 33)
-"""
-
-#data = pc
 data.columns = [x.replace(".", "_") for x in data.columns]
 
-# Changes
+#################
+# Compute changes
+#################
+
 data["TMTB_TIME_CHANGE"] = data["TMTB_TIME_M36"] - data["TMTB_TIME"]
 data["MDRS_TOTAL_CHANGE"] = data["MDRS_TOTAL_M36"] - data["MDRS_TOTAL"]
 data["MRS_CHANGE"] = data["MRS_M36"] - data["MRS"]
 data["MMSE_CHANGE"] = data["MMSE_M36"] - data["MMSE"]
 
+###########
+# Variables
+###########
+
 TARGETS_CLIN_BL = ["TMTB_TIME", "MDRS_TOTAL", "MRS", "MMSE"]
 TARGETS_CLIN_M36 = ["TMTB_TIME_M36", "MDRS_TOTAL_M36", "MRS_M36", "MMSE_M36"]
 TARGETS_CLIN_CHANGE = ["TMTB_TIME_CHANGE", "MDRS_TOTAL_CHANGE", "MRS_CHANGE", "MMSE_CHANGE"]
-TARGETS_NI_GLOB = ['LLV', 'BPF', 'WMHV', 'MBcount']
-TARGETS = TARGETS_CLIN_BL + TARGETS_CLIN_M36 + TARGETS_CLIN_CHANGE + TARGETS_NI_GLOB
-TARGETS_SUMMARY = TARGETS_CLIN_BL + TARGETS_NI_GLOB
-REGRESSORS = [x for x in data.columns if x.count("pc")]
-REGRESSORS_SUMMARY = [x for x in data.columns if
-    (x.count("pca") or (x.count('tvl1l2') and not x.count('tvl1l2_smalll1')))]
+TARGETS_CLIN = TARGETS_CLIN_BL + TARGETS_CLIN_M36 + TARGETS_CLIN_CHANGE
+TARGETS_NI = ['LLV', 'BPF', 'WMHV', 'MBcount']
 
-formulas_simple = ['%s~%s' % (t, r) for t in TARGETS for r in REGRESSORS]
-formulas_covars = [f +  "+AGE_AT_INCLUSION+SEX+EDUCATION" for f in formulas_simple]
-formulas_all = formulas_simple + formulas_covars
-formulas_covars_summary = \
-['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION' % (t, r)
-    for t in TARGETS_SUMMARY for r in REGRESSORS_SUMMARY]
+TARGETS_ALL = TARGETS_CLIN + TARGETS_NI
+TARGETS_OI = TARGETS_CLIN_BL + TARGETS_NI # Of Interest
 
+REGRESSORS_ALL = [x for x in data.columns if x.count("pc")]
+REGRESSORS_OI = [x for x in data.columns if # Of Interest
+    (x.count('tvl1l2') and not x.count('tvl1l2_smalll1'))]
+REGRESSORS_OI.remove('pc_sum23__tvl1l2')
 
-model_simple = MULM(data=data, formulas=formulas_simple)
-stats_simple = model_simple.t_test(contrasts=1, out_filemane=None)
+########
+# Models
+########
 
-model_covars = MULM(data=data, formulas=formulas_covars)
-stats_covars = model_covars.t_test(contrasts=1, out_filemane=None)
+formulas_all_simple = ['%s~%s' % (t, r) for t in TARGETS_ALL for r in REGRESSORS_ALL]
+formulas_all_covars = \
+    ['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION+BPF+LLV' % (t, r)
+        for t in TARGETS_CLIN for r in REGRESSORS_ALL] + \
+    ['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION' % (t, r)
+        for t in TARGETS_NI for r in REGRESSORS_ALL]
 
-model_all = MULM(data=data, formulas=formulas_all)
-stats_all = model_all.t_test(contrasts=1, out_filemane=None)
+formulas_all = formulas_all_simple + formulas_all_covars
 
-model_summary = MULM(data=data, formulas=formulas_covars_summary)
-stats_summary = model_summary.t_test(contrasts=1, out_filemane=None)
+formulas_oi = \
+    ['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION+BPF+LLV' % (t, r)
+        for t in TARGETS_CLIN_BL for r in REGRESSORS_OI] + \
+    ['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION' % (t, r)
+        for t in TARGETS_NI for r in REGRESSORS_OI]
 
-# -
-formulas_covars_summary_sumpc12 = \
-['%s~pc2__tvl1l2+pc3__tvl1l2+AGE_AT_INCLUSION+SEX+EDUCATION' % t for t in TARGETS_SUMMARY]
+mod = MULM(data=data, formulas=formulas_all_simple)
+stats_all_simple = mod.t_test(contrasts=1, out_filemane=None)
 
-model_summary_sumpc12 = MULM(data=data, formulas=formulas_covars_summary_sumpc12)
-stats_summary_sumpc12 = model_summary_sumpc12.t_test(contrasts=1, out_filemane=None)
+mod = MULM(data=data, formulas=formulas_all_covars)
+stats_all_covars = mod.t_test(contrasts=1, out_filemane=None)
+
+mod = MULM(data=data, formulas=formulas_all)
+stats_all = mod.t_test(contrasts=1, out_filemane=None)
+
+mod = MULM(data=data, formulas=formulas_oi)
+stats_oi = mod.t_test(contrasts=1, out_filemane=None)
+stats_oi["Corrected P value"] = multipletests(stats_oi.pvalue,  method='fdr_bh')[1]
+
+#mod = MULM(data=data, formulas=['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION+BPF+LLV' % (t, r)
+#        for t in TARGETS_CLIN_BL for r in REGRESSORS_OI])
+# Max T is no better than FDR use FDR only
+# stats_mcmp = mod.t_test_maxT(contrasts=1, nperm=100)
+#stats_mcmp = mod.t_test(contrasts=1)
+#stats_mcmp["pvalue_fdr_bh"] = multipletests(stats_mcmp.pvalue,  method='fdr_bh')[1]
+
+summary = stats_oi.copy()
+
+summary["Variable"] = summary.target.replace({'TMTB_TIME':'TMTB', "MDRS_TOTAL":"MDRS", "MRS": "mRS"})
+summary["PC"] = summary.contrast.replace({'pc1__tvl1l2':1, 'pc2__tvl1l2':2, 'pc3__tvl1l2':3})
+summary["P value"] = summary.pvalue
+summary["t statistic"] = summary.pvalue
+summary = summary.loc[:, ["Variable", "PC", "t statistic", "P value", "Corrected P value"]]
 
 with pd.ExcelWriter(os.path.join(OUTPUT, "pc_clinic_associations.xls")) as writer:
-    stats_simple.to_excel(writer, sheet_name='simple', index=False)
-    stats_covars.to_excel(writer, sheet_name='covars', index=False)
-    stats_all.to_excel(writer, sheet_name='all', index=False)
-    stats_summary.to_excel(writer, sheet_name='summary', index=False)
-
-
-
-
-
-
-
+#    stats_mcmp.to_excel(writer, sheet_name='models of interest , p corr.', index=False)
+#    stats_mcmp2.to_excel(writer, sheet_name='two_sided', index=False)
+    summary.to_excel(writer, sheet_name='summary', index=False)
+    stats_oi.to_excel(writer, sheet_name='models of interest', index=False)
+    stats_all_simple.to_excel(writer, sheet_name='all_simple', index=False)
+    stats_all_covars.to_excel(writer, sheet_name='all_covars', index=False)
+    stats_all.to_excel(writer, sheet_name='all_simple+covars', index=False)
 
 
 """
 stats_pcatv = mulm_df(data=methods["PCATV"](data),
-                targets=TARGETS, regressors=REGRESSORS,
+                targets=TARGETS_ALL, regressors=REGRESSORS_ALL,
                 covar_models=COVARS, full_model=True)
 stats_pcatv["method"] = "PCATV"
 
 summary = stats_pcatv[
-    (stats_pcatv.covariate.isin(REGRESSORS))&
-    stats_pcatv.target.isin(TARGETS_CLIN_BL+TARGETS_NI_GLOB)]
+    (stats_pcatv.covariate.isin(REGRESSORS_ALL))&
+    stats_pcatv.target.isin(TARGETS_CLIN_BL+TARGETS_NI)]
 
 
 
 stats_pca = mulm_df(data=methods["PCA"](data),
-                targets=TARGETS, regressors=REGRESSORS,
+                targets=TARGETS_ALL, regressors=REGRESSORS_ALL,
                 covar_models=COVARS, full_model=True)
 stats_pca["method"] = "PCA"
 
@@ -141,7 +143,7 @@ pdf = PdfPages(os.path.join(OUTPUT, "pc_clinic_associations.pdf"))
 
 PCS = [1, 2, 3]
 res = list()
-for target in TARGETS:
+for target in TARGETS_ALL:
     dt = data[data[target].notnull()]
     fig, axarr = plt.subplots(2, 3)#, sharey=True)
     for i, method in enumerate(methods):
