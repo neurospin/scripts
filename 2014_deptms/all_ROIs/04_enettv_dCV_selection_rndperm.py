@@ -50,6 +50,7 @@ def resample(config, resample_nb):
     GLOBAL.NRNDPERM = resample[0]
     GLOBAL.N_FOLD = resample[1]
     y_perm = resample[2]
+    y_perm = np.asarray(y_perm)
     if resample is not None:
         # general case
         GLOBAL.DATA_RESAMPLED_VALIDMODEL = dict(
@@ -58,7 +59,7 @@ def resample(config, resample_nb):
         GLOBAL.DATA_RESAMPLED_SELECTMODEL = {k: [
                         GLOBAL.DATA_RESAMPLED_VALIDMODEL[k][1][idx, ...]
                             for idx in resample[5:]]
-                                for k in GLOBAL.DATA}
+                                for k in GLOBAL.DATA_RESAMPLED_VALIDMODEL}
     # resample is None train == test
     else:
         GLOBAL.DATA_RESAMPLED_VALIDMODEL = dict(
@@ -87,17 +88,17 @@ def mapper(key, output_collector):
     # data for model selection (1st cross validation, inner loop)
     Xtest = GLOBAL.DATA_RESAMPLED_SELECTMODEL["X"][0]
     Xtrain = GLOBAL.DATA_RESAMPLED_SELECTMODEL["X"][1]
-    ytest = GLOBAL.DATA_RESAMPLED_VALIDMODEL["y"][0]
-    ytrain = GLOBAL.DATA_RESAMPLED_VALIDMODEL["y"][1]
+    ytest = GLOBAL.DATA_RESAMPLED_SELECTMODEL["y"][0]
+    ytrain = GLOBAL.DATA_RESAMPLED_SELECTMODEL["y"][1]
 
     print key, "Data shape:", Xtest.shape, Xtrain.shape
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = GLOBAL.CONFIG["penalty_start"]
+    penalty_start = GLOBAL.PENALTY_START
     class_weight = "auto"  # unbiased
     alpha = float(key[0])
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
-    tv, k_ratio = alpha * float(key[3]), key[4]
+    tv, k_ratio = alpha * float(key[3]), float(key[4])
     print "l1:%f, l2:%f, tv:%f, k_ratio:%i" % (l1, l2, tv, k_ratio)
     A = GLOBAL.A
     info = [Info.num_iter]
@@ -361,6 +362,7 @@ if __name__ == "__main__":
                   output_selection="results_rndperm_dCV_selection.csv",
                   output_summary="summary_rndperm_selection.csv",
                   output_validation="results_rndperm_dCV_validation.csv",
+                  prob_class1=config_selection["prob_class1"],
                   output_permutations="pvals_stats_permutations.csv",
                   user_func=user_func_filename,
                   reduce_group_by="params",
