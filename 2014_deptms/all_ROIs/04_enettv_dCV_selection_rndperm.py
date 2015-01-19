@@ -21,7 +21,7 @@ from sklearn.cross_validation import StratifiedKFold
 
 
 NFOLDS = 10
-NRNDPERMS = 100
+NRNDPERMS = 1000
 
 
 def load_globals(config):
@@ -366,18 +366,18 @@ if __name__ == "__main__":
                   params=params, resample=rndperm,
                   structure=INPUT_MASK,
                   penalty_start=3,
-                  map_output="rndperm_selection",
-                  output_selection="results_rndperm_dCV_selection.csv",
+                  map_output="1000rndperm_selection",
+                  output_selection="results_1000rndperm_dCV_selection.csv",
                   output_path="rndperm_results",
-                  output_summary="summary_rndperm_selection.csv",
-                  output_validation="results_rndperm_dCV_validation.csv",
+                  output_summary="summary_1000rndperm_selection.csv",
+                  output_validation="results_1000rndperm_dCV_validation.csv",
                   prob_class1=config_selection["prob_class1"],
-                  output_permutations="pvals_stats_permutations.csv",
+                  output_permutations="pvals_stats_1000permutations.csv",
                   user_func=user_func_filename,
                   reduce_group_by="params",
                   roi=roi)
     json.dump(config,
-              open(os.path.join(WD, "config_rndperm_dCV_selection.json"),
+              open(os.path.join(WD, "config_1000rndperm_dCV_selection.json"),
                    "w"))
 
     #####################################################################
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config_rndperm_dCV_selection.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_1000rndperm_dCV_selection.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd, suffix="_rndperm")
 #        ####################################################################
 #        # Sync to cluster
