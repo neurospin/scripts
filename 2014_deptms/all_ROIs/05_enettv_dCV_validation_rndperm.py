@@ -125,6 +125,7 @@ def reducer(key, values):
     #                     'accuracy', 'pvalue_accuracy']
     if not OK:
         for key in keys:
+            print "key: ", key
             paths_CV_all = [INPUT % (perm, key) \
                     for perm in xrange(NFOLDS * NRNDPERMS)]
             idx_CV_blocks = range(0, (NFOLDS * NRNDPERMS) + NFOLDS, NFOLDS)
@@ -135,8 +136,8 @@ def reducer(key, values):
             auc_perms = np.zeros(NRNDPERMS)
             crit = key[0:len(key):2]
             if not os.path.isfile(OUTPUT + "/perms_" + crit + ".npz"):
-                print "file does not exit"
                 for perm in xrange(NRNDPERMS):
+                    print "perm: ", perm
                     paths_CV_blocks = paths_CV_all[idx_CV_blocks[perm]:\
                                                     idx_CV_blocks[perm + 1]]
                     values = [GLOBAL.OutputCollector(p) for p in paths_CV_blocks]
@@ -168,60 +169,61 @@ def reducer(key, values):
                                 auc=auc_perms)
         OK = 1
     #pvals
-    #if  not os.path.isfile(os.path.join(OUTPUT, output_permutations)):
-    perms = dict()
-    for i, key in enumerate(keys):
-        print "crit: ", crit
-        crit = key[0:len(key):2]
-        perms[crit] = np.load(OUTPUT + "/perms_" + crit + ".npz")
-    print "accuracy: ", perms['accuracy']['accuracy']
-    print "recall_0: ", perms['accuracy']['recall_0']
-    [recall_mean, min_recall, accuracy] = [keys[0][0:len(key):2],
-                                           keys[1][0:len(key):2],
-                                           keys[3][0:len(key):2]]
-    # Read true scores
-    true = pd.read_csv(os.path.join(BASE, "..",
-                                    "results_dCV_validation.csv"))
-    print "ok true"
-    print true.columns.values
-    true_recall_mean = true[true.params == recall_mean].iloc[0]
-    print "ok params"
-    true_min_recall = true[true.params == min_recall].iloc[0]
-    true_accuracy = true[true.params == accuracy].iloc[0]
-    # pvals
-    nperms = float(len(perms[recall_mean]['recall_0']))
-    from collections import OrderedDict
-    pvals = OrderedDict()
-    pvals["cond"] = ['recall_mean'] * 5 + ['min_recall'] * 5 + \
-                    ['accuracy'] * 5
-    print pvals["cond"]
-    pvals["stat"] = ['recall_0', 'recall_1', 'recall_mean', 'accuracy', 'auc'] * 3
-    print pvals["stat"]
-    pvals["pval"] = [
-    np.sum(perms[recall_mean]['recall_0'] > true_recall_mean["recall_0"]),
-    np.sum(perms[min_recall]['recall_0'] > true_min_recall["recall_0"]),
-    np.sum(perms[accuracy]['recall_0'] > true_accuracy["recall_0"]),
+    if  not os.path.isfile(os.path.join(OUTPUT, output_permutations)):
+        print "Derive p-values"
+        perms = dict()
+        for i, key in enumerate(keys):
+            print "crit: ", crit
+            crit = key[0:len(key):2]
+            perms[crit] = np.load(OUTPUT + "/perms_" + crit + ".npz")
+        print "accuracy: ", perms['accuracy']['accuracy']
+        print "recall_0: ", perms['accuracy']['recall_0']
+        [recall_mean, min_recall, accuracy] = [keys[0][0:len(key):2],
+                                               keys[1][0:len(key):2],
+                                               keys[3][0:len(key):2]]
+        # Read true scores
+        true = pd.read_csv(os.path.join(BASE, "..",
+                                        "results_dCV_validation.csv"))
+        print "ok true"
+        print true.columns.values
+        true_recall_mean = true[true.params == recall_mean].iloc[0]
+        print "ok params"
+        true_min_recall = true[true.params == min_recall].iloc[0]
+        true_accuracy = true[true.params == accuracy].iloc[0]
+        # pvals
+        nperms = float(len(perms[recall_mean]['recall_0']))
+        from collections import OrderedDict
+        pvals = OrderedDict()
+        pvals["cond"] = ['recall_mean'] * 5 + ['min_recall'] * 5 + \
+                        ['accuracy'] * 5
+        print pvals["cond"]
+        pvals["stat"] = ['recall_0', 'recall_1', 'recall_mean', 'accuracy', 'auc'] * 3
+        print pvals["stat"]
+        pvals["pval"] = [
+        np.sum(perms[recall_mean]['recall_0'] > true_recall_mean["recall_0"]),
+        np.sum(perms[min_recall]['recall_0'] > true_min_recall["recall_0"]),
+        np.sum(perms[accuracy]['recall_0'] > true_accuracy["recall_0"]),
 
-    np.sum(perms[recall_mean]['recall_1'] > true_recall_mean["recall_1"]),
-    np.sum(perms[min_recall]['recall_1'] > true_min_recall["recall_1"]),
-    np.sum(perms[accuracy]['recall_1'] > true_accuracy["recall_1"]),
+        np.sum(perms[recall_mean]['recall_1'] > true_recall_mean["recall_1"]),
+        np.sum(perms[min_recall]['recall_1'] > true_min_recall["recall_1"]),
+        np.sum(perms[accuracy]['recall_1'] > true_accuracy["recall_1"]),
 
-    np.sum(perms[recall_mean]['recall_mean'] > true_recall_mean["recall_mean"]),
-    np.sum(perms[min_recall]['recall_mean'] > true_min_recall["recall_mean"]),
-    np.sum(perms[accuracy]['recall_mean'] > true_accuracy["recall_mean"]),
+        np.sum(perms[recall_mean]['recall_mean'] > true_recall_mean["recall_mean"]),
+        np.sum(perms[min_recall]['recall_mean'] > true_min_recall["recall_mean"]),
+        np.sum(perms[accuracy]['recall_mean'] > true_accuracy["recall_mean"]),
 
-    np.sum(perms[recall_mean]['accuracy'] > true_recall_mean["accuracy"]),
-    np.sum(perms[min_recall]['accuracy'] > true_min_recall["accuracy"]),
-    np.sum(perms[accuracy]['accuracy'] > true_accuracy["accuracy"]),
+        np.sum(perms[recall_mean]['accuracy'] > true_recall_mean["accuracy"]),
+        np.sum(perms[min_recall]['accuracy'] > true_min_recall["accuracy"]),
+        np.sum(perms[accuracy]['accuracy'] > true_accuracy["accuracy"]),
 
-    np.sum(perms[recall_mean]['auc'] > true_recall_mean["auc"]),
-    np.sum(perms[min_recall]['auc'] > true_min_recall["auc"]),
-    np.sum(perms[accuracy]['auc'] > true_accuracy["auc"])]
+        np.sum(perms[recall_mean]['auc'] > true_recall_mean["auc"]),
+        np.sum(perms[min_recall]['auc'] > true_min_recall["auc"]),
+        np.sum(perms[accuracy]['auc'] > true_accuracy["auc"])]
 
-    pvals = pd.DataFrame(pvals)
-    pvals["pval"] /= float(nperms)
-    pvals.to_csv(os.path.join(OUTPUT, "pvals_stats_permutations.csv"),
-                 index=False)
+        pvals = pd.DataFrame(pvals)
+        pvals["pval"] /= float(nperms)
+        pvals.to_csv(os.path.join(OUTPUT, output_permutations),
+                     index=False)
     return {}
 
 
@@ -268,7 +270,7 @@ if __name__ == "__main__":
     DATA_MODALITY_PATH = os.path.join(DATASET_PATH, modality)
 
 #    for roi in rois:
-    roi = "Roiho-hippo"
+    roi = "Roiho-frontalPole"
     print "ROI", roi
 
     WD = os.path.join(OUTPUT_ENETTV, modality + '_' + roi)
@@ -294,7 +296,7 @@ if __name__ == "__main__":
     #################################################################
     ## Create config file
     # config permutations file
-    config_permutation_file = os.path.join(WD, "config_1000rndperm_dCV_selection.json")
+    config_permutation_file = os.path.join(WD, "config_rndperm_dCV_selection.json")
     # open config file selection
     config_permutation = json.load(open(config_permutation_file))
     # get resample index for each fold
@@ -303,8 +305,7 @@ if __name__ == "__main__":
     # rndperm=[n_perm, n_fold, y_perm, valid, calib]]
     rndperm = [resample[i * NFOLDS][:5] for i in xrange(NFOLDS * NRNDPERMS)]
 
-    criteria = ['recall_mean', 'min_recall', 'max_pvalue_recall',
-        'accuracy', 'pvalue_accuracy']
+    criteria = ['recall_mean', 'min_recall', 'accuracy']
     user_func_filename = os.path.abspath(__file__)
     print "user_func", user_func_filename
     # Use relative path from config.json
@@ -312,14 +313,14 @@ if __name__ == "__main__":
                   params=criteria, resample=rndperm,
                   structure=INPUT_MASK,
                   penalty_start=3,
-                  map_output="1000rndperm_validation",
+                  map_output="rndperm_validation",
                   output_path=config_permutation["output_path"],
                   output_summary=config_permutation["output_summary"],
                   output_permutations=config_permutation["output_permutations"],
                   user_func=user_func_filename,
                   reduce_group_by="params",
                   roi=roi)
-    json.dump(config, open(os.path.join(WD, "config_1000rndperm_dCV_validation.json"),
+    json.dump(config, open(os.path.join(WD, "config_rndperm_dCV_validation.json"),
                            "w"))
 
     #####################################################################
@@ -327,8 +328,8 @@ if __name__ == "__main__":
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config_1000rndperm_dCV_validation.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd, suffix="_1000rndperm")
+    cmd = "mapreduce.py --map  %s/config_rndperm_dCV_validation.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd, suffix="_rndperm")
 #        ####################################################################
 #        # Sync to cluster
 #        print "Sync data to gabriel.intra.cea.fr: "

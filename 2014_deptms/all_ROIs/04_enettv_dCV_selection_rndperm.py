@@ -31,7 +31,6 @@ def load_globals(config):
     GLOBAL.MAP_OUTPUT = config['map_output']
     GLOBAL.OUTPUT_SELECTION = config['output_selection']
     GLOBAL.OUTPUT_SUMMARY = config['output_summary']
-    GLOBAL.PROB_CLASS1 = config["prob_class1"]
     GLOBAL.PENALTY_START = config["penalty_start"]
     STRUCTURE = nibabel.load(config["structure"])
     GLOBAL.A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
@@ -125,9 +124,7 @@ def reducer(key, values):
     import mapreduce as GLOBAL
     criteria = {'recall_mean': [np.argmax, np.max],
                 'min_recall': [np.argmax, np.max],
-                'max_pvalue_recall': [np.argmin, np.min],
-                'accuracy': [np.argmax, np.max],
-                'pvalue_accuracy': [np.argmin, np.min]}
+                'accuracy': [np.argmax, np.max]}
     output_selection = GLOBAL.OUTPUT_SELECTION
     output_summary = GLOBAL.OUTPUT_SUMMARY
     output_path = GLOBAL.OUTPUT_PATH
@@ -140,7 +137,6 @@ def reducer(key, values):
     OUTPUT = BASE + "/../" + output_path
     if not os.path.exists(OUTPUT):
         os.makedirs(OUTPUT)
-    prob_class1 = GLOBAL.PROB_CLASS1
     params = GLOBAL.PARAMS
     keys = ['_'.join(str(e) for e in a) for a in params]
     compt = 0
@@ -177,14 +173,8 @@ def reducer(key, values):
                     p, r, f, s = precision_recall_fscore_support(y_true,
                                                                  y_pred,
                                                                  average=None)
-                    success = r * s
-                    success = success.astype('int')
                     accuracy = (r[0] * s[0] + r[1] * s[1])
                     accuracy = accuracy.astype('int')
-                    pvalue_class0 = binom_test(success[0], s[0],
-                                               1 - prob_class1)
-                    pvalue_class1 = binom_test(success[1], s[1], prob_class1)
-                    pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
                     k = key.split('_')
                     a, l1 = float(k[0]), float(k[1])
                     l2, tv = float(k[2]), float(k[3])
@@ -195,15 +185,10 @@ def reducer(key, values):
                     scores_CV['n_fold'] = n_fold[0]
                     scores_CV['parameters'] = key
                     scores_CV['recall_0'] = r[0]
-                    scores_CV['pvalue_recall_0'] = pvalue_class0
                     scores_CV['recall_1'] = r[1]
-                    scores_CV['pvalue_recall_1'] = pvalue_class1
                     scores_CV['min_recall'] = np.minimum(r[0], r[1])
-                    scores_CV['max_pvalue_recall'] = np.maximum(pvalue_class0,
-                                                                pvalue_class1)
                     scores_CV['recall_mean'] = r.mean()
                     scores_CV['accuracy'] = accuracy / float(s[0] + s[1])
-                    scores_CV['pvalue_accuracy'] = pvalue_accuracy
                     if compt == 0:
                         scores_tab = pd.DataFrame(columns=scores_CV.keys())
                     scores_tab.loc[compt, ] = scores_CV.values()
@@ -283,7 +268,7 @@ if __name__ == "__main__":
     DATA_MODALITY_PATH = os.path.join(DATASET_PATH, modality)
 
 #    for roi in rois:
-    roi = "Roiho-hippo"
+    roi = "Roiho-frontalPole"
     print "ROI", roi
 
     WD = os.path.join(OUTPUT_ENETTV, modality + '_' + roi)
@@ -366,18 +351,17 @@ if __name__ == "__main__":
                   params=params, resample=rndperm,
                   structure=INPUT_MASK,
                   penalty_start=3,
-                  map_output="1000rndperm_selection",
-                  output_selection="results_1000rndperm_dCV_selection.csv",
+                  map_output="rndperm_selection",
+                  output_selection="results_rndperm_dCV_selection.csv",
                   output_path="rndperm_results",
-                  output_summary="summary_1000rndperm_selection.csv",
-                  output_validation="results_1000rndperm_dCV_validation.csv",
-                  prob_class1=config_selection["prob_class1"],
-                  output_permutations="pvals_stats_1000permutations.csv",
+                  output_summary="summary_rndperm_selection.csv",
+                  output_validation="results_rndperm_dCV_validation.csv",
+                  output_permutations="pvals_stats_permutations.csv",
                   user_func=user_func_filename,
                   reduce_group_by="params",
                   roi=roi)
     json.dump(config,
-              open(os.path.join(WD, "config_1000rndperm_dCV_selection.json"),
+              open(os.path.join(WD, "config_rndperm_dCV_selection.json"),
                    "w"))
 
     #####################################################################
@@ -385,7 +369,7 @@ if __name__ == "__main__":
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config_1000rndperm_dCV_selection.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_rndperm_dCV_selection.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd, suffix="_rndperm")
 #        ####################################################################
 #        # Sync to cluster
