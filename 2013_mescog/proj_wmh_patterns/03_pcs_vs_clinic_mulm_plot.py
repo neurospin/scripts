@@ -99,12 +99,10 @@ summary = stats_oi.copy()
 summary["Variable"] = summary.target.replace({'TMTB_TIME':'TMTB', "MDRS_TOTAL":"MDRS", "MRS": "mRS"})
 summary["PC"] = summary.contrast.replace({'pc1__tvl1l2':1, 'pc2__tvl1l2':2, 'pc3__tvl1l2':3})
 summary["P value"] = summary.pvalue
-summary["t statistic"] = summary.pvalue
+summary["t statistic"] = summary.tvalue
 summary = summary.loc[:, ["Variable", "PC", "t statistic", "P value", "Corrected P value"]]
 
 with pd.ExcelWriter(os.path.join(OUTPUT, "pc_clinic_associations.xls")) as writer:
-#    stats_mcmp.to_excel(writer, sheet_name='models of interest , p corr.', index=False)
-#    stats_mcmp2.to_excel(writer, sheet_name='two_sided', index=False)
     summary.to_excel(writer, sheet_name='summary', index=False)
     stats_oi.to_excel(writer, sheet_name='models of interest', index=False)
     stats_all_simple.to_excel(writer, sheet_name='all_simple', index=False)
