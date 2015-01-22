@@ -211,6 +211,7 @@ def do_mesh_cluster_rendering(title,
     clust_texture = a.loadObject(clust_texture_file)
     image = aims.Reader().read(clust_texture_file)
     image_dim = image.header()['volume_dimension'].arraydata()[:3]
+   
     """
     cd /home/ed203246/mega/data/mescog/wmh_patterns/summary/cluster_mesh/tvl1l20001
     from soma import aims
@@ -292,7 +293,8 @@ def do_mesh_cluster_rendering(title,
     # Coronal view
     # Slice
     #sclice_coronal(fusionmesh_coronal, -90)
-    sclice_coronal(fusionmesh_coronal, -(image_dim / 2)[1])
+    sclice_coronal(fusionmesh_coronal, int(-(image_dim / 2)[1]))
+
     # Store
     windows.append(win_coronal)
     #a.execute
@@ -314,7 +316,7 @@ def do_mesh_cluster_rendering(title,
     Q = product_quaternion(Q1, Q_rot)
     a.execute("Camera", windows=[win_axial], view_quaternion=Q, zoom=0.8)
     # Slice
-    sclice_axial(fusionmesh_axial, -(image_dim / 2)[2])
+    sclice_axial(fusionmesh_axial, int(-(image_dim / 2)[2]))
     # Store
     windows.append(win_axial)
     #a.execute
@@ -336,7 +338,7 @@ def do_mesh_cluster_rendering(title,
     Q = product_quaternion(Q1, Q_rot)
     a.execute("Camera", windows=[win_sagital], view_quaternion=Q, zoom=0.9)
     # Slice
-    sclice_sagital(fusionmesh_sagital, -(image_dim / 2)[0])
+    sclice_sagital(fusionmesh_sagital, int(-(image_dim / 2)[0]))
     # Store
     windows.append(win_sagital)
     #a.execute
