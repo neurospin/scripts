@@ -97,6 +97,9 @@ class SnapshotAction(anatomist.cpp.Action):
         global VIEWS
         global IMAGE
         image_dim = IMAGE.header()['volume_dimension'].arraydata()[:3]
+        voxel_size = IMAGE.header()['voxel_size'].arraydata()[:3]
+        print image_dim, voxel_size, image_dim * voxel_size
+        image_dim *= voxel_size
         for name, view_type in VIEWS:
             #, VIEWS[(name, view_type)]
             win, mesh = VIEWS[(name, view_type)]
