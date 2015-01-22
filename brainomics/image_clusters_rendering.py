@@ -41,37 +41,39 @@ except:
 
 import shutil
 
-anatomist_instance = None
-views = dict()
-image = None
+SCLICE_THIKNESS = 5
+ANATOMIST = None
+VIEWS = dict()
+IMAGE = None
+OUTPUT = None
 
 class SnapshotAction(anatomist.cpp.Action):
     def name( self ):
         return 'Snapshot'
 
     def left_click(self, x, y, globx, globy):
-        global anatomist_instance
-        a = anatomist_instance
+        global ANATOMIST
+        a = ANATOMIST
         print 'coucou', x,y
 
     def linked_cursor_disable(self):
-        global anatomist_instance
-        global views
+        global ANATOMIST
+        global VIEWS
         print "linked_cursor_disable"
-        for name, view_type in views:
-            #print name, view_type, views[(name, view_type)]
-            anatomist_instance.execute('WindowConfig', windows=[views[(name, view_type)][0]], cursor_visibility=0)
+        for name, view_type in VIEWS:
+            #print name, view_type, VIEWS[(name, view_type)]
+            ANATOMIST.execute('WindowConfig', windows=[VIEWS[(name, view_type)][0]], cursor_visibility=0)
 
     def linked_cursor_enable(self):
-        global anatomist_instance
-        global views
+        global ANATOMIST
+        global VIEWS
         print "linked_cursor_enable"
-        for name, view_type in views:
-            #print name, view_type, views[(name, view_type)]
-            anatomist_instance.execute('WindowConfig', windows=[views[(name, view_type)][0]], cursor_visibility=1)
+        for name, view_type in VIEWS:
+            #print name, view_type, VIEWS[(name, view_type)]
+            ANATOMIST.execute('WindowConfig', windows=[VIEWS[(name, view_type)][0]], cursor_visibility=1)
 
     def snapshot_single2(self):
-        global anatomist_instance
+        global ANATOMIST
         print "snapshot_single"
         win = self.view().window()
         #print "==="
@@ -82,26 +84,48 @@ class SnapshotAction(anatomist.cpp.Action):
         #win_info = win.getInfos()
         #print win_info["view_name"]
         # FIXME !!!
-        fi = open("/tmp/snapshot/current")
-        prefix = fi.readline().strip()
-        fi.close()
-        filename = '%s.png' % prefix
-        print "save in to", filename
-        anatomist_instance.execute('WindowConfig', windows=[win], snapshot=filename)
+        #fi = open("/tmp/snapshot/current")
+        #prefix = fi.readline().strip()
+        #fi.close()
+        #filename = '%s.png' % prefix
+        #print "save in to", filename
+        #ANATOMIST.execute('WindowConfig', windows=[win], snapshot=filename)
     #print 'takePolygon', x, y
 
     def snapshot(self):
-        global anatomist_instance
-        global anatomist_instance
-        global views
-        global image
-        image_dim = image.header()['volume_dimension'].arraydata()[:3]
-        for name, view_type in views:
-            #, views[(name, view_type)]
-            win, mesh = views[(name, view_type)]
-            print name, view_type, win, mesh
-            if name == "axial":
-                sclice_axial(fusionmesh_axial, -(image_dim / 2)[2])
+        global ANATOMIST
+        global VIEWS
+        global IMAGE
+        image_dim = IMAGE.header()['volume_dimension'].arraydata()[:3]
+        for name, view_type in VIEWS:
+            #, VIEWS[(name, view_type)]
+            win, mesh = VIEWS[(name, view_type)]
+            print name, view_type, win, mesh, view_type == "axial"
+            if view_type == "axial":
+                print "snapshot axial"
+                for slice_ in range(SCLICE_THIKNESS, image_dim[2], SCLICE_THIKNESS):
+                    sclice_axial(mesh, -slice_)
+                    filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
+                    print filename
+                    ANATOMIST.execute('WindowConfig', windows=[win],
+                                       snapshot=filename)
+            if view_type == "coronal":
+                print "snapshot coronal"
+                for slice_ in range(SCLICE_THIKNESS, image_dim[1], SCLICE_THIKNESS):
+                    sclice_coronal(mesh, -slice_)
+                    filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
+                    print filename
+                    ANATOMIST.execute('WindowConfig', windows=[win],
+                                       snapshot=filename)
+            if view_type == "sagital":
+                print "snapshot sagital"
+                for slice_ in range(SCLICE_THIKNESS, image_dim[0], SCLICE_THIKNESS):
+                    sclice_sagital(mesh, -slice_)
+                    filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
+                    print filename
+                    ANATOMIST.execute('WindowConfig', windows=[win],
+                                       snapshot=filename)
+
 
 class SnapshotControl(anatomist.cpp.Control):
     def __init__(self, prio = 25 ):
@@ -128,22 +152,22 @@ def product_quaternion(Q1, Q2):
     Q = np.hstack([a, v])
     return Q.tolist()
 
-def sclice_axial(fusionmesh, sclice=-90):
-    global anatomist_instance
-    cut_plane_axial = [0, 0, 1, sclice]
-    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+def sclice_axial(fusionmesh, sclice_=-90):
+    global ANATOMIST
+    cut_plane_axial = aims.Point4df([0, 0, 1, sclice_])
+    ANATOMIST.execute("SliceParams", objects=[fusionmesh],
           plane=cut_plane_axial)
 
-def sclice_coronal(fusionmesh, sclice=-90):
-    global anatomist_instance
-    cut_plane_coronal = [0, 1, 0, sclice]
-    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+def sclice_coronal(fusionmesh, sclice_=-90):
+    global ANATOMIST
+    cut_plane_coronal = aims.Point4df([0, 1, 0, sclice_])
+    ANATOMIST.execute("SliceParams", objects=[fusionmesh],
           plane=cut_plane_coronal)
 
-def sclice_sagital(fusionmesh, sclice=-90):
-    global anatomist_instance
-    cut_plane_sagital = [1, 0, 0, sclice]
-    anatomist_instance.execute("SliceParams", objects=[fusionmesh],
+def sclice_sagital(fusionmesh, sclice_=-90):
+    global ANATOMIST
+    cut_plane_sagital = aims.Point4df([1, 0, 0, sclice_])
+    ANATOMIST.execute("SliceParams", objects=[fusionmesh],
           plane=cut_plane_sagital)
 """
 def xyz_to_mm(trm, vox_size):
@@ -172,11 +196,11 @@ def do_mesh_cluster_rendering(title,
     clust_mesh_file : str (mandatory)
         a mesh file of interest.
     clust_texture_file : str (mandatory)
-        an image from which to extract texture (for the mesh file).
+        an IMAGE from which to extract texture (for the mesh file).
     brain_mesh_file : str (mandatory)
         a mesh file of the underlying neuroanatomy.
     anat_file : str (mandatory)
-        an image of the underlying neuroanatomy.
+        an IMAGE of the underlying neuroanatomy.
     check : bool (default False)
         manual check of the input parameters.
     verbose : bool (default True)
@@ -187,12 +211,12 @@ def do_mesh_cluster_rendering(title,
     None
     """
     #FunctionSummary(check, verbose)
-    global anatomist_instance
-    global views
-    global image
+    global ANATOMIST
+    global VIEWS
+    global IMAGE
     # instance of anatomist
-    if anatomist_instance is None:
-        anatomist_instance = anatomist.Anatomist()
+    if ANATOMIST is None:
+        ANATOMIST = anatomist.Anatomist()
         # Add new SnapshotControl button
         pix = QtGui.QPixmap( 'control.xpm' )
         anatomist.cpp.IconDictionary.instance().addIcon('Snap', pix)
@@ -202,20 +226,21 @@ def do_mesh_cluster_rendering(title,
         cd.addControl( 'Snap', lambda: SnapshotControl(), 25 )
         cm = anatomist.cpp.ControlManager.instance()
         cm.addControl( 'QAGLWidget3D', '', 'Snap' )
-    a = anatomist_instance
+    a = ANATOMIST
     # ------------
     # load objects
     # ------------
     clust_mesh = a.loadObject(clust_mesh_file)
     brain_mesh = a.loadObject(brain_mesh_file)
     clust_texture = a.loadObject(clust_texture_file)
-    image = aims.Reader().read(clust_texture_file)
-    image_dim = image.header()['volume_dimension'].arraydata()[:3]
-   
+    IMAGE = aims.Reader().read(clust_texture_file)
+    image_dim = IMAGE.header()['volume_dimension'].arraydata()[:3]
     """
     cd /home/ed203246/mega/data/mescog/wmh_patterns/summary/cluster_mesh/tvl1l20001
     from soma import aims
     clust_texture_file = "clust_values.nii.gz"
+    IMAGE = aims.Reader().read(clust_texture_file)
+    image_dim = IMAGE.header()['volume_dimension'].arraydata()[:3]
 
 
     trm_ima_mm2ref_mm = aims.Motion(ima.header()['transformations'][0])
@@ -270,9 +295,9 @@ def do_mesh_cluster_rendering(title,
     a.execute("Camera", windows=[win3d], view_quaternion=Q)
     windows.append(win3d)
     objects.append(fusion3d)
-    views[(title, "3d")] = [win3d, fusion3d]
+    VIEWS[(title, "3d")] = [win3d, fusion3d]
     # -------------------------------------
-    # Slices view = three views offusion 2D
+    # Slices view = three VIEWS offusion 2D
     # -------------------------------------
     # fusion 2D
     fusion2d = a.fusionObjects([a_anat, clust_texture], "Fusion2DMethod")
@@ -294,12 +319,11 @@ def do_mesh_cluster_rendering(title,
     # Slice
     #sclice_coronal(fusionmesh_coronal, -90)
     sclice_coronal(fusionmesh_coronal, int(-(image_dim / 2)[1]))
-
     # Store
     windows.append(win_coronal)
     #a.execute
     objects.append([fusion2d, fusionmesh_coronal])
-    views[(title, "coronal")] = [win_coronal, fusionmesh_coronal]
+    VIEWS[(title, "coronal")] = [win_coronal, fusionmesh_coronal]
 
     ##############
     # Axial view
@@ -321,7 +345,7 @@ def do_mesh_cluster_rendering(title,
     windows.append(win_axial)
     #a.execute
     objects.append([fusion2d, fusionmesh_axial])
-    views[(title, "axial")] = [win_axial, fusionmesh_axial]
+    VIEWS[(title, "axial")] = [win_axial, fusionmesh_axial]
 
     ##############
     #Sagital view
@@ -343,7 +367,7 @@ def do_mesh_cluster_rendering(title,
     windows.append(win_sagital)
     #a.execute
     objects.append([fusion2d, fusionmesh_sagital])
-    views[(title, "sagital")] = [win_sagital, fusionmesh_sagital]
+    VIEWS[(title, "sagital")] = [win_sagital, fusionmesh_sagital]
 
     # Global windows info
     try:
@@ -358,6 +382,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('inputs',  nargs='+',
         help='Input directory(ies): output(s) of "image_cluster_analysis" command', type=str)
+    parser.add_argument('--output', '-o', help='Output directory', type=str, default="snapshosts")
     options = parser.parse_args()
     if options.inputs is None:
         print "Error: Input is missing."
@@ -365,6 +390,10 @@ if __name__ == "__main__":
         exit(-1)
     #a = None
     gui_objs = list()
+    print options
+    if not os.path.exists(options.output):
+        os.mkdir(options.output)
+    OUTPUT = options.output
     for input_dirname in options.inputs:
         print input_dirname
         title = os.path.basename(input_dirname)

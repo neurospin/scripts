@@ -282,9 +282,13 @@ fsl5.0-fslsplit tvl1l2.nii ./tvl1l2 -t
 ~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20003.nii.gz
 Threshold image as 0.002078
 
-#
-~/git/scripts/brainomics/image_clusters_rendering.py tvl1l20000 tvl1l20001 tvl1l20002 tvl1l20003
+# rendering
+~/git/scripts/brainomics/image_clusters_rendering.py pc1 pc2 pc3 pc23
 
-
+cd snapshosts
+ls *.png|while read input; do
+convert  $input -trim /tmp/toto.png;
+convert  /tmp/toto.png -transparent white $input;
+done
 
 """
