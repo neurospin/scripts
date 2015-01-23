@@ -23,8 +23,7 @@ def load_globals(config):
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     perm = config["resample"][resample_nb]
-    GLOBAL.DATA_PERM = {"Xp": GLOBAL.DATA["X"][perm, ...],
-                        "Y": GLOBAL.DATA["Y"]}
+    GLOBAL.X_PERM = GLOBAL.DATA["X"][perm, ...]
     print "ok resample"
 
 
@@ -32,19 +31,17 @@ def mapper(key, output_collector):
     print "start map"
     print "key: ", key
     import mapreduce as GLOBAL  # access to global variables
-    Xp = GLOBAL.DATA_PERM["Xp"]
+    Xp = GLOBAL.X_PERM
     print "ok Xp"
-    Y = GLOBAL.DATA_PERM["Y"]
-    print "ok Y"
+    print "Xp shape: ", Xp.shape()
     contrast = GLOBAL.contrast
-    muols = MUOLS(Y, Xp)
-    del Y
+    muols = MUOLS(GLOBAL.DATA["Y"], Xp)
     print "ok muols"
     muols.fit()
     print "ok fit"
     tvals_perm, _, _ = muols.t_test(contrasts=contrast, pval=False,
                                             two_tailed=True)
-    print "ok t_test"                                        
+    print "ok t_test"
     ret = dict(tvals_perm=tvals_perm, key=key)
     if output_collector:
         output_collector.collect(key, ret)
