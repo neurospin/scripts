@@ -16,6 +16,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from mulm.dataframe.descriptive_statistics import describe_df_basic
 from mulm.dataframe.mulm_dataframe import MULM
 from statsmodels.sandbox.stats.multicomp import multipletests
+from patsy import dmatrices
 
 BASE_DIR = "/home/ed203246/data/mescog/wmh_patterns"
 INPUT_BASE_PC = INPUT_BASE_CLINIC = BASE_DIR
@@ -25,6 +26,7 @@ INPUT_PC = os.path.join(INPUT_BASE_PC, "summary", "components.csv")
 INPUT_CLINIC = os.path.join(INPUT_BASE_CLINIC, "dataset_clinic_niglob_20140728_nomissing_BPF-LLV_imputed.csv")
 OUTPUT = os.path.join(INPUT_BASE_PC, "summary")
 
+COLNAMES_MAPPING = {'TMTB_TIME':'TMTB', "MDRS_TOTAL":"MDRS", "MRS": "mRS"}
 data = pd.read_csv(INPUT_PC)
 data.columns = [x.replace(".", "_") for x in data.columns]
 
@@ -87,12 +89,6 @@ mod = MULM(data=data, formulas=formulas_oi)
 stats_oi = mod.t_test(contrasts=1, out_filemane=None)
 stats_oi["Corrected P value"] = multipletests(stats_oi.pvalue,  method='fdr_bh')[1]
 
-#mod = MULM(data=data, formulas=['%s~%s+AGE_AT_INCLUSION+SEX+EDUCATION+BPF+LLV' % (t, r)
-#        for t in TARGETS_CLIN_BL for r in REGRESSORS_OI])
-# Max T is no better than FDR use FDR only
-# stats_mcmp = mod.t_test_maxT(contrasts=1, nperm=100)
-#stats_mcmp = mod.t_test(contrasts=1)
-#stats_mcmp["pvalue_fdr_bh"] = multipletests(stats_mcmp.pvalue,  method='fdr_bh')[1]
 
 summary = stats_oi.copy()
 
@@ -109,6 +105,118 @@ with pd.ExcelWriter(os.path.join(OUTPUT, "pc_clinic_associations.xls")) as write
     stats_all_covars.to_excel(writer, sheet_name='all_covars', index=False)
     stats_all.to_excel(writer, sheet_name='all_simple+covars', index=False)
 
+
+#################################
+# Plots clinic by PC1, PC2, PC3
+#################################
+
+data.rename(columns=COLNAMES_MAPPING, inplace=True)
+targets = [COLNAMES_MAPPING[k] for k in COLNAMES_MAPPING] + ["MMSE"]
+data["PC1"]  = data.pc1__tvl1l2
+data["PC2"]  = data.pc2__tvl1l2
+data["PC3"]  = data.pc3__tvl1l2
+
+
+PCS = [1, 2, 3]
+pdf = PdfPages(os.path.join(OUTPUT, "pc_clinic_associations.pdf"))
+for target in targets:
+    #target = 'MMSE'
+    #target = 'TMTB'
+    dt = data[data[target].notnull()]
+    y = dt[target]
+    fig, axarr = plt.subplots(1, 3)#, sharey=True)
+    fig.set_figwidth(15)
+    print fig.get_figwidth()
+    for j, pc in enumerate(PCS):
+        #j, pc = 2, 3
+        # --------------------------------
+        model = '%s~PC%s+AGE_AT_INCLUSION+SEX+EDUCATION+BPF+LLV' % (target, pc)
+        # --------------------------------
+        y, X = dmatrices(model, data=dt, return_type='dataframe')
+        mod = sm.OLS(y, X).fit()
+        test = mod.t_test([0, 1]+[0]*(X.shape[1]-2))
+        tval, pval =  test.tvalue[0, 0], test.pvalue[0, 0]
+        x = dt["PC%i" % pc]
+        axarr[j].scatter(x, y)
+        if False:
+            for i in xrange(len(dt['Subject ID'])):
+                axarr[j].text(dt.ix[i, "PC%i" % pc], y.ix[i,0], dt['Subject ID'][i])
+        x_ext = np.array([x.min(), x.max()])
+        y_ext = x_ext * mod.params[1] + y.mean().values#mod.params[0]
+        axarr[j].plot(x_ext, y_ext, "red")
+        if j == 0:
+            axarr[j].set_ylabel(target)
+        axarr[j].set_xlabel('PC%i (T=%.3f, P=%.4g)' % (pc, tval, pval))
+        #axarr[j].set_xticklabels([])
+    fig.suptitle(target, size='large')
+    fig.tight_layout()
+    pdf.savefig()  # saves the current figure into a pdf page
+    plt.close()
+
+pdf.close()
+
+#################################
+# Plots PC1 x PC3 color by clinic
+#################################
+
+pdf = PdfPages(os.path.join(OUTPUT, "pc2-pc3_clinic_color.pdf"))
+#pdf = PdfPages(os.path.join(OUTPUT, "pc1-pc3_clinic_color.pdf"))
+for target in targets:
+    #target = 'MMSE'
+    #target = 'TMTB'
+    dt = data[data[target].notnull()]
+    y = dt[target]
+    fig = plt.figure()#, sharey=True)
+    #fig.set_figwidth(15)
+    print fig.get_figwidth()
+    #dt.PC1, dt.PC3
+    plt.scatter(dt.PC2, dt.PC3, c=dt[target], s=50)
+    if False:
+        for i in xrange(len(dt['Subject ID'])):
+            plt.text(dt.ix[i, "PC%i" % pc], y.ix[i,0], dt['Subject ID'][i])
+    plt.colorbar()
+    plt.xlabel("PC2")
+    plt.ylabel("PC3")
+    #axarr[j].set_xticklabels([])
+    fig.suptitle(target, size='large')
+    fig.tight_layout()
+    pdf.savefig()  # saves the current figure into a pdf page
+    plt.close()
+
+pdf.close()
+
+
+
+
+
+
+
+
+
+
+
+
+x = dt["PC%i" % 3]
+plt.scatter(x, y)
+ids = [str(s) for s in dt['Subject ID']]
+
+plt.scatter(x, y)
+plt.text(x, y, ids)
+plt.show()
+
+stats_oi.target
+
+x = data.pc1__tvl1l2
+y = data.pc3__tvl1l2
+
+plt.scatter(x, y)
+plt.scatter(x, y, c=data.TMTB_TIME , s=50)
+
+plt.scatter(x=y, y=data.TMTB_TIME , s=50)
+
+plt.scatter(PCs[:, 0], PCs[:, 1], s=50)#, "ob", s=50)
+for i in xrange(len(moments["lacune_id"])):
+    plt.text(PCs[i, 0], PCs[i, 1], moments["lacune_id"][i])
 
 """
 stats_pcatv = mulm_df(data=methods["PCATV"](data),
