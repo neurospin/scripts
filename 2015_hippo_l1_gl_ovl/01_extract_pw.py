@@ -75,10 +75,8 @@ if __name__ == "__main__":
 
     # Ask for db login information
     # status = "qc" and postload_op = "frc_imput" considered as default
-#    login = raw_input("Login on the imagen2 server:")
-#    password = getpass.getpass("Password on the imagen2 server:")
-    login = 'vfrouin'
-    password = 'MonKennWord!'
+    login = raw_input("Login on the imagen2 server:")
+    password = getpass.getpass("Password on the imagen2 server:")
     # dictionnary of genodata; keys are the pw names
     genodata = {}
     for k in pw.keys():
