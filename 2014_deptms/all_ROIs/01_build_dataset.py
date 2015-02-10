@@ -51,8 +51,9 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from scipy import ndimage
+import shutil
 
-REP_MAP = {"norep": 0, "rep": 1}
+REP_MAP = {"N": 0, "Y": 1}
 
 MODALITIES = ["MRI", "PET", "MRI+PET"]
 
@@ -71,7 +72,7 @@ if not os.path.exists(OUTPUT_DATASET):
 #############################################################################
 ## Read pop csv
 pop = pd.read_csv(INPUT_CSV, sep="\t")
-pop['rep_norep.num'] = pop["rep_norep"].map(REP_MAP)
+pop['Response.num'] = pop["Response"].map(REP_MAP)
 
 #############################################################################
 ## Read ROIs csv
@@ -83,7 +84,7 @@ for i, ROI_name_aal in enumerate(df_rois["ROI_name_aal"]):
     label_ho = cur["label_ho"].values[0]
     atlas_ho = cur["atlas_ho"].values[0]
     roi_name = cur["ROI_name_deptms"].values[0]
-    if ((not cur.isnull()["label_ho"].values[0])
+    if ((not cur.isnull()["atlas_ho"].values[0])
         and (not cur.isnull()["ROI_name_deptms"].values[0])):
         if not roi_name in dict_rois:
             print "ROI: ", roi_name
@@ -96,13 +97,12 @@ for i, ROI_name_aal in enumerate(df_rois["ROI_name_aal"]):
 #############################################################################
 ## Build datasets for all the Modalities
 for MODALITY in MODALITIES:
-    print "Modality: ", MODALITY
-
     OUTPUT_MODALITY = os.path.join(OUTPUT_DATASET, MODALITY)
-
     if not os.path.exists(OUTPUT_MODALITY):
         os.makedirs(OUTPUT_MODALITY)
-
+for MODALITY in MODALITIES:
+    print "Modality: ", MODALITY
+    OUTPUT_MODALITY = os.path.join(OUTPUT_DATASET, MODALITY)
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
         #####################################################################
         # Read images
@@ -110,7 +110,7 @@ for MODALITY in MODALITIES:
         assert n == 34
         Z = np.zeros((n, 3))  # Intercept + Age + Gender
         Z[:, 0] = 1  # Intercept
-        y = np.zeros((n, 1))  # rep_norep
+        y = np.zeros((n, 1))  # Response
         images = list()
         fileName = ""
         image_path = ""
@@ -132,12 +132,22 @@ for MODALITY in MODALITIES:
             babel_image = nib.load(imagefile_name)
             images.append(babel_image.get_data().ravel())
             Z[i, 1:] = np.asarray(cur[["Age", "Sex"]]).ravel()
-            y[i, 0] = cur["rep_norep.num"]
+            y[i, 0] = cur["Response.num"]
 
         shape = babel_image.get_data().shape
+
+        #####################################################################
+        # resample one anat
+        fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s" % \
+        ("/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz",
+        imagefile_name,
+        os.path.join(BASE_DATA_PATH, "images", "atlases",
+                     "MNI152_T1_1mm_brain.nii.gz"))
+
+        os.system(fsl_cmd)
         #####################################################################
         # Compute implicit mask and X and y matrix for the whole brain
-        #####################################################################
+
         # Compute mask
         # Implicit Masking involves assuming that a lower than a given
         # threshold at some voxel, in any of the images, indicates an unknown
@@ -145,21 +155,26 @@ for MODALITY in MODALITIES:
         # maxk from MRI images
         Xtot = np.vstack(images)
         if MODALITY == "MRI":
-            mask = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
+            mask = (np.min(Xtot, axis=0) > 0.01)\
+                    & (np.std(Xtot, axis=0) > 1e-6)
             mask = mask.reshape(shape)
 
             out_im = nib.Nifti1Image(mask.astype("int16"),
                                          affine=babel_image.get_affine())
-            out_im.to_filename(os.path.join(OUTPUT_MODALITY,
-                                            "mask_MRI_wb.nii"))
+            out_im.to_filename(os.path.join(OUTPUT_DATASET, "MRI",
+                                            "mask_MRI_brain.nii"))
             out_im.to_filename(os.path.join(OUTPUT_DATASET, "PET",
-                                            "mask_PET_wb.nii"))
+                                            "mask_PET_brain.nii"))
+            out_im.to_filename(os.path.join(OUTPUT_DATASET, "MRI+PET",
+                                            "mask_PET_brain.nii"))
+            out_im.to_filename(os.path.join(OUTPUT_DATASET, "MRI+PET",
+                                            "mask_MRI_brain.nii"))
             babel_mask = nib.load(os.path.join(OUTPUT_MODALITY,
-                                            "mask_" + MODALITY + "_wb.nii"))
+                                            "mask_" + MODALITY + "_brain.nii"))
             assert np.all(mask == (babel_mask.get_data() != 0))
 
         mask = nib.load(os.path.join(OUTPUT_DATASET, MODALITY,
-                                  "mask_" + MODALITY + "_wb.nii")).get_data() != 0
+                          "mask_" + MODALITY + "_brain.nii")).get_data() != 0
 
         #####################################################################
         # Xcsi for the whole brain
@@ -169,9 +184,11 @@ for MODALITY in MODALITIES:
         X /= X.std(axis=0)
         X[:, 0] = 1.
         n, p = X.shape
-        np.save(os.path.join(OUTPUT_MODALITY, "X_" + MODALITY + "_wb.npy"), X)
+        np.save(os.path.join(OUTPUT_MODALITY, "X_" + MODALITY + "_brain.npy"),
+                X)
         fh = open(os.path.join(OUTPUT_MODALITY,
-                     "X_" + MODALITY + "_wb.npy").replace("npy", "txt"), "w")
+                     "X_" + MODALITY + "_brain.npy").replace("npy", "txt"),
+                  "w")
         fh.write('Centered and scaled data. ' \
                  'Shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
                  (n, p, mask.sum()))
@@ -190,13 +207,13 @@ for MODALITY in MODALITIES:
         #input_sub_filename = os.path.join("/usr/share/data",
         #                      "harvard-oxford-atlases",
         #                      "HarvardOxford",
-        #                      "HarvardOxford-sub-maxprob-thr25-2mm.nii.gz")
+        #                      "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz")
         #input_cort_filename = os.path.join("/usr/share/data",
         #                      "harvard-oxford-atlases",
         #                      "HarvardOxford",
-        #                      "HarvardOxford-cort-maxprob-thr25-2mm.nii.gz")
+        #                      "HarvardOxford-cort-maxprob-thr0-2mm.nii.gz")
         #output_sub_filename = os.path.join(BASE_PATH, "images", "atlases",
-        #                      "HarvardOxford-sub-maxprob-thr0-1mm-nn.nii.gz")
+        #                      "HarvardOxford-sub-maxprob-thr0-1m-nn.nii.gz")
         #output_cort_filename = os.path.join(BASE_PATH, "images", "atlases",
         #                      "HarvardOxford-cort-maxprob-thr0-1mm-nn.nii.gz")
         #os.system(fsl_cmd % (input_sub_filename, ref, output_sub_filename))
@@ -218,7 +235,7 @@ for MODALITY in MODALITIES:
         # and by identifying the ROI in the atlas (with the labels)
         # Then dilate the mask
         mask = nib.load(os.path.join(OUTPUT_DATASET, MODALITY,
-                                  "mask_" + MODALITY + "_wb.nii")).get_data()
+                               "mask_" + MODALITY + "_brain.nii")).get_data()
         for ROI, values in dict_rois.iteritems():
             print "ROI: ", ROI
             labels = values[0]
@@ -230,65 +247,106 @@ for MODALITY in MODALITIES:
             # applying the implicit mask to the atlas
             # and by identifying the ROI in the atlas (with the labels)
             # Then dilate the mask
-            if atlas == "sub":
-                mask_atlas_ROI = np.copy(sub_arr)
-            elif atlas == "cort":
-                mask_atlas_ROI = np.copy(cort_arr)
+            if (atlas == "sub") or (atlas == "cort"):
+                if atlas == "sub":
+                    mask_atlas_ROI = np.copy(sub_arr)
+                elif atlas == "cort":
+                    mask_atlas_ROI = np.copy(cort_arr)
+                if len(labels) == 1:
+                    mask_atlas_ROI[np.logical_or(np.logical_not(mask),
+                                            mask_atlas_ROI != labels[0])] = 0
+                mask_atlas_ROI[np.logical_not(mask)] = 0
+                mask_ROI = np.zeros(mask_atlas_ROI.shape)
+                for lab in labels:
+                    mask_ROI[mask_atlas_ROI == lab] = 1
+                mask_atlas_ROI[np.logical_not(mask_ROI)] = 0
+                np.unique(mask_atlas_ROI)
 
-            if len(labels) == 1:
-                mask_atlas_ROI[np.logical_or(np.logical_not(mask),
-                                             mask_atlas_ROI != labels[0])] = 0
-            elif len(labels) == 2:
-                mask_atlas_ROI[np.logical_or(np.logical_not(mask),
-                                  np.logical_and(mask_atlas_ROI != labels[0],
-                                          mask_atlas_ROI != labels[1]))] = 0
-            # dilate
-            # 3x3 structuring element with connectivity 1 and 2 iterations
-            mask_bool_ROI = ndimage.morphology.binary_dilation(
+                # dilate
+                # 3x3 structuring element with connectivity 1 and 2 iterations
+                mask_bool_ROI = ndimage.morphology.binary_dilation(
                                     mask_atlas_ROI,
                                     iterations=2).astype(mask_atlas_ROI.dtype)
-            mask_bool_ROI = mask_bool_ROI.astype("bool")
-
-            out_im = nib.Nifti1Image(mask_bool_ROI.astype("int16"),
+                mask_bool_ROI = mask_bool_ROI.astype("bool")
+                out_im = nib.Nifti1Image(mask_bool_ROI.astype("int16"),
+                                         affine=babel_image.get_affine())
+                out_im.to_filename(os.path.join(OUTPUT_MODALITY,
+                                    "mask_" + MODALITY + "_" + ROI + ".nii"))
+                im = nib.load(os.path.join(OUTPUT_MODALITY,
+                                     "mask_" + MODALITY + "_" + ROI + ".nii"))
+                assert np.all(mask_bool_ROI == im.get_data())
+                # Xcsi for the specific ROIs
+                X_ROI = Xtot[:, mask_bool_ROI.ravel()]
+                X_ROI = np.hstack([Z, X_ROI])
+                X_ROI -= X_ROI.mean(axis=0)
+                X_ROI /= X_ROI.std(axis=0)
+                X_ROI[:, 0] = 1.
+                n, p = X_ROI.shape
+                np.save(os.path.join(OUTPUT_MODALITY,
+                                "X_" + MODALITY + "_" + ROI + ".npy"), X_ROI)
+                fh = open(os.path.join(OUTPUT_MODALITY,
+                                "X_" + MODALITY + "_" + ROI +
+                                        ".npy").replace("npy", "txt"), "w")
+                fh.write('Centered and scaled data. ' \
+                    'Shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+                    (n, p, mask_bool_ROI.sum()))
+                fh.close()
+                print '\n'
+        # Treat case maskdep separately
+        # (need to access MAskdep-sub ans Maskdep-cort data)
+        ROI = "Maskdep"
+        print "ROI: ", ROI
+        labels = values[0]
+        print "labels", labels
+        atlas = values[1]
+        print "atlas: ", atlas
+        assert (dict_rois[ROI][1] == "both")
+        mask_sub_im = nib.load(os.path.join(OUTPUT_MODALITY,
+                                "mask_" + MODALITY + "_Maskdep-sub.nii"))
+        mask_sub_arr = mask_sub_im.get_data() != 0
+        mask_cort_im = nib.load(os.path.join(OUTPUT_MODALITY,
+                               "mask_" + MODALITY + "_Maskdep-cort.nii"))
+        mask_cort_arr = mask_cort_im.get_data() != 0
+        mask_bool_ROI = (mask_sub_arr | mask_cort_arr)
+        out_im = nib.Nifti1Image(mask_bool_ROI.astype("int16"),
                                      affine=babel_image.get_affine())
-            out_im.to_filename(os.path.join(OUTPUT_MODALITY, "mask_" +
-                                            MODALITY + "_" + ROI + ".nii"))
-            im = nib.load(os.path.join(OUTPUT_MODALITY, "mask_" +
-                                            MODALITY + "_" + ROI + ".nii"))
-            assert np.all(mask_bool_ROI == im.get_data())
+        out_im.to_filename(os.path.join(OUTPUT_MODALITY,
+                            "mask_" + MODALITY + "_" + ROI + ".nii"))
+        im = nib.load(os.path.join(OUTPUT_MODALITY,
+                             "mask_" + MODALITY + "_" + ROI + ".nii"))
+        assert np.all(mask_bool_ROI == im.get_data())
 
-            # Xcsi for the specific ROIs
-            X_ROI = Xtot[:, mask_bool_ROI.ravel()]
-            X_ROI = np.hstack([Z, X_ROI])
-            X_ROI -= X_ROI.mean(axis=0)
-            X_ROI /= X_ROI.std(axis=0)
-            X_ROI[:, 0] = 1.
-            n, p = X_ROI.shape
-            np.save(os.path.join(OUTPUT_MODALITY,
-                                 "X_" + MODALITY + "_" + ROI + ".npy"), X_ROI)
-            fh = open(os.path.join(OUTPUT_MODALITY,
-                                   "X_" + MODALITY + "_" + ROI +
-                                    ".npy").replace("npy", "txt"), "w")
-            fh.write('Centered and scaled data. ' \
-                'Shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
-                (n, p, mask_bool_ROI.sum()))
-            fh.close()
-            print '\n'
+        X_ROI = Xtot[:, mask_bool_ROI.ravel()]
+        X_ROI = np.hstack([Z, X_ROI])
+        X_ROI -= X_ROI.mean(axis=0)
+        X_ROI /= X_ROI.std(axis=0)
+        X_ROI[:, 0] = 1.
+        n, p = X_ROI.shape
+        np.save(os.path.join(OUTPUT_MODALITY,
+                            "X_" + MODALITY + "_" + ROI + ".npy"), X_ROI)
+        fh = open(os.path.join(OUTPUT_MODALITY,
+                            "X_" + MODALITY + "_" + ROI +
+                                ".npy").replace("npy", "txt"), "w")
+        fh.write('Centered and scaled data. ' \
+            'Shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
+            (n, p, mask_bool_ROI.sum()))
+        fh.close()
+        print '\n'
 
         np.save(os.path.join(OUTPUT_MODALITY, "y.npy"), y)
 
     elif (MODALITY == "MRI+PET"):
         #####################################################################
         # Compute MRI+PET implicit mask and X and y matrix for the whole brain
-        #####################################################################
+        
         # GET MRI AND PET matrices X, y, mask for the whole brain
         n = len(pop)
         assert n == 34
         Z = np.zeros((n, 3))  # Intercept + Age + Gender
         Z[:, 0] = 1  # Intercept
 
-        X_mri = np.load(os.path.join(OUTPUT_DATASET, "MRI", "X_MRI_wb.npy"))
-        X_pet = np.load(os.path.join(OUTPUT_DATASET, "PET", "X_PET_wb.npy"))
+        X_mri = np.load(os.path.join(OUTPUT_DATASET, "MRI", "X_MRI_brain.npy"))
+        X_pet = np.load(os.path.join(OUTPUT_DATASET, "PET", "X_PET_brain.npy"))
 
         Z[:, 1:3] = X_mri[:, 1:3]  # get Intercerpt + Age + Sex data
         X_mri = X_mri[:, 3:]  # remove Intercerpt + Age + Sex data
@@ -297,12 +355,12 @@ for MODALITY in MODALITIES:
         # rep_no_rep
         y = np.load(os.path.join(OUTPUT_DATASET, "MRI", "y.npy"))
 
-        mask_ima_mri = nib.load(os.path.join(OUTPUT_DATASET, "MRI",
-                                             "mask_MRI_wb.nii"))
+        mask_ima_mri = nib.load(os.path.join(OUTPUT_MODALITY,
+                                             "mask_MRI_brain.nii"))
         mask_arr_mri = mask_ima_mri.get_data() != 0
 
-        mask_ima_pet = nib.load(os.path.join(OUTPUT_DATASET, "PET",
-                                             "mask_PET_wb.nii"))
+        mask_ima_pet = nib.load(os.path.join(OUTPUT_MODALITY,
+                                             "mask_PET_brain.nii"))
         mask_arr_pet = mask_ima_pet.get_data() != 0
 
         #####################################################################
@@ -310,14 +368,6 @@ for MODALITY in MODALITIES:
         X = np.hstack((X_mri, X_pet))
 
         mask = np.vstack((mask_arr_mri, mask_arr_pet))
-        out_im = nib.Nifti1Image(mask.astype("int16"),
-                                     affine=mask_ima_mri.get_affine())
-        out_im.to_filename(os.path.join(OUTPUT_MODALITY,
-                                        "mask_" + MODALITY + "_wb.nii"))
-        babel_mask = nib.load(os.path.join(OUTPUT_MODALITY,
-                                           "mask_" + MODALITY + "_wb.nii"))
-        assert np.all(mask == (babel_mask.get_data() != 0))
-
         #####################################################################
         # Xcsi for the whole brain
 
@@ -326,10 +376,11 @@ for MODALITY in MODALITIES:
         X /= X.std(axis=0)
         X[:, 0] = 1.
         n, p = X.shape
-        np.save(os.path.join(OUTPUT_MODALITY, "X_" + MODALITY + "_wb.npy"), X)
+        np.save(os.path.join(OUTPUT_MODALITY, "X_" + MODALITY + "_brain.npy"),
+                X)
         fh = open(os.path.join(OUTPUT_MODALITY,
                                "X_" + MODALITY +
-                               "_wb.npy").replace("npy", "txt"), "w")
+                               "_brain.npy").replace("npy", "txt"), "w")
         fh.write('Centered and scaled data. '\
                  'Shape = (%i, %i): Intercept + Age + Gender + '\
                  '(%i, %i) voxels' % \
@@ -358,23 +409,27 @@ for MODALITY in MODALITIES:
                                                    "MRI",
                                                    "mask_MRI_" + ROI + ".nii"))
             mask_arr_mri_roi = mask_ima_mri_roi.get_data() != 0
+            shutil.copyfile(os.path.join(OUTPUT_DATASET,
+                                                   "MRI",
+                                                   "mask_MRI_" + ROI + ".nii"),
+                            os.path.join(OUTPUT_MODALITY,
+                                            "mask_MRI_" + ROI + ".nii"))
+
             mask_ima_pet_roi = nib.load(os.path.join(OUTPUT_DATASET,
                                                    "PET",
                                                    "mask_PET_" + ROI + ".nii"))
             mask_arr_pet_roi = mask_ima_pet_roi.get_data() != 0
+            shutil.copyfile(os.path.join(OUTPUT_DATASET,
+                                                   "PET",
+                                                   "mask_PET_" + ROI + ".nii"),
+                            os.path.join(OUTPUT_MODALITY,
+                                            "mask_PET_" + ROI + ".nii"))
 
             # Create X_ROI and the masks for MRI + PET modality associated to
             # each ROI
             X_ROI = np.hstack((X_mri_ROI, X_pet_ROI))
 
             mask_ROI = np.vstack((mask_arr_mri_roi, mask_arr_pet_roi))
-            out_im = nib.Nifti1Image(mask_ROI.astype("int16"),
-                                     affine=mask_ima_mri.get_affine())
-            out_im.to_filename(os.path.join(OUTPUT_MODALITY,
-                                    "mask_" + MODALITY + "_" + ROI + ".nii"))
-            babel_mask = nib.load(os.path.join(OUTPUT_MODALITY,
-                                    "mask_" + MODALITY + "_" + ROI + ".nii"))
-            assert np.all(mask_ROI == (babel_mask.get_data() != 0))
 
             # Xcsi for the specific ROI
             X_ROI = np.hstack([Z, X_ROI])

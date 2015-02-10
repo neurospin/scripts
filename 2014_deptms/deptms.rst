@@ -15,8 +15,8 @@ Data description
 
 Longitudinal study on thirty-four patients with unipolar depression (shfj cohort):
 - MRI and PET before TMS Treatment
-- After treatment: Response to Treatment (rep/no rep)
-Around 40% of the patients that receive the TMS respond to the treatement.
+- After treatment: Response to Treatment (column "Response" in clinic data)
+18 among the 34 patients that receive the TMS respond to the treatement.
 
 Based on MRI and PET images, we want to find brain markers to predict the response to TMS treatment.
 
@@ -29,8 +29,8 @@ SCRIPT_PATH = ~/gits/scripts/2014_deptms
 	/neurospin/brainomics/2014_deptms/base_data
 		clinic/deprimPetInfo.csv
 
-- rep_norep: response to the treatment
 - Images:
+
 	- PET_file (modulated and scaled PET) 
 	- MRIm_G_file	(modulated MRI T1) 
 
@@ -150,7 +150,7 @@ MODALITY: {MRI, PET}
 		# outputs for each modality
 		*{MRI, PET, MRI+PET}/
 			# implicit mask for the whole brain and mask for each ROI
-			mask_*_wb.nii
+			mask_*_brain.nii
 	    		mask_*_Roiho-amyg.nii
 			mask_*_Roiho-caudate.nii
 			mask_*_Roiho-cingulumAnt.nii
@@ -164,7 +164,7 @@ MODALITY: {MRI, PET}
 			mask_*_Roiho-supFrontal.nii
 			# X for the whole brain and for each ROI
 			  (Intercept + Age + Sex + images)
-	    		X_*_wb.npy
+	    		X_*_brain.npy
 			X_*_Roiho-amyg.npy
 			X_*_Roiho-caudate.npy
 			X_*_Roiho-cingulumAnt.npy
@@ -206,18 +206,18 @@ First, X and y are fitted and then statistic coefficients are evaluated at each 
 	/neurospin/brainomics/2014_deptms/datasets
 		# MRI implicit mask, X and response y for the whole brain		
 		MRI/
-			mask_MRI_wb.nii
-			X_MRI_wb.npy
+			mask_MRI_brain.nii
+			X_MRI_brain.npy
 			y.npy
 		# PET implicit mask, X and response y for the whole brain		
 		PET/
-			mask_PET_wb.nii
-			X_PET_wb.npy
+			mask_PET_brain.nii
+			X_PET_brain.npy
 			y.npy
 		# MRI+PET implicit mask, X and response y for the whole brain		
 		MRI+PET/
-			mask_MRI+PET_wb.nii
-			X_MRI+PET_wb.npy
+			mask_MRI+PET_brain.nii
+			X_MRI+PET_brain.npy
 			y.npy
 
 **OUTPUTs**
@@ -227,50 +227,50 @@ MODALITY: {MRI,PET, MRI+PET}
 	
 	/neurospin/brainomics/2014_deptms/results_univariate
 		MRI/
-			t_stat_rep_min_norep_MRI_wb.nii.gz
-			pval-quantile_rep_min_norep_MRI_wb.nii.gz
-			pval_rep_min_norep_MRI_wb.nii.gz
-			pval-log10_rep_min_norep_MRI_wb.nii.gz
+			t_stat_rep_min_norep_MRI_brain.nii.gz
+			p-quantile_rep_min_norep_MRI_brain.nii.gz
+			p_rep_min_norep_MRI_brain.nii.gz
+			p-log10_rep_min_norep_MRI_brain.nii.gz
 		PET/
-			t_stat_rep_min_norep_PET_wb.nii.gz
-			pval-quantile_rep_min_norep_PET_wb.nii.gz
-			pval_rep_min_norep_PET_wb.nii.gz
-			pval-log10_rep_min_norep_PET_wb.nii.gz
+			t_stat_rep_min_norep_PET_brain.nii.gz
+			p-quantile_rep_min_norep_PET_brain.nii.gz
+			p_rep_min_norep_PET_brain.nii.gz
+			p-log10_rep_min_norep_PET_brain.nii.gz
 		MRI+PET/
-			t_stat_rep_min_norep_MRI+PET_wb.nii.gz
-			pval-quantile_rep_min_norep_MRI+PET_wb.nii.gz
-			pval_rep_min_norep_MRI+PET_wb.nii.gz
-			pval-log10_rep_min_norep_MRI+PET_wb.nii.gz
+			t_stat_rep_min_norep_MRI+PET_brain.nii.gz
+			p-quantile_rep_min_norep_MRI+PET_brain.nii.gz
+			p_rep_min_norep_MRI+PET_brain.nii.gz
+			p-log10_rep_min_norep_MRI+PET_brain.nii.gz
 
 Results
 -------
-1. We observe high statistic coefficients for MRI images especially in hippocampus and frontal pole areas. The resistence to the treatment could be explained by a grey matter atrophy in those regions.
+1. We observe high statistic coefficients for MRI images especially in hippocampus. The resistence to the treatment could be explained by a grey matter atrophy in those regions.
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat_rep_min_norep_MRI_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat_rep_min_norep_MRI_brain
 	:scale: 50 %
 
 	t statistic coefficient of MRI images in the whole brain. 
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/pval-log10_rep_min_norep_MRI_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/p-log10_rep_min_norep_MRI_brain
 	:scale: 50 %
 
 	p-values (-log10) associated to t statistic coefficients of MRI images in the whole brain.
 
 2. Statistic coefficient for PET images are less high so the results for PET images seem to be less relevent. But still t statistic coefficient greater than 3 are observed in some of the ROI regions such that hippocampus.
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat_rep_min_norep_PET_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat_rep_min_norep_PET_brain
 	:scale: 50 %
 
 	t statistic coefficient of PET images in the whole brain.
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/pval-log10_rep_min_norep_PET_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/p-log10_rep_min_norep_PET_brain
 	:scale: 50 %
 
 	p-values (-log10) associated to t statistic coefficients of PET images in the whole brain.
 
 
-Univariate Analysis with permutations
-=====================================
+Univariate Analysis with correction maxT (permutations)
+=======================================================
 
 Method
 -------
@@ -301,18 +301,18 @@ The contrast is the same as previously [1 0 0 0] and it is a two-tailed analysis
 	/neurospin/brainomics/2014_deptms/datasets
 		# MRI implicit mask, X and response y for the whole brain		
 		MRI/
-			mask_MRI_wb.nii
-			X_MRI_wb.npy
+			mask_MRI_brain.nii
+			X_MRI_brain.npy
 			y.npy
 		# PET implicit mask, X and response y for the whole brain		
 		PET/
-			mask_PET_wb.nii
-			X_PET_wb.npy
+			mask_PET_brain.nii
+			X_PET_brain.npy
 			y.npy
 		# MRI+PET implicit mask, X and response y for the whole brain		
 		MRI+PET/
-			mask_MRI+PET_wb.nii
-			X_MRI+PET_wb.npy
+			mask_MRI+PET_brain.nii
+			X_MRI+PET_brain.npy
 			y.npy
 
 **OUTPUTs**: Empirical pvalues for each modality
@@ -320,16 +320,16 @@ The contrast is the same as previously [1 0 0 0] and it is a two-tailed analysis
 
 	/neurospin/brainomics/2014_deptms/results_univariate
 		MRI/
-			pval-perm-log10_rep_min_norep_MRI_wb.nii.gz
-			pval-perm_rep_min_norep_MRI_wb.nii.gz
+			ptmax-log10_rep_min_norep_MRI_brain.nii.gz
+			ptmax_rep_min_norep_MRI_brain.nii.gz
 			
 		PET/
-			pval-perm-log10_rep_min_norep_PET_wb.nii.gz
-			pval-perm_rep_min_norep_PET_wb.nii.gz
+			ptmax-log10_rep_min_norep_PET_brain.nii.gz
+			ptmax_rep_min_norep_PET_brain.nii.gz
 
 		MRI+PET/
-			pval-perm-log10_rep_min_norep_MRI+PET_wb.nii.gz
-			pval-perm_rep_min_norep_MRI+PET_wb.nii.gz
+			ptmax-log10_rep_min_norep_MRI+PET_brain.nii.gz
+			ptmax_rep_min_norep_MRI+PET_brain.nii.gz
 
 
 Results 1
@@ -338,12 +338,12 @@ There is no significant empirical p-value for the PET images after having done t
 
 For MRI images, only the empirical p-values in one small region light up. This region corresponds to the Middle Frontal Gyrus (mapping with the harvard oxford cortical atlas, label 4). In this region the empirical p-value is around 0.033 (pvalue resulting from a one-tailed analysis) and the statistic t is 5.4.
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat-perm_rep_min_norep_MRI_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/t_stat-perm_rep_min_norep_MRI_brain
 	:scale: 50 %
 	
 	t statistic coefficient of MRI images in the whole brain. 
 
-.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/pval-perm_rep_min_norep_MRI_wb
+.. figure:: /neurospin/brainomics/2014_deptms/results_univariate/Result_images/pval-perm_rep_min_norep_MRI_brain
 	:scale: 50 %
 
 	p-values associated to t statistic coefficients of MRI images in the whole brain
@@ -386,8 +386,8 @@ Since there is no significant result considering the whole brain, we will now pe
 ::
 
 	/neurospin/brainomics/2014_deptms/results_univariate/*{MRI, PET, MRI+PET}
-		pval-perm-log10_rep_min_norep_*.nii.gz
-		pval-perm_rep_min_norep_*.nii.gz
+		ptmax-log10_rep_min_norep_*.nii.gz
+		ptmax_rep_min_norep_*.nii.gz
 
 Results 2
 ---------
@@ -499,15 +499,63 @@ We complete a cross validation for a set of parameters for the three modalities 
 ::
 
 	/neurospin/brainomics/2014_deptms/
-		/results_enettv/
+		results_enettv/
 			config.json
 			results/
+			results.csv
 		
 	
 
 	
 Results
--------	
+-------
+
+Multivariate analysis for the whole brain.
+
+When taking MRI data for the whole brain as regressor, 14% of sets of parameters that habe been tested have a beta null everywhere except for the Covariables (especially concerning the age).
+So now we want to see the influence of those Covariables on the response to the treatment.
+Use of Statsmodels Library to do a logistic regression only on the first three columns of matrix X (Intercept, Age, Gender).
+::
+
+			                   Logit Regression Results                           
+	==============================================================================
+	Dep. Variable:                      y   No. Observations:                   34
+	Model:                          Logit   Df Residuals:                       31
+	Method:                           MLE   Df Model:                            2
+	Date:                Wed, 19 Nov 2014   Pseudo R-squ.:                  0.1487
+	Time:                        16:15:21   Log-Likelihood:                -19.610
+	converged:                       True   LL-Null:                       -23.035
+		                                LLR p-value:                   0.03255
+	==============================================================================
+		         coef    std err          z      P>|z|      [95.0% Conf. Int.]
+	------------------------------------------------------------------------------
+	const         -0.4696      0.399     -1.177      0.239        -1.252     0.312
+	x1             1.0785      0.465      2.320      0.020         0.167     1.990
+	x2            -0.1729      0.401     -0.431      0.666        -0.959     0.613
+	==============================================================================
+
+Use Logistic Regression Model and do a cross validation with demographic variables (Age, Gender) and compare the results with the regression with the brain images
+
+**Script**
+::
+
+	03_Demographic_only_config.py
+
+**OUTPUTS**
+::
+
+	/neurospin/brainomics/2014_deptms/
+		results_Demographic_only/
+			config.json
+			results/
+			results.csv
+	
+Scores for the Demograhic Variables only is less than the one for the whole brain but is still significant.
+
+Taking a set of parameters for which the beta matrix of the MRI whole brain is not null, interesting results come out:
+- set of parameters: ??? TO DO ???
+- scores : ??? TO DO ??? ++ SIGNIFICANCE
+- betas are non null i hippocampus right and middle frontal gyrus (same results as in univariate analysis!)
 
 Conclusion
 ==========

@@ -1,16 +1,8 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Dec 16 15:28:17 2014
 
-"""Analyse a map of values (possibly signed) and generate informations to vizualize
-it. The map can be thresholded, then left out-values are clusterized into
-components of connected voxels. For each cluster a mesh if generated and a information
-about the cluster is stored in a csv file.
-
-Generated information:
-(i) a mesh file for all small cluster (meshed by a sphere);
-(ii) a mesh file for all large cluster;
-(iii) a csv file that contains size, min, max, mean, coordinates of clusters;
-(iv) an image of cluster label.
+@author: cp243490
 """
 
 import os, sys, argparse
@@ -46,7 +38,6 @@ def harvardOxford_atlases_infos():
         dict_label_sub[index_lab] = label.text
 
     return dict_label_cort, dict_label_sub
-    
 
 # Transformation operation
 def ima_get_trm_xyz_to_mm(ima, refNb=0):
@@ -59,16 +50,16 @@ def ima_get_trm_xyz_to_mm(ima, refNb=0):
 
 
 def clusters_info(arr, clust_labeled, clust_sizes, labels, centers,
-                 trm_xyz_to_mm, atlas_cort, atlas_sub):
+                 trm_xyz_to_mm, atlas_sub, atlas_cort):
     """Compute Information about cluster: label, size, mean, max, min,
     min_coord_mm, max_coord_mm, center_coord_mm, regions_involved"""
     clusters_info = list()
     #arr_abs = np.abs(arr)
 
     # get harvard_oxford atalses (sub and cort) infos
-    ima_atlas_cort = aims.read(atlas_cort)
+    ima_atlas_cort = aims.read(atlas_cort_filename)
     arr_atlas_cort = np.asarray(ima_atlas_cort).squeeze()
-    ima_atlas_sub = aims.read(atlas_sub)
+    ima_atlas_sub = aims.read(atlas_sub_filename)
     arr_atlas_sub = np.asarray(ima_atlas_sub).squeeze()
     dict_label_cort, dict_label_sub = harvardOxford_atlases_infos()
     print "Scan clusters:"
@@ -187,6 +178,7 @@ def clusters_info(arr, clust_labeled, clust_sizes, labels, centers,
                   ]
     return header, clusters_info
 
+
 def mesh_small_clusters(arr, clust_labeled, clust_sizes, labels,
     output_clusters_small_mesh_filename, centers, ima, thresh_size):
     """Mesh small cluster"""
@@ -265,8 +257,9 @@ if __name__ == "__main__":
     referential = 'Talairach-MNI template-SPM'
     fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
-    atlas_cort_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz'
-    atlas_sub_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz'
+    
+    atlas_cort_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_datasets/atlas/HarvardOxford-cort-maxprob-thr0-1mm-nn.nii.gz"
+    atlas_sub_filename = "/neurospin/brainomics/2014_imagen_fu2_adrs/ADRS_datasets/atlas/HarvardOxford-sub-maxprob-thr0-1mm-nn.nii.gz"
 
     # parse command line options
     #parser = optparse.OptionParser(description=__doc__)
@@ -286,13 +279,9 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--thresh_norm_ratio',
         help='Threshold image such ||v[|v| >= t]||2 / ||v||2 == thresh_norm_ratio (default %f)'% thresh_norm_ratio,
         default=thresh_norm_ratio, type=float)
-    parser.add_argument('--atlas_cort',
-        help='Resampled HarvardOxford cortical atlas into reference (default %s)' % atlas_cort_filename,
-        default=atlas_cort_filename, type=str),
-    parser.add_argument('--atlas_sub',
-        help='Resampled HarvardOxford subcortical atlas into reference (default %s)' % atlas_sub_filename,
-        default=atlas_sub_filename, type=str)
+
     options = parser.parse_args()
+#    options.input = "/neurospin/brainomics/2014_deptms/results_enettv/MRI_Maskdep/analysis_results/fold0_0.05_0.7_0.0_0.3_-1.0/beta.nii.gz"
     #print __doc__
     if options.input is None:
         print "Error: Input is missing."
@@ -306,11 +295,13 @@ if __name__ == "__main__":
     thresh_pos_low = options.thresh_pos_low
     thresh_pos_high = options.thresh_pos_high
     thresh_norm_ratio = options.thresh_norm_ratio
-    atlas_cort = options.atlas_cort
-    atlas_sub = options.atlas_sub
-    ##########################################################################
-    #map_filename = "/tmp/beta_0.001_0.5_0.5_0.0_-1.0.nii_thresholded:0.003706/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz"
 
+#    map_filename = "/neurospin/brainomics/2014_deptms/results_enettv/MRI_Maskdep/analysis_results/fold0_0.05_0.7_0.0_0.3_-1.0/beta.nii.gz"
+#    map_filename = "/neurospin/brainomics/2014_deptms/results_univariate/MRI/t_stat_rep_min_norep_MRI_brain.nii.gz"
+#    thresh_neg_high = -3
+#    thresh_pos_low = 3
+    ##########################################################################
+    
     output, ext = os.path.splitext(map_filename)
     if ext == ".gz":
         output, _ = os.path.splitext(output)
@@ -322,13 +313,13 @@ if __name__ == "__main__":
 #        os.symlink(map_filename, map_filename_symlink)
     #print map_filename_symlink
     #sys.exit(0)
-    output_csv_clusters_info_filename  = os.path.join(output, "clust_info.csv")
-    output_clusters_labels_filename  = os.path.join(output, "clust_labels.nii.gz")
-    output_clusters_values_filename  = os.path.join(output, "clust_values.nii.gz")
-    output_clusters_small_mesh_filename  = os.path.join(output, "clust_small.gii")
-    output_clusters_large_mesh_filename  = os.path.join(output, "clust_large.gii")
-    output_clusters_mesh_filename  = os.path.join(output, "clust.gii")
-    output_MNI152_T1_1mm_brain_filename  = os.path.join(output, os.path.basename(MNI152_T1_1mm_brain_filename))
+    output_csv_clusters_info_filename = os.path.join(output, "clust_info.csv")
+    output_clusters_labels_filename = os.path.join(output, "clust_labels.nii.gz")
+    output_clusters_values_filename = os.path.join(output, "clust_values.nii.gz")
+    output_clusters_small_mesh_filename = os.path.join(output, "clust_small.gii")
+    output_clusters_large_mesh_filename = os.path.join(output, "clust_large.gii")
+    output_clusters_mesh_filename = os.path.join(output, "clust.gii")
+    output_MNI152_T1_1mm_brain_filename = os.path.join(output, os.path.basename(MNI152_T1_1mm_brain_filename))
 
     tempdir = tempfile.mkdtemp()
 
@@ -349,17 +340,15 @@ if __name__ == "__main__":
     trm_xyz_to_mm = ima_get_trm_xyz_to_mm(ima)
     arr = np.asarray(ima).squeeze()
     if len(arr.shape) > 3:
-        print "input image is more thant 3D split them first using"
+        print "input image is more than 3D split them first using"
         print 'fsl5.0-fslsplit %s ./%s -t' % (map_filename, output)
         sys.exit(0)
     #MNI152_T1_1mm_brain.header()['referentials']
     ##########################################################################
     # Find clusters (connected component abov a given threshold)
     print thresh_neg_low, thresh_neg_high, thresh_pos_low, thresh_pos_high
-    #print thresh_norm_ratio
     if thresh_norm_ratio < 1:
-        arr, thres = array_utils.arr_threshold_from_norm2_ratio(arr, thresh_norm_ratio)
-        print "Threshold image as %f" % thres
+        arr = array_utils.arr_threshold_from_norm2_ratio(arr, .99)[0]
     clust_bool = np.zeros(arr.shape, dtype=bool)
     #((arr > thresh_neg_low) & (arr < thresh_neg_high) | (arr > thresh_pos_low) & (arr < thresh_pos_high)).sum()
     clust_bool[((arr > thresh_neg_low) & (arr < thresh_neg_high)) |
@@ -386,8 +375,7 @@ if __name__ == "__main__":
     ##########################################################################
     # Get clusters information
     header_info, info = clusters_info(arr, clust_labeled, clust_sizes, labels,
-                                     centers, trm_xyz_to_mm,
-                                     atlas_cort, atlas_sub)
+                                     centers, trm_xyz_to_mm, atlas_cort_filename, atlas_sub_filename)
     df = pd.DataFrame(info, columns=header_info)
     df.to_csv(output_csv_clusters_info_filename, index=False)
 

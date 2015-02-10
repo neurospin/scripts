@@ -42,7 +42,6 @@ import parsimony.functions.nesterov.tv
 import pca_tv
 import metrics
 from brainomics import array_utils
-from statsmodels.stats.inter_rater import fleiss_kappa
 
 import brainomics.cluster_gabriel as clust_utils
 
@@ -54,7 +53,7 @@ INPUT_DIR = os.path.join("/neurospin/",
                          "mescog", "proj_wmh_patterns")
 
 INPUT_DATASET = os.path.join(INPUT_DIR,
-                             "X.npy")
+                             "X_center.npy")
 INPUT_MASK = os.path.join(INPUT_DIR,
                           "mask_bin.nii")
 INPUT_CSV = os.path.join(INPUT_DIR,
@@ -75,7 +74,7 @@ CONFIGS = [[2, "mescog_2folds", "config_2folds.json", False],
 
 N_COMP = 3
 # Global penalty
-GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1])
+GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 10])
 # Relative penalties
 # 0.33 ensures that there is a case with TV = L1 = L2
 TVRATIO = np.array([1, 0.5, 0.33, 1e-1, 1e-2, 1e-3, 0])
@@ -133,8 +132,9 @@ def mapper(key, output_collector):
         ll1 = global_pen
     if model_name == 'struct_pca':
         ltv = global_pen * tv_ratio
-        ll1 = l1_ratio * global_pen * (1 - ltv)
+        ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+        assert(np.allclose(ll1 + ll2 + ltv, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -234,6 +234,7 @@ def mapper(key, output_collector):
 
 
 def reducer(key, values):
+    output_collectors = values
     global N_COMP
     import mapreduce as GLOBAL
     N_FOLDS = GLOBAL.N_FOLDS
@@ -259,6 +260,10 @@ def reducer(key, values):
                                 .99)
             thresh_components[:, k, l] = thresh_comp
             thresholds[k, l] = t
+    # Save thresholded comp
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+        filename = os.path.join(oc.output_dir, "thresh_comp.npz")
+        np.savez(filename, thresh_components[:, :, l])
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
@@ -294,12 +299,29 @@ def reducer(key, values):
     # Transform back to average correlation for each component
     r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
 
+    # Align sign of loading vectors to the first fold for each component
+    aligned_thresh_comp = np.copy(thresh_components)
+    REF_FOLD_NUMBER = 0
+    for k in range(N_COMP):
+        for i in range(N_FOLDS):
+            ref = thresh_components[:, k, REF_FOLD_NUMBER].T
+            if i != REF_FOLD_NUMBER:
+                r = np.corrcoef(thresh_components[:, k, i].T,
+                                ref)
+                if r[0, 1] < 0:
+                    #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
+                    aligned_thresh_comp[:, k, i] *= -1
+    # Save aligned comp
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+        filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
+        np.savez(filename, aligned_thresh_comp[:, :, l])
+
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
     dice_bars = np.empty(N_COMP)
     for k in range(N_COMP):
         # One component accross folds
-        thresh_comp = thresh_components[:, k, :]
+        thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
         dice_bars[k] = metrics.dice_bar(thresh_comp)
 
@@ -398,11 +420,24 @@ def create_config(y, n_folds, output_dir, filename,
     clust_utils.gabriel_make_sync_data_files(full_output_dir)
 
     # Create job files
-    cluster_cmd = "mapreduce.py -m {dir}/{file}  --ncore 12".format(
+    # As the dataset is big we don't use standard files
+    limits = OrderedDict()
+    limits['host'] = OrderedDict()
+    limits['host']['nodes'] = 10
+    limits['host']['ppn'] = 6
+    limits['mem'] = "25gb"
+    limits['walltime'] = "96:00:00"
+    queue = "Cati_long"
+    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
                             dir=CLUSTER_WD,
-                            file=filename)
-    clust_utils.gabriel_make_qsub_job_files(full_output_dir, cluster_cmd)
-
+                            file=filename,
+                            ppn=limits['host']['ppn'])
+    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
+    clust_utils.write_job_file(job_file_name,
+                               job_name=output_dir,
+                               cmd=cluster_cmd,
+                               queue=queue,
+                               job_limits=limits)
     return config
 
 #################

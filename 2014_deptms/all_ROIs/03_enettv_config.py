@@ -22,6 +22,7 @@ from parsimony.algorithms.utils import Info
 import parsimony.functions.nesterov.tv as tv_helper
 import shutil
 from scipy import sparse
+from scipy.stats import binom_test
 
 from collections import OrderedDict
 
@@ -32,6 +33,7 @@ NFOLDS = 5
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    GLOBAL.PROB_CLASS1 = config["prob_class1"]
     MODALITY = config["modality"]
     penalty_start = config["penalty_start"]
     if np.logical_or(MODALITY == "MRI", MODALITY == "PET"):
@@ -103,7 +105,7 @@ def mapper(key, output_collector):
             Xte_r = np.hstack([Xte[:, :penalty_start],
                                Xte[:, penalty_start:][:, aov.get_support()]])
         else:
-            mask = np.ones(Xtr.shape[0], dtype=bool)
+            mask = STRUCTURE.get_data() != 0
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
@@ -144,27 +146,39 @@ def mapper(key, output_collector):
                     a = sparse.bmat([[A1[i], None], [None, A2[i]]])
                     A.append(a)
 
-            mask = np.vstack([mask_MRI, mask_PET])            
-
             Xtr_r = np.hstack([Xtr[:, :penalty_start],
                                Xtr[:, penalty_start:][:, support_mask]])
             Xte_r = np.hstack([Xte[:, :penalty_start],
                                Xte[:, penalty_start:][:, support_mask]])
 
         else:
-            mask = np.ones(Xtr.shape[0], dtype=bool)
+            k_MRI = n_voxels
+            k_PET = n_voxels
+            mask_MRI = STRUCTURE.get_data() != 0
+            mask_PET = STRUCTURE.get_data() != 0
             Xtr_r = Xtr
             Xte_r = Xte
             A = GLOBAL.A
-    info=[Info.num_iter]
+    info = [Info.num_iter]
     mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
                                    class_weight=class_weight,
-                                   algorithm_params={'info':info})
+                                   algorithm_params={'info': info})
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
     proba_pred = mod.predict_probability(Xte_r)  # a posteriori probability
-    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
-               beta=mod.beta,  mask=mask, n_iter=mod.get_info()['num_iter'])
+    beta = mod.beta
+    if (MODALITY == "MRI") or (MODALITY == "PET"):
+        ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
+                   beta=beta,  mask=mask,
+                   n_iter=mod.get_info()['num_iter'])
+    elif MODALITY == "MRI+PET":
+        beta_MRI = beta[:(penalty_start + k_MRI)]
+        beta_PET = np.vstack([beta[:penalty_start],
+                              beta[(penalty_start + k_MRI):]])
+        ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte,
+                   beta=beta, beta_MRI=beta_MRI, beta_PET=beta_PET,
+                   mask_MRI=mask_MRI, mask_PET=mask_PET,
+                   n_iter=mod.get_info()['num_iter'])
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -181,6 +195,7 @@ def reducer(key, values):
     #        for p in glob.glob("/neurospin/brainomics/2014_deptms/MRI/results/*/0.05_0.45_0.45_0.1_-1.0/")]
     # Compute sd; ie.: compute results on each folds
     penalty_start = GLOBAL.PENALTY_START
+    prob_class1 = GLOBAL.PROB_CLASS1
     values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
             item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) \
@@ -193,22 +208,31 @@ def reducer(key, values):
     prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, prob_pred)  # area under curve score.
-    n_ite = np.mean(np.array([item["n_ite"] for item in values]))
+    n_ite = np.mean(np.array([item["n_iter"] for item in values]))
     betas = np.hstack([item["beta"][penalty_start:]  for item in values]).T
     R = np.corrcoef(betas)
     beta_cor_mean = np.mean(R[np.triu_indices_from(R, 1)])
-    scores = OrderedDict()
-    scores['a'] = key[0]
-    scores['l1'] = key[1]
-    scores['l2'] = key[2]
-    scores['tv'] = key[3]
+    success = r * s
+    success = success.astype('int')
+    pvalue_class0 = binom_test(success[0], s[0], 1 - prob_class1)
+    pvalue_class1 = binom_test(success[1], s[1], prob_class1)
+    a, l1, l2 = float(key[0]), float(key[1]), float(key[2])
+    tv, k_ratio = float(key[3]), float(key[4])
     left = float(1 - tv)
     if left == 0:
         left = 1.
-    scores['l1l2_ratio'] = float(key[1]) / left
-    scores['k_ratio'] = key[4]
+    scores = OrderedDict()
+    scores['a'] = a
+    scores['l1'] = l1
+    scores['l2'] = l2
+    scores['l1l2_ratio'] = l1 / left
+    scores['tv'] = tv
+    scores['k_ratio'] = k_ratio
     scores['recall_0'] = r[0]
+    scores['pvalue_recall_0'] = pvalue_class0
     scores['recall_1'] = r[1]
+    scores['pvalue_recall_1'] = pvalue_class1
+    scores['max_pvalue_recall'] = np.maximum(pvalue_class0, pvalue_class1)
     scores['recall_mean'] = r.mean()
     scores['recall_mean_std'] = recall_mean_std
     scores['precision_0'] = p[0]
@@ -286,7 +310,7 @@ if __name__ == "__main__":
         label_ho = cur["label_ho"].values[0]
         atlas_ho = cur["atlas_ho"].values[0]
         roi_name = cur["ROI_name_deptms"].values[0]
-        if ((not cur.isnull()["label_ho"].values[0])
+        if ((not cur.isnull()["atlas_ho"].values[0])
             and (not cur.isnull()["ROI_name_deptms"].values[0])):
             if not roi_name in dict_rois:
                 labels = np.asarray(label_ho.split(), dtype="int")
@@ -295,7 +319,7 @@ if __name__ == "__main__":
 
     rois = list(set(df_rois["ROI_name_deptms"].values.tolist()))
     rois = [x for x in rois if str(x) != 'nan']
-    rois.append("wb")  # add whole brain to rois
+    rois.append("brain")  # add whole brain to rois
 
     #########################################################################
     ## Build config file for all couple (Modality, roi)
@@ -324,18 +348,19 @@ if __name__ == "__main__":
             if np.logical_or(modality == "MRI", modality == "PET"):
                 shutil.copy2(INPUT_MASK, WD)
             elif modality == "MRI+PET":
-                shutil.copy2(os.path.join(DATASET_PATH, "MRI",
+                shutil.copy2(os.path.join(DATA_MODALITY_PATH,
                                       'mask_MRI_' + roi + '.nii'),
                              WD)
                 INPUT_MASK = os.path.join(WD, 'mask_MRI_' + roi + '.nii')
             #################################################################
             ## Create config file
             y = np.load(INPUT_DATA_y)
-            
+            prob_class1 = np.count_nonzero(y) / float(len(y))
+
             SEED = 23071991
             cv = [[tr.tolist(), te.tolist()]
                     for tr, te in StratifiedKFold(y.ravel(), n_folds=NFOLDS,
-                      shuffle=True, random_state = SEED)]
+                      shuffle=True, random_state=SEED)]
             cv.insert(0, None)  # first fold is None
 
             INPUT_DATA_X = os.path.basename(INPUT_DATA_X)
@@ -355,11 +380,15 @@ if __name__ == "__main__":
                                  tv]]) * ratios for tv in tv_range]
             l1l2tv.append(np.array([[0., 0., 1.]]))
             l1l2tv = np.concatenate(l1l2tv)
-            alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-            alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k_ratio]] * alphal1l2tv.shape[0])] for k_ratio in k_range_ratio])
+            alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]] * \
+                                                           l1l2tv.shape[0]),
+                                                l1l2tv] for alpha in alphas])
+            alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv,
+                                                 np.array([[k_ratio]] * \
+                                                       alphal1l2tv.shape[0])] \
+                                            for k_ratio in k_range_ratio])
             params = [params.tolist() for params in alphal1l2tvk]
-            user_func_filename = os.path.join(os.environ["HOME"], "git",
-                "scripts", "2014_deptms", "03_enettv_config.py")
+            user_func_filename = os.path.abspath(__file__)
             print "user_func", user_func_filename
             config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                           params=params, resample=cv,
@@ -369,19 +398,20 @@ if __name__ == "__main__":
                           reduce_group_by="params",
                           reduce_output="results.csv",
                           penalty_start=penalty_start,
+                          prob_class1=prob_class1,
                           modality=modality,
                           roi=roi)
             json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
             #################################################################
-#            # Build utils files: sync (lasso regressionpush/pull) and PBS
-#            import brainomics.cluster_gabriel as clust_utils
-#            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-#                clust_utils.gabriel_make_sync_data_files(WD)
-#            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-#            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-            #################################################################
-            # Sync to cluster
+            # Build utils files: sync (push/pull) and PBS
+            import brainomics.cluster_gabriel as clust_utils
+            sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+                clust_utils.gabriel_make_sync_data_files(WD)
+            cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+            clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+            ################################################################
+#            # Sync to cluster
 #            print "Sync data to gabriel.intra.cea.fr: "
 #            os.system(sync_push_filename)
 

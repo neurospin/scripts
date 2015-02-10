@@ -43,10 +43,38 @@ Findings Fronto-temporo-Inusla patern (protector) vs Deep white matter (worsen)
 
 # TODO
 
-Build material for Eric
-
 Coronal slices
 47 82 113 137
 
 Sagital slices
 98 108
+
+PC1 weights map
+Test
+
+score ~ PCi + Age + Sex + Education
+except for MRS
+=> table with 12 lines: 3 PCs x 4 scores
+
+Imaging ~ PCi
+=> table with 12 lines: 3 PCs x 4 Imagin (WMH, LLV, MB, BPF)
+
+# Story
+
+Many population of WMH linked with WMH patterns
+Identify pattern using spatially regularized PCA
+
+PC1
+- association with WMHVolume
+
+PC2
+- association with WMHVolume
+- association with clinical scores
+
+PC3
+- no association with WMHVolume
+- Strong associations with clinical scores
+
+ 
+
+

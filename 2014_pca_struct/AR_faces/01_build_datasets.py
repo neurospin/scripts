@@ -19,7 +19,6 @@ Each dataset is centered (locally and globally as in Olivetti faces).
 
 
 import os
-import json
 
 import numpy as np
 import scipy.misc
