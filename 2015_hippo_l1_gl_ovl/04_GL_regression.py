@@ -141,32 +141,64 @@ yte = Y[n_train:]
 
 
 ####################################################################
-#test with simple linear correlation and corrected p value
+#test with simple linear correlation and corrected p value. We first compute the
+#linear correlation coeffition than estimate the corrected p values using an fdr classic approech
 ################################################################
 
-
-
-
-
-
-
-
-
-
+######################
+#Here we compute the linear correlation of Y with each SNP and the 
+#corresponding p_value. Than we plot the sorted p_values in order to check 
+# we can select a subset of SNP if the plot ha a specific form 
+#####################
 from scipy.stats import pearsonr
 p_vect=np.array([])
 cor_vect=np.array([])
 for i in range(3201):
     r_row, p_value = pearsonr(X[:,i], Y)
-#    print r_row, p_value
     p_vect = np.hstack((p_vect,p_value))
     cor_vect = np.hstack((cor_vect,r_row))
-plt.plot(p_vect)    
-#plt.plot(p_vect[p_vect<0.05])
-plt.show()
-p_vect.argesort()
+p2=np.sort(p_vect)
+plt.plot(p2)    
+plt.show()   
+#############
+#The obtained plot does not allow to make any selection. This can be done later
+#using another priors on different genes (Vincent, do you 
+#have an idea to remove the not pertinent SNP to the subject under consideration?).  
+###############
+
+ 
+#############
+#Here we check how many SNP are significantly (w.r.p=0.05) correlated to Y : 
+
+indices = np.where(p_vect <= 0.05)
+print len(indices[0])
+# there are 126 SNP
+ ###########"
+
+
+
+
+################
+#Here we compue the corrected p_values, all of them are equal to one!! 
+#we need to work on the data again, loock for priors, normalize volumes with respect to sex.. 
+#############"
 import p_value_correction as p_c
-print p_c.fdr(p_vect.reshape(3201,1))
+p_corrected = p_c.fdr(p_vect)
+indices = np.where(p_corrected <= 0.05)
+p_vect[p_vect > 0.05] = 0.
+
+
+
+
+
+
+
+
+
+##########################
+#Now we use same multivariate approaches
+#############################"
+
 #############################################################################
 ## sklearn
 from sklearn.linear_model import ElasticNet, ElasticNetCV
@@ -190,7 +222,7 @@ r2_score(yte, y_pred_svmlin)
 cross_validation.cross_val_score(svmlin, X, Y, cv=5)
 #array([-0.683538  , -0.58925786, -0.74613231, -1.04904344, -1.03914531])
 
-## RF
+## Randoom Forests
 rf = RandomForestRegressor()
 rf.fit(Xtr, ytr)
 y_pred_rf = svmlin.predict(Xte)
@@ -212,6 +244,13 @@ cross_validation.cross_val_score(rf, X, Y, cv=5)
 
 
 #####
+
+
+
+
+################
+#Here we test a group lasso version, it gives similar results
+##########
 ###################
 #estimation of the maximal l1 possible penalisation, 
 #this will help to estimate the order of the others penalisations
@@ -238,12 +277,16 @@ enet_gl = estimators.LinearRegressionL1L2GL(l1, l2,  lgl , Agl, algorithm=algori
 yte_pred_enetgl = enet_gl.fit(Xtr, ytr).predict(Xte)
 print "lr r carré vaut",  r2_score(yte, yte_pred_enetgl)
 
-p1=plt.plot(yte,marker='o')
-p2=plt.plot(yte_pred_enetgl,marker='v')
-plt.title("group_lasso_test") 
-#plt.legend([p1, p2], ["beta", "beta_star"])
-plt.show()
-cf = np.corrcoef(yte.reshape(1,n-n_train),yte_pred_enetgl.reshape(1,n-n_train))[0,1]
 
-print "le coef de correlation vaut ", cf 
 
+
+
+#p1=plt.plot(yte,marker='o')
+#p2=plt.plot(yte_pred_enetgl,marker='v')
+#plt.title("group_lasso_test") 
+##plt.legend([p1, p2], ["beta", "beta_star"])
+#plt.show()
+#cf = np.corrcoef(yte.reshape(1,n-n_train),yte_pred_enetgl.reshape(1,n-n_train))[0,1]
+#
+#print "le coef de correlation vaut ", cf 
+#
