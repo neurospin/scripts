@@ -89,19 +89,36 @@ y = open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/Hippocampus_L.csv').re
 y_subj = [i.split('\t')[0] for i in y]
 y = [float(i.split('\t')[2]) for i in y]
 
+#######################
+#Covariate of non-interest variables
+#############################
+covariate = open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/gender_centre.cov').read().split('\n')[1:-1]
+covariate_subj = [i.split('\t')[0] for i in covariate]
+covariate_data= np.asarray([[ int(float(j))  for j in i.split('\t')[2:]] for i in covariate])
+indx = np.where(covariate_data[:,0]!=-9)[0]
+covariate_data = covariate_data[indx,:]
+covariate_subj = list(np.asarray(covariate_subj)[indx])
+
+
 #intersect subject list
-soi = list(set(x_subj).intersection(set(y_subj)))
+soi = list(set(x_subj).intersection(set(y_subj)).intersection(set(covariate_subj)))
 
 # build daatset with X and Y
 X_ = np.zeros((len(soi), x.shape[1]))
 Y_ = np.zeros(len(soi))
+Cov_ = np.zeros((len(soi), covariate_data.shape[1]))
 for i, s in enumerate(soi):
     X_[i, :] = x[x_subj.index(s), :]
     Y_[i] = y[y_subj.index(s)]
+    Cov_[i, :] = covariate_data[covariate_subj.index(s), :]
 
 groups_descr = genodata.get_meta_pws()
 groups_name = groups_descr.keys()
 groups = [list(groups_descr[n]) for n in groups_name]
+
+
+
+
 
 #######################
 #selecting individuals with respect to hippo volume
@@ -110,10 +127,10 @@ hyp_vol_max=4000
 hyp_vol_min=2800
 ind = [i for i,temp in enumerate(Y_) if temp < hyp_vol_max and temp>hyp_vol_min]
 
-X = np.zeros((len(ind), x.shape[1]))
+X = np.zeros((len(ind), X_.shape[1]+Cov_.shape[1]))
 Y = np.zeros(len(ind))
 for i, s in enumerate(ind):
-    X[i, :] = X_[s, :]
+    X[i, :] = np.hstack((Cov_[s, :], X_[s, :]))
     Y[i] = Y_[s]
 ########################################
 
