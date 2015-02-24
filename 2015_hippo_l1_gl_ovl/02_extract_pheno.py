@@ -60,3 +60,10 @@ if __name__ == "__main__":
     fp.write("\n".join(res))
     fp.write('\n')
     fp.close()
+    
+"""
+cd /neurospin/imagen/processed/fslfirst/000074104786
+
+fsl5.0-applywarp -i /usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-prob-1mm.nii.gz -r 000074104786_all_fast_firstseg.nii.gz -o /tmp/HarvardOxford-sub-prob-1mm.nii.gz 
+
+"""
