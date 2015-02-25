@@ -37,44 +37,26 @@ n = len(pop)
 assert n == 1082
 Z = np.zeros((n, 3))  # Intercept + Age + Gender
 Z[:, 0] = 1  # Intercept
-y = np.zeros((n, 1))  # ADRS
+y = np.zeros((n, 1))  # DX
 images = list()
-for i, mri_path in enumerate(pop["mri_path"]):
-    print i
+for i in xrange(n):
     cur = pop.iloc[i]
-    #print cur
-    babel_image = nib.load(mri_path)
+    print cur
+    babel_image = nib.load(cur["mri_path"])
     images.append(babel_image.get_data().ravel())
     Z[i, 1:] = np.asarray(cur[["Age", "Gender_num"]]).ravel()
     y[i, 0] = cur["adrs"]
+
 shape = babel_image.get_data().shape
 np.save(os.path.join(OUTPUT_DATA, "y.npy"), y)
+
 
 ############################################################################
 # resample one anat
 fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s" % \
 ("/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz",
 cur["mri_path"],
-os.path.join(OUTPUT_ATLAS,
-             "MNI152_T1_1mm_brain.nii.gz"))
-
-os.system(fsl_cmd)
-
-fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s --interp=nn" % \
-("/usr/share/data/harvard-oxford-atlases/\
-    HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz",
-    cur["mri_path"],
-    os.path.join(OUTPUT_ATLAS,
-             "HarvardOxford-cort-maxprob-thr0-1mm-nn.nii.gz"))
-
-os.system(fsl_cmd)
-
-fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s" % \
-("/usr/share/data/harvard-oxford-atlases/\
-    HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz",
-    cur["mri_path"],
-    os.path.join(OUTPUT_ATLAS,
-                 "HarvardOxford-sub-maxprob-thr0-1mm-nn.nii.gz"))
+os.path.join(OUTPUT_ATLAS, "MNI152_T1_1mm_brain.nii.gz"))
 
 os.system(fsl_cmd)
 
@@ -87,13 +69,17 @@ Xtot = np.vstack(images)
 np.save(os.path.join(OUTPUT_DATA, "Xtot.npy"), Xtot)
 del images
 
-mask_implicit_arr = (np.min(Xtot, axis=0) > 0.01) & \
-                        (np.std(Xtot, axis=0) > 1e-6)
+shape = babel_image.get_data().shape
+#os.exit(0)
+#Xtot = np.load(os.path.join(OUTPUT, "Xtot.npy"))
+
+mask_implicit_arr = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
 mask_implicit_arr = mask_implicit_arr.reshape(shape)
 assert mask_implicit_arr.sum() == 730646
 out_im = nib.Nifti1Image(mask_implicit_arr.astype(int),
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DATA, "mask_implicit.nii.gz"))
+
 
 #############################################################################
 # Compute atlas mask
@@ -127,15 +113,17 @@ assert np.all(mask_atlas_binarized_arr == (babel_mask.get_data() != 0))
 
 #############################################################################
 # X
-X = Xtot[:, mask_atlas_binarized_arr.ravel()]
-
+mask = mask_atlas_binarized_arr
+X = Xtot[:, mask.ravel()]
+del Xtot
 X = np.hstack([Z, X])
+print "ok X"
 n, p = X.shape
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
 X[:, 0] = 1.
-np.save(os.path.join(OUTPUT_DATA, "X.npy"), X)
+#np.save(os.path.join(OUTPUT_DATA, "X.npy"), X)
 fh = open(os.path.join(OUTPUT_DATA, "X.npy").replace("npy", "txt"), "w")
 fh.write('shape = (%i, %i): Intercept + Age + Gender + %i voxels' % \
-    (n, p, mask_atlas_binarized_arr.sum()))
+    (n, p, mask.sum()))
 fh.close()

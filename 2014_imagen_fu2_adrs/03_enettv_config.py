@@ -22,6 +22,35 @@ from collections import OrderedDict
 
 NFOLDS = 5
 
+_proc_status = '/proc/%d/status' % os.getpid()
+
+_scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
+          'KB': 1024.0, 'MB': 1024.0*1024.0}
+
+def _VmB(VmKey):
+    '''Private.
+    '''
+    global _proc_status, _scale
+     # get pseudo file  /proc/<pid>/status
+    try:
+        t = open(_proc_status)
+        v = t.read()
+        t.close()
+    except:
+        return 0.0  # non-Linux?
+     # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
+    i = v.index(VmKey)
+    v = v[i:].split(None, 3)  # whitespace
+    if len(v) < 3:
+        return 0.0  # invalid format?
+     # convert Vm value to bytes
+    return float(v[1]) * _scale[v[2]]
+
+
+def memory():
+    '''Return memory in bytes.
+    '''
+    return _VmB('VmSize:')
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
@@ -62,7 +91,7 @@ def mapper(key, output_collector):
     l1, l2 = alpha * float(key[1]), alpha * float(key[2])
     tv, k_ratio = alpha * float(key[3]), key[4]
     print "l1:%f, l2:%f, tv:%f, k_ratio:%f" % (l1, l2, tv, k_ratio)
-    if k_ratio != -1:
+    if k_ratio != 1:
         k = n_voxels * k_ratio
         k = int(k)
         aov = SelectKBest(k=k)
@@ -88,7 +117,7 @@ def mapper(key, output_collector):
     y_pred = mod.predict(Xte_r)
     beta = mod.beta
     ret = dict(y_pred=y_pred, y_true=yte,
-                   beta=beta,  mask=mask,
+                   beta=beta,
                    n_iter=mod.get_info()['num_iter'])
     if output_collector:
         output_collector.collect(key, ret)
@@ -157,10 +186,10 @@ if __name__ == "__main__":
     if not os.path.isfile(os.path.join(WD, 'y.npy')):
         INPUT_DATA_y = os.path.join(DATASET_PATH, 'y.npy')
         shutil.copy2(INPUT_DATA_y, os.path.join(WD, 'y.npy'))
-    if not os.path.isfile(os.path.join(WD, 'mask.nii')):
+    if not os.path.isfile(os.path.join(WD, 'mask.nii.gz')):
         INPUT_MASK = os.path.join(DATASET_PATH,
                                  'mask_atlas_binarized.nii.gz')
-        shutil.copy2(INPUT_MASK, os.path.join(WD, 'mask.nii'))
+        shutil.copy2(INPUT_MASK, os.path.join(WD, 'mask.nii.gz'))
 
     #################################################################
     ## Create config file
@@ -174,7 +203,7 @@ if __name__ == "__main__":
 
     INPUT_DATA_X = 'X.npy'
     INPUT_DATA_y = 'y.npy'
-    INPUT_MASK = 'mask.nii'
+    INPUT_MASK = 'mask.nii.gz'
     # parameters grid
     # Re-run with
     tv_range = np.hstack([np.arange(0, 1., .1),
@@ -183,7 +212,8 @@ if __name__ == "__main__":
                        [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                        [.001, .999, 1]])
     alphas = [.01, .05, .1, .5, 1.]
-    k_range_ratio = [0.1 / 100., 1 / 100., 10 / 100., 50 / 100., -1]
+    #k_range_ratio = [0.1 / 100., 1 / 100., 10 / 100., 50 / 100., 1]
+    k_range_ratio = [1]
     l1l2tv = [np.array([[float(1 - tv),
                          float(1 - tv),
                          tv]]) * ratios for tv in tv_range]
