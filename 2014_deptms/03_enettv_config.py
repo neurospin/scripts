@@ -294,7 +294,9 @@ if __name__ == "__main__":
         roi_name = cur["ROI_name_deptms"].values[0]
         if ((not cur.isnull()["atlas_ho"].values[0])
             and (not cur.isnull()["ROI_name_deptms"].values[0])):
-            if not roi_name in dict_rois:
+            if ((not roi_name in dict_rois)
+              and (roi_name != "Maskdep-sub")
+              and (roi_name != "Maskdep-cort")):
                 labels = np.asarray(label_ho.split(), dtype="int")
                 dict_rois[roi_name] = [labels]
                 dict_rois[roi_name].append(atlas_ho)
@@ -356,7 +358,7 @@ if __name__ == "__main__":
                                [.9, .1, 1], [.1, .9, 1], [.01, .99, 1],
                                [.001, .999, 1]])
             alphas = [.01, .05, .1, .5, 1.]
-            k_range_ratio = [0.1 / 100., 1 / 100., 10 / 100., 50 / 100., -1]
+            k_range_ratio = [0.1 / 100., 1 / 100., 10 / 100., 50 / 100., 1]
             l1l2tv = [np.array([[float(1 - tv),
                                  float(1 - tv),
                                  tv]]) * ratios for tv in tv_range]

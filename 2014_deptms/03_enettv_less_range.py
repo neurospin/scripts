@@ -62,7 +62,6 @@ def resample(config, resample_nb):
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
-
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables:
         #raise ImportError("could not import ")
@@ -215,7 +214,9 @@ if __name__ == "__main__":
         roi_name = cur["ROI_name_deptms"].values[0]
         if ((not cur.isnull()["atlas_ho"].values[0])
             and (not cur.isnull()["ROI_name_deptms"].values[0])):
-            if not roi_name in dict_rois:
+            if ((not roi_name in dict_rois)
+              and (roi_name != "Maskdep-sub")
+              and (roi_name != "Maskdep-cort")):
                 labels = np.asarray(label_ho.split(), dtype="int")
                 dict_rois[roi_name] = [labels]
                 dict_rois[roi_name].append(atlas_ho)

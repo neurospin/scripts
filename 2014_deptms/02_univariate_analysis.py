@@ -46,6 +46,7 @@ INPUT_ROIS_CSV = os.path.join(BASE_DATA_PATH,    "ROI_labels.csv")
 
 OUTPUT_UNIVARIATE = os.path.join(BASE_PATH, "results_univariate")
 
+
 if not os.path.exists(OUTPUT_UNIVARIATE):
     os.makedirs(OUTPUT_UNIVARIATE)
 
@@ -58,7 +59,9 @@ for i, ROI_name_aal in enumerate(df_rois["ROI_name_aal"]):
     roi_name = cur["ROI_name_deptms"].values[0]
     if ((not cur.isnull()["atlas_ho"].values[0])
         and (not cur.isnull()["ROI_name_deptms"].values[0])):
-        if not roi_name in rois:
+        if ((not roi_name in rois)
+              and (roi_name != "Maskdep-sub")
+              and (roi_name != "Maskdep-cort")):
             print "ROI: ", roi_name
             rois.append(roi_name)
 print "\n"
@@ -72,7 +75,9 @@ for MODALITY in MODALITIES:
     OUTPUT_MODALITY = os.path.join(OUTPUT_UNIVARIATE, MODALITY)
     if not os.path.exists(OUTPUT_MODALITY):
         os.makedirs(OUTPUT_MODALITY)
-
+    ROIS_STAT_PATH = os.path.join(OUTPUT_MODALITY, "tstat_ROI")
+    if not os.path.exists(ROIS_STAT_PATH):
+        os.makedirs(ROIS_STAT_PATH)
     #########################################################################
     ## MULM
     #########################################################################
@@ -122,6 +127,7 @@ for MODALITY in MODALITIES:
         out_im = nib.Nifti1Image(arr, affine=mask_ima.get_affine())
         out_im.to_filename(os.path.join(OUTPUT_MODALITY,
                        "t_stat_rep_min_norep_" + MODALITY + "_brain.nii.gz"))
+
     if MODALITY == "MRI+PET":
         arr_MRI = arr[:(arr.shape[0] / 2), :, :]
         arr_PET = arr[(arr.shape[0] / 2):, :, :]
@@ -144,6 +150,7 @@ for MODALITY in MODALITIES:
     val[m3] = 3.
     arr[mask_arr] = val[0]
     arr = brainomics.image_atlas.smooth_labels(arr, size=(3, 3, 3))
+
     if (MODALITY == "MRI") or (MODALITY == "PET"):
         out_im = nib.Nifti1Image(arr, affine=mask_ima.get_affine())
         out_im.to_filename(os.path.join(OUTPUT_MODALITY,
@@ -257,22 +264,25 @@ for MODALITY in MODALITIES:
         out_im_PET.to_filename(os.path.join(OUTPUT_MODALITY,
                            "ptmax-log10_rep_min_norep_PET_brain.nii.gz"))
 
-    ################
-    ## For each ROI
+#    ################
+#    ## For each ROI
 
     # Univariate analysis with permutation
     for roi in rois:
         print "ROI: ", roi
+        ROI_PATH = os.path.join(ROIS_STAT_PATH, MODALITY + '_' + roi)
+        if not os.path.exists(ROI_PATH):
+            os.makedirs(ROI_PATH)
         if (MODALITY == "MRI") or (MODALITY == "PET"):
             mask_ima = nib.load(os.path.join(DATA_MODALITY_PATH,
-                               "mask_" + MODALITY + "_" + roi + ".nii"))
+                               "mask_" + roi + ".nii"))
             mask_arr = mask_ima.get_data() != 0
         elif MODALITY == "MRI+PET":
             mask_ima_mri = nib.load(os.path.join(DATA_MODALITY_PATH,
-                               "mask_MRI_" + roi + ".nii"))
+                               "mask_" + roi + ".nii"))
             mask_arr_mri = mask_ima_mri.get_data() != 0
             mask_ima_pet = nib.load(os.path.join(DATA_MODALITY_PATH,
-                               "mask_PET_" + roi + ".nii"))
+                               "mask_" + roi + ".nii"))
             mask_arr_pet = mask_ima_pet.get_data() != 0
             mask_arr = np.vstack((mask_arr_mri, mask_arr_pet))
         X = np.load(os.path.join(DATA_MODALITY_PATH,
@@ -295,35 +305,54 @@ for MODALITY in MODALITIES:
         tvals, pvals_perm, _ = muols.t_test_maxT(contrasts=contrasts,
                                                  nperms=nperms,
                                                  two_tailed=True)
-        arr = np.zeros(mask_arr.shape)
-        arr[mask_arr] = pvals_perm[0]
-        if (MODALITY == "MRI") or (MODALITY == "PET"):
-            out_im = nib.Nifti1Image(arr, affine=mask_ima.get_affine())
-            out_im.to_filename(os.path.join(OUTPUT_MODALITY,
-                "ptmax_rep_min_norep_" + MODALITY + "_" + roi + ".nii.gz"))
-        elif MODALITY == "MRI+PET":
-            arr_MRI = arr[:(arr.shape[0] / 2), :, :]
-            arr_PET = arr[(arr.shape[0] / 2):, :, :]
-            out_im_MRI = nib.Nifti1Image(arr_MRI, affine=mask_ima.get_affine())
-            out_im_MRI.to_filename(os.path.join(OUTPUT_MODALITY,
-                               "ptmax_rep_min_norep_MRI_" + roi + ".nii.gz"))
-            out_im_PET = nib.Nifti1Image(arr_PET, affine=mask_ima.get_affine())
-            out_im_PET.to_filename(os.path.join(OUTPUT_MODALITY,
-                               "ptmax_rep_min_norep_PET_" + roi + ".nii.gz"))
-
+        arr_tval = np.zeros(mask_arr.shape)
+        arr_tval[mask_arr] = tvals[0]
+        arr_pval = np.zeros(mask_arr.shape)
+        arr_pval[mask_arr] = pvals_perm[0]
         log10_pvals_perm = -np.log10(pvals_perm)
-        arr = np.zeros(mask_arr.shape)
-        arr[mask_arr] = log10_pvals_perm[0]
+        arr_logpval = np.zeros(mask_arr.shape)
+        arr_logpval[mask_arr] = log10_pvals_perm[0]
         if (MODALITY == "MRI") or (MODALITY == "PET"):
-            out_im = nib.Nifti1Image(arr, affine=mask_ima.get_affine())
-            out_im.to_filename(os.path.join(OUTPUT_MODALITY,
+            out_im = nib.Nifti1Image(arr_tval, affine=mask_ima.get_affine())
+            out_im.to_filename(os.path.join(ROI_PATH,
+                 "t_stat_rep_min_norep_" + MODALITY + "_" + roi + ".nii.gz"))
+            out_im = nib.Nifti1Image(arr_pval, affine=mask_ima.get_affine())
+            out_im.to_filename(os.path.join(ROI_PATH,
+                "ptmax_rep_min_norep_" + MODALITY + "_" + roi + ".nii.gz"))
+            out_im = nib.Nifti1Image(arr_logpval, affine=mask_ima.get_affine())
+            out_im.to_filename(os.path.join(ROI_PATH,
             "ptmax-log10_rep_min_norep_" + MODALITY + "_" + roi + ".nii.gz"))
+
         elif MODALITY == "MRI+PET":
-            arr_MRI = arr[:(arr.shape[0] / 2), :, :]
-            arr_PET = arr[(arr.shape[0] / 2):, :, :]
-            out_im_MRI = nib.Nifti1Image(arr_MRI, affine=mask_ima.get_affine())
-            out_im_MRI.to_filename(os.path.join(OUTPUT_MODALITY,
+            arr_tval_MRI = arr_tval[:(arr_tval.shape[0] / 2), :, :]
+            arr_tval_PET = arr_tval[(arr_tval.shape[0] / 2):, :, :]
+            out_im_MRI = nib.Nifti1Image(arr_tval_MRI,
+                                         affine=mask_ima.get_affine())
+            out_im_MRI.to_filename(os.path.join(ROI_PATH,
+                          "t_stat_rep_min_norep_MRI_" + roi + ".nii.gz"))
+            out_im_PET = nib.Nifti1Image(arr_tval_PET,
+                                         affine=mask_ima.get_affine())
+            out_im_PET.to_filename(os.path.join(ROI_PATH,
+                          "t_stat_rep_min_norep_PET_" + roi + ".nii.gz"))
+
+            arr_pval_MRI = arr_pval[:(arr_pval.shape[0] / 2), :, :]
+            arr_pval_PET = arr_pval[(arr_pval.shape[0] / 2):, :, :]
+            out_im_MRI = nib.Nifti1Image(arr_pval_MRI,
+                                         affine=mask_ima.get_affine())
+            out_im_MRI.to_filename(os.path.join(ROI_PATH,
+                          "ptmax_rep_min_norep_MRI_" + roi + ".nii.gz"))
+            out_im_PET = nib.Nifti1Image(arr_pval_PET,
+                                         affine=mask_ima.get_affine())
+            out_im_PET.to_filename(os.path.join(ROI_PATH,
+                         "ptmax_rep_min_norep_PET_" + roi + ".nii.gz"))
+
+            arr_logpval_MRI = arr_logpval[:(arr_logpval.shape[0] / 2), :, :]
+            arr_logpval_PET = arr_logpval[(arr_logpval.shape[0] / 2):, :, :]
+            out_im_MRI = nib.Nifti1Image(arr_logpval_MRI,
+                                         affine=mask_ima.get_affine())
+            out_im_MRI.to_filename(os.path.join(ROI_PATH,
                          "ptmax-log10_rep_min_norep_MRI_" + roi + ".nii.gz"))
-            out_im_PET = nib.Nifti1Image(arr_PET, affine=mask_ima.get_affine())
-            out_im_PET.to_filename(os.path.join(OUTPUT_MODALITY,
+            out_im_PET = nib.Nifti1Image(arr_logpval_PET,
+                                         affine=mask_ima.get_affine())
+            out_im_PET.to_filename(os.path.join(ROI_PATH,
                          "ptmax-log10_rep_min_norep_PET_" + roi + ".nii.gz"))
