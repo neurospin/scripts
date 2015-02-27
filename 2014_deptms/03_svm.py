@@ -48,7 +48,6 @@ for i, ROI_name_aal in enumerate(df_rois["ROI_name_aal"]):
 rois.append("brain")
 print "\n"
 
-roi = "Roiho-hippo"
 for i, roi in enumerate(rois):
     print "ROI", roi
     scores_svm = OrderedDict()

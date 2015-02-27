@@ -103,9 +103,9 @@ ax2.legend((rects_enettv[0],), ('Accuracy',))
 ax3.legend((rects3[0], rects4[0]), ('Specificity', 'Sensitivity'))
 ax4.legend((rects_svm[0],), ('Accuracy',))
 
-fig1.savefig(os.path.join(ENETTV_PATH, "recall_scores_diagram"))
-fig2.savefig(os.path.join(ENETTV_PATH, "accuracy_scores_diagram"))
-fig3.savefig(os.path.join(SVM_PATH, "recall_scores_diagram"))
-fig4.savefig(os.path.join(SVM_PATH, "accuracy_scores_diagram"))
+fig1.savefig(os.path.join(ENETTV_PATH, "recall_scores_diagram"), format='svg')
+fig2.savefig(os.path.join(ENETTV_PATH, "accuracy_scores_diagram"), format='svg')
+fig3.savefig(os.path.join(SVM_PATH, "recall_scores_diagram"), format='svg')
+fig4.savefig(os.path.join(SVM_PATH, "accuracy_scores_diagram"), format='svg')
 
 plt.show()
