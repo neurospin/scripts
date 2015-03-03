@@ -72,11 +72,17 @@ Lhippo = Lhippo.loc[indx]
 ########################
 Y = Lhippo['Lhippo'].as_matrix()
 tmp = list(covariate.columns)
-tmp.remove('FID')
-tmp.remove('IID')
-tmp.remove('AgeSq')
-Cov = covariate[tmp].as_matrix()
+#tmp.remove('FID')
+#tmp.remove('IID')
+#tmp.remove('AgeSq')
+mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+Cov = covariate[mycol].as_matrix()
 tmp = list(geno.columns)
 tmp.remove('FID')
 tmp.remove('IID')
 X = geno[tmp].as_matrix()
+
+X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
+X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
+X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
+X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
