@@ -28,7 +28,7 @@ Lhippo = df[['Lhippo']].join(iid_fid)
 Lhippo = Lhippo.set_index(iid_fid['IID'])
 
 #######################
-# get phenotype Lhippo
+# get covariet info
 #######################
 covariate = iid_fid
 covariate = covariate.join(pandas.get_dummies(df['ScanningCentre'],
@@ -37,7 +37,7 @@ covariate = covariate.join(df[['Age', 'Sex', 'ICV', 'AgeSq']])
 covariate = covariate.set_index(iid_fid['IID'])
 
 #######################
-# get phenotype Lhippo
+# get genotype information from the pathway c7 (read from pickle)
 #######################
 fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synapticAll.pickle'
 f = open(fname)
@@ -82,7 +82,23 @@ tmp.remove('FID')
 tmp.remove('IID')
 X = geno[tmp].as_matrix()
 
-X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
-X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
-X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
-X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
+Lhippo.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/testLhippo.phe',
+              cols=['FID', 'IID', 'Lhippo'], header=True, sep=" ",index=False)
+covariate.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/test.cov',
+                 cols=['FID', 'IID'] + mycol, header=True, sep=" ", index=False)
+with open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/testList.snp', 'w') as fp:
+    fp.write("\n".join(list(genodata.snpid))+'\n')
+
+import plinkio
+
+geno = plinkio.Genotype('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/qc_subjects_qc_genetics_all_snps_wave2')
+geno.setOrderedSubsetIndiv(indx)
+gt = geno.snpGenotypeByName('rs3755456')
+from sklearn.linear_model import LinearRegression
+design = np.hstack((gt, Cov))
+lm = LinearRegression().fit(design,Y)
+#bug fixed!
+#X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
+#X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
+#X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
+#X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
