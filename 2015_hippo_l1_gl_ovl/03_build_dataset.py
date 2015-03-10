@@ -10,35 +10,26 @@
 # System import
 import numpy
 import pickle
-import os
-import optparse
 
 
-#load prepared data for the project (see exemple_pw.py)
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synaptic10.pickle'
-f = open(fname)
-genodata = pickle.load(f)
-f.close()
+from read_data import read_hippo_l1_gl_ovl
 
-# read x data
-x = genodata.data
-x_subj = ["%012d" % int(i) for i in genodata.fid]
+covariate, Lhippo, genotype, groups_descr = read_hippo_l1_gl_ovl(pname='Lhippo')
 
-# read y data
-y = open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/Hippocampus_L.csv').read().split('\n')[1:-1]
-y_subj = [i.split('\t')[0] for i in y]
-y = [float(i.split('\t')[2]) for i in y]
+#######################
+# get the usual matrices
+########################
+Y = Lhippo['Lhippo'].as_matrix()
+tmp = list(covariate.columns)
+#tmp.remove('FID')
+#tmp.remove('IID')
+#tmp.remove('AgeSq')
+mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+Cov = covariate[mycol].as_matrix()
+tmp = list(genotype.columns)
+tmp.remove('FID')
+tmp.remove('IID')
+X = genotype[tmp].as_matrix()
 
-#intersect subject list
-soi = list(set(x_subj).intersection(set(y_subj)))
-
-# build daatset with X and Y
-X = numpy.zeros((len(soi), x.shape[1]))
-Y = numpy.zeros(len(soi))
-for i, s in enumerate(soi):
-    X[i, :] = x[x_subj.index(s), :]
-    Y[i] = y[y_subj.index(s)]
-
-groups_descr = genodata.get_meta_pws()
 groups_name = groups_descr.keys()
 groups = [list(groups_descr[n]) for n in groups_name]
