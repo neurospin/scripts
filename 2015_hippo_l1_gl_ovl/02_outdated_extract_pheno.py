@@ -23,8 +23,6 @@ base = dict(Hippocampus_L=dict(l="16.5", u="17.5"),
 
 if __name__ == "__main__":
     structure = 'Hippocampus_L'
-    pin = ('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data'
-        'sts_asym_rightonly.phe')
     pout = ('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/')
     pin = ('/neurospin/imagen/processed/fslfirst')
 

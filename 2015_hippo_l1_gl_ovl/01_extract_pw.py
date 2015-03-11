@@ -44,9 +44,9 @@ login = raw_input("Login on the imagen2 server:")
 password = getpass.getpass("Password on the imagen2 server:")
 #genodata = imagen_genotype_measure_alt(login, password, status="qc",
 #                                    gene_names=list(geneset))
-genodata = imagen_genotype_measure(login, password, status="qc", pws=pws)
+genodata = imagen_genotype_measure(login, password, pathways=pws)
 
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synaptictmp.pickle'
 f = open(fname, 'wb')
 pickle.dump(genodata, f)
 f.close()
