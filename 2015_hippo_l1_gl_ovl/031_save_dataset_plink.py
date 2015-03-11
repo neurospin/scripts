@@ -15,33 +15,38 @@ from read_data import read_hippo_l1_gl_ovl
 
 covariate, Lhippo, genotype, groups_descr = read_hippo_l1_gl_ovl(pname='Lhippo')
 
-#######################
-# get the usual matrices
 ########################
-Y = Lhippo['Lhippo'].as_matrix()
-tmp = list(covariate.columns)
+## get the usual matrices
+#########################
+#Y = Lhippo['Lhippo'].as_matrix()
+#tmp = list(covariate.columns)
+##tmp.remove('FID')
+##tmp.remove('IID')
+##tmp.remove('AgeSq')
+#Cov = covariate[mycol].as_matrix()
+#tmp = list(genotype.columns)
 #tmp.remove('FID')
 #tmp.remove('IID')
-#tmp.remove('AgeSq')
+#X = genotype[tmp].as_matrix()
+#
+#
+#Cov, X, Y, groups_name, groups = \
+#            convert_data2XyCovGroup(covariate, Lhippo, genotype, groups_descr)
+
+
+# Check wrt Plink
+mycol = ['Lhippo']
+Lhippo.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/plinkData/testLhippo.phe',
+              cols=['FID', 'IID'] + mycol, header=True, sep=" ",index=False)
 mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
-Cov = covariate[mycol].as_matrix()
-tmp = list(genotype.columns)
-tmp.remove('FID')
-tmp.remove('IID')
-X = genotype[tmp].as_matrix()
-
-
-# Vérfication par rapport a Plink
-Lhippo.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/testLhippo.phe',
-              cols=['FID', 'IID', 'Lhippo'], header=True, sep=" ",index=False)
-covariate.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/test2.cov',
+covariate.to_csv('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/plinkData/test2.cov',
                  cols=['FID', 'IID'] + mycol, header=True, sep=" ", index=False)
-with open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/testList.snp', 'w') as fp:
+with open('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/plinkData/testList.snp', 'w') as fp:
     fp.write("\n".join(list(genodata.snpid))+'\n')
 
 
 
-geno = plinkio.Genotype('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/qc_subjects_qc_genetics_all_snps_wave2')
+geno = plinkio.Genotype('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/plinkData/qc_subjects_qc_genetics_all_snps_common')
 geno.setOrderedSubsetIndiv(indx)
 gt = geno.snpGenotypeByName('rs3755456')
 from sklearn.linear_model import LinearRegression

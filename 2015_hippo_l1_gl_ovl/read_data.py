@@ -12,6 +12,28 @@ import pickle
 import numpy as np
 
 
+def convert_data2XyCovGroup(covariate, phenotype, genotype, meta):
+    #######################
+    # get the usual matrices
+    ########################
+    Y = phenotype['Lhippo'].as_matrix()
+    tmp = list(covariate.columns)
+    #tmp.remove('FID')
+    #tmp.remove('IID')
+    #tmp.remove('AgeSq')
+    mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+    Cov = covariate[mycol].as_matrix()
+    tmp = list(genotype.columns)
+    tmp.remove('FID')
+    tmp.remove('IID')
+    X = genotype[tmp].as_matrix()
+
+    groups_name = meta.keys()
+    groups = [list(meta[n]) for n in groups_name]
+
+    return Cov, X, Y, groups_name, groups
+
+
 def read_hippo_l1_gl_ovl(fgenotype=None, pname='Lhippo'):
     if fgenotype is None:
         fname = ('/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/'
