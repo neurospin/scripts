@@ -123,7 +123,17 @@ X = geno[tmp].as_matrix()
 X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
 X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
 X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
-X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
+#X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -156,6 +166,10 @@ Cov_ = np.zeros((len(ind), Cov.shape[1]))
 #Xnon_res is used when the design matrix variables are considered as predictors
 #X_ is used when the y vector is residualized using the design matrix
 
+Cov_ = sklearn.preprocessing.scale(Cov_,
+                                axis=0,
+                                with_mean=True,
+                                with_std=False)
 for i, s in enumerate(ind):
     Xnon_res[i, :] = np.hstack((Cov[s, :], X[s, :]))
     Ynon_res[i] = Y[s]
@@ -175,10 +189,6 @@ X_ = sklearn.preprocessing.scale(X_,
                                 with_mean=True,
                                 with_std=False)
 
-Cov_ = sklearn.preprocessing.scale(Cov_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
 
 
 Y_=Y_-Y_.mean()
@@ -194,6 +204,10 @@ Y1 =Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
 
 
 
+
+
+
+
 #####################################
 
 #l1, l2, lgl = np.array((0.2, 0.2, 0.2))
@@ -204,6 +218,45 @@ Xnon_res = sklearn.preprocessing.scale(Xnon_res,
                                 with_mean=True,
                                 with_std=False)
 
+#######################
+#univariate approach
+#################
+#before normalization
+
+#from scipy.stats import pearsonr
+#p_vect=np.array([])
+#cor_vect=np.array([])
+#pp = Xnon_res.shape[1]
+#for i in range(pp):
+#    r_row, p_value = pearsonr(Xnon_res[:,i],  Ynon_res)
+#    p_vect = np.hstack((p_vect,p_value))
+#    cor_vect = np.hstack((cor_vect,r_row))
+#p2=np.sort(p_vect)
+#plt.plot(p_vect)    
+#plt.show()   
+#
+#n, bins, patches =plt. hist(p2, 200)
+#
+#
+#n, bins, patches =plt. hist(p2, 20, normed=1)
+#
+#indices = np.where(p_vect <= 0.05)
+#print len(indices[0])
+#
+#
+#import p_value_correction as p_c
+#p_corrected = p_c.fdr(p_vect)
+#indices = np.where(p_corrected <= 0.05)
+#
+#plt.plot(p_corrected)    
+#plt.show() 
+#
+#n, bins, patches =plt. hist(p_corrected, 20)
+#
+#indices = np.where(p_corrected <= 0.1)
+#p_corrected[indices]
+##########################"
+############################""
 Ynon_res=Ynon_res/ covariate[u'ICV'].as_matrix()[ind]
 Ynon_res = Ynon_res-Ynon_res.mean()
 
@@ -218,22 +271,22 @@ weights = 1./np.sqrt(np.asarray(weights))
 
 
 #################"
-shape = (p, 1, 1)
-import parsimony.functions.nesterov.tv as nesterov_tv
-
-A, n_compacts = nesterov_tv.linear_operator_from_shape(shape)
-algo = algorithms.proximal.CONESTA(max_iter=100000, eps = 0.0000000001, tau=0.2)
+#shape = (p, 1, 1)
+#import parsimony.functions.nesterov.tv as nesterov_tv
+#
+#A, n_compacts = nesterov_tv.linear_operator_from_shape(shape)
+#algo = algorithms.proximal.CONESTA(max_iter=100000, eps = 0.0000000001, tau=0.2)
 
 N_FOLDS = 2
 cv = cross_validation.KFold(n, n_folds=N_FOLDS)
 #train_res = list()
 #test_res = list()
 Agl = gl.linear_operator_from_groups(p, groups=groups, weights=weights)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=10000)
+algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=2000)
 
 L1 = [0.01]
 L2 = [0.01,]
-LGL = [0.01,0.00001]
+LGL = [0.0001]
 
 index = pandas.MultiIndex.from_product([L1, L2, LGL],
                                        names=['l1', 'l2', 'lgl'])
@@ -273,3 +326,28 @@ for l1 in L1:
                 test_res.loc[l1, l2, lgl][fold] = test_acc
                 print train_acc, test_acc
          
+         
+         
+
+#################
+#save plot
+###########""
+
+#filename = '/tmp/figure.pdf'
+#
+## Save and crop the figure
+#plt.savefig(filename)
+#
+#os.system("pdfcrop %s %s" % (filename, filename))      
+
+
+
+################
+#save csv table
+############   
+#
+#pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table.csv')
+#
+#
+#
+#pandas.read_csv('/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table.csv')
