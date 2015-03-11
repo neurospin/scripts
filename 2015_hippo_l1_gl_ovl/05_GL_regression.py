@@ -150,7 +150,7 @@ groups = [list(groups_descr[n]) for n in groups_name]
 #selecting individuals with respect to hippo volume
 #############################
 hyp_vol_max=6500
-hyp_vol_min=2600
+hyp_vol_min=2500
 
 
 ind = [i for i,temp in enumerate(Y) if temp < hyp_vol_max and temp>hyp_vol_min]
@@ -321,7 +321,7 @@ Xnon_res = sklearn.preprocessing.scale(Xnon_res,
 Ynon_res = Ynon_res-Ynon_res.mean()
 
 
-n_train =  int(X_.shape[0]/1.75)
+n_train =  int(X_.shape[0]/1.5)
 Xtr_res = Xnon_res[:n_train, :]
 ytr_res = Ynon_res[:n_train]
 Xte_res = Xnon_res[n_train:, :]
@@ -340,15 +340,84 @@ print "l1 max is", l1_max
 
 
 Agl = gl.linear_operator_from_groups(p, groups=groups, weights=weights)
-algorithm = algorithms.proximal.CONESTA(eps=consts.TOLERANCE, max_iter=20000)
-enet_gl = estimators.LinearRegressionL1L2GL(l1, l2,  lgl , Agl, algorithm=algorithm, penalty_start=10)
+algorithm = algorithms.proximal.CONESTA(eps=consts.TOLERANCE, max_iter=1200)
+enet_gl = estimators.LinearRegressionL1L2GL(0.2, 0.2,  0.2 , Agl, algorithm=algorithm, penalty_start=10)
 yte_pred_enetgl_res = enet_gl.fit(Xtr_res, ytr_res).predict(Xte_res)
 print " r carré vaut",  r2_score(yte_res, yte_pred_enetgl_res)
 
 
 
+#r carré vaut 0.147265167498
+
+#test without group lasso penalty when using the matrix design as predictors
 
 
+ridge_es = estimators.RidgeRegression(0.05, penalty_start=10)
+
+yte_pred_ridge_res = ridge_es.fit(Xtr_res, ytr_res).predict(Xte_res)
+print " r carré vaut",  r2_score(yte_res,yte_pred_ridge_res)
+
+
+#r carré vaut 0.140534187938
+
+
+#test without group lasso penalty when using the residualized matrix 
+
+
+ridge_es = estimators.RidgeRegression(0.05, penalty_start=10)
+
+yte_pred_ridge = ridge_es.fit(Xtr, ytr).predict(Xte)
+print " r carré vaut",  r2_score(yte,yte_pred_ridge)
+
+#r carré vaut -0.520837542958
+
+
+#Use of permutation and cross validation for the parsimony estimatord
+
+# Prepare permutation
+from sklearn import cross_validation
+from sklearn.utils import check_random_state
+rnd = check_random_state(None)
+#rnd.permutation(len(y))
+n_perms = 2
+
+train_res = list()
+test_res = list()
+for i in xrange(n_perms+1):
+    print i
+    if i == 0:
+        perms = np.arange(len(Y_))
+    else:
+        perms = rnd.permutation(len(Y_))
+    yperm = Y_[perms]
+    train_perm = list()
+    test_perm = list()
+    for train,test in cross_validation.StratifiedKFold(y=yperm, n_folds=2):
+        Xtrain = Xnon_res[train, :]
+        Xtest = Xnon_res[test, :]
+        ytrain = yperm[train]
+        ytest = yperm[test]
+        ridge_es.fit(Xtrain, ytrain)
+        y_pred_train = ridge_es.predict(Xtrain)
+        y_pred_test = ridge_es.predict(Xtest)
+        train_acc = r2_score(y_pred_train, ytrain)
+        test_acc = r2_score(y_pred_test, ytest)
+        train_perm.append(train_acc)
+        test_perm.append(test_acc)
+    train_res.append(train_perm)
+    test_res.append(test_perm)
+
+train_res_ar = np.array(train_res)
+test_res_ar = np.array(test_res)
+
+train_acc_mean = train_res_ar.mean(1)
+train_acc_sd = train_res_ar.std(1)
+
+test_acc_mean = test_res_ar.mean(1)
+test_acc_sd = test_res_ar.std(1)
+
+pval_train = np.sum(train_acc_mean[1:] > train_acc_mean[0])
+pval_test = np.sum(test_acc_mean[1:] > test_acc_mean[0])
 
 
 
