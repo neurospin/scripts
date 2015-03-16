@@ -346,7 +346,7 @@ for l1 in L1:
 #save csv table
 ############   
 #
-#pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table.csv')
+pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table_desin_complete_var_penalized_without_normali_icv_678.csv')
 #
 #
 #
