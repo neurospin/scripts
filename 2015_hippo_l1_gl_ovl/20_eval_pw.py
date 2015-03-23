@@ -127,6 +127,7 @@ def score_genodata(beta, genodata):
 #load prepared data for the project (see exemple_pw.py)
 fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synaptic10.pickle'
 fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
 f = open(fname)
 genodata = pickle.load(f)
 f.close()

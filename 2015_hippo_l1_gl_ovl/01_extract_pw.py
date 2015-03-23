@@ -20,10 +20,12 @@ from genibabel.gtypes import Pathways
 logging.basicConfig(level=logging.INFO)
 
 
+#fn = ('/neurospin/brainomics/bio_resources/genesets/'
+#      'msigdb-v3.1/c7.go-synaptic.symbols.gmt')
 fn = ('/neurospin/brainomics/bio_resources/genesets/'
-      'msigdb-v3.1/c7.go-synaptic.symbols.gmt')
+      'msigdb-v3.1/c2.cp.kegg.v3.1.symbols.gmt')
 origin = "msigdb-v3.1",
-compound_name = 'c7.go-synaptic'
+compound_name = 'c2.cp.kegg'
 pws = Pathways(fn=fn, origin=origin, compound_name=compound_name)
 
 #list patwhways names
@@ -46,7 +48,7 @@ password = getpass.getpass("Password on the imagen2 server:")
 #                                    gene_names=list(geneset))
 genodata = imagen_genotype_measure(login, password, pathways=pws)
 
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synaptictmp.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
 f = open(fname, 'wb')
 pickle.dump(genodata, f)
 f.close()
