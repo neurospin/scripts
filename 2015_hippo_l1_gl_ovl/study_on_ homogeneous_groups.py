@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar  9 15:58:45 2015
+Created on Wed Mar 11 13:47:55 2015
 
 @author: fh235918
 """
@@ -111,8 +111,8 @@ tmp = list(covariate.columns)
 #tmp.remove('IID')
 #tmp.remove('AgeSq')
 #mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
-#mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
-mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+#mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 
 Cov = covariate[mycol].as_matrix()
 tmp = list(geno.columns)
@@ -120,20 +120,10 @@ tmp.remove('FID')
 tmp.remove('IID')
 X = geno[tmp].as_matrix()
 
-X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
-X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
-X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
+#X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
+#X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
+#X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
 #X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -151,142 +141,75 @@ groups = [list(groups_descr[n]) for n in groups_name]
 #######################
 #selecting individuals with respect to hippo volume
 #############################
+
 hyp_vol_max=5500
 hyp_vol_min=3000
 
 ind = [i for i,temp in enumerate(Y) if temp < hyp_vol_max and temp>hyp_vol_min]
 
+X_ = np.zeros((len(ind), 1+ X.shape[1]+Cov.shape[1]))
 
-X_ = np.zeros((len(ind), X.shape[1]))
+#X_ = np.zeros((len(ind), X.shape[1]))
 Y_ = np.zeros(len(ind))
-Xnon_res = np.zeros((len(ind), X.shape[1]+Cov.shape[1]))
-Ynon_res = np.zeros(len(ind))
 Cov_ = np.zeros((len(ind), Cov.shape[1]))
 
-#Xnon_res is used when the design matrix variables are considered as predictors
-#X_ is used when the y vector is residualized using the design matrix
 
-Cov_ = sklearn.preprocessing.scale(Cov_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
 for i, s in enumerate(ind):
-    Xnon_res[i, :] = np.hstack((Cov[s, :], X[s, :]))
-    Ynon_res[i] = Y[s]
     Cov_[i,:] = Cov[s,:]
-    X_[i, :] =  X[s, :]
+    X_[i, :] = np.hstack((1,Cov[s, :], X[s, :]))
     Y_[i] = Y[s]
 
+p=X.shape[1]
 
-n,p=X_.shape
+###############"
+##select groups of individuals following the sex variable
+ind_sex_1=np.where(Cov_[:,0]==1)
+ind_sex_0=np.where(Cov_[:,0]==0)
 
-##################
-#here we  scale the data : first X_, then Cov_ because it is needed to 
-#regress Y_ for the residualization, and finally the Y_ vector
-##############""
-X_ = sklearn.preprocessing.scale(X_,
+
+
+age_max=5700
+age_min=5000
+age = covariate[u'Age'].as_matrix()[ind]
+
+ind_age=np.intersect1d(np.where(age<age_max)[0], np.where(age>age_min)[0])
+
+ind_sex_0_age = np.intersect1d(ind_age,ind_sex_0[0])
+ind_sex_1_age = np.intersect1d(ind_age,ind_sex_1[0])
+#ind_age_sex_1= np.intersect1d()
+#ind_age_sex2=
+Y_sex_0= Y_[ind_sex_0_age]
+Y_sex_1= Y_[ind_sex_1_age]
+
+X_sex_1=X_[ind_sex_1_age,:]
+X_sex_0=X_[ind_sex_0_age,:]
+
+X_sex_1 = sklearn.preprocessing.scale(X_sex_1,
                                 axis=0,
                                 with_mean=True,
                                 with_std=False)
 
 
 
-Y_=Y_-Y_.mean()
-
-
-
-######################
-###################
-#the residualization
-##############""
-
-Y1 =Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
-
-
-
-
-
-
-
-#####################################
-
-#l1, l2, lgl = np.array((0.2, 0.2, 0.2))
-
-
-Xnon_res = sklearn.preprocessing.scale(Xnon_res,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
-
-#######################
-#univariate approach
-#################
-#before normalization
-
-#from scipy.stats import pearsonr
-#p_vect=np.array([])
-#cor_vect=np.array([])
-#pp = Xnon_res.shape[1]
-#for i in range(pp):
-#    r_row, p_value = pearsonr(Xnon_res[:,i],  Ynon_res)
-#    p_vect = np.hstack((p_vect,p_value))
-#    cor_vect = np.hstack((cor_vect,r_row))
-#p2=np.sort(p_vect)
-#plt.plot(p_vect)    
-#plt.show()   
-#
-#n, bins, patches =plt. hist(p2, 200)
-#
-#
-#n, bins, patches =plt. hist(p2, 20, normed=1)
-#
-#indices = np.where(p_vect <= 0.05)
-#print len(indices[0])
-#
-#
-#import p_value_correction as p_c
-#p_corrected = p_c.fdr(p_vect)
-#indices = np.where(p_corrected <= 0.05)
-#
-#plt.plot(p_corrected)    
-#plt.show() 
-#
-#n, bins, patches =plt. hist(p_corrected, 20)
-#
-#indices = np.where(p_corrected <= 0.1)
-#p_corrected[indices]
-##########################"
-############################""
-Ynon_res=Ynon_res/ covariate[u'ICV'].as_matrix()[ind]
-Ynon_res = Ynon_res-Ynon_res.mean()
-
-
-
-
-
+Y_sex_1=Y_sex_1-Y_sex_1.mean()
 
 
 weights = [np.sqrt(len(group)) for group in groups]
 weights = 1./np.sqrt(np.asarray(weights))
 
 
-#################"
-#shape = (p, 1, 1)
-#import parsimony.functions.nesterov.tv as nesterov_tv
-#
-#A, n_compacts = nesterov_tv.linear_operator_from_shape(shape)
-#algo = algorithms.proximal.CONESTA(max_iter=100000, eps = 0.0000000001, tau=0.2)
 
-N_FOLDS = 2
-cv = cross_validation.KFold(n, n_folds=N_FOLDS)
+n_sex_1=X_sex_1.shape[0]
+N_FOLDS = 5
+cv = cross_validation.KFold(n_sex_1, n_folds=N_FOLDS, shuffle =True)
 #train_res = list()
 #test_res = list()
 Agl = gl.linear_operator_from_groups(p, groups=groups, weights=weights)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=2000)
+algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=4000)
 
-L1 = [0.01]
-L2 = [0.01,]
-LGL = [0.0001]
+L1 = [1500]
+L2 = [300]
+LGL = [300]
 
 index = pandas.MultiIndex.from_product([L1, L2, LGL],
                                        names=['l1', 'l2', 'lgl'])
@@ -305,19 +228,21 @@ for l1 in L1:
                 enet_gl = estimators.LinearRegressionL1L2GL(l1=l1, l2=l2, gl=lgl,
                                                             A=Agl,
                                                             algorithm=algorithm,
-                                                            penalty_start=8)
+                                                            penalty_start=10)
 #               enet_gl = estimators.RidgeRegression(0.0001,
 #                                                    algorithm=algorithm,
 #                                                            penalty_start=10)
 
-                Xtrain = Xnon_res[train, :]
-                Xtest = Xnon_res[test, :]
-                ytrain = Ynon_res[train]
-                ytest = Ynon_res[test]
+                Xtrain = X_sex_1[train, :]
+                Xtest = X_sex_1[test, :]
+                ytrain = Y_sex_1[train]
+                ytest = Y_sex_1[test]
                 enet_gl.fit(Xtrain, ytrain)
 #                print (len(np.where(enet_gl.beta==0))[0])
+                print "beta dim", len(enet_gl.beta)
                 plt.plot(enet_gl.beta)
                 plt.show()
+                print " age coef", enet_gl.beta[1], "meann of weights", np.mean(enet_gl.beta[11:])
                 y_pred_train = enet_gl.predict(Xtrain)
                 y_pred_test = enet_gl.predict(Xtest)
                 train_acc = r2_score(ytrain, y_pred_train)
@@ -325,29 +250,27 @@ for l1 in L1:
                 test_acc = r2_score(ytest, y_pred_test)
                 test_res.loc[l1, l2, lgl][fold] = test_acc
                 print train_acc, test_acc
-         
-         
-         
+                ###########
+                
+                lm=LinearRegression(fit_intercept=False)
+                lm.fit(Xtrain,ytrain)  
+                beta=lm.coef_  
+                plt.plot(beta)
+                plt.show() 
+                print " age coef lin model ", beta[1], "meann of weights", np.mean(beta[11:])
 
-#################
-#save plot
-###########""
-
-#filename = '/tmp/figure.pdf'
-#
-## Save and crop the figure
-#plt.savefig(filename)
-#
-#os.system("pdfcrop %s %s" % (filename, filename))      
+                ##########
 
 
 
-################
-#save csv table
-############   
-#
-pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table_desin_complete_var_penalized_without_normali_icv_678.csv')
-#
-#
-#
-#pandas.read_csv('/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table.csv')
+
+#y = np.array( [0]*5 + [1]*10 + [3] * 5)
+#cv2 = cross_validation.StratifiedKFold(y,n_folds=3)
+#for train, test in cv2: 
+#    print train, y[np.asarray(train)]
+    
+#from sklearn.linear_model import LinearRegression
+  
+plt.hist(X_sex_1[:,1],20)
+plt.show()
+    

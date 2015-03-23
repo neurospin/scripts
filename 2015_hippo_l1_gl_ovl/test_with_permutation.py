@@ -241,6 +241,7 @@ Xnon_res = sklearn.preprocessing.scale(Xnon_res,
                                 with_std=False)
 
 Ynon_res=Ynon_res/ covariate[u'ICV'].as_matrix()[ind]
+
 Ynon_res = Ynon_res-Ynon_res.mean()
 
 
