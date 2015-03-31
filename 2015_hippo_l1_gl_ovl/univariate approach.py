@@ -488,3 +488,95 @@ plt.subplot(212)
 plt.plot(cor_vect_cov)
 plt.title('correlation for covariate after resudualisation')
 plt.show()
+
+
+
+
+##############################
+#non résidualisé
+#######################""
+
+
+Y_res2 = Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
+
+Y_sex_0_res= Y_res2[ind_sex_0_age]
+Y_sex_1_res= Y_res2[ind_sex_1_age]
+
+
+#here we compare both sex before and after resudualization
+
+
+plt.figure(8)
+plt.subplot(121)
+boxplots = [Y_sex_0_res,Y_sex_1_res]
+plt.boxplot(boxplots)
+plt.title('Hyppo volume distribution for both sexes after resu')
+plt.xticks([1, 2], ['sex 0 ', 'sex 1'])
+plt.subplot(122)
+boxplots = [Y_sex_0,Y_sex_1]
+plt.boxplot(boxplots)
+plt.title('Hyppo volume distribution for both sexes before resu')
+plt.xticks([1, 2], ['sex 0 ', 'sex 1'])
+plt.show() 
+
+
+
+#
+from sklearn import svm
+#from sklearn.datasets import samples_generator
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_regression
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import ElasticNet, ElasticNetCV
+## generate some data to play with
+
+
+#X_new = SelectKBest(f_regression, k=2000).fit_transform(X, y)
+#print cross_validation.cross_val_score(clf, X_new, y, cv=5)
+#enet = ElasticNetCV(cv=4)
+#enet.fit(X_new, y)
+#print cross_validation.cross_val_score(enet, X_new, y, cv=5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#   
+
+### ANOVA SVM-C
+#anova_filter = SelectKBest(f_regression, k=100)
+#clf = svm.SVR(kernel='linear')
+#anova_svm = Pipeline([('anova', anova_filter), ('svr', clf)])
+### You can set the parameters using the names issued
+### For instance, fit using a k of 10 in the SelectKBest
+### and a parameter 'C' of the svm
+#anova_svm.set_params(anova__k=100, svc__C=.1).fit(X, y)
+##                                             
+##Pipeline(steps=[...])
+#prediction = anova_svm.predict(X)
+#anova_svm.score(X, y)                        
+
+

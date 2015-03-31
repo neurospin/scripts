@@ -105,20 +105,20 @@ Lhippo = Lhippo.loc[indx]
 #######################
 # get the usual matrices
 ########################
-Y = Lhippo['Lhippo'].as_matrix()
+Y_all = Lhippo['Lhippo'].as_matrix()
 tmp = list(covariate.columns)
 #tmp.remove('FID')
 #tmp.remove('IID')
 #tmp.remove('AgeSq')
-#mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
-mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+#mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 
 Cov = covariate[mycol].as_matrix()
 tmp = list(geno.columns)
 tmp.remove('FID')
 tmp.remove('IID')
-X = geno[tmp].as_matrix()
+X_all = geno[tmp].as_matrix()
 
 #X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
 #X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
@@ -137,6 +137,30 @@ groups_name = groups_descr.keys()
 groups = [list(groups_descr[n]) for n in groups_name]
 
 
+##########################################
+#center selection : 6,7,8
+########################
+
+#df = pandas.DataFrame.from_csv(fin, sep=' ', index_col=False)
+#iid_fid = ["%012d" % int(i) for i in df['IID']]
+#iid_fid = pandas.DataFrame(np.asarray([iid_fid, iid_fid]).T,
+#                           columns=['FID', 'IID'])
+#center_info=pandas.DataFrame(df[u'ScanningCentre'])
+#center_info = center_info.set_index(iid_fid['IID'])
+#center_info = center_info.loc[indx]
+#
+#
+#
+#ind_center_6_7_8=np.intersect1d(np.where(center_info<9)[0], np.where(center_info>5)[0])
+#
+#
+#Y_s= Y_all[ind_center_6_7_8]
+#X_s=X_all[ind_center_6_7_8,:]
+
+Y_s= Y_all
+X_s=X_all
+
+
 
 #######################
 #selecting individuals with respect to hippo volume
@@ -145,9 +169,9 @@ groups = [list(groups_descr[n]) for n in groups_name]
 hyp_vol_max=5500
 hyp_vol_min=3000
 
-ind = [i for i,temp in enumerate(Y) if temp < hyp_vol_max and temp>hyp_vol_min]
+ind = [i for i,temp in enumerate(Y_s) if temp < hyp_vol_max and temp>hyp_vol_min]
 
-X_ = np.zeros((len(ind), 1+ X.shape[1]+Cov.shape[1]))
+X_ = np.zeros((len(ind), 1+ X_s.shape[1]+Cov.shape[1]))
 
 #X_ = np.zeros((len(ind), X.shape[1]))
 Y_ = np.zeros(len(ind))
@@ -156,19 +180,19 @@ Cov_ = np.zeros((len(ind), Cov.shape[1]))
 
 for i, s in enumerate(ind):
     Cov_[i,:] = Cov[s,:]
-    X_[i, :] = np.hstack((1,Cov[s, :], X[s, :]))
-    Y_[i] = Y[s]
+    X_[i, :] = np.hstack((1,Cov[s, :], X_s[s, :]))
+    Y_[i] = Y_s[s]
 
-p=X.shape[1]
+p=X_s.shape[1]
 
 ###############"
 ##select groups of individuals following the sex variable
-ind_sex_1=np.where(Cov_[:,0]==1)
-ind_sex_0=np.where(Cov_[:,0]==0)
+ind_sex_1=np.where(Cov_[:,1]==1)
+ind_sex_0=np.where(Cov_[:,1]==0)
 
 
 
-age_max=5700
+age_max=5600
 age_min=5000
 age = covariate[u'Age'].as_matrix()[ind]
 
@@ -184,6 +208,13 @@ Y_sex_1= Y_[ind_sex_1_age]
 X_sex_1=X_[ind_sex_1_age,:]
 X_sex_0=X_[ind_sex_0_age,:]
 
+
+#####################"
+########################
+#groups with respect to differents centers
+
+#center1 = covariate[u'Age'].as_matrix()[ind]
+
 X_sex_1 = sklearn.preprocessing.scale(X_sex_1,
                                 axis=0,
                                 with_mean=True,
@@ -191,25 +222,115 @@ X_sex_1 = sklearn.preprocessing.scale(X_sex_1,
 
 
 
+
+
+
+
+#Y_sex_1=Y_sex_1/ covariate[u'ICV'].as_matrix()[ind_sex_1_age]
+#Y_sex_1 =Y_sex_1 - LinearRegression().fit(Cov_[ind_sex_1_age],Y_sex_1).predict(Cov_[ind_sex_1_age])
+
+
 Y_sex_1=Y_sex_1-Y_sex_1.mean()
+ICV = X_sex_1[:,3].reshape([len(Y_sex_1),1])
+AGE =X_sex_1[:,1].reshape([len(Y_sex_1),1])
+Y_sex_1 =Y_sex_1 - LinearRegression().fit(ICV,Y_sex_1).predict(ICV)
+Y_sex_1 =Y_sex_1 - LinearRegression().fit(AGE,Y_sex_1).predict(AGE)
+
+##########################
+######################
+#####################
 
 
-weights = [np.sqrt(len(group)) for group in groups]
+
+######################
+#univariate approach
+################
+#before normalization
+
+from scipy.stats import pearsonr
+p_vect=np.array([])
+cor_vect=np.array([])
+pp = X_sex_1.shape[1]
+for i in range(pp):
+    r_row, p_value = pearsonr(X_sex_1[:,i],  Y_sex_1)
+    p_vect = np.hstack((p_vect,p_value))
+    cor_vect = np.hstack((cor_vect,r_row))
+
+p2=np.sort(p_vect)
+plt.plot(p_vect)    
+plt.show()   
+
+plt.hist(p2,200)
+plt.show()   
+
+indices = np.where(p_vect <= 0.05)
+print len(indices[0])
+
+
+import p_value_correction as p_c
+p_corrected = p_c.fdr(p_vect)
+indices = np.where(p_corrected <= 0.05)
+
+
+
+plt.hist(p_corrected, 2000)
+plt.show() 
+indices = np.where(p_corrected <= 0.1)
+p_corrected[indices]
+##########################"
+############################""
+
+
+###################
+#####################
+#################""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+group0=range(1,11)
+groups.insert(0,group0)  
+    
+weights = [len(group) for group in groups]
 weights = 1./np.sqrt(np.asarray(weights))
 
 
 
 n_sex_1=X_sex_1.shape[0]
-N_FOLDS = 5
+N_FOLDS = 3
 cv = cross_validation.KFold(n_sex_1, n_folds=N_FOLDS, shuffle =True)
 #train_res = list()
 #test_res = list()
-Agl = gl.linear_operator_from_groups(p, groups=groups, weights=weights)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=4000)
+Agl = gl.linear_operator_from_groups(p+10, groups=groups, weights=weights)
+algorithm = algorithms.proximal.FISTA(eps=0.00001, max_iter=3500)
 
-L1 = [1500]
-L2 = [300]
-LGL = [300]
+mean = True
+##################
+#estimation of maaximal penalty
+n = float(X_sex_1.shape[0])       
+scale = 1.0 / n if mean else 1.    
+s= [np.linalg.norm(np.dot(X_sex_1[:,i],  Y_sex_1)) for i in range(X_sex_1.shape[1])]  
+l1_max = 0.95 * scale * (np.max(s))
+print "l1 max vaut", l1_max
+###################"
+
+L1 = [50,100,1000,10000]
+L2 = [20,100,1000,10000]
+LGL = [20,100,1000,10000]
+#L1 = np.dot([0.25],l1_max)
+#L2 = np.dot([0.25],l1_max)
+#LGL = np.dot([0.25,0.5],l1_max)
 
 index = pandas.MultiIndex.from_product([L1, L2, LGL],
                                        names=['l1', 'l2', 'lgl'])
@@ -228,7 +349,7 @@ for l1 in L1:
                 enet_gl = estimators.LinearRegressionL1L2GL(l1=l1, l2=l2, gl=lgl,
                                                             A=Agl,
                                                             algorithm=algorithm,
-                                                            penalty_start=10)
+                                                            penalty_start=1, mean=mean)
 #               enet_gl = estimators.RidgeRegression(0.0001,
 #                                                    algorithm=algorithm,
 #                                                            penalty_start=10)
@@ -240,9 +361,13 @@ for l1 in L1:
                 enet_gl.fit(Xtrain, ytrain)
 #                print (len(np.where(enet_gl.beta==0))[0])
                 print "beta dim", len(enet_gl.beta)
-                plt.plot(enet_gl.beta)
-                plt.show()
-                print " age coef", enet_gl.beta[1], "meann of weights", np.mean(enet_gl.beta[11:])
+                beta_1 = enet_gl.beta
+#                plt.plot(beta_1)
+#                plt.show()
+#                plt.plot(enet_gl.beta[11:])
+#                plt.show()
+                
+                print " age coef", enet_gl.beta[1], "meann of weights", np.mean(enet_gl.beta[10:])
                 y_pred_train = enet_gl.predict(Xtrain)
                 y_pred_test = enet_gl.predict(Xtest)
                 train_acc = r2_score(ytrain, y_pred_train)
@@ -255,8 +380,8 @@ for l1 in L1:
                 lm=LinearRegression(fit_intercept=False)
                 lm.fit(Xtrain,ytrain)  
                 beta=lm.coef_  
-                plt.plot(beta)
-                plt.show() 
+#                plt.plot(beta)
+#                plt.show() 
                 print " age coef lin model ", beta[1], "meann of weights", np.mean(beta[11:])
 
                 ##########
@@ -273,4 +398,31 @@ for l1 in L1:
   
 plt.hist(X_sex_1[:,1],20)
 plt.show()
+    
+###########
+
+Y1=Y_sex_1[np.where(X_sex_1[:,4]>0)]
+Y2=Y_sex_1[np.where(X_sex_1[:,5]>0)]
+Y3=Y_sex_1[np.where(X_sex_1[:,6]>0)]
+Y4=Y_sex_1[np.where(X_sex_1[:,7]>0)]
+Y5=Y_sex_1[np.where(X_sex_1[:,8]>0)]
+Y6=Y_sex_1[np.where(X_sex_1[:,9]>0)]
+Y7=Y_sex_1[np.where(X_sex_1[:,10]>0)]
+
+
+boxplots = [Y1,Y2,Y3,Y4,Y5,Y6,Y7]
+plt.boxplot(boxplots)
+#plt.xticks([1, 2], ['mean=0, st=1.', 'mean=-2, st=2.'])
+plt.show()    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     

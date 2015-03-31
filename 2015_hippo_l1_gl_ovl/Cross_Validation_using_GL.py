@@ -1,23 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar  9 15:58:45 2015
+Created on Mon Mar 16 15:04:35 2015
 
 @author: fh235918
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar  2 18:31:13 2015
-
-@author: fh235918
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar  2 11:42:24 2015
-
-@author: fh235918
-"""
 
 #! /usr/bin/env python
 ##########################################################################
@@ -105,160 +92,75 @@ Lhippo = Lhippo.loc[indx]
 #######################
 # get the usual matrices
 ########################
-Y = Lhippo['Lhippo'].as_matrix()
+Y_all = Lhippo['Lhippo'].as_matrix()
 tmp = list(covariate.columns)
 #tmp.remove('FID')
 #tmp.remove('IID')
 #tmp.remove('AgeSq')
-#mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
-mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+#mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 
 Cov = covariate[mycol].as_matrix()
 tmp = list(geno.columns)
 tmp.remove('FID')
 tmp.remove('IID')
-X = geno[tmp].as_matrix()
-
-X[X[:,4343]==128, 4343] = np.median(X[X[:,4343]!=128, 4343])
-X[X[:,7554]==128, 7554] = np.median(X[X[:,7554]!=128, 7554])
-X[X[:,7797]==128, 7797] = np.median(X[X[:,7797]!=128, 7797])
-#X[X[:,8910]==128, 8910] = np.median(X[X[:,8910]!=128, 8910])
+X_all = geno[tmp].as_matrix()
 
 
+#Y_.shape
 
-
-
-
-
-
-
-
-
-
-
-###########################################
-# defining groups of futures tu use a group LASSo model
-##########################################"
-
-
-groups_descr = genodata.get_meta_pws()
-groups_name = groups_descr.keys()
-groups = [list(groups_descr[n]) for n in groups_name]
-
-
+#plt.hist(Y_all)
+#plt.show()
 
 #######################
 #selecting individuals with respect to hippo volume
 #############################
-hyp_vol_max=5500
-hyp_vol_min=3000
 
-ind = [i for i,temp in enumerate(Y) if temp < hyp_vol_max and temp>hyp_vol_min]
+hyp_vol_max=4000
+hyp_vol_min=3500
 
+ind = [i for i,temp in enumerate(Y_all) if temp < hyp_vol_max and temp>hyp_vol_min]
 
-X_ = np.zeros((len(ind), X.shape[1]))
+X_ = np.zeros((len(ind),  X_all.shape[1]))
+
 Y_ = np.zeros(len(ind))
-Xnon_res = np.zeros((len(ind), X.shape[1]+Cov.shape[1]))
-Ynon_res = np.zeros(len(ind))
 Cov_ = np.zeros((len(ind), Cov.shape[1]))
 
-#Xnon_res is used when the design matrix variables are considered as predictors
-#X_ is used when the y vector is residualized using the design matrix
 
-Cov_ = sklearn.preprocessing.scale(Cov_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
 for i, s in enumerate(ind):
-    Xnon_res[i, :] = np.hstack((Cov[s, :], X[s, :]))
-    Ynon_res[i] = Y[s]
     Cov_[i,:] = Cov[s,:]
-    X_[i, :] =  X[s, :]
-    Y_[i] = Y[s]
+    X_[i, :] = X_all[s, :]
+    Y_[i] = Y_all[s]
+
+p=X_.shape[1]
+
+###############"
+
+Y_res=Y_
+
+#Y_res = Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
+print Y_res.mean()
+
+X_res = X_
+#X_res = sklearn.preprocessing.scale(X_res,
+#                                axis=0,
+#                                with_mean=True,
+#                                with_std=False)
 
 
-n,p=X_.shape
-
-##################
-#here we  scale the data : first X_, then Cov_ because it is needed to 
-#regress Y_ for the residualization, and finally the Y_ vector
-##############""
-X_ = sklearn.preprocessing.scale(X_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
-
-
-
-Y_=Y_-Y_.mean()
-
-
-
-######################
-###################
-#the residualization
-##############""
-
-Y1 =Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
+#X_res = np.zeros((X_.shape[0], 1+X_.shape[1]))
+#for i in range(X_.shape[0]):
+#    X_res[i, :] = np.hstack((1,X_[i, :]))
 
 
 
 
-
-
-
-#####################################
-
-#l1, l2, lgl = np.array((0.2, 0.2, 0.2))
-
-
-Xnon_res = sklearn.preprocessing.scale(Xnon_res,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
-
-#######################
-#univariate approach
-#################
-#before normalization
-
-#from scipy.stats import pearsonr
-#p_vect=np.array([])
-#cor_vect=np.array([])
-#pp = Xnon_res.shape[1]
-#for i in range(pp):
-#    r_row, p_value = pearsonr(Xnon_res[:,i],  Ynon_res)
-#    p_vect = np.hstack((p_vect,p_value))
-#    cor_vect = np.hstack((cor_vect,r_row))
-#p2=np.sort(p_vect)
-#plt.plot(p_vect)    
-#plt.show()   
-#
-#n, bins, patches =plt. hist(p2, 200)
-#
-#
-#n, bins, patches =plt. hist(p2, 20, normed=1)
-#
-#indices = np.where(p_vect <= 0.05)
-#print len(indices[0])
-#
-#
-#import p_value_correction as p_c
-#p_corrected = p_c.fdr(p_vect)
-#indices = np.where(p_corrected <= 0.05)
-#
-#plt.plot(p_corrected)    
-#plt.show() 
-#
-#n, bins, patches =plt. hist(p_corrected, 20)
-#
-#indices = np.where(p_corrected <= 0.1)
-#p_corrected[indices]
-##########################"
-############################""
-Ynon_res=Ynon_res/ covariate[u'ICV'].as_matrix()[ind]
-Ynon_res = Ynon_res-Ynon_res.mean()
+groups_descr = genodata.get_meta_pws()
+groups_name = groups_descr.keys()
+groups = [list(groups_descr[n]) for n in groups_name]    
+weights = [len(group) for group in groups]
+weights = np.sqrt(np.asarray(weights))
 
 
 
@@ -266,35 +168,46 @@ Ynon_res = Ynon_res-Ynon_res.mean()
 
 
 
-weights = [np.sqrt(len(group)) for group in groups]
-weights = 1./np.sqrt(np.asarray(weights))
 
-
-#################"
-#shape = (p, 1, 1)
-#import parsimony.functions.nesterov.tv as nesterov_tv
-#
-#A, n_compacts = nesterov_tv.linear_operator_from_shape(shape)
-#algo = algorithms.proximal.CONESTA(max_iter=100000, eps = 0.0000000001, tau=0.2)
-
-N_FOLDS = 2
-cv = cross_validation.KFold(n, n_folds=N_FOLDS)
+    
+n_=X_res.shape[0]
+N_FOLDS = 5
+cv = cross_validation.KFold(n_, n_folds=N_FOLDS, shuffle =True)
 #train_res = list()
 #test_res = list()
 Agl = gl.linear_operator_from_groups(p, groups=groups, weights=weights)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=2000)
+algorithm = algorithms.proximal.CONESTA(eps=0.0000001, max_iter=1900)
 
-L1 = [0.01]
-L2 = [0.01,]
-LGL = [0.0001]
+mean = True
+##################
+#estimation of maaximal penalty
+#n = float(X_res.shape[0])       
+
+###################"
+from sklearn.utils import check_random_state
+rnd = check_random_state(None)
+
+
+
+#perms = rnd.permutation(len(Y_res))
+#yperm = Y_res[perms]
+#
+#Y_res=yperm
+
+L1 = [0.1,5]
+L2 = [0.1,5]
+LGL = [0.1,1,5]
+#L1 = np.dot([0.25],l1_max)
+#L2 = np.dot([0.25],l1_max)
+#LGL = np.dot([0.25,0.5],l1_max)
 
 index = pandas.MultiIndex.from_product([L1, L2, LGL],
                                        names=['l1', 'l2', 'lgl'])
 train_res = pandas.DataFrame(index=index,
                              columns=range(N_FOLDS))
 test_res = pandas.DataFrame(index=index,
-                            columns=range(N_FOLDS))
-
+                           columns=range(N_FOLDS))
+beta_mat = np.zeros((N_FOLDS,1+X_res.shape[1]))
 for l1 in L1:
     for l2 in L2:
         for lgl in LGL:
@@ -305,29 +218,70 @@ for l1 in L1:
                 enet_gl = estimators.LinearRegressionL1L2GL(l1=l1, l2=l2, gl=lgl,
                                                             A=Agl,
                                                             algorithm=algorithm,
-                                                            penalty_start=8)
+                                                            penalty_start=1, mean=mean)
 #               enet_gl = estimators.RidgeRegression(0.0001,
 #                                                    algorithm=algorithm,
 #                                                            penalty_start=10)
-
-                Xtrain = Xnon_res[train, :]
-                Xtest = Xnon_res[test, :]
-                ytrain = Ynon_res[train]
-                ytest = Ynon_res[test]
-                enet_gl.fit(Xtrain, ytrain)
-#                print (len(np.where(enet_gl.beta==0))[0])
-                plt.plot(enet_gl.beta)
-                plt.show()
-                y_pred_train = enet_gl.predict(Xtrain)
-                y_pred_test = enet_gl.predict(Xtest)
+                                      
+                Xtrain = X_res[train, :]
+                Xtest = X_res[test, :]
+                ytrain = Y_res[train]
+                ytest = Y_res[test]
+###################################
+                Xtrain = sklearn.preprocessing.scale(Xtrain,
+                                axis=0,
+                                with_mean=True,
+                                with_std=False)
+                Xtest = sklearn.preprocessing.scale(Xtest,
+                                axis=0,
+                                with_mean=True,
+                                with_std=False) 
+                ytrain = ytrain-ytrain.mean()
+                ytest = ytest - ytest.mean() 
+                Xtr= np.concatenate((np.ones((Xtrain.shape[0],1)),Xtrain), axis=1)
+                Xte= np.concatenate((np.ones((Xtest.shape[0],1)),Xtest), axis=1)
+###################################                
+                enet_gl.fit(Xtr, ytrain)
+                print "card null", len(np.where(enet_gl.beta==0)[0])/np.float(p)
+                print "beta dim", len(enet_gl.beta)
+                beta_1 = enet_gl.beta
+#                plt.plot(beta_1)
+#                plt.show()
+                beta_mat[fold,:]=enet_gl.beta.reshape(X_res.shape[1]+1)
+#                plt.plot(enet_gl.beta[11:])
+#                plt.show()
+                
+                print " intercept", enet_gl.beta[0], "meann of weights", np.mean(enet_gl.beta[1:])
+                y_pred_train = enet_gl.predict(Xtr)
+                y_pred_test = enet_gl.predict(Xte)
                 train_acc = r2_score(ytrain, y_pred_train)
                 train_res.loc[l1, l2, lgl][fold] = train_acc
                 test_acc = r2_score(ytest, y_pred_test)
                 test_res.loc[l1, l2, lgl][fold] = test_acc
-                print train_acc, test_acc
-         
-         
-         
+                print "train", train_acc, "test" ,test_acc
+                print  "test" ,test_res
+                ###########
+                
+#                lm=LinearRegression(fit_intercept=False)
+#                lm.fit(Xtrain,ytrain)
+#                print "r carre lm", r2_score(ytest, lm.predict(Xtest))
+#                print "r2 train lm", lm.score(Xtrain, ytrain)
+#                beta=lm.coef_  
+#                mask = (beta*beta>1e-8)
+#                plt.plot(beta)
+#                plt.show() 
+#                print " age coef lin model ", beta[1], "meann of weights", np.mean(beta[1:])
+
+                ##########
+
+
+
+plt.plot(beta_mat[0,:])
+plt.plot(beta_mat[1,:])
+plt.plot(beta_mat[2,:])
+plt.plot(beta_mat[3,:])
+plt.plot(beta_mat[4,:])
+plt.show()
 
 #################
 #save plot
@@ -346,7 +300,7 @@ for l1 in L1:
 #save csv table
 ############   
 #
-pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table_desin_complete_var_penalized_without_normali_icv_678.csv')
+#pandas.DataFrame.to_csv(test_res, '/home/fh235918/git/scripts/2015_hippo_l1_gl_ovl/table_desin_complete_var_penalized_without_normali_icv_.csv')
 #
 #
 #
