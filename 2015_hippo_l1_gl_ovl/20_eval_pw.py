@@ -10,7 +10,6 @@
 # System import
 import numpy
 import pickle
-import os
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
@@ -85,7 +84,8 @@ def genomic_plot(beta, genodata, pw_index=None):
         nb_genes = len(set(chrom_gnames))
         
         total_space     = 1.0 # 100%
-        total_intergene_space = 0.2 * total_space # 20% of space accorded to separate genes
+        """ 20% of space accorded to separate genes """
+        total_intergene_space = 0.2 * total_space
         intergene_space = total_intergene_space / (nb_genes + 1.0)
         intersnp_space  = (total_space - total_intergene_space) / (nb_snps-nb_genes)
 
@@ -108,8 +108,9 @@ def genomic_plot(beta, genodata, pw_index=None):
         """
         for j in range(len(ys)):
             gname = chrom_gnames[j]
-            if gname in pw_gnames:
-                pw_indexes.append(j)
+            if pw_index is not None:
+                if gname in pw_gnames:
+                    pw_indexes.append(j)
             if gname != previous_gname:
                 previous_x = xs_snps[-1] if xs_snps else 0
                 next_x     = previous_x + intergene_space
@@ -147,9 +148,9 @@ def genomic_plot(beta, genodata, pw_index=None):
                                            y_max - y_min, fill=False,
                                            color="red", hatch="/"))        
 
-        """ To avoid overlapping of gene names we use four different heights
+        """ To avoid overlapping of gene names we use different heights
             for gene names (y-axis positions). This generator returns 
-            alternatively the four positions on the y-axis.
+            alternatively the positions on the y-axis.
         """
         def alternate_gene_name_position(): # up and down to avoid overlapping
             while True:
@@ -164,14 +165,18 @@ def genomic_plot(beta, genodata, pw_index=None):
         for gene_start, gene_end, gene_name in xs_genes:
 
             # color: yellow for the genes in the pathway of interest else green
-            color = "yellow" if gene_name in pw_gnames else "#e0eee0"
+            color = "#e0eee0"
+            if pw_index is not None:
+                if gene_name in pw_gnames:
+                    color = "yellow"
             
             ax.add_patch(patches.Rectangle((gene_start, y_min),
                                            gene_end - gene_start,
                                            y_max - y_min, color=color))
 
             ax.text(numpy.mean((gene_start, gene_end)), position.next(),
-                    gene_name, horizontalalignment="center", fontsize=8, color="blue")
+                    gene_name, horizontalalignment="center", fontsize=8,
+                    color="blue")
 
 #    plt.subplots_adjust(left=0.01, right=0.99, top=0.99,
 #                        bottom=0.01, wspace=0.005)
@@ -252,6 +257,5 @@ beta = numpy.random.uniform(size=X.shape[1])
 beta = beta * (1 * (beta >0.7))
 
 best_pathway_asof_snp, best_pathway_asof_gene = score_genodata(beta, genodata)
-genomic_plot(beta, genodata , best_pathway_asof_gene)
-
+genomic_plot(beta, genodata, best_pathway_asof_gene)
 
