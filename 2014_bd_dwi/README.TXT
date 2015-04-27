@@ -45,6 +45,33 @@ binom.test(succ1, 108, p = 0.5, alternative ="greater")
 p-value = 0.08029
 p-value = 3.275e-05
 
+a=1	l1=0.01	l2=0.09	tv=0.9 k=-1
+------------------------------------------
+tx0 = 0.6395348837	; tx1=0.6296296296
+succ0 = as.integer(tx0 * 86)
+succ1 = as.integer(tx1 * 108)
+binom.test(succ0, 86, p = 0.5, alternative ="greater")
+binom.test(succ1, 108, p = 0.5, alternative ="greater")
+
+p-value = 0.01149
+p-value = 0.007875
+
+
+================================================================================
+== LE CHOIX DE LA MAISON
+a=1	l1=0.007	l2=0.693	tv=0.3	k=-1
+------------------------------------------
+tx0 = 0.6395348837	; tx1=	0.6203703704
+
+succ0 = as.integer(tx0 * 86)
+succ1 = as.integer(tx1 * 108)
+binom.test(succ0, 86, p = 0.5, alternative ="greater")
+binom.test(succ1, 108, p = 0.5, alternative ="greater")
+
+p-value = 0.01149
+p-value = 0.007875
+================================================================================
+
 *********************************************************************
 k = -1, a=1, l1=0.01, l2=0.09, tv=0.9
 ------------------------------------------
@@ -90,5 +117,8 @@ Reprendre k = -1, a=1, l1=0.01, l2=0.09, tv=0.9
 => PF (Psychotic Features) dans DB_clinic.xls
 Essayer de classer les BP qui délirent de ceux qui ne délirent pas
 
+
+12/Feb/2014
+===========
 
 

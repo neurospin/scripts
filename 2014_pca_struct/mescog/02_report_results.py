@@ -276,14 +276,20 @@ fsl5.0-fslsplit tvl1l2.nii ./tvl1l2 -t
 ~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20001.nii.gz
 # Threshold image as 0.001554
 
-~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20002.nii.gz
-# Threshold image as 0.001876
+#~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20002.nii.gz
+## Threshold image as 0.001876
 
-~/git/scripts/brainomics/image_clusters_analysis.py -t 0.9 tvl1l20003.nii.gz
-Threshold image as 0.002078
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20002.nii.gz
+Threshold image as 0.000675
+
+#~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20003.nii.gz
+#Threshold image as 0.002078
+
+~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 tvl1l20003.nii.gz
+Threshold image as 0.000741
 
 # rendering
-~/git/scripts/brainomics/image_clusters_rendering.py pc1 pc2 pc3 pc23
+~/git/scripts/brainomics/image_clusters_rendering.py pc1 pc2 pc3
 
 cd snapshosts
 ls *.png|while read input; do
