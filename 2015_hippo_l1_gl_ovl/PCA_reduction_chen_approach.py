@@ -57,7 +57,9 @@ covariate = covariate.set_index(iid_fid['IID'])
 #######################
 # get phenotype Lhippo
 #######################
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
+#fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
+
 f = open(fname)
 genodata = pickle.load(f)
 f.close()
@@ -150,9 +152,9 @@ weights = np.sqrt(np.asarray(weights))
 new = []
 indices = []
 j = 0
-pca = PCA(copy=True, n_components=0.5, whiten=False)
+pca = PCA(copy=True, n_components=0.75, whiten=False)
 for i in range(len(groups)):
-    Xpca = X_[:, groups[i]],
+    Xpca = X_[:, groups[i]]
     pca.fit(Xpca)
     P = pca.components_
     matrix = np.dot(Xpca, np.transpose(P))
@@ -165,17 +167,46 @@ X_new = np.transpose(np.array(new))
 print X_new.shape
 
 
+
+
+
+
+#################################################################################################"
+#here we use the eigen snip approach from chen et al
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #we start with the state of the art verification on this reduced data
 
 
-from sklearn import cross_validation
-from sklearn.linear_model import  ElasticNetCV, ElasticNet
-from sklearn import svm
-from sklearn.ensemble import RandomForestRegressor
-#
-### Enet
-enet = ElasticNetCV()
-print cross_validation.cross_val_score(enet, X_new, y, cv=5)
+#from sklearn import cross_validation
+#from sklearn.linear_model import  ElasticNetCV, ElasticNet
+#from sklearn import svm
+#from sklearn.ensemble import RandomForestRegressor
+##
+#### Enet
+#enet = ElasticNetCV()
+#print cross_validation.cross_val_score(enet, X_new, y, cv=5)
 ##[-0.00326472 -0.00052803 -0.0009064  -0.00020221 -0.01343409]
 #
 ################################################################################
@@ -216,15 +247,15 @@ weights = np.sqrt(np.asarray(weights))
 #weights = [np.sqrt(len(group)) for group in groups]
 #weights = 1./np.sqrt(np.asarray(weights))
 
-N_FOLDS_EXT = 5
-N_FOLDS_INT = 5
+N_FOLDS_EXT = 4
+N_FOLDS_INT = 4
 N_PERMS = 50
-K = X.shape[1]-5
+K = 300
 cv_ext = cross_validation.KFold(X.shape[0], n_folds=N_FOLDS_EXT)
 algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=500)
-L1 = [0,0001,0.999,5,10,100]
-L2 = [0.01,1,10,50,100]
-LGL = [0.0000,1,2]
+L1 = [5,10]
+L2 = [0,0.01,2]
+LGL = [10,100]
 
 
 
@@ -233,6 +264,7 @@ train_res = list()
 test_res = list()
 
 for i in xrange(N_PERMS + 1):
+    print 'iteration', i
     # i = 0
     if i == 0:
         perms = np.arange(len(y))
@@ -285,11 +317,13 @@ for i in xrange(N_PERMS + 1):
                 enet_gl.fit(Xtr_filtered, ytr)
                 y_pred_test = enet_gl.predict(Xval_filtered)
                 test_acc = r2_score(yval, y_pred_test)
-                print test_acc
+#                print test_acc
                 inner_param[(l1, l2, lgl)].append(test_acc)
         inner_param_mean = {k:np.mean(inner_param[k]) for k in inner_param.keys()}
+        print 'inner_param_mean',inner_param_mean
         print inner_param_mean
         l1,l2,lgl = max(inner_param_mean.iteritems(), key=operator.itemgetter(1))[0]
+        print 'selected', l1,l2,lgl        
         filter_univ = SelectKBest(f_regression, k=K)
         filter_univ.fit(Xtrain, ytrain)
         filter_ = filter_univ.get_support()
@@ -315,6 +349,7 @@ for i in xrange(N_PERMS + 1):
         enet_gl.fit(Xtrain_filtered, ytrain)
         y_pred_test = enet_gl.predict(Xtest_filtered)
         test_acc = r2_score(ytest, y_pred_test)
+        print 'test_acc', test_acc
         test_perm.append(test_acc)
     test_res.append(test_perm)
 test_res_ar = np.array(test_res)
@@ -323,4 +358,8 @@ test_acc_sd = test_res_ar.std(1)
 pval_test = np.sum(test_acc_mean[1:] > test_acc_mean[0])/43.0
 print 'pval = ',pval_test
 
-
+#
+#pval =  0.0232558139535
+#>>> test_acc_mean
+#array([-0.00151314, -0.00251164, -0.00065231, -0.00530455, -0.00472471,
+#       -0.0072294 ])

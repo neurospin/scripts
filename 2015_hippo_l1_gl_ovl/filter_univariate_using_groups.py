@@ -67,7 +67,7 @@ covariate = covariate.set_index(iid_fid['IID'])
 #######################
 # get phenotype Lhippo
 #######################
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
 f = open(fname)
 genodata = pickle.load(f)
 f.close()
@@ -132,7 +132,7 @@ X_ = X_all[select_mask, :].astype(float)
 Y_ = Y_all[select_mask]
 Cov_ = Cov[select_mask, :]
 
-assert X_.shape == (1701, 8787)
+#assert X_.shape == (1701, 8787)
 
 p = X_.shape[1]
 
@@ -147,7 +147,7 @@ X_ = sklearn.preprocessing.scale(X_,
                                 with_std=False)
 
 X = np.c_[np.ones((X_.shape[0], 1)), X_]
-assert X.shape == (1701, 8788) and np.all(X[:, 0]==1) and np.all(X[:, 1:]==X_)
+#assert X.shape == (1701, 8788) and np.all(X[:, 0]==1) and np.all(X[:, 1:]==X_)
 
 
 groups_descr = genodata.get_meta_pws()
@@ -161,10 +161,10 @@ weights = np.sqrt(np.asarray(weights))
 #weights = [np.sqrt(len(group)) for group in groups]
 #weights = 1./np.sqrt(np.asarray(weights))
 
-N_FOLDS_EXT = 3
-N_FOLDS_INT = 3
+N_FOLDS_EXT = 10
+N_FOLDS_INT = 5
 N_PERMS = 50
-K = 400
+K = 5000
 cv_ext = cross_validation.KFold(X.shape[0], n_folds=N_FOLDS_EXT)
 algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=500)
 L1 = [0,0001,0.999,5,10,100]
