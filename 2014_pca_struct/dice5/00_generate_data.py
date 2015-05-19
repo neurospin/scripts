@@ -10,7 +10,8 @@ Generate test data for PCA with various SNR (controlled by INPUT_ALPHAS).
 We split the data into a train and test sets just for future usage.
 Train and test indices are fixed here.
 
-Finally center data.
+Finally center data and compute the l1_max value. As we use centered data, the
+value is always the same (approximatively sqrt(N_SAMPLES)/N_SAMPLES).
 
 """
 
@@ -19,9 +20,9 @@ import numpy as np
 
 from sklearn.preprocessing import StandardScaler
 
-from parsimony import datasets
+from parsimony.datasets.regression import dice5
 
-import dice5
+import pca_tv
 
 ################
 # Input/Output #
@@ -36,6 +37,7 @@ OUTPUT_BETA_FILE = "beta3d.std.npy"
 OUTPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 OUTPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_MASK_FILE = "mask.npy"
+OUTPUT_L1MASK_FILE = "l1_max.txt"
 
 ##############
 # Parameters #
@@ -44,17 +46,28 @@ OUTPUT_MASK_FILE = "mask.npy"
 SHAPE = (100, 100, 1)
 N_SAMPLES = 100
 N_SUBSETS = 2
-# Object model (modulated by SNR)
-STDEV = np.asarray([1, 0.5, 0.5])
-MODEL = dict(
-        # Each point has an independant latent
-        l1=.0, l2=.0, l3=STDEV[1], l4=.0, l5=.0,
-        # Shared variance:
-        l12=STDEV[0], l45=STDEV[2], l12345=0.,
-        # Five dots contribute equally:
-        b1=1., b2=1., b3=1., b4=-1., b5=-1.)
-# SNR
+
+# Object model (modulated by SNR): STDEV[0] is for l12, STDEV[1] is for l3,
+# STDEV[2] is for l45
+STDEV = np.asarray([1, 0.5, 0.8])
+
+# All SNR values
 SNRS = np.append(np.linspace(0.1, 1, num=10), 0.25)
+
+#############
+# Functions #
+#############
+
+
+def create_model(snr):
+    model = dict(
+        # All points has an independant latent
+        l1=0., l2=0., l3=STDEV[1] * snr, l4=0., l5=0.,
+        # No shared variance
+        l12=STDEV[0] * snr, l45=STDEV[2] * snr, l12345=0.,
+        # Five dots contribute equally
+        b1=1., b2=1., b3=1., b4=1., b5=1.)
+    return model
 
 ########
 # Code #
@@ -65,11 +78,12 @@ n = N_SUBSETS * N_SAMPLES
 
 # Generate data for various alpha parameter
 for snr in SNRS:
-    X3d, y, beta3d, objects = dice5.load(n_samples=n,
-                                         shape=SHAPE,
-                                         model=MODEL,
-                                         obj_pix_ratio=snr,
-                                         random_seed=1)
+    model = create_model(snr)
+    X3d, y, beta3d = dice5.load(n_samples=n,
+                                shape=SHAPE,
+                                model=model,
+                                random_seed=1)
+    objects = dice5.dice_five_with_union_of_pairs(SHAPE)
     # Save data and scaled data
     output_dir = OUTPUT_DIR_FORMAT.format(s=SHAPE,
                                           snr=snr)
@@ -96,7 +110,7 @@ for snr in SNRS:
     # Generate mask with the last objects since they have the same geometry
     # We only use union12, d3, union45
     _, _, d3, _, _, union12, union45, _ = objects
-    sub_objects = [union12, d3, union45]
+    sub_objects = [union12, union45, d3]
     full_mask = np.zeros(SHAPE, dtype=bool)
     for i, o in enumerate(sub_objects):
         mask = o.get_mask()
@@ -106,3 +120,9 @@ for snr in SNRS:
         np.save(full_filename, mask)
     full_filename = os.path.join(output_dir, OUTPUT_MASK_FILE)
     np.save(full_filename, full_mask)
+
+    # Compute l1_max for this dataset
+    l1_max = pca_tv.PCA_L1_L2_TV.l1_max(X_std)
+    full_filename = os.path.join(output_dir, OUTPUT_L1MASK_FILE)
+    with open(full_filename, "w") as f:
+        print >> f, l1_max
