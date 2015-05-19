@@ -149,10 +149,10 @@ p = X_.shape[1]
 y = Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
 
 
-X_ = sklearn.preprocessing.scale(X_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
+#X_ = sklearn.preprocessing.scale(X_,
+#                                axis=0,
+#                                with_mean=True,
+#                                with_std=False)
 
 #X = np.c_[np.ones((X_.shape[0], 1)), X_]
 #assert X.shape == (1701, 8788) and np.all(X[:, 0]==1) and np.all(X[:, 1:]==X_)

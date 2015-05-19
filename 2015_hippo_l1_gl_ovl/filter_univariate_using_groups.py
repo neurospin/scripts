@@ -103,7 +103,7 @@ tmp = list(covariate.columns)
 #tmp.remove('FID')
 #tmp.remove('IID')
 #tmp.remove('AgeSq')
-mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+mycol = [u'Age', u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 
@@ -164,9 +164,9 @@ weights = np.sqrt(np.asarray(weights))
 N_FOLDS_EXT = 10
 N_FOLDS_INT = 5
 N_PERMS = 50
-K = 5000
+K = 20000
 cv_ext = cross_validation.KFold(X.shape[0], n_folds=N_FOLDS_EXT)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=500)
+algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=1500)
 L1 = [0,0001,0.999,5,10,100]
 L2 = [0.01,1,10,50,100]
 LGL = [0.0000,1,2]
