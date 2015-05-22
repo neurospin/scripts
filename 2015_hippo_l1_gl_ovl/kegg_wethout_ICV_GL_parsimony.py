@@ -249,7 +249,7 @@ for i in xrange(N_PERMS + 1):
         test_perm.append(test_acc_ext)
         train_perm.append(train_acc_ext)
     test_res.append(test_perm)
-    train_res.appen(train_perm)
+    train_res.append(train_perm)
 test_res_ar = np.array(test_res)
 train_res_ar = np.array(train_res)
 test_acc_mean = test_res_ar.mean(1)

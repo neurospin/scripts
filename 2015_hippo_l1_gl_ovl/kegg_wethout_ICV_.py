@@ -148,6 +148,25 @@ Y_all = Y_all - Y_all.mean()
 Y_all = Y_all - LinearRegression().fit(Cov,Y_all).predict(Cov)
 
 X_all = X_all - X_all.mean(axis=0)
+
+from sklearn import cross_validation
+from sklearn.linear_model import  ElasticNetCV, ElasticNet
+from sklearn import svm
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.grid_search import GridSearchCV
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_regression
+
+K = 15000
+enet = ElasticNetCV()
+X_new = SelectKBest(f_regression, k=K).fit_transform(X_all, Y_all)
+#
+print cross_validation.cross_val_score(enet, X_new, Y_all, cv=5)
+
+
+
+
 #X_all = sklearn.preprocessing.scale(X_all,
 #                                axis=0,
 #                                with_mean=True,
