@@ -47,6 +47,7 @@ INPUT_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
 INPUT_STD_DATASET_FILE = "data.std.npy"
 INPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
+INPUT_L1MASK_FILE = "l1_max.txt"
 
 INPUT_SHAPE = (100, 100, 1)
 INPUT_N_SUBSETS = 2
@@ -76,9 +77,20 @@ STRUCT_PCA_PARAMS = list(product(['struct_pca'],
 
 PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS
 
+JSON_DUMP_OPT = {'indent': 4,
+                 'separators': (',', ': ')}
+
 #############
 # Functions #
 #############
+
+
+def compute_coefs_from_ratios(global_pen, tv_ratio, l1_ratio):
+    ltv = global_pen * tv_ratio
+    ll1 = l1_ratio * global_pen * (1 - tv_ratio)
+    ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+    assert(np.allclose(ll1 + ll2 + ltv, global_pen))
+    return ll1, ll2, ltv
 
 
 def load_globals(config):
@@ -123,10 +135,13 @@ def mapper(key, output_collector):
         l1_ratio = 1
         ll1 = global_pen
     if model_name == 'struct_pca':
-        ltv = global_pen * tv_ratio
-        ll1 = l1_ratio * global_pen * (1 - tv_ratio)
-        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
-        assert(np.allclose(ll1 + ll2 + ltv, global_pen))
+        ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
+                                                  tv_ratio,
+                                                  l1_ratio)
+
+    # This should not happen
+    if ll1 > GLOBAL["l1_max"]:
+        raise ValueError
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -447,6 +462,25 @@ if __name__ == '__main__':
         resample_index = [indices, rev_indices]
         resample_index.insert(0, None)  # first fold is None
 
+        # Read l1_max file
+        full_filename = os.path.join(input_dir, INPUT_L1MASK_FILE)
+        with open(full_filename) as f:
+            S = f.readline()
+            l1_max = float(S)
+
+        # Remove configurations for which l1 > l1_max
+        correct_params = []
+        for params in PARAMS:
+            model_name, global_pen, tv_ratio, l1_ratio = params
+            if model_name != 'struct_pca':
+                correct_params.append(params)
+            else:
+                ll1, _, _ = compute_coefs_from_ratios(global_pen,
+                                                      tv_ratio,
+                                                      l1_ratio)
+                if ll1 < l1_max:
+                    correct_params.append(params)
+
         # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
                                   OUTPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
@@ -472,17 +506,21 @@ if __name__ == '__main__':
         # Create config file
         user_func_filename = os.path.abspath(__file__)
 
-        config = dict(data=dict(X=INPUT_STD_DATASET_FILE),
-                      im_shape=INPUT_SHAPE,
-                      params=PARAMS,
-                      resample=resample_index,
-                      map_output="results",
-                      user_func=user_func_filename,
-                      ncore=4,
-                      reduce_group_by="params",
-                      reduce_output="results.csv")
+        config = OrderedDict([
+            ('data', dict(X=INPUT_STD_DATASET_FILE)),
+            ('im_shape', INPUT_SHAPE),
+            ('params', correct_params),
+            ('l1_max', l1_max),
+            ('resample', resample_index),
+            ('map_output', "results"),
+            ('user_func', user_func_filename),
+            ('ncore', 4),
+            ('reduce_group_by', "params"),
+            ('reduce_output', "results.csv")])
         config_full_filename = os.path.join(output_dir, "config.json")
-        json.dump(config, open(config_full_filename, "w"))
+        json.dump(config,
+                  open(config_full_filename, "w"),
+                  **JSON_DUMP_OPT)
 
         # Create job files
         cluster_cmd = "mapreduce.py -m %s/config.json  --ncore 12" % CLUSTER_WD
