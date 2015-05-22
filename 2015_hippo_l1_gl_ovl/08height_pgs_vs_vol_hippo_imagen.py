@@ -94,6 +94,8 @@ Y = y - LinearRegression().fit(Cov,y).predict(Cov)
 #FOUAD je me suis arreté la!!!!!!!!!!!!!!!
 X = SNP
 p = X.shape[1]
+
+#the p_values computation for the univariate approech
 from scipy.stats import pearsonr
 p_vect=np.array([])
 cor_vect=np.array([])
@@ -104,7 +106,7 @@ for i in range(X.shape[1]):
 indices = np.where(p_vect <= 0.05)
 print 'numbers of significant p values', len(indices[0]), 'over ', p
 
-
+#correction of the p_values using the fdr approech
 import p_value_correction as p_c
 p_corrected = p_c.fdr(p_vect)
 indices_c= np.where(p_corrected <= 0.05)
@@ -138,7 +140,7 @@ plt.plot(cor_vect)
 plt.show()
 
 mask = np.where(p_corrected <= 0.05)
-
+#compare the two beta vectors
 dif = cor_vect - beta.reshape(-1)
 dif_nor = (dif -dif.mean())/dif.std()
 plt.hist(dif_nor)
@@ -153,7 +155,7 @@ plt.show()
 
 
 
-
+#multivariate approech
 
 from sklearn import cross_validation
 from sklearn.linear_model import  ElasticNetCV, ElasticNet
@@ -170,17 +172,14 @@ svr = svm.SVR(kernel="rbf")
 anova_svr = Pipeline([('anova', anova_filter), ('svr', svr)])
 cv_res = cross_validation.cross_val_score(anova_svr, X, Y, cv=10)
 np.mean(cv_res)
-
+#
 
 
 
 parameters = {'svr__C': (.001, .01, .1, 1., 10., 100)}
 anova_svrcv = GridSearchCV(anova_svr, parameters, n_jobs=-1, verbose=1)
 print cross_validation.cross_val_score(anova_svrcv, X, y, cv=10)
-#[-0.00113985 -0.00789315 -0.00962538 -0.00940644 -0.01980303]
 
-a = [-0.01383361, 0.00518606, 0.04310046, 0.00566481, -0.05087966, 0.02595137,
-  0.06297484, 0.00726542, 0.0512848, -0.0375388]
 
 anova_filter = SelectKBest(score_func=f_regression, k=X_.shape[1])
 #svr = svm.SVR(kernel="linear")
@@ -193,14 +192,26 @@ parameters = {'svr__C': (.001, .01, .1, 1., 10., 100),
               #'anova__k' : [100]}
 anova_svrcv = GridSearchCV(anova_svr, parameters, n_jobs=-1, verbose=1)
 res_cv =  cross_validation.cross_val_score(anova_svrcv, X, y, cv=5)
+print 'the obtained r square on the cross validation', res_cv
 #array([ 0.01275864,  0.01481352, -0.00011443,  0.03102828,  0.02435049])
 #0.016567301178355476
 
-
+#################
+#randoom forest test
 
 from sklearn.ensemble import RandomForestRegressor
 rf = RandomForestRegressor()
 print cross_validation.cross_val_score(rf, X, Y, cv=5)
+
+
+
+
+
+
+
+
+
+
 
 
 
