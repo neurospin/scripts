@@ -61,7 +61,7 @@ covariate = covariate.set_index(iid_fid['IID'])
 #######################
 # get phenotype Lhippo
 #######################
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
 f = open(fname)
 genodata = pickle.load(f)
 f.close()
@@ -141,8 +141,8 @@ ind_sex_1=np.where(Cov_[:,1]==1)
 ind_sex_0=np.where(Cov_[:,1]==0)
 
 
-age_max=5600
-age_min=5000
+age_max=6500
+age_min=4000
 age = covariate[u'Age'].as_matrix()[ind]
 
 ind_age=np.intersect1d(np.where(age<age_max)[0], np.where(age>age_min)[0])
@@ -207,10 +207,10 @@ for i in range(p_sex_0):
 
    
 indices_sex_1 = np.where(p_vect_sex_1 <= 0.05)
-print 'numbers of significant p values', len(indices_sex_1[0]), 'over ', len(Y_sex_1)
+print 'numbers of significant p values', len(indices_sex_1[0]), 'over ', p_sex_1
 
 indices_sex_0 = np.where(p_vect_sex_0 <= 0.05)
-print 'numbers of significant p values', len(indices_sex_0[0]), 'over ', len(Y_sex_0)
+print 'numbers of significant p values', len(indices_sex_0[0]), 'over ', p_sex_0
 
 
 
@@ -219,10 +219,10 @@ print 'numbers of significant p values', len(indices_sex_0[0]), 'over ', len(Y_s
 
 plt.figure(1)
 plt.subplot(221)
-plt.hist(p_vect_sex_0,200)
+plt.hist(p_vect_sex_0,20)
 plt.title('uncorrected p values for sex 0')
 plt.subplot(222)
-plt.hist(p_vect_sex_1,200)
+plt.hist(p_vect_sex_1,20)
 plt.title('uncorrected p values for sex 1')
 plt.subplot(223)
 plt.plot(cor_vect_sex_0)
@@ -234,6 +234,8 @@ plt.show()
 
 
 
+
+
 import p_value_correction as p_c
 p_corrected_sex_0 = p_c.fdr(p_vect_sex_0)
 indices_c_sex_0 = np.where(p_corrected_sex_0  <= 0.05)
@@ -241,9 +243,9 @@ indices_c_sex_0 = np.where(p_corrected_sex_0  <= 0.05)
 p_corrected_sex_1 = p_c.fdr(p_vect_sex_1)
 indices_c_sex_1 = np.where(p_corrected_sex_1  <= 0.05)
 
-print 's0 : numbers of significant corrected p values', len(indices_c_sex_0[0]), 'over ', len(Y_sex_0)
+print 's0 : numbers of significant corrected p values', len(indices_c_sex_0[0]), 'over ', X_.shape[1]
 
-print 's1 :numbers of significant corrected  p values', len(indices_c_sex_1[0]), 'over ', len(Y_sex_1)
+print 's1 :numbers of significant corrected  p values', len(indices_c_sex_1[0]), 'over ', X_.shape[1]
 
 
 plt.figure(2)
@@ -276,16 +278,16 @@ p_vect=np.array([])
 cor_vect=np.array([])
 p = X_.shape[1]
 for i in range(p):
-    r_row, p_value = pearsonr(X_sex_1[:,i],  Y_sex_1)
-    p_vect = np.hstack((p_vect_sex_1,p_value))
-    cor_vect = np.hstack((cor_vect_sex_1,r_row))
+    r_row, p_value = pearsonr(X_[:,i],  Y_)
+    p_vect = np.hstack((p_vect,p_value))
+    cor_vect = np.hstack((cor_vect,r_row))
 
 
 
 
    
 indices = np.where(p_vect <= 0.05)
-print 'numbers of significant p values', len(indices[0]), 'over ', len(Y_)
+print 'numbers of significant p values', len(indices[0]), 'over ', p
 
 
 
@@ -306,7 +308,7 @@ p_corrected = p_c.fdr(p_vect)
 indices_c = np.where(p_corrected  <= 0.05)
 
 
-print 'numbers of significant corrected p values', len(indices_c[0]), 'over ', len(Y_)
+print 'numbers of significant corrected p values', len(indices_c[0]), 'over ', p
 
 
 
@@ -351,7 +353,7 @@ for i in range(p):
 
    
 indices_res = np.where(p_vect_res <= 0.05)
-print 'numbers of significant p values', len(indices_res[0]), 'over ', len(Y_res)
+print 'numbers of significant p values', len(indices_res[0]), 'over ', p
 
 
 
@@ -372,7 +374,7 @@ p_corrected_res = p_c.fdr(p_vect_res)
 indices_c_res = np.where(p_corrected_res  <= 0.05)
 
 
-print 'numbers of significant corrected p values', len(indices_c_res[0]), 'over ', len(Y_res)
+print 'numbers of significant corrected p values', len(indices_c_res[0]), 'over ', p
 
 plt.figure(5)
 plt.hist(p_corrected_res,20)
@@ -536,18 +538,6 @@ from sklearn.linear_model import ElasticNet, ElasticNetCV
 #enet = ElasticNetCV(cv=4)
 #enet.fit(X_new, y)
 #print cross_validation.cross_val_score(enet, X_new, y, cv=5)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

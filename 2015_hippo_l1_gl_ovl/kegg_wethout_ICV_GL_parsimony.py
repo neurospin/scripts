@@ -1,10 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Apr  2 18:01:17 2015
+Created on Wed May 13 15:40:01 2015
 
 @author: fh235918
 """
 
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Mar 26 14:09:12 2015
+
+@author: fh235918
+"""
+
+
+#! /usr/bin/env python
+##########################################################################
+# Brainomics - Copyright (C) CEA, 2013
+# Distributed under the terms of the CeCILL-B license, as published by
+# the CEA-CNRS-INRIA. Refer to the LICENSE file or to
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
+# for details.
+##########################################################################
+
+# System import
 import pandas
 import pickle
 import numpy as np
@@ -28,7 +46,6 @@ from sklearn.feature_selection import f_regression
 import itertools
 import operator
 rnd = check_random_state(None)
-from sklearn.decomposition import PCA
 
 #######################
 # get Enigma2 dataset
@@ -57,9 +74,7 @@ covariate = covariate.set_index(iid_fid['IID'])
 #######################
 # get phenotype Lhippo
 #######################
-#fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
 fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
-
 f = open(fname)
 genodata = pickle.load(f)
 f.close()
@@ -95,7 +110,7 @@ tmp = list(covariate.columns)
 #tmp.remove('FID')
 #tmp.remove('IID')
 #tmp.remove('AgeSq')
-mycol = [u'Age', u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
+mycol = [u'Age', u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex', u'ICV',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 #mycol = [u'Sex',u'Centre_1', u'Centre_2', u'Centre_3', u'Centre_4', u'Centre_5', u'Centre_6', u'Centre_7']
 
@@ -106,17 +121,17 @@ tmp.remove('IID')
 X_all = geno[tmp].as_matrix()
 
 
-#Y_.shape
+Y_all.shape
 
-#plt.hist(Y_all)
-#plt.show()
+plt.hist(Y_all)
+plt.show()
 
 #######################
 #selecting individuals with respect to hippo volume
 #############################
 
-hyp_vol_max = 7600
-hyp_vol_min = 100
+hyp_vol_max = 5000
+hyp_vol_min = 3000
 
 
 select_mask = (Y_all > hyp_vol_min) & (Y_all < hyp_vol_max)
@@ -133,10 +148,10 @@ p = X_.shape[1]
 y = Y_ - LinearRegression().fit(Cov_, Y_).predict(Cov_)
 
 
-#X_ = sklearn.preprocessing.scale(X_,
-#                                axis=0,
-#                                with_mean=True,
-#                                with_std=False)
+X_ = sklearn.preprocessing.scale(X_,
+                                 axis=0,
+                                 with_mean=True,
+                                 with_std=False)
 
 X = np.c_[np.ones((X_.shape[0], 1)), X_]
 #assert X.shape == (1701, 8788) and np.all(X[:, 0]==1) and np.all(X[:, 1:]==X_)
@@ -147,124 +162,23 @@ groups_name = groups_descr.keys()
 groups = [list(groups_descr[n]) for n in groups_name]
 weights = [len(group) for group in groups]
 weights = np.sqrt(np.asarray(weights))
-
-
-new = []
-indices = []
-j = 0
-pca = PCA(copy=True, n_components=0.75, whiten=False)
-for i in range(len(groups)):
-    Xpca = X_[:, groups[i]]
-    pca.fit(Xpca)
-    P = pca.components_
-    matrix = np.dot(Xpca, np.transpose(P))
-    new = new + [vector for vector in matrix.transpose()]
-    size = matrix.shape[-1]
-    indices.append(range(j, j + size))
-    j += size
-
-X_new = np.transpose(np.array(new))
-print X_new.shape
-
-
-
-
-
-
-#################################################################################################"
-#here we use the eigen snip approach from chen et al
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#we start with the state of the art verification on this reduced data
-
-
-#from sklearn import cross_validation
-#from sklearn.linear_model import  ElasticNetCV, ElasticNet
-#from sklearn import svm
-#from sklearn.ensemble import RandomForestRegressor
-##
-#### Enet
-#enet = ElasticNetCV()
-#print cross_validation.cross_val_score(enet, X_new, y, cv=5)
-##[-0.00326472 -0.00052803 -0.0009064  -0.00020221 -0.01343409]
-#
-################################################################################
-#anova_filter = SelectKBest(f_regression, k=600)
-#enet = ElasticNetCV()
-#anova_enetcv = Pipeline([('anova', anova_filter), ('enet', enet)])
-#print cross_validation.cross_val_score(anova_enetcv, X_new, y, cv=5)
-##[-0.00326472 -0.00052803 -0.02079201 -0.00168602 -0.0832419 ]
-#
-#
-#svr = svm.SVR()
-#anova_svr = Pipeline([('anova', anova_filter), ('svr', svr)])
-#print cross_validation.cross_val_score(anova_svr, X_new, y, cv=5)
-#
-#parameters = {'svr__C': (.001, .01, .1, 1., 10., 100)}
-#anova_svrcv = GridSearchCV(anova_svr, parameters, n_jobs=-1, verbose=1)
-#print cross_validation.cross_val_score(anova_svrcv, X_new, y, cv=5)
-##[-0.00072306 -0.00598185 -0.00868314 -0.00770261 -0.00824136]
-#
-#ridge_es = estimators.RidgeRegression(0.05, penalty_start=1)
-#ridge_es.fit(X_, y)
-#beta = ridge_es.beta
-#
-#import genomic_plot
-#genomic_plot.genomic_plot(beta, genodata)
-
-
-
-
-###########################################################################################################
-groups=indices
-X = np.c_[np.ones((X_new.shape[0], 1)), X_new]
-weights = [len(group) for group in groups]
-weights = np.sqrt(np.asarray(weights))
-
-
-
 #weights = [np.sqrt(len(group)) for group in groups]
 #weights = 1./np.sqrt(np.asarray(weights))
+from parsimony.utils import penalties
+l1_max = penalties.l1_max_linear_loss(X, y, mean=True)
 
-N_FOLDS_EXT = 4
-N_FOLDS_INT = 4
+N_FOLDS_EXT = 5
+N_FOLDS_INT = 5
 N_PERMS = 50
-K = 300
 cv_ext = cross_validation.KFold(X.shape[0], n_folds=N_FOLDS_EXT)
-algorithm = algorithms.proximal.FISTA(eps=0.000001, max_iter=500)
-L1 = [5,10]
-L2 = [0,0.01,2]
-LGL = [10,100]
-
-
-
-###############################################################################
+algorithm = algorithms.proximal.StaticCONESTA(eps=0.00001, max_iter=5000)
+L1 = l1_max * np.array([0.001, 0.33, 0.5])
+L2 = l1_max * np.array([0.001, 0.33, 0.5])
+LGL = l1_max * np.array([0.001, 0.33, 0.5])
+####################""
 train_res = list()
 test_res = list()
-
 for i in xrange(N_PERMS + 1):
-    print 'iteration', i
     # i = 0
     if i == 0:
         perms = np.arange(len(y))
@@ -281,8 +195,10 @@ for i in xrange(N_PERMS + 1):
         ## Inner loop
         cv_int = cross_validation.KFold(len(ytrain), n_folds=N_FOLDS_INT)
         inner_param = dict()
+        inner_param_train = dict()
         for l1, l2, lgl in itertools.product(L1, L2, LGL):
             inner_param[(l1, l2, lgl)] = []
+            inner_param_train[(l1, l2, lgl)] = []
         for tr, val in cv_int:
             Xtr = Xtrain[tr, :]
             Xval = Xtrain[val, :]
@@ -291,75 +207,54 @@ for i in xrange(N_PERMS + 1):
 #            test_perm = list()
             for l1, l2, lgl in itertools.product(L1, L2, LGL):
                 print l1, l2, lgl
-                filter_univ = SelectKBest(f_regression, k=K)
-                filter_univ.fit(Xtr, ytr)
-                filter_ = filter_univ.get_support()
-                filter_[0] = True
-                Xtr_filtered = Xtr[:, filter_]
-                Xval_filtered = Xval[:, filter_]
-                # map form full to filtered, -1 means not selected
-                map_full_to_filtered = -np.ones(Xtrain.shape[1], dtype=int)
-                map_full_to_filtered[filter_] = np.arange((K+1))
-                groups_filtered = [map_full_to_filtered[g] for g in groups]
-                groups_filtered = [g[g != -1] for g in groups_filtered]
-                groups_filtered = [g for g in groups_filtered if len(g) >= 1]
-                weights_filtered = [len(g) for g in groups_filtered]
-                weights_filtered = np.sqrt(np.asarray(weights_filtered))
-                Agl = gl.linear_operator_from_groups(Xval_filtered.shape[1],
-                                                     groups=groups_filtered,
-                                                     weights=weights_filtered,
+                Agl = gl.linear_operator_from_groups(Xval.shape[1],
+                                                     groups=groups,
+                                                     weights=weights,
                                                      penalty_start=1)
                 enet_gl = estimators.LinearRegressionL1L2GL(l1=l1, l2=l2, gl=lgl,
                                                             A=Agl,
                                                             algorithm=algorithm,
                                                             penalty_start=1)
-#                enet_gl2=ElasticNet(alpha=l2, l1_ratio=l1,)                                            
-                enet_gl.fit(Xtr_filtered, ytr)
-                y_pred_test = enet_gl.predict(Xval_filtered)
+                enet_gl.fit(Xtr, ytr)                                            
+                y_pred_test = enet_gl.predict(Xval)
                 test_acc = r2_score(yval, y_pred_test)
-#                print test_acc
+                y_pred_train = enet_gl.predict(Xtr)
+                train_acc = r2_score(ytr, y_pred_train)
+                print 'test_acc', test_acc
+                print 'train_acc', train_acc
                 inner_param[(l1, l2, lgl)].append(test_acc)
-        inner_param_mean = {k:np.mean(inner_param[k]) for k in inner_param.keys()}
-        print 'inner_param_mean',inner_param_mean
-        print inner_param_mean
-        l1,l2,lgl = max(inner_param_mean.iteritems(), key=operator.itemgetter(1))[0]
-        print 'selected', l1,l2,lgl        
-        filter_univ = SelectKBest(f_regression, k=K)
-        filter_univ.fit(Xtrain, ytrain)
-        filter_ = filter_univ.get_support()
-        filter_[0] = True
-        Xtrain_filtered = Xtrain[:, filter_]
-        Xtest_filtered = Xtest[:, filter_]
-        map_full_to_filtered = -np.ones(Xtrain.shape[1], dtype=int)
-        map_full_to_filtered[filter_] = np.arange((K+1))
-        groups_filtered = [map_full_to_filtered[g] for g in groups]
-        groups_filtered = [g[g != -1] for g in groups_filtered]
-        groups_filtered = [g for g in groups_filtered if len(g) >= 1]
-        weights_filtered = [len(g) for g in groups_filtered]
-        weights_filtered = np.sqrt(np.asarray(weights_filtered))
-        Agl = gl.linear_operator_from_groups(Xtest_filtered.shape[1],
-                                                     groups=groups_filtered,
-                                                     weights=weights_filtered,
+                inner_param_train[(l1, l2, lgl)].append(train_acc)
+        inner_param_mean = {k: np.mean(inner_param[k]) for k in
+                            inner_param.keys()}
+        inner_param_train_mean = {k: np.mean(inner_param_train[k]) for k in
+                                  inner_param_train.keys()}
+        print 'inner_param_mean', inner_param_mean
+        print 'inner_param_train_mean', inner_param_train_mean
+        l1, l2, lgl = max(inner_param_mean.iteritems(),
+                          key=operator.itemgetter(1))[0]
+        Agl = gl.linear_operator_from_groups(Xtest.shape[1],
+                                                     groups=groups,
+                                                     weights=weights,
                                                      penalty_start=1)
         enet_gl = estimators.LinearRegressionL1L2GL(l1=l1, l2=l2, gl=lgl,
                                                             A=Agl,
                                                             algorithm=algorithm,
                                                             penalty_start=1)
 #                enet_gl2=ElasticNet(alpha=l2, l1_ratio=l1,)                                            
-        enet_gl.fit(Xtrain_filtered, ytrain)
-        y_pred_test = enet_gl.predict(Xtest_filtered)
-        test_acc = r2_score(ytest, y_pred_test)
-        print 'test_acc', test_acc
-        test_perm.append(test_acc)
+        enet_gl.fit(Xtrain, ytrain)
+        y_pred_test_ext = enet_gl.predict(Xtest)
+        y_pred_train_ext = enet_gl.predict(Xtrain)
+        test_acc_ext = r2_score(ytest, y_pred_test_ext)
+        train_acc_ext = r2_score(ytrain, y_pred_train_ext)
+        test_perm.append(test_acc_ext)
+        train_perm.append(train_acc_ext)
     test_res.append(test_perm)
+    train_res.append(train_perm)
 test_res_ar = np.array(test_res)
+train_res_ar = np.array(train_res)
 test_acc_mean = test_res_ar.mean(1)
+train_acc_mean = train_res_ar.mean(1)
 test_acc_sd = test_res_ar.std(1)
 pval_test = np.sum(test_acc_mean[1:] > test_acc_mean[0])/43.0
-print 'pval = ',pval_test
-
-#
-#pval =  0.0232558139535
-#>>> test_acc_mean
-#array([-0.00151314, -0.00251164, -0.00065231, -0.00530455, -0.00472471,
-#       -0.0072294 ])
+print 'pval = ', pval_test
+print 'train_acc_mean', train_acc_mean

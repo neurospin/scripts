@@ -78,7 +78,9 @@ covariate = covariate.set_index(iid_fid['IID'])
 #######################
 # get phenotype Lhippo
 #######################
-fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
+#fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/new_synapticAll.pickle'
+fname = '/neurospin/brainomics/2015_hippo_l1_gl_ovl/data/kegg.pickle'
+
 f = open(fname)
 genodata = pickle.load(f)
 f.close()
@@ -147,10 +149,10 @@ p = X_.shape[1]
 y = Y_ - LinearRegression().fit(Cov_,Y_).predict(Cov_)
 
 
-X_ = sklearn.preprocessing.scale(X_,
-                                axis=0,
-                                with_mean=True,
-                                with_std=False)
+#X_ = sklearn.preprocessing.scale(X_,
+#                                axis=0,
+#                                with_mean=True,
+#                                with_std=False)
 
 #X = np.c_[np.ones((X_.shape[0], 1)), X_]
 #assert X.shape == (1701, 8788) and np.all(X[:, 0]==1) and np.all(X[:, 1:]==X_)
@@ -167,42 +169,81 @@ X = X_
 
 #import genomic_plot
 #genomic_plot.genomic_plot(beta, genodata)
+
+
+
+
+
+
+#
+#
+#
 from sklearn import cross_validation
 from sklearn.linear_model import  ElasticNetCV, ElasticNet
 from sklearn import svm
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.grid_search import GridSearchCV
 
-## Enet
+
+### Enet
 enet = ElasticNetCV()
-X_new = SelectKBest(f_regression, k=600).fit_transform(X_, y)
-
+X_new = SelectKBest(f_regression, k=10000).fit_transform(X_, y)
+#
 print cross_validation.cross_val_score(enet, X_new, y, cv=5)
 #[ 0.21822996  0.19626531  0.15985638  0.16047595  0.12360559]
-#svmlin = svm.SVR(kernel='linear')
-#print cross_validation.cross_val_score(svmlin, X_new, y, cv=5)
-#[-0.15075714 -0.15068342 -0.17763498 -0.24752618 -0.33530044]
-
-###############################################################################
-anova_filter = SelectKBest(f_regression, k=600)
+##svmlin = svm.SVR(kernel='linear')
+##print cross_validation.cross_val_score(svmlin, X_new, y, cv=5)
+##[-0.15075714 -0.15068342 -0.17763498 -0.24752618 -0.33530044]
+#
+################################################################################
+anova_filter = SelectKBest(f_regression, k=5)
 enet = ElasticNetCV()
 anova_enetcv = Pipeline([('anova', anova_filter), ('enet', enet)])
-print cross_validation.cross_val_score(anova_enetcv, X_, y, cv=5)
+cv_res = cross_validation.cross_val_score(anova_enetcv, X_, y, cv=20)
+np.mean(cv_res)
+
 # [-0.20394014 -0.1661658  -0.29431243 -0.22668731 -0.31640065]
-svr = svm.SVR()
+#svr = svm.SVR(kernel="linear")
+svr = svm.SVR(kernel="rbf")
 anova_svr = Pipeline([('anova', anova_filter), ('svr', svr)])
-print cross_validation.cross_val_score(anova_svr, X_, y, cv=5)
+cv_res = cross_validation.cross_val_score(anova_svr, X_, y, cv=10)
+np.mean(cv_res)
 #[-0.0009754  -0.00804201 -0.00999459 -0.00966989 -0.00933321]
 
 parameters = {'svr__C': (.001, .01, .1, 1., 10., 100)}
 anova_svrcv = GridSearchCV(anova_svr, parameters, n_jobs=-1, verbose=1)
-print cross_validation.cross_val_score(anova_svrcv, X_, y, cv=5)
+print cross_validation.cross_val_score(anova_svrcv, X_, y, cv=50)
 #[-0.00113985 -0.00789315 -0.00962538 -0.00940644 -0.01980303]
 
 
 
+parameters = {'svr__C': (.001, .01, .1, 1., 10., 100), 
+              'svr__kernel': ("linear", "rbf"),
+              'anova' : [5, 10, 20, 50, 100]}
+anova_svrcv = GridSearchCV(anova_svr, parameters, n_jobs=-1, verbose=1)
+res_cv =  cross_validation.cross_val_score(anova_svrcv, X_, y, cv=50)
+#[-0.00113985 -0.00789315 -0.00962538 -0.00940644 -0.01980303]
 
-
-
+#LeNear and NLN
+#array([ -6.37568438e-03,  -2.05293782e-02,  -1.52730828e-01,
+#        -8.35234238e-03,   7.92095599e-04,  -8.55421547e-04,
+#        -2.00368974e-01,  -6.98279846e-03,  -1.52070553e-03,
+#        -6.17469948e-03,  -3.65137449e-04,  -3.00574037e-04,
+#        -3.60139842e-03,  -3.81577422e-03,  -6.83820154e-03,
+#        -4.43401443e-02,  -2.13681005e-04,  -3.32317355e-02,
+#        -4.42426063e-02,  -8.49429908e-02,  -3.13626466e-02,
+#        -9.07780769e-03,  -1.27396560e-03,  -1.13584268e-02,
+#        -7.76355951e-03,  -2.39003086e-01,  -8.31242067e-04,
+#        -1.55961248e-02,  -5.30185960e-02,  -4.50291803e-04,
+#        -3.67313208e-02,  -2.99432417e-02,  -3.61989391e-02,
+#        -4.72122953e-02,  -4.95644440e-04,  -1.01539116e-03,
+#        -1.74901813e-03,   3.25169678e-04,  -6.97815342e-02,
+#        -5.10003964e-02,  -1.46567202e-01,  -1.22999700e-03,
+#        -2.25409887e-04,  -3.45267409e-04,  -4.15490011e-04,
+#        -9.34191234e-02,  -5.42613489e-02,  -2.50334333e-02,
+#        -5.39852507e-04,  -1.97629333e-02])
+#>>> 
 
 
 
@@ -235,13 +276,13 @@ print cross_validation.cross_val_score(anova_svrcv, X_, y, cv=5)
 
 
 ################################################################################################""
-N_FOLDS_EXT = 5
+N_FOLDS_EXT = 50
 N_FOLDS_INT = 5
 N_PERMS = 50
-K = 100
+K = 1000
 cv_ext = cross_validation.KFold(X.shape[0], n_folds=N_FOLDS_EXT)
-Alpha = [0.1,0.5,1,2,5]
-L1_ratio = [0,0.000001,0.00001, .9, .99, 1]
+Alpha = [5,10]
+L1_ratio = [0,0.000001, 1]
 
 
 #import genomic_plot
@@ -284,7 +325,7 @@ for i in xrange(N_PERMS + 1):
 #                filter_[0] = True
                 Xtr_filtered = Xtr[:, filter_]
                 Xval_filtered = Xval[:, filter_]
-                enet = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=2000)                                            
+                enet = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=6000)                                            
                 enet.fit(Xtr_filtered, ytr)
                 y_pred_test = enet.predict(Xval_filtered)
                 test_acc = r2_score(yval, y_pred_test)
@@ -300,7 +341,7 @@ for i in xrange(N_PERMS + 1):
 #        filter_[0] = True
         Xtrain_filtered = Xtrain[:, filter_]
         Xtest_filtered = Xtest[:, filter_]
-        enet = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=2500)
+        enet = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=6000)
         enet.fit(Xtrain_filtered, ytrain)
         y_pred_test = enet.predict(Xtest_filtered)
         test_acc = r2_score(ytest, y_pred_test)
