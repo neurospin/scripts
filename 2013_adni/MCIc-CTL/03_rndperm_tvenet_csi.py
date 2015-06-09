@@ -26,7 +26,7 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     STRUCTURE = nibabel.load(config["mask_filename"])
-    A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
+    A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
     GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
 
 
@@ -73,7 +73,7 @@ def mapper(key, output_collector):
         mask = STRUCTURE.get_data() != 0
         mask[mask] = aov.get_support()
         #print mask.sum()
-        A, _ = tv_helper.A_from_mask(mask)
+        A  = tv_helper.linear_operator_from_mask(mask)
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
     else:

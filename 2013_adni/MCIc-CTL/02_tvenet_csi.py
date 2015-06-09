@@ -3,6 +3,9 @@
 Created on Fri May 30 20:03:12 2014
 
 @author: edouard.duchesnay@cea.fr
+
+cd /neurospin/brainomics/2013_adni/MCIc-CTL_csi
+mapreduce.py
 """
 
 import os
@@ -23,7 +26,7 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     STRUCTURE = nibabel.load(config["mask_filename"])
-    A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
+    A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
     GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
 
 
@@ -65,7 +68,7 @@ def mapper(key, output_collector):
         mask = STRUCTURE.get_data() != 0
         mask[mask] = aov.get_support()
         #print mask.sum()
-        A, _ = tv_helper.A_from_mask(mask)
+        A = tv_helper.linear_operator_from_mask(mask)
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
     else:
@@ -94,6 +97,7 @@ def reducer(key, values):
     # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_1.0_0.0_-1.0/")]
     # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_0.5_0.5_-1.0/")]
     # Compute sd; ie.: compute results on each folds
+    print key
     values = [item.load() for item in values[1:]]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
@@ -182,7 +186,7 @@ def reducer(key, values):
 ## Run all
 def run_all(config):
     import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_cs"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi"
     key = '0.01_0.01_0.98_0.01_10000'
     #class GLOBAL: DATA = dict()
     load_globals(config)
@@ -288,3 +292,55 @@ if __name__ == "__main__":
     #############################################################################
     print "# Reduce"
     print "mapreduce.py --reduce %s/config.json" % WD
+
+def build_summary():
+    import pandas as pd
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/config.json"
+    os.chdir(os.path.dirname(config_filenane))
+    config = json.load(open(config_filenane))
+    from collections import OrderedDict
+    models = OrderedDict()
+    models["l2"]     = (0.010,	0.000, 1.000, 0.000)
+    models["l2tv"]    = (0.010,	0.000, 0.500, 0.500)
+    models["l1"]      = (0.010,	1.000, 0.000, 0.000)
+    models["l1tv"]    = (0.010,	0.500, 0.000, 0.500)
+    models["tv"]      = (0.010,	0.000, 0.000, 1.000)
+    models["l1l2"]    = (0.010,	0.500, 0.500, 0.000)
+    models["l1l2tv"]  = (0.010,	0.350, 0.350, 0.300)
+
+    
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+    
+    orig_cv = pd.read_csv(config['reduce_output'])
+    cv = orig_cv[["k", "a", "l1", "l2", "tv", 'recall_0', u'recall_1', u'recall_mean', 
+              'auc', "beta_r_bar", 'beta_fleiss_kappa']]
+    summary = list()
+    for k in models:
+        #k = "l2"
+        a, l1, l2, tv = models[k]
+        l = cv[(cv.k == -1) & close(cv.a, a) & close(cv.l1, l1) & close(cv.l2, l2) & close(cv.tv, tv)]
+        assert l.shape[0] == 1
+        l["algo"] = k
+        summary.append(l)
+    summary = pd.concat(summary)
+    summary.drop("k", 1, inplace=True)
+    cols_diff_in = ["recall_mean", "auc", "beta_r_bar", "beta_fleiss_kappa"]
+    cols_diff = ["delta_"+ c for c in cols_diff_in]
+    for c in cols_diff:
+        summary[c] = None
+    delta = summary.ix[summary.algo == "l2tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l2", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "l2tv", cols_diff] = delta
+    delta = summary.ix[summary.algo == "l1tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l1", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "l1tv", cols_diff] = delta
+    delta = summary.ix[summary.algo == "l1l2tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l1l2", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "l1l2tv", cols_diff] = delta
+    delta = summary.ix[summary.algo == "tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l2", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "tv", cols_diff] = delta
+    xlsx = pd.ExcelWriter(config['reduce_output'].replace("csv" , "xlsx"))
+    orig_cv.to_excel(xlsx, 'All')
+    summary.to_excel(xlsx, 'Summary')
+    xlsx.save()
+    
+    
+    

@@ -157,7 +157,7 @@ the corresponding data
 
 def save_texture(filename, data):
     from soma import aims
-    tex = aims.TimeTexture()
+    tex = aims.TimeTexture('FLOAT')
     tex[0].assign(data)
     aims.write(tex, filename)
 
