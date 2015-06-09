@@ -198,13 +198,13 @@ def _makedirs_safe(path):
             raise
 
 
-def _import_module_from_filename(filename):
+def import_module_from_filename(filename):
     sys.path.append(os.path.dirname(filename))
     name, _ = os.path.splitext(os.path.basename(filename))
     user_module = __import__(os.path.basename(name))
     return user_module
 
-_import_user_func = _import_module_from_filename
+_import_user_func = import_module_from_filename
 
 
 # TODO: add different error code for nonexistent dir and empty dir cases
@@ -392,12 +392,13 @@ if __name__ == "__main__":
     # == Load globals                                                      ==
     # =======================================================================
     if (options.map) or (options.reduce):
-        try:
             user_func.load_globals(config)
-        except Exception as e:
-                print >> sys.stderr, "Cannot load data"
-                print >> sys.stderr, e.__class__.__name__, "exception:", e
-                sys.exit(os.EX_DATAERR)
+#        try:
+#            user_func.load_globals(config)
+#        except Exception as e:
+#                print >> sys.stderr, "Cannot load data"
+#                print >> sys.stderr, e.__class__.__name__, "exception:", e
+#                sys.exit(os.EX_DATAERR)
 
     # =======================================================================
     # == MAP                                                               ==
