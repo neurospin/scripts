@@ -26,7 +26,10 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     STRUCTURE = nibabel.load(config["mask_filename"])
-    A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
+    try:
+        A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
+    except:
+        A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
 
 
