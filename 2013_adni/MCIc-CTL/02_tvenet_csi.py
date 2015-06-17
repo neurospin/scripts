@@ -181,6 +181,64 @@ def reducer(key, values):
     return scores
 
 
+###############################################################################
+def plot_perf():
+    import os
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    
+    # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
+    #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/MCIc-CTL_csi.csv"
+    y_col = 'recall_mean'
+    x_col = 'tv'
+    #y_col = 'auc'
+    a = 0.01
+    #color_map = {0.:'#D40000', 0.01: 'black', 0.1:'#F0a513',  0.5:'#2CA02C',  0.9:'#87AADE',  1.:'#214478'}
+    color_map = {0.:'#D40000', 0.01:'#F0a513',  0.1:'#2CA02C',  0.5:'#87AADE',  .9:'#214478', 1.: 'black'}
+    #                reds dark => brigth,      green         blues: brigth => dark
+    input_filename = INPUT
+    #input_filename = INPUTS[data_type]["filename"]
+    outut_filename = input_filename.replace(".csv", "_%s.pdf" % y_col)
+    #print outut_filename
+    # Filter data
+    data = pd.read_csv(input_filename)
+    #data.l1l2_ratio = data.l1l2_ratio.round(5)
+    # avoid poor rounding
+    data.l1l2_ratio = np.asarray(data.l1l2_ratio).round(3)
+    data.tv = np.asarray(data.tv).round(5)
+    data.a = np.asarray(data.a).round(5)
+    data = data[data.k == -1]
+    data = data[data.l1l2_ratio.isin([0, 0.01, 0.1, 0.5, 0.9, 1.])]
+    data = data[(data.tv >= 0.1) | (data.tv == 0)]
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+    assert np.sum(data.l1l2_ratio == 0.01) == np.sum(close(data.l1l2_ratio, 0.01))
+    #data = data[data.a <= 1]
+    # for each a, l1l2_ratio, append the last point tv==1
+    last = list()
+    for a_ in np.unique(data.a):
+        full_tv = data[(data.a == a_) & (data.tv == 1)]
+        for l1l2_ratio in np.unique(data.l1l2_ratio):
+            new = full_tv.copy()
+            new.l1l2_ratio = l1l2_ratio
+            last.append(new)
+    #
+    last = pd.concat(last)
+    data = pd.concat([data, last])
+    data.drop_duplicates(inplace=True)
+    #
+    from brainomics.plot_utilities import plot_lines
+    figures = plot_lines(df=data,
+    x_col=x_col, y_col=y_col, colorby_col='l1l2_ratio',
+                       splitby_col='a', color_map=color_map)
+    pdf = PdfPages(outut_filename)
+    for fig in figures:
+        print fig, figures[fig]
+        pdf.savefig(figures[fig]); plt.clf()
+    pdf.close()
 
 ##############################################################################
 ## Run all
@@ -239,6 +297,15 @@ if __name__ == "__main__":
     alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
     alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
     params = [params.tolist() for params in alphal1l2tvk]
+    """
+    inf = open("config.json", "w")
+    old_conf = json.load(inf)
+    params = old_conf["params"]
+    params.append([.1, .05, .6, .35, -1.0])
+    params.append([.05, .05, .6, .35, -1.0])
+    params.append([.01, .05, .6, .35, -1.0])
+    
+    """
     # User map/reduce function file:
 #    try:
 #        user_func_filename = os.path.abspath(__file__)

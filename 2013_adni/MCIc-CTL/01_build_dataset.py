@@ -46,12 +46,15 @@ OUTPUT_CS = os.path.join(BASE_PATH,          "MCIc-CTL_cs")
 OUTPUT_CSI = os.path.join(BASE_PATH,          "MCIc-CTL_csi")
 OUTPUT_ATLAS = os.path.join(BASE_PATH,       "MCIc-CTL_gtvenet")
 OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "MCIc-CTL_cs_gtvenet")
+OUTPUT_CSNC = os.path.join(BASE_PATH,          "MCIc-CTL_csnc") # No Covariate + rm isolated voxels
+
 
 os.makedirs(OUTPUT)
 os.makedirs(OUTPUT_CS)
 os.makedirs(OUTPUT_CSI)
 os.makedirs(OUTPUT_ATLAS)
 os.makedirs(OUTPUT_CS_ATLAS)
+os.makedirs(OUTPUT_CSNC)
 
 # Read input subjects
 input_subjects = pd.read_table(INPUT_SUBJECTS_LIST_FILENAME, sep=" ",
@@ -126,6 +129,7 @@ babel_mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
 assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CS, "mask.nii"))
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSNC, "mask.nii"))
 
 #############################################################################
 # X
@@ -149,6 +153,19 @@ n, p = X.shape
 np.save(os.path.join(OUTPUT_CS, "X.npy"), X)
 fh = open(os.path.join(OUTPUT_CS, "X.npy").replace("npy", "txt"), "w")
 fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' % \
+    (n, p, mask.sum()))
+fh.close()
+
+# Xcsnc
+X = Xtot[:, mask_bool.ravel()]
+#X = np.hstack([Z[:, 1:], X])
+assert X.shape == (202, 286117)
+X -= X.mean(axis=0)
+X /= X.std(axis=0)
+n, p = X.shape
+np.save(os.path.join(OUTPUT_CSNC, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_CSNC, "X.npy").replace("npy", "txt"), "w")
+fh.write('Centered and scaled data. Shape = (%i, %i): %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
 
@@ -194,9 +211,14 @@ fh.close()
 
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
+np.save(os.path.join(OUTPUT_CSNC, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CSI, "y.npy"), y)
 np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)
+
+#############################################################################
+# No covariate + remove isolated voxels
+
 
 #############################################################################
 # MULM

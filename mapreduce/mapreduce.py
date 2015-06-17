@@ -495,6 +495,10 @@ if __name__ == "__main__":
         # Do the reduce
         scores_tab = None  # Dict of all the results
         for k in groups:
+            output_collectors = groups[k][_OUTPUT_COLLECTOR]
+                # Results for this key
+            scores = user_func.reducer(key=k, values=output_collectors)
+            """ Do not catch exceptions
             try:
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
                 # Results for this key
@@ -509,6 +513,7 @@ if __name__ == "__main__":
                 print >> sys.stderr, "Reducer failed in {key}".format(key=k)
                 print >> sys.stderr, e.__class__.__name__, "exception:", e
                 sys.exit(os.EX_SOFTWARE)
+            """
             # Create df on first valid reducer (we cannot do it before
             # because we don't have the columns).
             # The keys are the keys of the GroupBy object.
