@@ -325,7 +325,7 @@ if __name__ == "__main__":
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   mask_filename=INPUT_MASK_PATH,
-                  penalty_start = 3,
+                  penalty_start = 0,
                   map_output="5cv",
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
