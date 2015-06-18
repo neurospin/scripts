@@ -46,7 +46,8 @@ OUTPUT_CS = os.path.join(BASE_PATH,          "MCIc-CTL_cs")
 OUTPUT_CSI = os.path.join(BASE_PATH,          "MCIc-CTL_csi")
 OUTPUT_ATLAS = os.path.join(BASE_PATH,       "MCIc-CTL_gtvenet")
 OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "MCIc-CTL_cs_gtvenet")
-OUTPUT_CSNC = os.path.join(BASE_PATH,          "MCIc-CTL_csnc") # No Covariate + rm isolated voxels
+OUTPUT_CSNC = os.path.join(BASE_PATH,          "MCIc-CTL_csnc") # No Covariate
+OUTPUT_CSNC_S = os.path.join(BASE_PATH,          "MCIc-CTL_csnc_s") # No Covariate + smooth
 
 
 os.makedirs(OUTPUT)
@@ -55,6 +56,7 @@ os.makedirs(OUTPUT_CSI)
 os.makedirs(OUTPUT_ATLAS)
 os.makedirs(OUTPUT_CS_ATLAS)
 os.makedirs(OUTPUT_CSNC)
+os.makedirs(OUTPUT_CSNC_S)
 
 # Read input subjects
 input_subjects = pd.read_table(INPUT_SUBJECTS_LIST_FILENAME, sep=" ",
@@ -130,6 +132,7 @@ assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CS, "mask.nii"))
 shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSNC, "mask.nii"))
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSNC_S, "mask.nii"))
 
 #############################################################################
 # X
@@ -209,9 +212,45 @@ fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i voxels' 
     (n, p, (mask_atlas.ravel() != 0).sum()))
 fh.close()
 
+###############################################################################
+## Spatial smoothing
+# smoothing FWHM = 6mm
+# Is DARTEL-based voxel-based morphometry affected by width of smoothing kernel and group size? A study using simulated atrophy.
+# A smoothing kernel of 6 mm achieved the highest atrophy detection accuracy for groups with 50 participants
+# J Ashburner presentation Age Prediction – Model Log Likelihoods
+# Full width at half maximum FWHM and sigma:
+#FWHM ~ 2.355 * sigma
+voxel_size = 1.5
+FWHM = 6. / voxel_size
+sigma = FWHM / 2.355
+
+import scipy.ndimage as ndimage
+# check
+ims = ndimage.gaussian_filter(images[0].reshape(shape), sigma=sigma).ravel()
+nibabel.Nifti1Image(images[0].reshape(shape), affine=babel_image.get_affine()).to_filename("/tmp/ima.nii.gz")
+nibabel.Nifti1Image(ims.reshape(shape), affine=babel_image.get_affine()).to_filename("/tmp/ima_s.nii.gz")
+
+images_s = [ndimage.gaussian_filter(im.reshape(shape), sigma=sigma).ravel() for im in images]
+
+Xtot = np.vstack(images_s)
+
+X = Xtot[:, mask_bool.ravel()]
+#X = np.hstack([Z[:, 1:], X])
+assert X.shape == (202, 286117)
+X -= X.mean(axis=0)
+X /= X.std(axis=0)
+n, p = X.shape
+np.save(os.path.join(OUTPUT_CSNC_S, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_CSNC_S, "X.npy").replace("npy", "txt"), "w")
+fh.write('Sptially smoothed (FWHM=6mm), centered and scaled data. Shape = (%i, %i): %i voxels' % \
+    (n, p, mask.sum()))
+fh.close()
+
+
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CSNC, "y.npy"), y)
+np.save(os.path.join(OUTPUT_CSNC_S, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CSI, "y.npy"), y)
 np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)
