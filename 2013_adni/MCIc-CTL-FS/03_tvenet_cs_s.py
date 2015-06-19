@@ -25,7 +25,10 @@ def load_globals(config):
     mesh_coord, mesh_triangles = mesh_utils.mesh_arrays(config["structure"]["mesh"])
     mask = np.load(config["structure"]["mask"])
     GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask = mesh_coord, mesh_triangles, mask
-    A = tv_helper.linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
+    try:
+        A = tv_helper.linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
+    except:
+        A = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
     GLOBAL.A = A
     GLOBAL.CONFIG = config
 
@@ -225,7 +228,7 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-CTL-FS_s",
+        "git", "scripts", "2013_adni", "MCIc-CTL-FS",
         "03_tvenet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
