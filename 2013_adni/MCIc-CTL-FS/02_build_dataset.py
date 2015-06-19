@@ -12,17 +12,23 @@ import pandas as pd
 import nibabel as nb
 import shutil
 
+SMOOTH = True
 #import proj_classif_config
 GENDER_MAP = {'Female': 0, 'Male': 1}
 
 BASE_PATH = "/neurospin/brainomics/2013_adni"
-INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data")
+if not SMOOTH:
+    INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data")
+    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS")
+else:
+    INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data_smoothed")
+    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS_s")
+
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
 
 
 INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL-FS", "population.csv")
 
-OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS")
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
@@ -51,8 +57,13 @@ for i, PTID in enumerate(pop['PTID']):
     cur = pop[pop.PTID == PTID]
     print cur
     #cur = pop.iloc[0]
-    left = nb.load(cur["mri_path_lh"].values[0]).get_data().ravel()
-    right = nb.load(cur["mri_path_rh"].values[0]).get_data().ravel()
+    mri_path_lh = cur["mri_path_lh"].values[0]
+    mri_path_rh = cur["mri_path_rh"].values[0]
+    if SMOOTH:
+        mri_path_lh = mri_path_lh.replace('freesurfer_assembled_data', 'freesurfer_assembled_data_smoothed').replace('lh.mgh', 'lh.sm6.mgh')
+        mri_path_rh = mri_path_rh.replace('freesurfer_assembled_data', 'freesurfer_assembled_data_smoothed').replace('rh.mgh', 'rh.sm6.mgh')
+    left = nb.load(mri_path_lh).get_data().ravel()
+    right = nb.load(mri_path_rh).get_data().ravel()
     surf = np.hstack([left, right])
     surfaces.append(surf)
     Z[i, :] = np.asarray(cur[["AGE", "PTGENDER.num"]]).ravel()
@@ -63,14 +74,20 @@ Xtot = np.vstack(surfaces)
 assert Xtot.shape == (201, 327684)
 
 mask = ((np.max(Xtot, axis=0) > 0) & (np.std(Xtot, axis=0) > 1e-2))
-assert mask.sum() == 317089
-
+if not SMOOTH:
+    assert mask.sum() == 317089
+else:
+    assert mask.sum() == 321201
 np.save(os.path.join(OUTPUT, "mask.npy"), mask)
 
 # Xcs
 X = Xtot[:, mask]
 X = np.hstack([Z, X])
-assert X.shape == (201, 317091)
+#assert X.shape == (201, 317091)
+if not SMOOTH:
+    assert X.shape == (201, 317089 + 2)
+else:
+    assert X.shape == (201, 321201 + 2)
 
 #############################################################################
 # Some basic stat before centering/scaling
@@ -87,13 +104,19 @@ print "Maxs:", maxs.min(), maxs.max(), maxs.mean(), (maxs == 0).sum()
 #In [95]: Mins: 0.0 3.02653193474 0.936884414047
 #In [96]: Maxs: 0.24277870357 5.0 3.94083362002 0
 
+# Smoothed
+#Means: 0.000738471496825 4.4246063956 2.17232778568
+#Std: 0.010000705246 1.16976456436 0.386480145866
+#Mins: 0.0 3.22148299217 1.24649752094
+#Maxs: 0.0534101724625 4.97702121735 3.30445936329 0
+
 
 arr = np.zeros(mask.shape); arr[mask] = means
-mesh_utils.save_texture(path=os.path.join(OUTPUT, "mean.gii"), data=arr, intent='NIFTI_INTENT_NONE')
+mesh_utils.save_texture(filename=os.path.join(OUTPUT, "mean.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
 arr = np.zeros(mask.shape); arr[mask] = stds
-mesh_utils.save_texture(path=os.path.join(OUTPUT, "std.gii"), data=arr, intent='NIFTI_INTENT_NONE')
+mesh_utils.save_texture(filename=os.path.join(OUTPUT, "std.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
 arr = np.zeros(mask.shape); arr[mask] = maxs
-mesh_utils.save_texture(path=os.path.join(OUTPUT, "max.gii"), data=arr, intent='NIFTI_INTENT_NONE')
+mesh_utils.save_texture(filename=os.path.join(OUTPUT, "max.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
 
 # anatomist mean.gii std.gii max.gii ../freesurfer_template/lrh.pial.gii
 #############################################################################

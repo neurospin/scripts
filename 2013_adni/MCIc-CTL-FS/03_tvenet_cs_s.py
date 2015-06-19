@@ -180,7 +180,7 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_s"
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -209,12 +209,12 @@ if __name__ == "__main__":
     #cv.insert(0, None)  # first fold is None
     # parameters grid
     # Re-run with
-    tv_range = np.array([0., 1e-3, 5e-3, 1e-2, 5e-2, .1, .2, .3, .333, .4, .5, .6, .7, .8, .9])
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-    alphas = [.01, .05, .1 , .5, 1.]
-    k_range = [-1]#[100, 1000, 10000, 100000, -1]
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    tv_range = np.array([0., 0.01, 0.05, 0.1, .2, .3, .4, .5 , .6, .7, .8, .9])
+    l1l2_ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
+                       [.1, .9, 1], [.01, .99, 1]])
+    alphas = [.01, .05, .1]
+    k_range = [-1]
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * l1l2_ratios for tv in tv_range]
     l1l2tv.append(np.array([[0., 0., 1.]]))
     l1l2tv = np.concatenate(l1l2tv)
     alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
@@ -225,7 +225,7 @@ if __name__ == "__main__":
 #        user_func_filename = os.path.abspath(__file__)
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2013_adni", "MCIc-CTL-FS",
+        "git", "scripts", "2013_adni", "MCIc-CTL-FS_s",
         "03_tvenet_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
@@ -240,7 +240,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   #reduce_input="5cv/*/*",
                   reduce_group_by='params',
-                  reduce_output="MCIc-CTL-FS.csv")
+                  reduce_output="MCIc-CTL-FS_s.csv")
     json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
 
     #############################################################################
@@ -283,7 +283,7 @@ def plot_perf():
     
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS/MCIc-CTL-FS.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_s/MCIc-CTL-FS_s.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
     y_col = 'auc'
@@ -335,7 +335,7 @@ def plot_perf():
 
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS/config_5cv.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_s/config_5cv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     from collections import OrderedDict

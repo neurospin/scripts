@@ -379,8 +379,10 @@ def build_summary():
     models["tv"]      = (0.010,	0.000, 0.000, 1.000)
     models["l1l2"]    = (0.010,	0.500, 0.500, 0.000)
     models["l1l2tv"]  = (0.010,	0.350, 0.350, 0.300)
+    models["l1sl2"]    = (0.010,	0.1, 0.9, 0.000)
+    models["l1sl2tv"]  = (0.010,	0.1 * (1-.3), 0.9*(1-.3), 0.300)
 
-    
+
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
     
@@ -409,10 +411,12 @@ def build_summary():
     summary.ix[summary.algo == "l1l2tv", cols_diff] = delta
     delta = summary.ix[summary.algo == "tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l2", cols_diff_in].as_matrix()
     summary.ix[summary.algo == "tv", cols_diff] = delta
+    delta = summary.ix[summary.algo == "l1sl2tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l1sl2", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "l1sl2tv", cols_diff] = delta
     xlsx = pd.ExcelWriter(config['reduce_output'].replace("csv" , "xlsx"))
     orig_cv.to_excel(xlsx, 'All')
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
-    
+
     
     

@@ -181,65 +181,6 @@ def reducer(key, values):
     return scores
 
 
-###############################################################################
-def plot_perf():
-    import os
-    import numpy as np
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
-    
-    # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
-    #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/MCIc-CTL_csi.csv"
-    y_col = 'recall_mean'
-    x_col = 'tv'
-    #y_col = 'auc'
-    a = 0.01
-    #color_map = {0.:'#D40000', 0.01: 'black', 0.1:'#F0a513',  0.5:'#2CA02C',  0.9:'#87AADE',  1.:'#214478'}
-    color_map = {0.:'#D40000', 0.01:'#F0a513',  0.1:'#2CA02C',  0.5:'#87AADE',  .9:'#214478', 1.: 'black'}
-    #                reds dark => brigth,      green         blues: brigth => dark
-    input_filename = INPUT
-    #input_filename = INPUTS[data_type]["filename"]
-    outut_filename = input_filename.replace(".csv", "_%s.pdf" % y_col)
-    #print outut_filename
-    # Filter data
-    data = pd.read_csv(input_filename)
-    #data.l1l2_ratio = data.l1l2_ratio.round(5)
-    # avoid poor rounding
-    data.l1l2_ratio = np.asarray(data.l1l2_ratio).round(3)
-    data.tv = np.asarray(data.tv).round(5)
-    data.a = np.asarray(data.a).round(5)
-    data = data[data.k == -1]
-    data = data[data.l1l2_ratio.isin([0, 0.01, 0.1, 0.5, 0.9, 1.])]
-    data = data[(data.tv >= 0.1) | (data.tv == 0)]
-    def close(vec, val, tol=1e-4):
-        return np.abs(vec - val) < tol
-    assert np.sum(data.l1l2_ratio == 0.01) == np.sum(close(data.l1l2_ratio, 0.01))
-    #data = data[data.a <= 1]
-    # for each a, l1l2_ratio, append the last point tv==1
-    last = list()
-    for a_ in np.unique(data.a):
-        full_tv = data[(data.a == a_) & (data.tv == 1)]
-        for l1l2_ratio in np.unique(data.l1l2_ratio):
-            new = full_tv.copy()
-            new.l1l2_ratio = l1l2_ratio
-            last.append(new)
-    #
-    last = pd.concat(last)
-    data = pd.concat([data, last])
-    data.drop_duplicates(inplace=True)
-    #
-    from brainomics.plot_utilities import plot_lines
-    figures = plot_lines(df=data,
-    x_col=x_col, y_col=y_col, colorby_col='l1l2_ratio',
-                       splitby_col='a', color_map=color_map)
-    pdf = PdfPages(outut_filename)
-    for fig in figures:
-        print fig, figures[fig]
-        pdf.savefig(figures[fig]); plt.clf()
-    pdf.close()
-
 ##############################################################################
 ## Run all
 def run_all(config):
@@ -360,6 +301,65 @@ if __name__ == "__main__":
     print "# Reduce"
     print "mapreduce.py --reduce %s/config.json" % WD
 
+###############################################################################
+def plot_perf():
+    import os
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    
+    # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
+    #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/MCIc-CTL_csi.csv"
+    y_col = 'recall_mean'
+    x_col = 'tv'
+    y_col = 'auc'
+    a = 0.01
+    #color_map = {0.:'#D40000', 0.01: 'black', 0.1:'#F0a513',  0.5:'#2CA02C',  0.9:'#87AADE',  1.:'#214478'}
+    color_map = {0.:'#D40000', 0.01:'#F0a513',  0.1:'#2CA02C',  0.5:'#87AADE',  .9:'#214478', 1.: 'black'}
+    #                reds dark => brigth,      green         blues: brigth => dark
+    input_filename = INPUT
+    #input_filename = INPUTS[data_type]["filename"]
+    outut_filename = input_filename.replace(".csv", "_%s.pdf" % y_col)
+    #print outut_filename
+    # Filter data
+    data = pd.read_csv(input_filename)
+    #data.l1l2_ratio = data.l1l2_ratio.round(5)
+    # avoid poor rounding
+    data.l1l2_ratio = np.asarray(data.l1l2_ratio).round(3)
+    data.tv = np.asarray(data.tv).round(5)
+    data.a = np.asarray(data.a).round(5)
+    data = data[data.k == -1]
+    data = data[data.l1l2_ratio.isin([0, 0.01, 0.1, 0.5, 0.9, 1.])]
+    data = data[(data.tv >= 0.1) | (data.tv == 0)]
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+    assert np.sum(data.l1l2_ratio == 0.01) == np.sum(close(data.l1l2_ratio, 0.01))
+    #data = data[data.a <= 1]
+    # for each a, l1l2_ratio, append the last point tv==1
+    last = list()
+    for a_ in np.unique(data.a):
+        full_tv = data[(data.a == a_) & (data.tv == 1)]
+        for l1l2_ratio in np.unique(data.l1l2_ratio):
+            new = full_tv.copy()
+            new.l1l2_ratio = l1l2_ratio
+            last.append(new)
+    #
+    last = pd.concat(last)
+    data = pd.concat([data, last])
+    data.drop_duplicates(inplace=True)
+    #
+    from brainomics.plot_utilities import plot_lines
+    figures = plot_lines(df=data,
+    x_col=x_col, y_col=y_col, colorby_col='l1l2_ratio',
+                       splitby_col='a', color_map=color_map)
+    pdf = PdfPages(outut_filename)
+    for fig in figures:
+        print fig, figures[fig]
+        pdf.savefig(figures[fig]); plt.clf()
+    pdf.close()
+
 def build_summary():
     import pandas as pd
     config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/config.json"
@@ -374,6 +374,8 @@ def build_summary():
     models["tv"]      = (0.010,	0.000, 0.000, 1.000)
     models["l1l2"]    = (0.010,	0.500, 0.500, 0.000)
     models["l1l2tv"]  = (0.010,	0.350, 0.350, 0.300)
+    models["l1sl2"]    = (0.010,	0.1, 0.9, 0.000)
+    models["l1sl2tv"]  = (0.010,	0.1 * (1-.3), 0.9*(1-.3), 0.300)
 
     
     def close(vec, val, tol=1e-4):
@@ -384,7 +386,7 @@ def build_summary():
               'auc', "beta_r_bar", 'beta_fleiss_kappa']]
     summary = list()
     for k in models:
-        #k = "l2"
+        #k = "l2" k="l1sl2"
         a, l1, l2, tv = models[k]
         l = cv[(cv.k == -1) & close(cv.a, a) & close(cv.l1, l1) & close(cv.l2, l2) & close(cv.tv, tv)]
         assert l.shape[0] == 1
@@ -404,10 +406,11 @@ def build_summary():
     summary.ix[summary.algo == "l1l2tv", cols_diff] = delta
     delta = summary.ix[summary.algo == "tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l2", cols_diff_in].as_matrix()
     summary.ix[summary.algo == "tv", cols_diff] = delta
+    delta = summary.ix[summary.algo == "l1sl2tv", cols_diff_in].as_matrix() - summary.ix[summary.algo == "l1sl2", cols_diff_in].as_matrix()
+    summary.ix[summary.algo == "l1sl2tv", cols_diff] = delta
     xlsx = pd.ExcelWriter(config['reduce_output'].replace("csv" , "xlsx"))
     orig_cv.to_excel(xlsx, 'All')
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
-    
-    
+
     
