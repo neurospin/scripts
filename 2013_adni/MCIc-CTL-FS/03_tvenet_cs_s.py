@@ -229,7 +229,7 @@ if __name__ == "__main__":
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL-FS",
-        "03_tvenet_cs.py")
+        "03_tvenet_cs_s.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
