@@ -7,34 +7,51 @@ Created on Thu Apr 30 11:58:49 2015
 This script explores a large range of SNR vales. The goal is to find when PCA
 starts to have difficulties.
 """
+import os
+import pickle
+
 import numpy as np
-
 import scipy
-
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import scale
 from sklearn.decomposition import PCA
-from sklearn.cross_validation import KFold
 
 from parsimony import datasets
 from parsimony.utils import plot_map2d
 
-import utils
+from brainomics import array_utils
+
+import dice5_data
+import metrics
+import dice5_metrics
+
+################
+# Input/Output #
+################
+
+OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
+
+OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "{snr}")
+OUTPUT_DATASET_FILE = "data.npy"
+OUTPUT_STD_DATASET_FILE = "data.std.npy"
+OUTPUT_PCA_FILE = "model.pkl"
+OUTPUT_PRED_FILE = "X_pred.npy"
 
 ##############
 # Parameters #
 ##############
 
-# RNG seed to get reproducible results
-np.random.seed(seed=13031981)
-
-N_COMP = 4
+N_COMP = 3
 N_SAMPLES = 500
-SHAPE = (50, 50, 1)
-N_FOLDS = 10
+N_TRAIN = 300
+
+L2_THRESHOLD = 0.99
 
 SNR = np.linspace(0.01, 0.5, 50)
+# Chosen values (obtained after inspection of results)
+# Close to 0.05, 0.1 and 0.2
+SNR_TO_DISPLAY = [SNR[4], SNR[9], SNR[19]]
 
 #############
 # Functions #
@@ -53,36 +70,94 @@ def frobenius_dst_score(X_test, X_pred, **kwargs):
 # Script #
 ##########
 
-frobenius_dst_fold = np.zeros((len(SNR), len(range(N_FOLDS))))
-evr_fold = np.zeros((len(SNR), len(range(N_FOLDS))))
+if not os.path.exists(OUTPUT_BASE_DIR):
+    os.makedirs(OUTPUT_BASE_DIR)
+
+train_range = range(N_TRAIN)
+test_range = range(N_TRAIN, N_SAMPLES)
+
+frobenius_dst = np.zeros((len(SNR),))
+evr = np.zeros((len(SNR),))
+dice = np.zeros((len(SNR), len(range(N_COMP))))
+correlation = np.zeros((len(SNR), len(range(N_COMP))))
 for i, snr in enumerate(SNR):
+    output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Create dataset for this SNR value
     print snr
-    model = utils.create_model(snr)
+    model = dice5_data.create_model(snr)
 
     X3d, y, beta3d = datasets.regression.dice5.load(
-        n_samples=N_SAMPLES, shape=SHAPE,
+        n_samples=N_SAMPLES, shape=dice5_data.SHAPE,
         sigma_spatial_smoothing=1,
-        model=model)
+        model=model,
+        random_seed=dice5_data.SEED)
+    objects = datasets.regression.dice5.dice_five_with_union_of_pairs(
+        dice5_data.SHAPE)
+    _, _, d3, _, _, union12, union45, _ = objects
+    sub_objects = [union12, union45, d3]
 
-    X = X3d.reshape((N_SAMPLES, np.prod(SHAPE)))
+    X = X3d.reshape((N_SAMPLES, np.prod(dice5_data.SHAPE)))
+    full_filename = os.path.join(output_dir,
+                                 OUTPUT_DATASET_FILE)
+    np.save(full_filename, X)
 
     # Preprocessing
     X = scale(X, axis=0, with_mean=True, with_std=False)
+    full_filename = os.path.join(output_dir,
+                                 OUTPUT_STD_DATASET_FILE)
+    np.save(full_filename, X)
 
-    # Compute score by CV
+    # Fit model & compute score
     pca = PCA(n_components=N_COMP)
-    cv = KFold(N_SAMPLES, n_folds=N_FOLDS)
-    for j, (train_mask, test_mask) in enumerate(cv):
-        X_train = X[train_mask]
-        X_test = X[test_mask]
-        pca.fit(X_train)
-        X_pred = predict_with_pca(pca, X_test)
-        frobenius_dst_fold[i, j] = frobenius_dst_score(X_test, X_pred)
-        evr_fold[i, j] = pca.explained_variance_ratio_.sum()
+    X_train = X[train_range, :]
+    X_test = X[test_range, :]
+    pca.fit(X_train)
+    full_filename = os.path.join(output_dir,
+                                 OUTPUT_PCA_FILE)
+    with open(full_filename, "w") as f:
+        pickle.dump(pca, f)
+    X_pred = predict_with_pca(pca, X_test)
+    full_filename = os.path.join(output_dir,
+                                 OUTPUT_PRED_FILE)
+    np.save(full_filename, X_pred)
+    frobenius_dst[i] = frobenius_dst_score(X_test, X_pred)
+    evr[i] = pca.explained_variance_ratio_.sum()
+    for j, obj in zip(range(N_COMP), sub_objects):
+        _, t = array_utils.arr_threshold_from_norm2_ratio(
+            pca.components_[j, :],
+            L2_THRESHOLD)
+        thresh_comp = pca.components_[j, :] > t
+        dice[i, j] = dice5_metrics.dice(thresh_comp.reshape(dice5_data.SHAPE),
+                                        obj.get_mask())
+        correlation[i, j] = \
+            np.abs(np.corrcoef(pca.components_[j, :],
+                               obj.get_mask().ravel())[1, 0])
 
-frobenius_dst_cv = frobenius_dst_fold.mean(axis=1)
-evr_cv = evr_fold.mean(axis=1)
-plt.plot(SNR, frobenius_dst_cv)
-#plt.plot(SNR, evr_cv)
+plt.figure()
+plt.plot(SNR, frobenius_dst)
+plt.legend(['Frobenius distance'])
+
+for j in range(N_COMP):
+    plt.figure()
+    legend = 'Correlation between loading #{j} and object #{j}'.format(j=j+1)
+    plt.plot(SNR, correlation[:, j])
+    plt.legend([legend])
+
+# Reload some weight maps
+for snr in SNR_TO_DISPLAY:
+    output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
+    full_filename = os.path.join(output_dir,
+                                 OUTPUT_PCA_FILE)
+    with open(full_filename) as f:
+        pca = pickle.load(f)
+
+    for j in range(N_COMP):
+        legend = 'Loading #{j} for model {snr}'.format(j=j+1,
+                                                       snr=snr)
+        plot_map2d(pca.components_[j, ].reshape(dice5_data.SHAPE),
+                   title=legend)
+
 plt.show()
