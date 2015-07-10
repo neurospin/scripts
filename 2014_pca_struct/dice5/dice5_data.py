@@ -4,7 +4,7 @@ Created on Fri Jul 10 16:02:42 2015
 
 @author: mathieu
 
-Utility functions and variables for dice5.
+Utility to generate the data.
 
 """
 
