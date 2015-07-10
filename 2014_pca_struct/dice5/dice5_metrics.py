@@ -13,7 +13,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from  parsimony import datasets
 from parsimony.datasets.utils import Dot, ObjImage
 
-def dice_five_geometric_metrics(mask, result):
+def geometric_metrics(mask, result):
     """
     Compute the recall, precision and f-score of the support recovery.
 
@@ -50,3 +50,21 @@ def dice_five_geometric_metrics(mask, result):
                                         average='micro')
 
     return (precision, recall, fscore)
+
+
+def dice(binarized_component, mask):
+    """
+    Compute the dice coefficient between a binary component and the mask.
+    """
+    assert(binarized_component.dtype == bool)
+    assert(mask.dtype == bool)
+    n_component = np.count_nonzero(binarized_component)
+    n_mask = np.count_nonzero(mask)
+    intersection = binarized_component * mask
+    n_intersection = np.count_nonzero(intersection)
+    denom = float(n_component + n_mask)
+    num = float(2 * n_intersection)
+    if denom == 0:
+        return 0.0
+    else:
+        return num/denom
