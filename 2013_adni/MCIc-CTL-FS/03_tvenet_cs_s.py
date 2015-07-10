@@ -289,7 +289,7 @@ def plot_perf():
     INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_s/MCIc-CTL-FS_s.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
-    y_col = 'auc'
+    #y_col = 'auc'
     a = 0.01
     #color_map = {0.:'#D40000', 0.01: 'black', 0.1:'#F0a513',  0.5:'#2CA02C',  0.9:'#87AADE',  1.:'#214478'}
     color_map = {0.:'#D40000', 0.01:'#F0a513',  0.1:'#2CA02C',  0.5:'#87AADE',  .9:'#214478', 1.: 'black'}
