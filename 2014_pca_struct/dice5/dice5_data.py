@@ -10,6 +10,10 @@ Utility to generate the data.
 
 import numpy as np
 
+SEED = 42
+
+SHAPE = (100, 100, 1)
+
 # Object model (modulated by SNR): STDEV[0] is for l12, STDEV[1] is for l3,
 # STDEV[2] is for l45
 STDEV = np.asarray([1, 0.5, 0.8])
