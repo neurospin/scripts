@@ -27,4 +27,3 @@ def create_model(snr):
         # Five dots contribute equally
         b1=1., b2=1., b3=1., b4=1., b5=1.)
     return model
-
