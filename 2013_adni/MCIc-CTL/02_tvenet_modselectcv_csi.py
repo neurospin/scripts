@@ -4,7 +4,7 @@ Created on Fri May 30 20:03:12 2014
 
 @author: edouard.duchesnay@cea.fr
 
-cd /neurospin/brainomics/2013_adni/MCIc-CTL_csi
+cd /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv
 mapreduce.py
 """
 
@@ -183,33 +183,12 @@ def reducer(key, values):
     scores['key'] = key
     return scores
 
-
-##############################################################################
-## Run all
-def run_all(config):
-    import mapreduce
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi"
-    key = '0.01_0.01_0.98_0.01_10000'
-    #class GLOBAL: DATA = dict()
-    load_globals(config)
-    OUTPUT = os.path.join(os.path.dirname(WD), 'logistictvenet_all', key)
-    # run /home/ed203246/bin/mapreduce.py
-    oc = mapreduce.OutputCollector(OUTPUT)
-    #if not os.path.exists(OUTPUT): os.makedirs(OUTPUT)
-    X = np.load(os.path.join(WD,  'X.npy'))
-    y = np.load(os.path.join(WD,  'y.npy'))
-    mapreduce.DATA["X"] = [X, X]
-    mapreduce.DATA["y"] = [y, y]
-    params = np.array([float(p) for p in key.split("_")])
-    mapper(params, oc)
-    #oc.collect(key=key, value=ret)
-
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii")
-    NFOLDS = 5
+    NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -219,49 +198,50 @@ if __name__ == "__main__":
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
-    if os.path.exists("config_5cv.json"):
-        inf = open("config_5cv.json", "r")
-        old_conf = json.load(inf)
+    X = np.load(INPUT_DATA_X)
+    if os.path.exists("config_modselectcv.json"):
+        old_conf = json.load(open("config_modselectcv.json"))
         cv = old_conf["resample"]
-        inf.close()
     else:
-        cv = [[tr.tolist(), te.tolist()] for tr,te in StratifiedKFold(y.ravel(), n_folds=5)]
+        outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+        """
+        outer = [[np.array(tr), np.array(te)] for tr,te in json.load(open("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/config.json", "r"))["resample"][1:]]
+        """
+        cv = list()
+        for tr_val, te in outer:
+            print len(y[tr_val]), np.sum(y[tr_val]==0)/float(len(y[tr_val])), np.sum(y[tr_val]==1)/float(len(y[tr_val]))
+            cv += [[tr_val[tr_i], tr_val[te_i], te] for tr_i, te_i in StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)]
+        # Some QC
+        N = float(len(y)); p0 = np.sum(y==0) / N; p1 = np.sum(y==1) / N;
+        for tr, val, te in cv:
+            assert not set(tr).intersection(val)
+            assert not set(val).intersection(te)
+            assert not set(tr).intersection(te)
+            assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER) * (1 - 1./NFOLDS_INNER)) < 0.01
+            assert abs(np.sum(y[tr]==0)/float(len(y[tr])) - p0) < 0.01
+            assert abs(np.sum(y[tr]==1)/float(len(y[tr])) - p1) < 0.01
+        cv = [[tr.tolist(), val.tolist(), te.tolist()] for tr, val, te in cv]
     if cv[0] is not None: # Make sure first fold is None
         cv.insert(0, None)
     # parameters grid
-    # Re-run with
-    #tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001]])
-    tv_range = np.array([0., 0.01, 0.05, 0.1, .2, .3, .4, .5 , .6, .7, .8, .9])
-    l1l2_ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],
-                       [.1, .9, 1], [.01, .99, 1]])
-    alphas = [.01, .05, .1]
-    k_range = [-1]
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * l1l2_ratios for tv in tv_range]
-    l1l2tv.append(np.array([[0., 0., 1.]]))
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-    alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
-    params = [params.tolist() for params in alphal1l2tvk]
-    params.append([1.0, 0.0, 1.0, 0.0, -1.0])
-    params.append([10.0, 0.0, 1.0, 0.0, -1.0])
-    params.append([100.0, 0.0, 1.0, 0.0, -1.0])
-    params.append([1000.0, 0.0, 1.0, 0.0, -1.0])
-    """
-    inf = open("config.json", "w")
-    old_conf = json.load(inf)
-    params = old_conf["params"]
-    params.append([.1, .05, .6, .35, -1.0])
-    params.append([.05, .05, .6, .35, -1.0])
-    params.append([.01, .05, .6, .35, -1.0])
-    
-    """
-    # User map/reduce function file:
-#    try:
-#        user_func_filename = os.path.abspath(__file__)
-#    except:
+    l2_params = [[alpha]+[0, 1, 0, -1] for alpha in 10. ** np.arange(-2, 5)]
+    tvratio = 0.2
+    left = 1 - tvratio
+    l2tv_params = [[alpha]+[0, left, tvratio, -1] for alpha in 10. ** np.arange(-3, 5)]
+    # compute penalties using heuristic
+    from parsimony.utils.penalties import l1_max_logistic_loss
+    assert l1_max_logistic_loss(X[:, 3:], y) == 0.20434911093262279
+    l1l2ratio = 0.1
+    l2 = 1 / (l1l2ratio + 1)
+    l1 = l2 * l1l2ratio
+    assert l1 + l2 == 1
+    assert l1 / l2 == l1l2ratio
+    l1l2_params = [[alpha]+[0.1, l2, 0, -1] for alpha in 10. ** np.arange(-3, 1)]
+    l1l2tv_params = [[alpha]+[left * l1, left * l2, tvratio, -1] for alpha in 10. ** np.arange(-3, 1)]
+    params = l2_params + l2tv_params + l1l2_params + l1l2tv_params
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL",
-        "02_tvenet_csnc.py")
+        "02_tvenet_modselectcv_csi.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -270,20 +250,20 @@ if __name__ == "__main__":
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   mask_filename=INPUT_MASK_PATH,
-                  penalty_start = 0,
-                  map_output="5cv",
+                  penalty_start = 3,
+                  map_output="modselectcv",
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
                   reduce_group_by="params",
-                  reduce_output="MCIc-CTL_csnc.csv")
-    json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
+                  reduce_output="MCIc-CTL_csi_modselectcv.csv")
+    json.dump(config, open(os.path.join(WD, "config_modselectcv.json"), "w"))
 
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config_5cv.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
@@ -292,7 +272,7 @@ if __name__ == "__main__":
     #############################################################################
     print "# Start by running Locally with 2 cores, to check that everything os OK)"
     print "Interrupt after a while CTL-C"
-    print "mapreduce.py --map %s/config_5cv.json --ncore 2" % WD
+    print "mapreduce.py --map %s/config_modselectcv.json --ncore 2" % WD
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
     print "# 1) Log on gabriel:"
     print 'ssh -t gabriel.intra.cea.fr'
@@ -307,7 +287,7 @@ if __name__ == "__main__":
     print sync_pull_filename
     #############################################################################
     print "# Reduce"
-    print "mapreduce.py --reduce %s/config.json" % WD
+    print "mapreduce.py --reduce %s/config_modselectcv.json" % WD
 
 ###############################################################################
 def plot_perf():
@@ -319,7 +299,7 @@ def plot_perf():
     
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc/MCIc-CTL_csnc.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/MCIc-CTL_csi_modselectcv.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
     y_col = 'auc'
@@ -368,10 +348,9 @@ def plot_perf():
         pdf.savefig(figures[fig]); plt.clf()
     pdf.close()
 
-
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc/config_5cv.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     from collections import OrderedDict
@@ -386,7 +365,7 @@ def build_summary():
     models["l1sl2"]    = (0.010,	0.1, 0.9, 0.000)
     models["l1sl2tv"]  = (0.010,	0.1 * (1-.3), 0.9*(1-.3), 0.300)
 
-
+    
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
     
@@ -395,7 +374,7 @@ def build_summary():
               'auc', "beta_r_bar", 'beta_fleiss_kappa']]
     summary = list()
     for k in models:
-        #k = "l2"
+        #k = "l2" k="l1sl2"
         a, l1, l2, tv = models[k]
         l = cv[(cv.k == -1) & close(cv.a, a) & close(cv.l1, l1) & close(cv.l2, l2) & close(cv.tv, tv)]
         assert l.shape[0] == 1
@@ -421,3 +400,5 @@ def build_summary():
     orig_cv.to_excel(xlsx, 'All')
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
+
+    
