@@ -36,7 +36,6 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "data_{s[0]}_{s[1]}_{snr}")
 OUTPUT_DATASET_FILE = "data.npy"
 OUTPUT_STD_DATASET_FILE = "data.std.npy"
 OUTPUT_BETA_FILE = "beta3d.std.npy"
-OUTPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 OUTPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_MASK_FILE = "mask.npy"
 OUTPUT_L1MASK_FILE = "l1_max.txt"
@@ -45,9 +44,6 @@ OUTPUT_L1MASK_FILE = "l1_max.txt"
 # Parameters #
 ##############
 
-N_SAMPLES = 100
-N_SUBSETS = 2
-
 # All SNR values
 SNRS = [0.05, 0.75, 1.0]
 
@@ -55,18 +51,14 @@ SNRS = [0.05, 0.75, 1.0]
 # Functions #
 #############
 
-
 ########
 # Code #
 ########
 
-# Number of samples to generate
-n = N_SUBSETS * N_SAMPLES
-
 # Generate data for various alpha parameter
 for snr in SNRS:
     model = dice5_data.create_model(snr)
-    X3d, y, beta3d = dice5.load(n_samples=n,
+    X3d, y, beta3d = dice5.load(n_samples=dice5_data.N_SAMPLES,
                                 shape=dice5_data.SHAPE,
                                 model=model,
                                 random_seed=dice5_data.SEED)
@@ -76,7 +68,7 @@ for snr in SNRS:
                                           snr=snr)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    X = X3d.reshape(n, np.prod(dice5_data.SHAPE))
+    X = X3d.reshape(dice5_data.N_SAMPLES, np.prod(dice5_data.SHAPE))
     full_filename = os.path.join(output_dir, OUTPUT_DATASET_FILE)
     np.save(full_filename, X)
     scaler = StandardScaler(with_mean=True, with_std=False)
@@ -86,13 +78,6 @@ for snr in SNRS:
     # Save beta
     full_filename = os.path.join(output_dir, OUTPUT_BETA_FILE)
     np.save(full_filename, beta3d)
-
-    # Split in train/test
-    for i in range(N_SUBSETS):
-        indices = np.arange(i*N_SAMPLES, (i+1)*N_SAMPLES)
-        filename = OUTPUT_INDEX_FILE_FORMAT.format(subset=i)
-        full_filename = os.path.join(output_dir, filename)
-        np.save(full_filename, indices)
 
     # Generate mask with the last objects since they have the same geometry
     # We only use union12, d3, union45
