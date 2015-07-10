@@ -20,7 +20,7 @@ from sklearn.cross_validation import KFold
 from parsimony import datasets
 from parsimony.utils import plot_map2d
 
-import timeit
+import utils
 
 ##############
 # Parameters #
@@ -58,13 +58,7 @@ evr_fold = np.zeros((len(SNR), len(range(N_FOLDS))))
 for i, snr in enumerate(SNR):
     # Create dataset for this SNR value
     print snr
-    model = dict(
-        # All points has an independant latent
-        l1=0., l2=0., l3=1. * snr, l4=0., l5=0.,
-        # No shared variance
-        l12=1.1 * snr, l45=1. * snr, l12345=0.,
-        # Five dots contribute equally
-        b1=1., b2=1., b3=1., b4=1., b5=1.)
+    model = utils.create_model(snr)
 
     X3d, y, beta3d = datasets.regression.dice5.load(
         n_samples=N_SAMPLES, shape=SHAPE,

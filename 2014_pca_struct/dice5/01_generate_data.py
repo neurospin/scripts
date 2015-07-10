@@ -24,6 +24,8 @@ from parsimony.datasets.regression import dice5
 
 import pca_tv
 
+import utils
+
 ################
 # Input/Output #
 ################
@@ -47,10 +49,6 @@ SHAPE = (100, 100, 1)
 N_SAMPLES = 100
 N_SUBSETS = 2
 
-# Object model (modulated by SNR): STDEV[0] is for l12, STDEV[1] is for l3,
-# STDEV[2] is for l45
-STDEV = np.asarray([1, 0.5, 0.8])
-
 # All SNR values
 SNRS = np.append(np.linspace(0.1, 1, num=10), 0.25)
 
@@ -58,16 +56,6 @@ SNRS = np.append(np.linspace(0.1, 1, num=10), 0.25)
 # Functions #
 #############
 
-
-def create_model(snr):
-    model = dict(
-        # All points has an independant latent
-        l1=0., l2=0., l3=STDEV[1] * snr, l4=0., l5=0.,
-        # No shared variance
-        l12=STDEV[0] * snr, l45=STDEV[2] * snr, l12345=0.,
-        # Five dots contribute equally
-        b1=1., b2=1., b3=1., b4=1., b5=1.)
-    return model
 
 ########
 # Code #
@@ -78,7 +66,7 @@ n = N_SUBSETS * N_SAMPLES
 
 # Generate data for various alpha parameter
 for snr in SNRS:
-    model = create_model(snr)
+    model = utils.create_model(snr)
     X3d, y, beta3d = dice5.load(n_samples=n,
                                 shape=SHAPE,
                                 model=model,
