@@ -43,7 +43,6 @@ OUTPUT_PRED_FILE = "X_pred.npy"
 ##############
 
 N_COMP = 3
-N_SAMPLES = 500
 N_TRAIN = 300
 
 L2_THRESHOLD = 0.99
@@ -74,7 +73,7 @@ if not os.path.exists(OUTPUT_BASE_DIR):
     os.makedirs(OUTPUT_BASE_DIR)
 
 train_range = range(N_TRAIN)
-test_range = range(N_TRAIN, N_SAMPLES)
+test_range = range(N_TRAIN, dice5_data.N_SAMPLES)
 
 frobenius_dst = np.zeros((len(SNR),))
 evr = np.zeros((len(SNR),))
@@ -90,8 +89,7 @@ for i, snr in enumerate(SNR):
     model = dice5_data.create_model(snr)
 
     X3d, y, beta3d = datasets.regression.dice5.load(
-        n_samples=N_SAMPLES, shape=dice5_data.SHAPE,
-        sigma_spatial_smoothing=1,
+        n_samples=dice5_data.N_SAMPLES, shape=dice5_data.SHAPE,
         model=model,
         random_seed=dice5_data.SEED)
     objects = datasets.regression.dice5.dice_five_with_union_of_pairs(
@@ -99,7 +97,7 @@ for i, snr in enumerate(SNR):
     _, _, d3, _, _, union12, union45, _ = objects
     sub_objects = [union12, union45, d3]
 
-    X = X3d.reshape((N_SAMPLES, np.prod(dice5_data.SHAPE)))
+    X = X3d.reshape((dice5_data.N_SAMPLES, np.prod(dice5_data.SHAPE)))
     full_filename = os.path.join(output_dir,
                                  OUTPUT_DATASET_FILE)
     np.save(full_filename, X)
