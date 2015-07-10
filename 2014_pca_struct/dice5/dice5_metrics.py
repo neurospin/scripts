@@ -44,8 +44,9 @@ def dice_five_geometric_metrics(mask, result):
     lin_mask = mask.ravel()
     lin_result = bin_result.ravel()
     # Precision and recall rates
-    precision, recall, fscore, _ = precision_recall_fscore_support(lin_mask, lin_result,
-                                                                   pos_label=1,
-                                                                   average='micro')
+    precision, recall, fscore, _ = \
+        precision_recall_fscore_support(lin_mask, lin_result,
+                                        pos_label=1,
+                                        average='micro')
 
     return (precision, recall, fscore)
