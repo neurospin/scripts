@@ -24,7 +24,7 @@ from parsimony.datasets.regression import dice5
 
 import pca_tv
 
-import utils
+import dice5_data
 
 ################
 # Input/Output #
@@ -45,12 +45,11 @@ OUTPUT_L1MASK_FILE = "l1_max.txt"
 # Parameters #
 ##############
 
-SHAPE = (100, 100, 1)
 N_SAMPLES = 100
 N_SUBSETS = 2
 
 # All SNR values
-SNRS = np.append(np.linspace(0.1, 1, num=10), 0.25)
+SNRS = [0.05, 0.75, 1.0]
 
 #############
 # Functions #
@@ -66,18 +65,18 @@ n = N_SUBSETS * N_SAMPLES
 
 # Generate data for various alpha parameter
 for snr in SNRS:
-    model = utils.create_model(snr)
+    model = dice5_data.create_model(snr)
     X3d, y, beta3d = dice5.load(n_samples=n,
-                                shape=SHAPE,
+                                shape=dice5_data.SHAPE,
                                 model=model,
-                                random_seed=1)
-    objects = dice5.dice_five_with_union_of_pairs(SHAPE)
+                                random_seed=dice5_data.SEED)
+    objects = dice5.dice_five_with_union_of_pairs(dice5_data.SHAPE)
     # Save data and scaled data
-    output_dir = OUTPUT_DIR_FORMAT.format(s=SHAPE,
+    output_dir = OUTPUT_DIR_FORMAT.format(s=dice5_data.SHAPE,
                                           snr=snr)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    X = X3d.reshape(n, np.prod(SHAPE))
+    X = X3d.reshape(n, np.prod(dice5_data.SHAPE))
     full_filename = os.path.join(output_dir, OUTPUT_DATASET_FILE)
     np.save(full_filename, X)
     scaler = StandardScaler(with_mean=True, with_std=False)
@@ -99,7 +98,7 @@ for snr in SNRS:
     # We only use union12, d3, union45
     _, _, d3, _, _, union12, union45, _ = objects
     sub_objects = [union12, union45, d3]
-    full_mask = np.zeros(SHAPE, dtype=bool)
+    full_mask = np.zeros(dice5_data.SHAPE, dtype=bool)
     for i, o in enumerate(sub_objects):
         mask = o.get_mask()
         full_mask += mask
