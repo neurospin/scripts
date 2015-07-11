@@ -128,7 +128,7 @@ def reducer(key, values):
         print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
         print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
                            rtol=0, atol=1e-02)
-    
+
         # Compute fleiss kappa statistics
         beta_signed = np.sign(betas_t)
         table = np.zeros((beta_signed.shape[1], 3))
@@ -136,7 +136,7 @@ def reducer(key, values):
         table[:, 1] = np.sum(beta_signed == 1, 0)
         table[:, 2] = np.sum(beta_signed == -1, 0)
         fleiss_kappa_stat = fleiss_kappa(table)
-    
+
         # Paire-wise Dice coeficient
         beta_n0 = betas_t != 0
         ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
@@ -146,7 +146,7 @@ def reducer(key, values):
              for idx in ij])
     except:
         dice_bar = fleiss_kappa_stat = 0.
-    
+
     a, l1, l2 , tv , k = key#[float(par) for par in key.split("_")]
     scores = OrderedDict()
     scores['a'] = a
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     params.append([.1, .05, .6, .35, -1.0])
     params.append([.05, .05, .6, .35, -1.0])
     params.append([.01, .05, .6, .35, -1.0])
-    
+
     """
     # User map/reduce function file:
 #    try:
@@ -308,7 +308,7 @@ def plot_perf():
     import pandas as pd
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    
+
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
     INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/MCIc-CTL_csi.csv"
@@ -339,7 +339,8 @@ def plot_perf():
     #data = data[data.a <= 1]
     # for each a, l1l2_ratio, append the last point tv==1
     last = list()
-    for a_ in np.unique(data.a):
+    for a_ in np.sort(np.unique(data.a)):
+        print a_
         full_tv = data[(data.a == a_) & (data.tv == 1)]
         for l1l2_ratio in np.unique(data.l1l2_ratio):
             new = full_tv.copy()
@@ -355,9 +356,10 @@ def plot_perf():
     x_col=x_col, y_col=y_col, colorby_col='l1l2_ratio',
                        splitby_col='a', color_map=color_map)
     pdf = PdfPages(outut_filename)
-    for fig in figures:
-        print fig, figures[fig]
-        pdf.savefig(figures[fig]); plt.clf()
+    for fig in np.sort(figures.keys()):
+        #print fig, figures[fig]
+        pdf.savefig(figures[fig])#; plt.clf()
+    plt.clf()
     pdf.close()
 
 def build_summary():
@@ -377,12 +379,12 @@ def build_summary():
     models["l1sl2"]    = (0.010,	0.1, 0.9, 0.000)
     models["l1sl2tv"]  = (0.010,	0.1 * (1-.3), 0.9*(1-.3), 0.300)
 
-    
+
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
-    
+
     orig_cv = pd.read_csv(config['reduce_output'])
-    cv = orig_cv[["k", "a", "l1", "l2", "tv", 'recall_0', u'recall_1', u'recall_mean', 
+    cv = orig_cv[["k", "a", "l1", "l2", "tv", 'recall_0', u'recall_1', u'recall_mean',
               'auc', "beta_r_bar", 'beta_fleiss_kappa']]
     summary = list()
     for k in models:
@@ -413,4 +415,3 @@ def build_summary():
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
 
-    
