@@ -21,9 +21,9 @@ def load_globals(config):
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
 
 
-def resample(config, resample_nb):
+def resample(config, resample_key):
     import mapreduce as GLOBAL  # access to global variables
-    resample = config["resample"][resample_nb]
+    resample = config["resample"][resample_key]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}
 
@@ -52,7 +52,6 @@ def reducer(key, values):
 
 if __name__ == "__main__":
     WD = tempfile.mkdtemp()
-
     ###########################################################################
     ## Create dataset
     np.random.seed(13031981)
@@ -112,8 +111,5 @@ if __name__ == "__main__":
         res.append([str(tuple(key)), r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
-    # Check same keys
-    assert np.all(true.params == mr.params)
     m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
-    # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

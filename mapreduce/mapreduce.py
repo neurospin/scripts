@@ -20,13 +20,13 @@ from collections import OrderedDict
 # Constants #
 #############
 
-_RESAMPLE_INDEX = 'resample_index'
+_RESAMPLE_KEY = 'resample_key'
 _PARAMS = 'params'
-_PARAMS_STR = 'params_str'
-_OUTPUT = 'output dir'
+_PARAMS_KEY = 'params_key'
+_OUTPUT = 'output_dir'
 _OUTPUT_COLLECTOR = 'output collector'
 
-GROUP_BY_VALUES = [_RESAMPLE_INDEX, _PARAMS]
+GROUP_BY_VALUES = [_RESAMPLE_KEY, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
 # Default values for resample and params
@@ -143,9 +143,9 @@ def load_data(key_filename):
 def _build_job_table(config):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 3 columns whose name is given by global variables:
-      - _RESAMPLE_INDEX: the index of the resampling
+      - _RESAMPLE_KEY: the index of the resampling
       - _PARAMS: the key passed to map (tuple of parameters)
-      - _PARAMS_STR: representation of the parameters as a string (used in
+      - _PARAMS_KEY: representation of the parameters as a string (used in
          output dir)
       - _OUTPUT: the output directory
       - _OUTPUT_COLLECTOR: the OutputCollector
@@ -159,31 +159,39 @@ def _build_job_table(config):
         resamples = [_NULL_RESAMPLE]
     else:
         resamples = config["resample"]
+    # if resamples is not a dict make it as a dict
+    if not isinstance(resamples, dict):
+        resamples = {str(resample_i):resamples[resample_i] for resample_i in xrange(len(resamples))}
+        config["resample"] = resamples
+
     # Check that we have parameters; otherwise fake it
     if "params" not in config:
-        params = [_NULL_PARAMS]
+        params = {_NULL_PARAMS:_NULL_PARAMS}
     else:
         params = config["params"]
     # If params are given as a file, load them
-    params_list = json.load(open(params)) \
+    params = json.load(open(params)) \
         if isinstance(params, str) else params
-    # Create representation of parameters as a string
-    params_str_list = [param_sep.join([str(p) for p in params])
-                       for params in params_list]
+
+    # if params is not a dict make it as a dict
+    if not isinstance(params, dict):
+        params = {param_sep.join([str(p) for p in param]):param for param in params}
+        config["params"] = params
+
     # The parameters are given as list of values.
     # As list are not hashable, we cast them to tuples.
-    jobs = [[resample_i,
-             tuple(params),
-             params_str,
+    jobs = [[resample_key,
+             tuple(params[params_key]),
+             params_key,
              os.path.join(config["map_output"],
-                          str(resample_i),
-                          params_str)]
-            for resample_i in xrange(len(resamples))
-            for (params, params_str) in zip(params_list, params_str_list)]
+                          resample_key,
+                          params_key)]
+            for resample_key in resamples.keys()
+            for params_key in params.keys()]
     jobs = pd.DataFrame.from_records(jobs,
-                                     columns=[_RESAMPLE_INDEX,
+                                     columns=[_RESAMPLE_KEY,
                                               _PARAMS,
-                                              _PARAMS_STR,
+                                              _PARAMS_KEY,
                                               _OUTPUT])
     # Add OutputCollectors (we need all the rows so we do that latter)
     jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(lambda x: OutputCollector(x))
@@ -408,7 +416,7 @@ if __name__ == "__main__":
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
-        resamples_file_cur = resample_nb_cur = None
+        resamples_file_cur = resample_key_cur = None
         data_cur = None
         workers = list()
         for i, job in jobs.iterrows():
@@ -433,10 +441,10 @@ if __name__ == "__main__":
                 if not options.force:
                     continue
             if do_resampling:
-                if (not resample_nb_cur and job[_RESAMPLE_INDEX]) or \
-                   (resample_nb_cur != job[_RESAMPLE_INDEX]):  # Load
-                    resample_nb_cur = job[_RESAMPLE_INDEX]
-                    user_func.resample(config, resample_nb_cur)
+                if (not resample_key_cur and job[_RESAMPLE_KEY]) or \
+                   (resample_key_cur != job[_RESAMPLE_KEY]):  # Load
+                    resample_key_cur = job[_RESAMPLE_KEY]
+                    user_func.resample(config, resample_key_cur)
             key = job[_PARAMS]
             output_collector = job[_OUTPUT_COLLECTOR]
             p = Process(target=user_func.mapper, args=(key, output_collector))
