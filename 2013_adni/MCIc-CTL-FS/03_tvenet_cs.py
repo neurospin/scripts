@@ -284,7 +284,7 @@ def plot_perf():
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
     #INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS/MCIc-CTL-FS.csv"
-    INPUT = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL-FS/MCIc-CTL-FS.csv"
+    INPUT = "/home/ed203246/mega/studies/2015_logistic_nestv/adni/MCIc-CTL-FS/MCIc-CTL-FS.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
     #y_col = 'auc'

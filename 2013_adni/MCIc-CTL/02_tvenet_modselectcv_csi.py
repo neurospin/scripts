@@ -199,46 +199,58 @@ if __name__ == "__main__":
     ## Create config file
     y = np.load(INPUT_DATA_y)
     X = np.load(INPUT_DATA_X)
+    from parsimony.utils.penalties import l1_max_logistic_loss
+    assert l1_max_logistic_loss(X[:, 3:], y) == 0.20434911093262279
     if os.path.exists("config_modselectcv.json"):
         old_conf = json.load(open("config_modselectcv.json"))
         cv = old_conf["resample"]
     else:
-        outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+        cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
         """
-        outer = [[np.array(tr), np.array(te)] for tr,te in json.load(open("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/config.json", "r"))["resample"][1:]]
+        cv_outer = [[np.array(tr), np.array(te)] for tr,te in json.load(open("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/config.json", "r"))["resample"][1:]]
         """
-        cv = list()
-        for tr_val, te in outer:
-            print len(y[tr_val]), np.sum(y[tr_val]==0)/float(len(y[tr_val])), np.sum(y[tr_val]==1)/float(len(y[tr_val]))
-            cv += [[tr_val[tr_i], tr_val[te_i], te] for tr_i, te_i in StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)]
+        import collections
+        cv = collections.OrderedDict()
+        for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
+            cv["cv%02d/refit" % cv_outer_i] = [tr_val, te]
+            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+            for cv_inner_i, (tr, val) in enumerate(cv_inner):
+                cv["cv%02d/cvnested%02d" % (cv_outer_i, cv_inner_i)] = [tr_val[tr], tr_val[val]]
+                
         # Some QC
         N = float(len(y)); p0 = np.sum(y==0) / N; p1 = np.sum(y==1) / N;
-        for tr, val, te in cv:
+        for k in cv:
+            tr, val = cv[k]
+            print k, "\t: tr+val=", len(tr) + len(val)
             assert not set(tr).intersection(val)
-            assert not set(val).intersection(te)
-            assert not set(tr).intersection(te)
-            assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER) * (1 - 1./NFOLDS_INNER)) < 0.01
             assert abs(np.sum(y[tr]==0)/float(len(y[tr])) - p0) < 0.01
             assert abs(np.sum(y[tr]==1)/float(len(y[tr])) - p1) < 0.01
-        cv = [[tr.tolist(), val.tolist(), te.tolist()] for tr, val, te in cv]
-    if cv[0] is not None: # Make sure first fold is None
-        cv.insert(0, None)
-    # parameters grid
-    l2_params = [[alpha]+[0, 1, 0, -1] for alpha in 10. ** np.arange(-2, 5)]
-    tvratio = 0.2
-    left = 1 - tvratio
-    l2tv_params = [[alpha]+[0, left, tvratio, -1] for alpha in 10. ** np.arange(-3, 5)]
-    # compute penalties using heuristic
-    from parsimony.utils.penalties import l1_max_logistic_loss
-    assert l1_max_logistic_loss(X[:, 3:], y) == 0.20434911093262279
-    l1l2ratio = 0.1
-    l2 = 1 / (l1l2ratio + 1)
-    l1 = l2 * l1l2ratio
-    assert l1 + l2 == 1
-    assert l1 / l2 == l1l2ratio
-    l1l2_params = [[alpha]+[0.1, l2, 0, -1] for alpha in 10. ** np.arange(-3, 1)]
-    l1l2tv_params = [[alpha]+[left * l1, left * l2, tvratio, -1] for alpha in 10. ** np.arange(-3, 1)]
-    params = l2_params + l2tv_params + l1l2_params + l1l2tv_params
+            if k.count("refit"):
+                te = val
+                assert len(tr) + len(te) == len(y)
+                assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER)) < 0.01
+            else:
+                assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER) * (1 - 1./NFOLDS_INNER)) < 0.01
+                assert not set(tr).intersection(te)
+                assert not set(val).intersection(te)
+                len(tr) + len(val) + len(te) == len(y)
+        for k in cv:
+            cv[k] = [cv[k][0].tolist(), cv[k][0].tolist()]
+    
+    tv_ratios = [0., .2, .8]
+    l1_ratios = [np.array([1., .1, .9, 1]), np.array([1., .9, .1, 1])]  # [alpha, l1 l2 tv]
+    alphas_l1l2tv = [.01, .1]
+    alphas_l2tv = [round(alpha, 10) for alpha in 10. ** np.arange(-2, 4)]
+    k_range = [-1]
+    l1l2tv =[np.array([alpha, float(1-tv), float(1-tv), tv]) * l1_ratio
+        for alpha in alphas_l1l2tv for tv in tv_ratios for l1_ratio in l1_ratios]
+    # specific case for without l1 since it supports larger penalties        
+    l2tv =[np.array([alpha, 0., float(1-tv), tv])
+        for alpha in alphas_l2tv for tv in tv_ratios]
+    params = l1l2tv + l2tv
+    params = [param.tolist() + [k] for k in k_range for param in params]
+    params = {"_".join([str(p) for p in param]):param for param in params}
+    assert len(params) == 30
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL",
         "02_tvenet_modselectcv_csi.py")
@@ -254,7 +266,7 @@ if __name__ == "__main__":
                   map_output="modselectcv",
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
-                  reduce_group_by="params",
+                  reduce_group_by="user_defined",
                   reduce_output="MCIc-CTL_csi_modselectcv.csv")
     json.dump(config, open(os.path.join(WD, "config_modselectcv.json"), "w"))
 
@@ -263,7 +275,7 @@ if __name__ == "__main__":
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
+    cmd = "mapreduce.py --map  %s/config_modselectcv.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
