@@ -383,6 +383,7 @@ if __name__ == "__main__":
         print >> sys.stderr, 'map_output" is required'
         sys.exit(os.EX_CONFIG)
 
+    """
     # Check that we have reduce_group_by or use default value
     if "reduce_group_by" not in config:
         config["reduce_group_by"] = DEFAULT_GROUP_BY
@@ -390,7 +391,7 @@ if __name__ == "__main__":
         print >> sys.stderr, 'Attribute "reduce_group_by" must be one of', \
                              GROUP_BY_VALUES, "or absent"
         sys.exit(os.EX_CONFIG)
-
+    """
     # =======================================================================
     # == Build job table                                                   ==
     # =======================================================================
