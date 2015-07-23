@@ -21,7 +21,6 @@ import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -90,18 +89,11 @@ def mapper(key, output_collector):
     else:
         return ret
 
-def reducer(key, values):
-    # key : string of intermediary key
-    # load return dict correspondning to mapper ouput. they need to be loaded.
-    # DEBUG
-    #import glob, mapreduce
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/neurospin/brainomics/2013_adni/AD-CTL/results/*/0.1_0.0_0.0_1.0_-1.0/")]
-    #values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-MCInc_cs/results/*/0.1_0.0_0.0_1.0_-1.0/")]
-    # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_1.0_0.0_-1.0/")]
-    # values = [mapreduce.OutputCollector(p) for p in glob.glob("/home/ed203246/tmp/MCIc-CTL_cs/results/*/0.1_0.0_0.5_0.5_-1.0/")]
-    # Compute sd; ie.: compute results on each folds
+def scores(key, paths):
+    import glob, mapreduce
     print key
-    values = [item.load() for item in values[1:]]
+    values = [mapreduce.OutputCollector(p) for p in paths]
+    values = [item.load() for item in values]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
         item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
@@ -131,7 +123,7 @@ def reducer(key, values):
         print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
         print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
                            rtol=0, atol=1e-02)
-    
+
         # Compute fleiss kappa statistics
         beta_signed = np.sign(betas_t)
         table = np.zeros((beta_signed.shape[1], 3))
@@ -139,7 +131,7 @@ def reducer(key, values):
         table[:, 1] = np.sum(beta_signed == 1, 0)
         table[:, 2] = np.sum(beta_signed == -1, 0)
         fleiss_kappa_stat = fleiss_kappa(table)
-    
+
         # Paire-wise Dice coeficient
         beta_n0 = betas_t != 0
         ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
@@ -149,8 +141,8 @@ def reducer(key, values):
              for idx in ij])
     except:
         dice_bar = fleiss_kappa_stat = 0.
-    
-    a, l1, l2 , tv , k = key#[float(par) for par in key.split("_")]
+
+    a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     scores = OrderedDict()
     scores['a'] = a
     scores['l1'] = l1
@@ -182,6 +174,24 @@ def reducer(key, values):
     scores['k'] = k
     scores['key'] = key
     return scores
+
+def reducer():
+    import os, glob
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json"
+    os.chdir(os.path.dirname(config_filenane))
+    config = json.load(open(config_filenane))
+    paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+
+    def groupby_paths(paths, pos):
+        groups = {g:[] for g in set([p.split("/")[pos] for p in paths])}
+        for p in paths:
+            groups[p.split("/")[pos]].append(p)
+        return groups
+
+
+    refit_byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
+    refit_byparams_scores = {k:scores(k, v)['recall_mean'] for k,v in refit_byparams.iteritems()}
+
 
 if __name__ == "__main__":
     WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
@@ -216,27 +226,30 @@ if __name__ == "__main__":
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
             for cv_inner_i, (tr, val) in enumerate(cv_inner):
                 cv["cv%02d/cvnested%02d" % (cv_outer_i, cv_inner_i)] = [tr_val[tr], tr_val[val]]
-                
-        # Some QC
-        N = float(len(y)); p0 = np.sum(y==0) / N; p1 = np.sum(y==1) / N;
         for k in cv:
-            tr, val = cv[k]
-            print k, "\t: tr+val=", len(tr) + len(val)
-            assert not set(tr).intersection(val)
-            assert abs(np.sum(y[tr]==0)/float(len(y[tr])) - p0) < 0.01
-            assert abs(np.sum(y[tr]==1)/float(len(y[tr])) - p1) < 0.01
-            if k.count("refit"):
-                te = val
-                assert len(tr) + len(te) == len(y)
-                assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER)) < 0.01
-            else:
-                assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER) * (1 - 1./NFOLDS_INNER)) < 0.01
-                assert not set(tr).intersection(te)
-                assert not set(val).intersection(te)
-                len(tr) + len(val) + len(te) == len(y)
-        for k in cv:
-            cv[k] = [cv[k][0].tolist(), cv[k][0].tolist()]
-    
+            cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
+
+    print cv.keys()
+    # Some QC
+    N = float(len(y)); p0 = np.sum(y==0) / N; p1 = np.sum(y==1) / N;
+    for k in cv:
+        tr, val = cv[k]
+        tr, val = np.array(tr), np.array(val)
+        print k, "\t: tr+val=", len(tr) + len(val)
+        assert not set(tr).intersection(val)
+        assert abs(np.sum(y[tr]==0)/float(len(y[tr])) - p0) < 0.01
+        assert abs(np.sum(y[tr]==1)/float(len(y[tr])) - p1) < 0.01
+        if k.count("refit"):
+            te = val
+            assert len(tr) + len(te) == len(y)
+            assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER)) < 0.01
+        else:
+            te = np.array(cv[k.split("/")[0] + "/refit"])[1]
+            assert abs(len(y[tr])/N - (1 - 1./NFOLDS_OUTER) * (1 - 1./NFOLDS_INNER)) < 0.01
+            assert not set(tr).intersection(te)
+            assert not set(val).intersection(te)
+            len(tr) + len(val) + len(te) == len(y)
+
     tv_ratios = [0., .2, .8]
     l1_ratios = [np.array([1., .1, .9, 1]), np.array([1., .9, .1, 1])]  # [alpha, l1 l2 tv]
     alphas_l1l2tv = [.01, .1]
@@ -244,7 +257,7 @@ if __name__ == "__main__":
     k_range = [-1]
     l1l2tv =[np.array([alpha, float(1-tv), float(1-tv), tv]) * l1_ratio
         for alpha in alphas_l1l2tv for tv in tv_ratios for l1_ratio in l1_ratios]
-    # specific case for without l1 since it supports larger penalties        
+    # specific case for without l1 since it supports larger penalties
     l2tv =[np.array([alpha, 0., float(1-tv), tv])
         for alpha in alphas_l2tv for tv in tv_ratios]
     params = l1l2tv + l2tv
@@ -308,7 +321,7 @@ def plot_perf():
     import pandas as pd
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    
+
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
     INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/MCIc-CTL_csi_modselectcv.csv"
@@ -362,7 +375,7 @@ def plot_perf():
 
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     from collections import OrderedDict
@@ -377,12 +390,12 @@ def build_summary():
     models["l1sl2"]    = (0.010,	0.1, 0.9, 0.000)
     models["l1sl2tv"]  = (0.010,	0.1 * (1-.3), 0.9*(1-.3), 0.300)
 
-    
+
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
-    
+
     orig_cv = pd.read_csv(config['reduce_output'])
-    cv = orig_cv[["k", "a", "l1", "l2", "tv", 'recall_0', u'recall_1', u'recall_mean', 
+    cv = orig_cv[["k", "a", "l1", "l2", "tv", 'recall_0', u'recall_1', u'recall_mean',
               'auc', "beta_r_bar", 'beta_fleiss_kappa']]
     summary = list()
     for k in models:
@@ -413,4 +426,3 @@ def build_summary():
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
 
-    
