@@ -204,6 +204,7 @@ mapreduce.py --reduce /neurospin/brainomics/2013_adni/MCIc-CTL_csnc_s/config.jso
 ################################################################################
 user_func /home/ed203246/git/scripts/2013_adni/MCIc-CTL/02_tvenet_modselectcv_csi.py
 
+
 # Start by running Locally with 2 cores, to check that everything os OK)
 Interrupt after a while CTL-C
 mapreduce.py --map /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json --ncore 2
@@ -220,5 +221,4 @@ exit
 /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/sync_pull.sh
 # Reduce
 mapreduce.py --reduce /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json
-
 
