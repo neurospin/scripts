@@ -83,7 +83,7 @@ def mapper(key, output_collector):
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
     print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
-    STRUCTURE = GLOBAL.STRUCTURE
+    # STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
     penalty_start = GLOBAL.CONFIG["penalty_start"]
@@ -95,14 +95,14 @@ def mapper(key, output_collector):
         k = int(k)
         aov = SelectKBest(k=k)
         aov.fit(Xtr[..., penalty_start:], ytr.ravel())
-        mask = STRUCTURE.get_data() != 0
+        mask = GLOBAL.mask != 0
         mask[mask] = aov.get_support()
         #print mask.sum()
-        A = tv_helper.linear_operator_from_mask(mask)
+        A, _ = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, mask)
         Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
         Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
     else:
-        mask = STRUCTURE.get_data() != 0
+        mask = np.ones(Xtr.shape[0], dtype=bool)
         Xtr_r = Xtr
         Xte_r = Xte
         A = GLOBAL.A
@@ -111,7 +111,7 @@ def mapper(key, output_collector):
     mod.fit(Xtr_r, ytr)
     y_pred = mod.predict(Xte_r)
     proba_pred = mod.predict_probability(Xte_r)
-    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte, beta=mod.beta,  mask=mask)
+    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.beta,  mask=mask, proba_pred=proba_pred)
     if output_collector:
         output_collector.collect(key, ret)
     else:
