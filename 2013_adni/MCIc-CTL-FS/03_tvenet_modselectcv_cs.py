@@ -4,8 +4,8 @@ Created on Fri May 30 20:03:12 2014
 
 @author: edouard.duchesnay@cea.fr
 
-mkdir /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv
-cd /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv
+mkdir /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv
+cd /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv
 
 cp ../MCIc-CTL-FS/X* .
 cp ../MCIc-CTL-FS/y.npy .
@@ -15,20 +15,20 @@ cp ../MCIc-CTL-FS/lrh.pial.gii .
 
 # Start by running Locally with 2 cores, to check that everything os OK)
 Interrupt after a while CTL-C
-mapreduce.py --map /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json --ncore 2
+mapreduce.py --map /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/config_modselectcv.json --ncore 2
 # 1) Log on gabriel:
 ssh -t gabriel.intra.cea.fr
 # 2) Run one Job to test
 qsub -I
-cd /neurospin/tmp/ed203246/MCIc-CTL-FS_csi_modselectcv
+cd /neurospin/tmp/ed203246/MCIc-CTL-FS_cs_modselectcv
 ./job_Global_long.pbs
 # 3) Run on cluster
 qsub job_Global_long.pbs
 # 4) Log out and pull Pull
 exit
-/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/sync_pull.sh
+/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/sync_pull.sh
 # Reduce
-mapreduce.py --reduce /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json
+mapreduce.py --reduce /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/config_modselectcv.json
 """
 
 import os
@@ -59,7 +59,6 @@ def load_globals(config):
     GLOBAL.A = A
     GLOBAL.CONFIG = config
 
-
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -70,7 +69,6 @@ def resample(config, resample_nb):
     else:  # resample is None train == test
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
-
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL # access to global variables:
@@ -205,7 +203,7 @@ def scores(key, paths):
 
 def reducer():
     import os, glob
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/config_modselectcv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
@@ -222,7 +220,7 @@ def reducer():
 
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv"
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     STRUCTURE = dict(mesh="lrh.pial.gii", mask="mask.npy")
@@ -295,7 +293,7 @@ if __name__ == "__main__":
     assert len(params) == 30
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL-FS",
-        "02_tvenet_modselectcv_csi.py")
+        "03_tvenet_modselectcv_cs.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -304,12 +302,12 @@ if __name__ == "__main__":
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=STRUCTURE,
-                  penalty_start = 3,
+                  penalty_start = 2,
                   map_output="modselectcv",
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
                   reduce_group_by="user_defined",
-                  reduce_output="MCIc-CTL-FS_csi_modselectcv.csv")
+                  reduce_output="MCIc-CTL-FS_cs_modselectcv.csv")
     json.dump(config, open(os.path.join(WD, "config_modselectcv.json"), "w"))
 
     #############################################################################
@@ -353,7 +351,7 @@ def plot_perf():
 
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL-FS/MCIc-CTL-FS_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/MCIc-CTL-FS_csi_modselectcv.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/MCIc-CTL-FS_cs_modselectcv.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
     y_col = 'auc'
@@ -404,7 +402,7 @@ def plot_perf():
 
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/config_modselectcv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     from collections import OrderedDict
