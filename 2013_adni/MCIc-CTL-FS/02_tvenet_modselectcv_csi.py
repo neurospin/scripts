@@ -55,7 +55,7 @@ def load_globals(config):
     try:
         A = tv_helper.linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
     except:
-        A = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
+        A, _ = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
     GLOBAL.A = A
     GLOBAL.CONFIG = config
 
