@@ -12,6 +12,23 @@ cp ../MCIc-CTL-FS/y.npy .
 cp ../MCIc-CTL-FS/mask.npy .
 cp ../MCIc-CTL-FS/lrh.pial.gii .
 
+
+# Start by running Locally with 2 cores, to check that everything os OK)
+Interrupt after a while CTL-C
+mapreduce.py --map /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json --ncore 2
+# 1) Log on gabriel:
+ssh -t gabriel.intra.cea.fr
+# 2) Run one Job to test
+qsub -I
+cd /neurospin/tmp/ed203246/MCIc-CTL-FS_csi_modselectcv
+./job_Global_long.pbs
+# 3) Run on cluster
+qsub job_Global_long.pbs
+# 4) Log out and pull Pull
+exit
+/neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/sync_pull.sh
+# Reduce
+mapreduce.py --reduce /neurospin/brainomics/2013_adni/MCIc-CTL-FS_csi_modselectcv/config_modselectcv.json
 """
 
 import os
@@ -35,7 +52,10 @@ def load_globals(config):
     mesh_coord, mesh_triangles = mesh_utils.mesh_arrays(config["structure"]["mesh"])
     mask = np.load(config["structure"]["mask"])
     GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask = mesh_coord, mesh_triangles, mask
-    A = tv_helper.linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
+    try:
+        A = tv_helper.linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
+    except:
+        A = tv_helper.nesterov_linear_operator_from_mesh(GLOBAL.mesh_coord, GLOBAL.mesh_triangles, GLOBAL.mask)
     GLOBAL.A = A
     GLOBAL.CONFIG = config
 
