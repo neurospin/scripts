@@ -366,7 +366,9 @@ if __name__ == "__main__":
             len(tr) + len(val) + len(te) == len(y)
 
     tv_ratios = [0., .2, .8]
-    l1_ratios = [np.array([1., .1, .9, 1]), np.array([1., .9, .1, 1])]  # [alpha, l1 l2 tv]
+    l1_ratios = [np.array([1., .1, .9, 1]),
+                 np.array([1., .01, .99, 1]),
+                 np.array([1., .9, .1, 1])]  # [alpha, l1 l2 tv]
     alphas_l1l2tv = [.01, .1]
     alphas_l2tv = [round(alpha, 10) for alpha in 10. ** np.arange(-2, 4)]
     k_range = [-1]
