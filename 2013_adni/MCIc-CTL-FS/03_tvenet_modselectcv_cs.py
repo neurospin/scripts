@@ -381,7 +381,7 @@ if __name__ == "__main__":
     params = l1l2tv + l2tv
     params = [param.tolist() + [k] for k in k_range for param in params]
     params = {"_".join([str(p) for p in param]):param for param in params}
-    assert len(params) == 30
+    assert len(params) == 36
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL-FS",
         "03_tvenet_modselectcv_cs.py")
