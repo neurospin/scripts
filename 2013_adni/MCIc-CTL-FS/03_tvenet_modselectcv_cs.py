@@ -170,13 +170,18 @@ def scores(key, paths):
 
     a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
     scores = OrderedDict()
-    scores['a'] = a
-    scores['l1'] = l1
-    scores['l2'] = l2
-    scores['tv'] = tv
-    left = float(1 - tv)
-    if left == 0: left = 1.
-    scores['l1l2_ratio'] = float(l1) / left
+    try:
+        a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+        scores['a'] = a
+        scores['l1'] = l1
+        scores['l2'] = l2
+        scores['tv'] = tv
+        left = float(1 - tv)
+        if left == 0: left = 1.
+        scores['l1_ratio'] = float(l1) / left
+        scores['k'] = k
+    except:
+        pass
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
@@ -197,16 +202,19 @@ def scores(key, paths):
     scores['beta_fleiss_kappa'] = fleiss_kappa_stat
     scores['beta_dice_bar'] = dice_bar
     scores['n_ite'] = n_ite
-    scores['k'] = k
     scores['key'] = key
     return scores
 
 def reducer():
-    import os, glob
+    import os, glob, pandas as pd
     config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/config_modselectcv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    #paths = [p for p in paths if not p.count("0.8_-1")]
+
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
 
     def groupby_paths(paths, pos):
         groups = {g:[] for g in set([p.split("/")[pos] for p in paths])}
@@ -214,9 +222,89 @@ def reducer():
             groups[p.split("/")[pos]].append(p)
         return groups
 
+    def model_selection(data, groupby='fold', param_key="param_key", score="recall_mean"):
+        arg_max_byfold = list()
+        for fold, data_fold in data.groupby(groupby):
+            assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
+            arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
+        return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    refit_byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
-    refit_byparams_scores = {k:scores(k, v)['recall_mean'] for k,v in refit_byparams.iteritems()}
+    # Refit scores
+    byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
+    byparams_scores = {k:scores(k, v) for k, v in byparams.iteritems()}
+    data = [byparams_scores[k].values() for k in byparams_scores]
+
+    columns = byparams_scores[byparams_scores.keys()[0]].keys()
+    scores_tab_refit = pd.DataFrame(data, columns=columns)
+
+    ## doublecv scores by outer-cv and by params
+    data = list()
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")], 1)
+    for fold, paths_fold in bycv.iteritems():
+        print fold
+        byparams = groupby_paths([p for p in paths_fold], 3)
+        byparams_scores = {k:scores(k, v) for k, v in byparams.iteritems()}
+        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
+    scores_tab_doublecv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
+
+    # rm small l1 with large tv & large l1 with small tv
+"""    rm = \
+        (close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & close(scores_tab_doublecv_byparams.tv, 0.8)) |\
+        (close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & close(scores_tab_doublecv_byparams.tv, 0.2))
+    np.sum(rm)
+    scores_tab_doublecv_byparams = scores_tab_doublecv_byparams[np.logical_not(rm)]
+"""
+    # model selection on nested cv for 8 cases
+    l2 = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv == 0)]
+    l2tv = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv != 0)]
+    l1l2 = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 != 0) & (scores_tab_doublecv_byparams.tv == 0)]
+    l1l2tv = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 != 0) & (scores_tab_doublecv_byparams.tv != 0)]
+    # large ans small l1
+    l1l2_ll1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & (scores_tab_doublecv_byparams.tv == 0)]
+    l1l2tv_ll1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & (scores_tab_doublecv_byparams.tv != 0)]
+    l1l2_sl1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & (scores_tab_doublecv_byparams.tv == 0)]
+    l1l2tv_sl1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & (scores_tab_doublecv_byparams.tv != 0)]
+
+    l2 = model_selection(l2); l2["method"] = "l2"
+    l2tv = model_selection(l2tv); l2tv["method"] = "l2tv"
+    l1l2 = model_selection(l1l2); l1l2["method"] = "l1l2"
+    l1l2tv = model_selection(l1l2tv); l1l2tv["method"] = "l1l2tv"
+
+    l1l2_ll1 = model_selection(l1l2_ll1); l1l2_ll1["method"] = "l1l2_ll1"
+    l1l2tv_ll1 = model_selection(l1l2tv_ll1); l1l2tv_ll1["method"] = "l1l2tv_ll1"
+    l1l2_sl1 = model_selection(l1l2_sl1); l1l2_sl1["method"] = "l1l2_sl1"
+    l1l2tv_sl1 = model_selection(l1l2tv_sl1); l1l2tv_sl1["method"] = "l1l2tv_sl1"
+
+   scores_tab_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
+
+    # Apply best model on refited
+    scores_l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2.iterrows()])
+    scores_l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2tv.iterrows()])
+    scores_l1l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2.iterrows()])
+    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()])
+
+    scores_l1l2_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1.iterrows()])
+    scores_l1l2tv_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_ll1.iterrows()])
+
+    scores_l1l2_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1.iterrows()])
+    scores_l1l2tv_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()])
+
+    scores_tab_cv = pd.DataFrame([["l2"] + scores_l2.values(),
+                  ["l2tv"] + scores_l2tv.values(),
+                  ["l1l2"] + scores_l1l2.values(),
+                  ["l1l2tv"] + scores_l1l2tv.values(),
+
+                  ["l1l2_ll1"] + scores_l1l2_ll1.values(),
+                  ["l1l2tv_ll1"] + scores_l1l2tv_ll1.values(),
+
+                  ["l1l2_sl1"] + scores_l1l2_sl1.values(),
+                  ["l1l2tv_sl1"] + scores_l1l2tv_sl1.values()], columns=["method"] + scores_l2.keys())
+
+    with pd.ExcelWriter("scores_doublecv.xls") as writer:
+        scores_tab_refit.to_excel(writer, sheet_name='refit', index=False)
+        scores_tab_doublecv_byparams.to_excel(writer, sheet_name='doublecv_byparams', index=False)
+        scores_tab_argmax_byfold.to_excel(writer, sheet_name='argmax_byfold', index=False)
+        scores_tab_cv.to_excel(writer, sheet_name='scores_cv', index=False)
 
 
 if __name__ == "__main__":
