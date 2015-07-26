@@ -248,12 +248,13 @@ def reducer():
     scores_tab_doublecv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
     # rm small l1 with large tv & large l1 with small tv
-"""    rm = \
+    """
+    rm = \
         (close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & close(scores_tab_doublecv_byparams.tv, 0.8)) |\
         (close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & close(scores_tab_doublecv_byparams.tv, 0.2))
     np.sum(rm)
     scores_tab_doublecv_byparams = scores_tab_doublecv_byparams[np.logical_not(rm)]
-"""
+    """
     # model selection on nested cv for 8 cases
     l2 = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv == 0)]
     l2tv = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv != 0)]
