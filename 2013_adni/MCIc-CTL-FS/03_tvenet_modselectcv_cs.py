@@ -276,7 +276,7 @@ def reducer():
     l1l2_sl1 = model_selection(l1l2_sl1); l1l2_sl1["method"] = "l1l2_sl1"
     l1l2tv_sl1 = model_selection(l1l2tv_sl1); l1l2tv_sl1["method"] = "l1l2tv_sl1"
 
-   scores_tab_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
+    scores_tab_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
 
     # Apply best model on refited
     scores_l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2.iterrows()])
