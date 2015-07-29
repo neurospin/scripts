@@ -4,6 +4,8 @@ Created on Thu May 29 13:41:48 2014
 
 @author: ed203246
 """
+import numpy as np
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
 def mcnemar_test_classification(y_true, y_pred1, y_pred2, cont_table=False):
     """Compute the mcnemar_test for two classifiers.
@@ -55,3 +57,74 @@ def mcnemar_test_classification(y_true, y_pred1, y_pred2, cont_table=False):
                           [a+c, b + d, a + b + c + d ]],
         index=["1_Pos", "1_Neg", "Tot"], columns=["2_Pos", "1_Neg", "Tot"])
         return pval_binom, cont_table
+
+
+
+def auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, score_pred1, score_pred2, nperms=10000):
+    """Compute the pvalues of recall_mean and auc for two classifiers.
+
+    Input
+    -----
+        y_true: (n,) array, true labels
+
+        y_pred1: (n,) array, first classifier predicted labels
+
+        y_pred2: (n,) array, second classifier predicted labels
+
+        score_pred1: (n,) array, first classifier predicted scores (for auc)
+
+        score_pred2: (n,) array, second classifier predicted scores (for auc)
+    Output
+    ------
+        pval_auc, pval_recall_mean
+    """
+
+    y_pred = np.c_[y_pred1, y_pred2]
+    score_pred = np.c_[score_pred1, score_pred2]
+    rows = np.arange(y_pred.shape[0])
+    aucs = np.zeros(nperms + 1)
+    recalls_mean = np.zeros(nperms + 1)
+    
+    for perm_i in xrange(nperms):
+        if perm_i == 0:
+            col2 = np.ones(y_pred.shape[0], dtype=int)
+        else:
+            col2 = np.random.randint(2, size=y_pred.shape[0])
+        col1 = col2 - 1; col1 = col1 * np.sign(col1)
+        assert np.all((col1 + col2) == 1)
+        y_pred1 = y_pred[rows, col1]
+        y_pred2 = y_pred[rows, col2]
+        score_pred1 = score_pred[rows, col1]
+        score_pred2 = score_pred[rows, col2]
+        recalls1 = precision_recall_fscore_support(y_true, y_pred1, average=None)[1]
+        auc1 = roc_auc_score(y_true, score_pred1) #area under curve score.
+        recalls2 = precision_recall_fscore_support(y_true, y_pred2, average=None)[1]
+        auc2 = roc_auc_score(y_true, score_pred2) #area under curve score.
+        aucs[perm_i] = auc1 - auc2
+        recalls_mean[perm_i] = recalls1.mean() - recalls2.mean()
+    
+    pval_auc = np.sum(aucs[1:] > aucs[0]) / float(nperms)
+    pval_recall_mean = np.sum(recalls_mean[1:] > recalls_mean[0]) / float(nperms)
+    return pval_auc, pval_recall_mean
+
+
+def sign_permutation_pval(values, nperms=10000, stat="mean"):
+    """Compute the pvalues of stat(values) vs stat(rand perm of sign values)
+
+    Input
+    -----
+        values: (n,) array, numerical values
+
+    Output
+    ------
+        pvals
+    """
+    stats = np.zeros(nperms + 1)
+    for perm_i in xrange(nperms):
+        if perm_i == 0:
+            stats[perm_i] = np.mean(values)
+        else:
+            signs = np.random.randint(2, size=values.shape[0])
+            signs[signs==0] = -1
+            stats[perm_i] = np.mean(signs * values)
+    return np.sum(stats[1:] > stats[0]) / float(nperms)

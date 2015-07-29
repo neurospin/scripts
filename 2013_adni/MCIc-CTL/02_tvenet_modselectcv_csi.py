@@ -6,6 +6,9 @@ Created on Fri May 30 20:03:12 2014
 
 cd /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv
 mapreduce.py
+
+%run -i ~/git/scripts/2013_adni/MCIc-CTL/02_tvenet_modselectcv_csi.py
+
 """
 
 import os
@@ -21,266 +24,11 @@ import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-def load_globals(config):
-    import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = nibabel.load(config["mask_filename"])
-    try:
-        A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
-    except:
-        A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
-    GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
+WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
+def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
+def results_filenane(): return os.path.join(WD, "MCIc-CTL_csi_modselectcv.xlsx")
 
-
-def resample(config, resample_nb):
-    import mapreduce as GLOBAL  # access to global variables
-    GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    resample = config["resample"][resample_nb]
-    if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
-    else:  # resample is None train == test
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
-                            for k in GLOBAL.DATA}
-
-
-def mapper(key, output_collector):
-    import mapreduce as GLOBAL # access to global variables:
-        #raise ImportError("could not import ")
-    # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
-    # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
-    # key: list of parameters
-    Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
-    Xte = GLOBAL.DATA_RESAMPLED["X"][1]
-    ytr = GLOBAL.DATA_RESAMPLED["y"][0]
-    yte = GLOBAL.DATA_RESAMPLED["y"][1]
-    print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
-    STRUCTURE = GLOBAL.STRUCTURE
-    #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
-    #key = np.array(key)
-    penalty_start = GLOBAL.CONFIG["penalty_start"]
-    class_weight="auto" # unbiased
-    alpha = float(key[0])
-    l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
-    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
-    if k != -1:
-        k = int(k)
-        aov = SelectKBest(k=k)
-        aov.fit(Xtr[..., penalty_start:], ytr.ravel())
-        mask = STRUCTURE.get_data() != 0
-        mask[mask] = aov.get_support()
-        #print mask.sum()
-        A = tv_helper.linear_operator_from_mask(mask)
-        Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
-        Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
-    else:
-        mask = STRUCTURE.get_data() != 0
-        Xtr_r = Xtr
-        Xte_r = Xte
-        A = GLOBAL.A
-    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
-                                   class_weight=class_weight)
-    mod.fit(Xtr_r, ytr)
-    y_pred = mod.predict(Xte_r)
-    proba_pred = mod.predict_probability(Xte_r)
-    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte, beta=mod.beta,  mask=mask)
-    if output_collector:
-        output_collector.collect(key, ret)
-    else:
-        return ret
-
-def scores(key, paths):
-    import glob, mapreduce
-    print key
-    values = [mapreduce.OutputCollector(p) for p in paths]
-    values = [item.load() for item in values]
-    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
-        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
-    y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]
-    prob_pred = [item["proba_pred"].ravel() for item in values]
-    y_true = np.concatenate(y_true)
-    y_pred = np.concatenate(y_pred)
-    prob_pred = np.concatenate(prob_pred)
-    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
-    n_ite = None
-    betas = np.hstack([item["beta"] for item in values]).T
-    ## Compute beta similarity measures
-    # Correlation
-    R = np.corrcoef(betas)
-    #print R
-    R = R[np.triu_indices_from(R, 1)]
-    print R
-    # Fisher z-transformation / average
-    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
-    # bracktransform
-    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
-
-    # threshold betas to compute fleiss_kappa and DICE
-    try:
-        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
-        print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
-        print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
-                           rtol=0, atol=1e-02)
-
-        # Compute fleiss kappa statistics
-        beta_signed = np.sign(betas_t)
-        table = np.zeros((beta_signed.shape[1], 3))
-        table[:, 0] = np.sum(beta_signed == 0, 0)
-        table[:, 1] = np.sum(beta_signed == 1, 0)
-        table[:, 2] = np.sum(beta_signed == -1, 0)
-        fleiss_kappa_stat = fleiss_kappa(table)
-
-        # Paire-wise Dice coeficient
-        beta_n0 = betas_t != 0
-        ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
-        #print [[idx[0], idx[1]] for idx in ij]
-        dice_bar = np.mean([float(np.sum(beta_signed[idx[0], :] == beta_signed[idx[1], :])) /\
-             (np.sum(beta_n0[idx[0], :]) + np.sum(beta_n0[idx[1], :]))
-             for idx in ij])
-    except:
-        dice_bar = fleiss_kappa_stat = 0.
-
-    scores = OrderedDict()
-    try:
-        a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
-        scores['a'] = a
-        scores['l1'] = l1
-        scores['l2'] = l2
-        scores['tv'] = tv
-        left = float(1 - tv)
-        if left == 0: left = 1.
-        scores['l1_ratio'] = float(l1) / left
-        scores['k'] = k
-    except:
-        pass
-    scores['recall_0'] = r[0]
-    scores['recall_1'] = r[1]
-    scores['recall_mean'] = r.mean()
-    scores['recall_mean_std'] = recall_mean_std
-    scores['auc'] = auc
-#    scores['beta_cor_mean'] = beta_cor_mean
-    scores['precision_0'] = p[0]
-    scores['precision_1'] = p[1]
-    scores['precision_mean'] = p.mean()
-    scores['f1_0'] = f[0]
-    scores['f1_1'] = f[1]
-    scores['f1_mean'] = f.mean()
-    scores['support_0'] = s[0]
-    scores['support_1'] = s[1]
-#    scores['corr']= corr
-    scores['beta_r'] = str(R)
-    scores['beta_r_bar'] = r_bar
-    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
-    scores['beta_dice_bar'] = dice_bar
-    scores['n_ite'] = n_ite
-    scores['param_key'] = key
-    return scores
-
-def reducer():
-    import os, glob, pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json"
-    os.chdir(os.path.dirname(config_filenane))
-    config = json.load(open(config_filenane))
-    paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
-    #paths = [p for p in paths if not p.count("0.8_-1")]
-
-    def close(vec, val, tol=1e-4):
-        return np.abs(vec - val) < tol
-
-    def groupby_paths(paths, pos):
-        groups = {g:[] for g in set([p.split("/")[pos] for p in paths])}
-        for p in paths:
-            groups[p.split("/")[pos]].append(p)
-        return groups
-
-    def model_selection(data, groupby='fold', param_key="param_key", score="recall_mean"):
-        arg_max_byfold = list()
-        for fold, data_fold in data.groupby(groupby):
-            assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
-            arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
-        return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
-
-    # Refit scores
-    byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
-    byparams_scores = {k:scores(k, v) for k, v in byparams.iteritems()}
-    data = [byparams_scores[k].values() for k in byparams_scores]
-
-    columns = byparams_scores[byparams_scores.keys()[0]].keys()
-    scores_tab_refit = pd.DataFrame(data, columns=columns)
-    
-    ## doublecv scores by outer-cv and by params
-    data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested")], 1)
-    for fold, paths_fold in bycv.iteritems():
-        print fold
-        byparams = groupby_paths([p for p in paths_fold], 3)
-        byparams_scores = {k:scores(k, v) for k, v in byparams.iteritems()}
-        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
-    scores_tab_doublecv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
-
-    # rm small l1 with large tv & large l1 with small tv
-    rm = \
-        (close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & close(scores_tab_doublecv_byparams.tv, 0.8)) |\
-        (close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & close(scores_tab_doublecv_byparams.tv, 0.2))
-    np.sum(rm)
-    scores_tab_doublecv_byparams = scores_tab_doublecv_byparams[np.logical_not(rm)]
-
-    # model selection on nested cv for 8 cases
-    l2 = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv == 0)]
-    l2tv = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 == 0) & (scores_tab_doublecv_byparams.tv != 0)]
-    l1l2 = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 != 0) & (scores_tab_doublecv_byparams.tv == 0)]
-    l1l2tv = scores_tab_doublecv_byparams[(scores_tab_doublecv_byparams.l1 != 0) & (scores_tab_doublecv_byparams.tv != 0)]
-    # large ans small l1
-    l1l2_ll1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & (scores_tab_doublecv_byparams.tv == 0)]
-    l1l2tv_ll1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.9) & (scores_tab_doublecv_byparams.tv != 0)]
-    l1l2_sl1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & (scores_tab_doublecv_byparams.tv == 0)]
-    l1l2tv_sl1 = scores_tab_doublecv_byparams[close(scores_tab_doublecv_byparams.l1_ratio, 0.1) & (scores_tab_doublecv_byparams.tv != 0)]
-
-    l2 = model_selection(l2); l2["method"] = "l2"
-    l2tv = model_selection(l2tv); l2tv["method"] = "l2tv"
-    l1l2 = model_selection(l1l2); l1l2["method"] = "l1l2"
-    l1l2tv = model_selection(l1l2tv); l1l2tv["method"] = "l1l2tv"
- 
-    l1l2_ll1 = model_selection(l1l2_ll1); l1l2_ll1["method"] = "l1l2_ll1"
-    l1l2tv_ll1 = model_selection(l1l2tv_ll1); l1l2tv_ll1["method"] = "l1l2tv_ll1"
-    l1l2_sl1 = model_selection(l1l2_sl1); l1l2_sl1["method"] = "l1l2_sl1"
-    l1l2tv_sl1 = model_selection(l1l2tv_sl1); l1l2tv_sl1["method"] = "l1l2tv_sl1"
-
-   scores_tab_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
-
-    # Apply best model on refited
-    scores_l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2.iterrows()])
-    scores_l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2tv.iterrows()])
-    scores_l1l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2.iterrows()])
-    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()])
-
-    scores_l1l2_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1.iterrows()])
-    scores_l1l2tv_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_ll1.iterrows()])
-
-    scores_l1l2_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1.iterrows()])
-    scores_l1l2tv_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()])
-
-    scores_tab_cv = pd.DataFrame([["l2"] + scores_l2.values(),
-                  ["l2tv"] + scores_l2tv.values(),
-                  ["l1l2"] + scores_l1l2.values(),
-                  ["l1l2tv"] + scores_l1l2tv.values(),
-
-                  ["l1l2_ll1"] + scores_l1l2_ll1.values(),
-                  ["l1l2tv_ll1"] + scores_l1l2tv_ll1.values(),
-
-                  ["l1l2_sl1"] + scores_l1l2_sl1.values(),
-                  ["l1l2tv_sl1"] + scores_l1l2tv_sl1.values()], columns=["method"] + scores_l2.keys())
-    
-    with pd.ExcelWriter("scores_doublecv.xls") as writer:
-        scores_tab_refit.to_excel(writer, sheet_name='refit', index=False)
-        scores_tab_doublecv_byparams.to_excel(writer, sheet_name='doublecv_byparams', index=False)
-        scores_tab_argmax_byfold.to_excel(writer, sheet_name='argmax_byfold', index=False)
-        scores_tab_cv.to_excel(writer, sheet_name='scores_cv', index=False)
-
-if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
+def init():
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii")
@@ -297,8 +45,8 @@ if __name__ == "__main__":
     X = np.load(INPUT_DATA_X)
     from parsimony.utils.penalties import l1_max_logistic_loss
     assert l1_max_logistic_loss(X[:, 3:], y) == 0.20434911093262279
-    if os.path.exists("config_modselectcv.json"):
-        old_conf = json.load(open("config_modselectcv.json"))
+    if os.path.exists(config_filenane()):
+        old_conf = json.load(open(config_filenane()))
         cv = old_conf["resample"]
     else:
         cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
@@ -400,6 +148,358 @@ if __name__ == "__main__":
     print "# Reduce"
     print "mapreduce.py --reduce %s/config_modselectcv.json" % WD
 
+def load_globals(config):
+    import mapreduce as GLOBAL  # access to global variables
+    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    STRUCTURE = nibabel.load(config["mask_filename"])
+    try:
+        A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
+    except:
+        A, _ = tv_helper.A_from_mask(STRUCTURE.get_data())
+    GLOBAL.A, GLOBAL.STRUCTURE, GLOBAL.CONFIG = A, STRUCTURE, config
+
+
+def resample(config, resample_nb):
+    import mapreduce as GLOBAL  # access to global variables
+    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    resample = config["resample"][resample_nb]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
+                            for k in GLOBAL.DATA}
+
+
+def mapper(key, output_collector):
+    import mapreduce as GLOBAL # access to global variables:
+        #raise ImportError("could not import ")
+    # GLOBAL.DATA, GLOBAL.STRUCTURE, GLOBAL.A
+    # GLOBAL.DATA ::= {"X":[Xtrain, ytrain], "y":[Xtest, ytest]}
+    # key: list of parameters
+    Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
+    Xte = GLOBAL.DATA_RESAMPLED["X"][1]
+    ytr = GLOBAL.DATA_RESAMPLED["y"][0]
+    yte = GLOBAL.DATA_RESAMPLED["y"][1]
+    print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
+    STRUCTURE = GLOBAL.STRUCTURE
+    #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
+    #key = np.array(key)
+    penalty_start = GLOBAL.CONFIG["penalty_start"]
+    class_weight="auto" # unbiased
+    alpha = float(key[0])
+    l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
+    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    if k != -1:
+        k = int(k)
+        aov = SelectKBest(k=k)
+        aov.fit(Xtr[..., penalty_start:], ytr.ravel())
+        mask = STRUCTURE.get_data() != 0
+        mask[mask] = aov.get_support()
+        #print mask.sum()
+        A = tv_helper.linear_operator_from_mask(mask)
+        Xtr_r = np.hstack([Xtr[:, :penalty_start], Xtr[:, penalty_start:][:, aov.get_support()]])
+        Xte_r = np.hstack([Xte[:, :penalty_start], Xte[:, penalty_start:][:, aov.get_support()]])
+    else:
+        mask = STRUCTURE.get_data() != 0
+        Xtr_r = Xtr
+        Xte_r = Xte
+        A = GLOBAL.A
+    mod = LogisticRegressionL1L2TV(l1, l2, tv, A, penalty_start=penalty_start,
+                                   class_weight=class_weight)
+    mod.fit(Xtr_r, ytr)
+    y_pred = mod.predict(Xte_r)
+    proba_pred = mod.predict_probability(Xte_r)
+    ret = dict(y_pred=y_pred, proba_pred=proba_pred, y_true=yte, beta=mod.beta,  mask=mask)
+    if output_collector:
+        output_collector.collect(key, ret)
+    else:
+        return ret
+
+def scores(key, paths, config, ret_y=False):
+    import glob, mapreduce
+    print key
+    values = [mapreduce.OutputCollector(p) for p in paths]
+    values = [item.load() for item in values]
+    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
+        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
+    y_true = [item["y_true"].ravel() for item in values]
+    y_pred = [item["y_pred"].ravel() for item in values]
+    prob_pred = [item["proba_pred"].ravel() for item in values]
+    y_true = np.concatenate(y_true)
+    y_pred = np.concatenate(y_pred)
+    prob_pred = np.concatenate(prob_pred)
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
+    n_ite = None
+    betas = np.hstack([item["beta"][config['penalty_start']:, :] for item in values]).T
+    ## Compute beta similarity measures
+    # Correlation
+    R = np.corrcoef(betas)
+    #print R
+    R = R[np.triu_indices_from(R, 1)]
+    print R
+    # Fisher z-transformation / average
+    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+    # bracktransform
+    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+
+    # threshold betas to compute fleiss_kappa and DICE
+    try:
+        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+        #print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+        print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+                           rtol=0, atol=1e-02)
+
+        # Compute fleiss kappa statistics
+        beta_signed = np.sign(betas_t)
+        table = np.zeros((beta_signed.shape[1], 3))
+        table[:, 0] = np.sum(beta_signed == 0, 0)
+        table[:, 1] = np.sum(beta_signed == 1, 0)
+        table[:, 2] = np.sum(beta_signed == -1, 0)
+        fleiss_kappa_stat = fleiss_kappa(table)
+
+        # Paire-wise Dice coeficient
+        ij = [[i, j] for i in xrange(5) for j in xrange(i+1, 5)]
+        dices = list()
+        for idx in ij:
+            A, B = beta_signed[idx[0], :], beta_signed[idx[1], :]
+            dices.append(float(np.sum((A == B)[(A != 0) & (B != 0)])) / (np.sum(A != 0) + np.sum(B != 0)))
+        dice_bar = np.mean(dices)
+    except:
+        dice_bar = fleiss_kappa_stat = 0.
+
+    scores = OrderedDict()
+    try:
+        a, l1, l2 , tv , k = [float(par) for par in key.split("_")]
+        scores['a'] = a
+        scores['l1'] = l1
+        scores['l2'] = l2
+        scores['tv'] = tv
+        left = float(1 - tv)
+        if left == 0: left = 1.
+        scores['l1_ratio'] = float(l1) / left
+        scores['k'] = k
+    except:
+        pass
+    scores['recall_0'] = r[0]
+    scores['recall_1'] = r[1]
+    scores['recall_mean'] = r.mean()
+    scores['recall_mean_std'] = recall_mean_std
+    scores['auc'] = auc
+#    scores['beta_cor_mean'] = beta_cor_mean
+    scores['precision_0'] = p[0]
+    scores['precision_1'] = p[1]
+    scores['precision_mean'] = p.mean()
+    scores['f1_0'] = f[0]
+    scores['f1_1'] = f[1]
+    scores['f1_mean'] = f.mean()
+    scores['support_0'] = s[0]
+    scores['support_1'] = s[1]
+#    scores['corr']= corr
+    scores['beta_r'] = str(R)
+    scores['beta_r_bar'] = r_bar
+    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+    scores['beta_dice'] = str(dices)
+    scores['beta_dice_bar'] = dice_bar
+    scores['n_ite'] = n_ite
+    scores['param_key'] = key
+    if ret_y:
+        scores["y_true"], scores["y_pred"], scores["prob_pred"] = y_true, y_pred, prob_pred
+    return scores
+
+def reducer():
+    import os, glob, pandas as pd
+    os.chdir(os.path.dirname(config_filenane()))
+    config = json.load(open(config_filenane()))
+    paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    #paths = [p for p in paths if not p.count("0.8_-1")]
+
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+
+    def groupby_paths(paths, pos):
+        groups = {g:[] for g in set([p.split("/")[pos] for p in paths])}
+        for p in paths:
+            groups[p.split("/")[pos]].append(p)
+        return groups
+
+    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="recall_mean"):
+        arg_max_byfold = list()
+        for fold, data_fold in data.groupby(groupby):
+            assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
+            arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
+        return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
+
+    print '## Refit scores'
+    print '## ------------'
+    byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+    data = [byparams_scores[k].values() for k in byparams_scores]
+
+    columns = byparams_scores[byparams_scores.keys()[0]].keys()
+    scores_refit = pd.DataFrame(data, columns=columns)
+    
+    print '## doublecv scores by outer-cv and by params'
+    print '## -----------------------------------------'
+    data = list()
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")], 1)
+    for fold, paths_fold in bycv.iteritems():
+        print fold
+        byparams = groupby_paths([p for p in paths_fold], 3)
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
+    scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
+
+    # rm small l1 with large tv & large l1 with small tv
+    rm = \
+        (close(scores_dcv_byparams.l1_ratio, 0.1) & close(scores_dcv_byparams.tv, 0.8)) |\
+        (close(scores_dcv_byparams.l1_ratio, 0.9) & close(scores_dcv_byparams.tv, 0.2))
+    np.sum(rm)
+    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
+
+    # model selection on nested cv for 8 cases
+    l2 = scores_dcv_byparams[(scores_dcv_byparams.l1 == 0) & (scores_dcv_byparams.tv == 0)]
+    l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 == 0) & (scores_dcv_byparams.tv != 0)]
+    l1l2 = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv == 0)]
+    l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
+    # large ans small l1
+    l1l2_ll1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.9) & (scores_dcv_byparams.tv == 0)]
+    l1l2tv_ll1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.9) & (scores_dcv_byparams.tv != 0)]
+    l1l2_sl1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.1) & (scores_dcv_byparams.tv == 0)]
+    l1l2tv_sl1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.1) & (scores_dcv_byparams.tv != 0)]
+
+    print '## Model selection'
+    print '## ---------------'
+    l2 = argmaxscore_bygroup(l2); l2["method"] = "l2"
+    l2tv = argmaxscore_bygroup(l2tv); l2tv["method"] = "l2tv"
+    l1l2 = argmaxscore_bygroup(l1l2); l1l2["method"] = "l1l2"
+    l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
+ 
+    l1l2_ll1 = argmaxscore_bygroup(l1l2_ll1); l1l2_ll1["method"] = "l1l2_ll1"
+    l1l2tv_ll1 = argmaxscore_bygroup(l1l2tv_ll1); l1l2tv_ll1["method"] = "l1l2tv_ll1"
+    l1l2_sl1 = argmaxscore_bygroup(l1l2_sl1); l1l2_sl1["method"] = "l1l2_sl1"
+    l1l2tv_sl1 = argmaxscore_bygroup(l1l2tv_sl1); l1l2tv_sl1["method"] = "l1l2tv_sl1"
+
+    scores_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
+
+    print '## Apply best model on refited'
+    print '## ---------------------------'
+    scores_l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2.iterrows()], config)
+    scores_l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2tv.iterrows()], config)
+    scores_l1l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2.iterrows()], config)
+    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
+
+    scores_l1l2_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1.iterrows()], config)
+    scores_l1l2tv_ll1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_ll1.iterrows()], config)
+
+    scores_l1l2_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1.iterrows()], config)
+    scores_l1l2tv_sl1 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()], config)
+
+    scores_cv = pd.DataFrame([["l2"] + scores_l2.values(),
+                  ["l2tv"] + scores_l2tv.values(),
+                  ["l1l2"] + scores_l1l2.values(),
+                  ["l1l2tv"] + scores_l1l2tv.values(),
+
+                  ["l1l2_ll1"] + scores_l1l2_ll1.values(),
+                  ["l1l2tv_ll1"] + scores_l1l2tv_ll1.values(),
+
+                  ["l1l2_sl1"] + scores_l1l2_sl1.values(),
+                  ["l1l2tv_sl1"] + scores_l1l2tv_sl1.values()], columns=["method"] + scores_l2.keys())
+    
+    with pd.ExcelWriter(results_filenane()) as writer:
+        scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
+        scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
+        scores_argmax_byfold.to_excel(writer, sheet_name='scores_argmax_byfold', index=False)
+        scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
+
+###############################################################################
+def compare_models():
+    import os, glob, pandas as pd
+    from brainomics.stats import mcnemar_test_classification
+    os.chdir(os.path.dirname(config_filenane()))
+    scores_argmax_byfold = pd.read_excel(results_filenane(), sheetname='scores_argmax_byfold')
+    config = json.load(open(config_filenane()))
+
+    ## Compare prediction performances
+    ## -------------------------------
+    l1l2tv_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2tv_sl1"]
+    l1l2_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2_sl1"]
+    scores_l1l2tv_sl1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()],
+           config=config, ret_y=True)
+    scores_l1l2_sl1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1.iterrows()],
+           config=config, ret_y=True)
+    assert np.all(scores_l1l2tv_sl1["y_true"] == scores_l1l2_sl1["y_true"])
+    l1l2tv_sl1_pval = mcnemar_test_classification(y_true=scores_l1l2tv_sl1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_sl1["y_pred"], cont_table=False)
+
+    l1l2tv_ll1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2tv_ll1"]
+    l1l2_ll1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2_ll1"]
+    scores_l1l2tv_ll1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_ll1.iterrows()],
+           config=config, ret_y=True)
+    scores_l1l2_ll1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1.iterrows()],
+           config=config, ret_y=True)
+    assert np.all(scores_l1l2tv_ll1["y_true"] == scores_l1l2_ll1["y_true"])
+    l1l2tv_ll1_pval = mcnemar_test_classification(y_true=scores_l1l2tv_ll1["y_true"], y_pred1=scores_l1l2tv_ll1["y_pred"], y_pred2=scores_l1l2_ll1["y_pred"], cont_table=False)
+
+    comp_pred = pd.DataFrame([["l1l2(no vs tv)ll1", l1l2tv_ll1_pval],
+                  ["l1l2(no vs tv)sl1", l1l2tv_sl1_pval]], columns=["comparison", "mcnemar_p_value"])
+
+    ## p-value assesment by permutation
+    from brainomics.stats import auc_recalls_permutations_pval
+
+    y_true =  scores_l1l2tv_ll1["y_true"]
+    y_pred1,  y_pred2 = scores_l1l2tv_ll1["y_pred"], scores_l1l2_ll1["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_ll1["prob_pred"], scores_l1l2_ll1["prob_pred"]
+    ll1_auc_pval, ll1_r_mean_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred1, prob_pred2, nperms=10000)
+
+    y_true =  scores_l1l2tv_sl1["y_true"]
+    y_pred1, y_pred2 = scores_l1l2tv_sl1["y_pred"], scores_l1l2_sl1["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_sl1["prob_pred"], scores_l1l2_sl1["prob_pred"]
+    sl1_auc_pval, sl1_r_mean_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred2, prob_pred2, nperms=10000)
+
+    comp_pred["recall_mean_perm_pval"] = [ll1_r_mean_pval, sl1_r_mean_pval]
+    comp_pred["auc_perm_pval"] = [ll1_auc_pval, sl1_auc_pval]
+
+    ## Compare weights map stability
+    ## -----------------------------
+
+    # mean correlaction
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    ll1_beta_r_mean = np.mean(scores1 - scores2)
+    ll1_beta_r_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+    
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    sl1_beta_r_mean = np.mean(scores1 - scores2)
+    sl1_beta_r_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred["beta_r_mean_diff"] = [ll1_beta_r_mean, sl1_beta_r_mean]
+    comp_pred["beta_r_perm_pval"] = [ll1_beta_r_pval, sl1_beta_r_pval]
+
+    # mean dice
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    ll1_beta_dice_mean = np.mean(scores1 - scores2)
+    ll1_beta_dice_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    sl1_beta_dice_mean = np.mean(scores1 - scores2)
+    sl1_beta_dice_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred["beta_dice_mean_diff"] = [ll1_beta_dice_mean, sl1_beta_dice_mean]
+    comp_pred["beta_dice_perm_pval"] = [ll1_beta_dice_pval, sl1_beta_dice_pval]
+
+    xlsx = pd.ExcelFile(results_filenane())
+    with pd.ExcelWriter(results_filenane()) as writer:
+        for sheet in xlsx.sheet_names:  # cp previous sheets
+            xlsx.parse(sheet).to_excel(writer, sheet_name=sheet, index=False)
+        comp_pred.to_excel(writer, sheet_name='comparisons', index=False)
+
+
 ###############################################################################
 def plot_perf():
     import os
@@ -410,7 +510,7 @@ def plot_perf():
 
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/MCIc-CTL_csi_modselectcv.csv"
+    INPUT = os.path.join(WD, "MCIc-CTL_csi_modselectcv.csv")
     y_col = 'recall_mean'
     x_col = 'tv'
     y_col = 'auc'
@@ -461,9 +561,8 @@ def plot_perf():
 
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/config_modselectcv.json"
-    os.chdir(os.path.dirname(config_filenane))
-    config = json.load(open(config_filenane))
+    os.chdir(os.path.dirname(config_filenane()))
+    config = json.load(open(config_filenane()))
     from collections import OrderedDict
     models = OrderedDict()
     models["l2"]     = (0.010,	0.000, 1.000, 0.000)
@@ -512,3 +611,20 @@ def build_summary():
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
 
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-i', '--init', action='store_true', default=False,
+                        help="Init config file & sync to cluster")
+ 
+    parser.add_argument('-r', '--reduce', action='store_true', default=False,
+                        help="Reduce, ie.: compute scores")
+
+    options = parser.parse_args()
+
+    if options.init:
+        init()
+
+    elif options.reduce:
+        reducer()
