@@ -205,7 +205,7 @@ def run_all(config):
     #oc.collect(key=key, value=ret)
 
 if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc_s"
+    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_s"
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii")
@@ -242,6 +242,10 @@ if __name__ == "__main__":
     alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
     alphal1l2tvk = np.concatenate([np.c_[alphal1l2tv, np.array([[k]]*alphal1l2tv.shape[0])] for k in k_range])
     params = [params.tolist() for params in alphal1l2tvk]
+    params.append([1.0, 0.0, 1.0, 0.0, -1.0])
+    params.append([10.0, 0.0, 1.0, 0.0, -1.0])
+    params.append([100.0, 0.0, 1.0, 0.0, -1.0])
+    params.append([1000.0, 0.0, 1.0, 0.0, -1.0])
     """
     inf = open("config.json", "w")
     old_conf = json.load(inf)
@@ -257,7 +261,7 @@ if __name__ == "__main__":
 #    except:
     user_func_filename = os.path.join(os.environ["HOME"],
         "git", "scripts", "2013_adni", "MCIc-CTL",
-        "02_tvenet_csnc_s.py")
+        "02_tvenet_s.py")
     #print __file__, os.path.abspath(__file__)
     print "user_func", user_func_filename
     #import sys
@@ -271,7 +275,7 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
                   reduce_group_by="params",
-                  reduce_output="MCIc-CTL_csnc_s.csv")
+                  reduce_output="MCIc-CTL_s.csv")
     json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
 
     #############################################################################
@@ -315,7 +319,7 @@ def plot_perf():
     
     # SOME ERROR WERE HERE CORRECTED 27/04/2014 think its good
     #INPUT_vbm = "/home/ed203246/mega/data/2015_logistic_nestv/adni/MCIc-CTL/MCIc-CTL_cs.csv"
-    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc_s/MCIc-CTL_csnc_s.csv"
+    INPUT = "/neurospin/brainomics/2013_adni/MCIc-CTL_s/MCIc-CTL_s.csv"
     y_col = 'recall_mean'
     x_col = 'tv'
     y_col = 'auc'
@@ -367,7 +371,7 @@ def plot_perf():
 
 def build_summary():
     import pandas as pd
-    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_csnc_s/config_5cv.json"
+    config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL_s/config_5cv.json"
     os.chdir(os.path.dirname(config_filenane))
     config = json.load(open(config_filenane))
     from collections import OrderedDict
@@ -417,6 +421,3 @@ def build_summary():
     orig_cv.to_excel(xlsx, 'All')
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
-
-    
-    

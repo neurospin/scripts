@@ -46,8 +46,9 @@ OUTPUT_CS = os.path.join(BASE_PATH,          "MCIc-CTL_cs")
 OUTPUT_CSI = os.path.join(BASE_PATH,          "MCIc-CTL_csi")
 OUTPUT_ATLAS = os.path.join(BASE_PATH,       "MCIc-CTL_gtvenet")
 OUTPUT_CS_ATLAS = os.path.join(BASE_PATH,    "MCIc-CTL_cs_gtvenet")
-OUTPUT_CSNC = os.path.join(BASE_PATH,          "MCIc-CTL_csnc") # No Covariate
-OUTPUT_CSNC_S = os.path.join(BASE_PATH,          "MCIc-CTL_csnc_s") # No Covariate + smooth
+OUTPUT_S = os.path.join(BASE_PATH,          "MCIc-CTL_s") # No Covariate
+OUTPUT_S_S = os.path.join(BASE_PATH,          "MCIc-CTL_s_s") # No Covariate + smooth
+OUTPUT_CS_S = os.path.join(BASE_PATH,          "MCIc-CTL_cs_s") # Covariate + smooth
 
 
 os.makedirs(OUTPUT)
@@ -55,8 +56,8 @@ os.makedirs(OUTPUT_CS)
 os.makedirs(OUTPUT_CSI)
 os.makedirs(OUTPUT_ATLAS)
 os.makedirs(OUTPUT_CS_ATLAS)
-os.makedirs(OUTPUT_CSNC)
-os.makedirs(OUTPUT_CSNC_S)
+os.makedirs(OUTPUT_S)
+os.makedirs(OUTPUT_S_S)
 
 # Read input subjects
 input_subjects = pd.read_table(INPUT_SUBJECTS_LIST_FILENAME, sep=" ",
@@ -131,8 +132,8 @@ babel_mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
 assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CS, "mask.nii"))
-shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSNC, "mask.nii"))
-shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CSNC_S, "mask.nii"))
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_S, "mask.nii"))
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_S_S, "mask.nii"))
 
 #############################################################################
 # X
@@ -166,8 +167,8 @@ assert X.shape == (202, 286117)
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
 n, p = X.shape
-np.save(os.path.join(OUTPUT_CSNC, "X.npy"), X)
-fh = open(os.path.join(OUTPUT_CSNC, "X.npy").replace("npy", "txt"), "w")
+np.save(os.path.join(OUTPUT_S, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_S, "X.npy").replace("npy", "txt"), "w")
 fh.write('Centered and scaled data. Shape = (%i, %i): %i voxels' % \
     (n, p, mask.sum()))
 fh.close()
@@ -240,23 +241,37 @@ assert X.shape == (202, 286117)
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
 n, p = X.shape
-np.save(os.path.join(OUTPUT_CSNC_S, "X.npy"), X)
-fh = open(os.path.join(OUTPUT_CSNC_S, "X.npy").replace("npy", "txt"), "w")
+np.save(os.path.join(OUTPUT_S_S, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_S_S, "X.npy").replace("npy", "txt"), "w")
 fh.write('Sptially smoothed (FWHM=6mm), centered and scaled data. Shape = (%i, %i): %i voxels' % \
     (n, p, mask.sum()))
+fh.close()
+
+# CS_S
+shutil.copyfile(os.path.join(OUTPUT, "mask.nii"), os.path.join(OUTPUT_CS_S, "mask.nii"))
+im = nibabel.load(os.path.join(OUTPUT_CS_S, "mask.nii"))
+mask = im.get_data()
+
+X = np.load(os.path.join(OUTPUT_S_S, "X.npy"))
+assert X.shape == (202, 286117)
+assert X.shape[1] == mask.sum()
+X = np.hstack([Z[:, 1:], X])
+assert X.shape == (202, 286119) == (202, mask.sum() + Z.shape[1] - 1)
+np.save(os.path.join(OUTPUT_CS_S, "X.npy"), X)
+fh = open(os.path.join(OUTPUT_CS_S, "X.npy").replace("npy", "txt"), "w")
+fh.write('Sptially smoothed (FWHM=6mm), centered and scaled data. Shape = (%i, %i): Age + Gender +  %i voxels' % \
+    (X.shape[0],  mask.sum() + Z.shape[1] - 1, mask.sum()))
 fh.close()
 
 
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS, "y.npy"), y)
-np.save(os.path.join(OUTPUT_CSNC, "y.npy"), y)
-np.save(os.path.join(OUTPUT_CSNC_S, "y.npy"), y)
+np.save(os.path.join(OUTPUT_S, "y.npy"), y)
+np.save(os.path.join(OUTPUT_S_S, "y.npy"), y)
+np.save(os.path.join(OUTPUT_CS_S, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CSI, "y.npy"), y)
 np.save(os.path.join(OUTPUT_ATLAS, "y.npy"), y)
 np.save(os.path.join(OUTPUT_CS_ATLAS, "y.npy"), y)
-
-#############################################################################
-# No covariate + remove isolated voxels
 
 
 #############################################################################
