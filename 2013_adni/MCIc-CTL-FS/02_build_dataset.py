@@ -19,15 +19,15 @@ GENDER_MAP = {'Female': 0, 'Male': 1}
 BASE_PATH = "/neurospin/brainomics/2013_adni"
 if not SMOOTH:
     INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data")
-    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS")
+    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS_cs")
 else:
     INPUT_IMAGE_DIR = os.path.join(BASE_PATH, "freesurfer_assembled_data_smoothed")
-    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS_s")
+    OUTPUT = os.path.join(BASE_PATH,             "MCIc-CTL-FS_cs_s")
 
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")
 
 
-INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL-FS", "population.csv")
+INPUT_CSV = os.path.join(BASE_PATH,          "MCIc-CTL-FS_cs", "population.csv")
 
 
 # Read pop csv
