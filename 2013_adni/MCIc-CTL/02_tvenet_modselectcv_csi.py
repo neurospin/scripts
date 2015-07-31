@@ -27,12 +27,12 @@ from statsmodels.stats.inter_rater import fleiss_kappa
 WD = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
 def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
 def results_filenane(): return os.path.join(WD, "MCIc-CTL_csi_modselectcv.xlsx")
+NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
 
 def init():
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     INPUT_MASK_PATH = os.path.join("mask.nii")
-    NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -499,6 +499,85 @@ def compare_models():
             xlsx.parse(sheet).to_excel(writer, sheet_name=sheet, index=False)
         comp_pred.to_excel(writer, sheet_name='comparisons', index=False)
 
+###############################################################################
+## vizu weight maps
+def vizu_weight_maps():
+    import glob
+    config = json.load(open(config_filenane()))
+    INPUT_BASE = os.path.join(os.path.dirname(WD), "MCIc-CTL_csi", "5cv", "0")
+    OUTPUT = os.path.join(WD, "weights_map")
+    if not os.path.exists(OUTPUT):
+        os.mkdir(OUTPUT)
+    mask = nibabel.load(os.path.join(WD, config["mask_filename"]))
+
+    models = dict(
+        l1l2tv_sl1="0.1_0.02_0.18_0.8_-1.0",
+        l1l2_sl1="0.1_0.1_0.9_0.0_-1.0",
+        l1l2tv_ll1="0.1_0.18_0.02_0.8_-1.0",		
+        l1l2_ll1="0.01_0.9_0.1_0.0_-1.0")
+ 
+    for mod in models:
+        #mod = 'l1l2tv_sl1'
+        # mod = 'l1l2tv_ll1'
+        image_arr = np.zeros(mask.get_data().shape)
+        beta_map_filenames = glob.glob(os.path.dirname(INPUT_BASE)+"/*/"+models[mod]+"/beta.npz")
+        beta_map_all_filename = beta_map_filenames[0]
+        beta_map_cv_filenames = beta_map_filenames[1:]
+
+        # Image of beta refitted with all samples
+        output_filename = os.path.join(OUTPUT, mod + "_all.nii.gz")
+        beta_map = np.load(beta_map_all_filename)['arr_0'][config['penalty_start']:,:].ravel()
+        if mod == 'l1l2tv_ll1':
+            #plt.plot(beta_map, "o")
+            mask_out = beta_map>0.001
+            assert np.sum(mask_out) == 393 # 4 > 0.01
+            beta_map[mask_out] = 0.001
+        if mod == 'l1l2tv_sl1':
+            #plt.plot(beta_map, "o")
+            mask_out = beta_map>0.001
+            assert np.sum(mask_out) == 264 # 3 > 0.01
+            beta_map[mask_out] = 0.001
+        print mod, beta_map.min(), beta_map.max()
+        
+        image_arr[mask.get_data() != 0] = beta_map
+        out_im = nibabel.Nifti1Image(image_arr, affine=mask.get_affine())
+        out_im.to_filename(output_filename)
+        cmd = "~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
+            ("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)
+        print cmd
+        os.popen(cmd)
+
+        # Image of count of non null betas over the 5cv
+        output_filename = os.path.join(OUTPUT, mod + "_count5cv.nii.gz")
+        beta_maps = np.vstack([np.load(filename)['arr_0'][config['penalty_start']:,:].ravel() for filename in beta_map_cv_filenames])
+        beta_maps[np.abs(beta_maps) < 1e-10] = 0
+        count = np.sum(beta_maps != 0, axis=0) / float(NFOLDS_OUTER)
+        image_arr[mask.get_data() != 0] = count
+        out_im = nibabel.Nifti1Image(image_arr, affine=mask.get_affine())
+        out_im.to_filename(output_filename)
+        cmd = "~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
+            ("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)
+        print cmd
+        os.popen(cmd)
+
+
+        print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_all l1l2_sl1_all l1l2tv_ll1_all l1l2_ll1_all"
+        print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_count5cv l1l2_sl1_count5cv l1l2tv_ll1_count5cv l1l2_ll1_count5cv"
+
+"""
+min / max
+for all FUSION2D/ control fusion / Geometric
+
+for both tv palette signed_values 1 et 3 / Bounds -0.001 / 0.001
+for both notv palette signed_values 2 et 4 / Bounds -0.01 / 0.01
+
+l1l2tv_sl1 -0.000627157369334 0.0658951745904
+l1l2_ll1 -0.497446647882 0.245831238659
+l1l2_sl1 -0.0493606630084 0.0472100744003
+l1l2tv_ll1 -0.000780363605003 0.0419459097813
+"""
+#~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
+#/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)
 
 ###############################################################################
 def plot_perf():

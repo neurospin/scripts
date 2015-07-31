@@ -128,3 +128,20 @@ def sign_permutation_pval(values, nperms=10000, stat="mean"):
             signs[signs==0] = -1
             stats[perm_i] = np.mean(signs * values)
     return np.sum(stats[1:] > stats[0]) / float(nperms)
+
+
+def mad(x):
+    """
+    Median absolute std-dev.
+
+    Examples
+    --------
+    >>> x = np.random.normal(size=1000)
+    >>> print round(np.sum(np.abs(x - np.median(x)) > 1 * mad(x)) / float(len(x)), 2)
+    0.32
+    >>> print round(np.sum(np.abs(x - np.median(x)) > 2 * mad(x)) / float(len(x)), 2)
+    0.04
+    >>> print round(np.sum(np.abs(x - np.median(x)) > 3 * mad(x)) / float(len(x)), 3)
+    0.003
+    """
+    return 1.4826 * np.median(np.abs(x - np.median(x)))

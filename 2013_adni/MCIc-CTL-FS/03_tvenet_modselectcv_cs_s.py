@@ -113,7 +113,7 @@ def init():
             assert not set(val).intersection(te)
             len(tr) + len(val) + len(te) == len(y)
 
-    tv_ratios = [0.]#, .2, .8]
+    tv_ratios = [0., .2, .8]
     l1_ratios = [np.array([1., .1, .9, 1]),
                  np.array([1., .01, .99, 1]),
                  np.array([1., .9, .1, 1])]  # [alpha, l1 l2 tv]
@@ -536,6 +536,10 @@ def compare_models():
         for sheet in xlsx.sheet_names:  # cp previous sheets
             xlsx.parse(sheet).to_excel(writer, sheet_name=sheet, index=False)
         comp_pred.to_excel(writer, sheet_name='comparisons', index=False)
+
+
+###############################################################################
+
 
 ###############################################################################
 def plot_perf():
