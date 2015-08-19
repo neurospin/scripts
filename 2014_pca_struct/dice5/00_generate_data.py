@@ -7,7 +7,7 @@ Created on Tue Mar 18 10:57:39 2014
 
 Generate all the data to be used.
 
-After generation, we enter data and compute the l1_max value. As we use
+After generation, we center data and compute the l1_max value. As we use
 centered data, the value is always the same (approximatively
 sqrt(N_SAMPLES)/N_SAMPLES).
 
