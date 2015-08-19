@@ -53,7 +53,7 @@ SNRS = dice5_data.ALL_SNRS
 # Code #
 ########
 
-# Generate data for various alpha parameter
+# Generate data for all the SNR values
 for snr in SNRS:
     model = dice5_data.create_model(snr)
     X3d, y, beta3d = dice5.load(n_samples=dice5_data.N_SAMPLES,
