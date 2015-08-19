@@ -30,11 +30,17 @@ import dice5_metrics
 # Input/Output #
 ################
 
-OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data"
+INPUT_MASK_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data/masks"
+INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DIR,
+                                     "data_{s[0]}_{s[1]}_{snr}")
+INPUT_STD_DATASET_FILE = "data.std.npy"
+INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
+INUT_MASK_FILE = "mask.npy"
+OUTPUT_L1MASK_FILE = "l1_max.txt"
 
+OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "{snr}")
-OUTPUT_DATASET_FILE = "data.npy"
-OUTPUT_STD_DATASET_FILE = "data.std.npy"
 OUTPUT_PCA_FILE = "model.pkl"
 OUTPUT_PRED_FILE = "X_pred.npy"
 
@@ -43,14 +49,17 @@ OUTPUT_PRED_FILE = "X_pred.npy"
 ##############
 
 N_COMP = 3
-N_TRAIN = 300
 
 L2_THRESHOLD = 0.99
 
-SNR = np.linspace(0.01, 0.5, 50)
+TRAIN_RANGE = range(dice5_data.N_SAMPLES/2)
+TEST_RANGE = range(dice5_data.N_SAMPLES/2, dice5_data.N_SAMPLES)
+
 # Chosen values (obtained after inspection of results)
 # Close to 0.05, 0.1 and 0.2
-SNR_TO_DISPLAY = [SNR[4], SNR[9], SNR[19]]
+SNR_TO_DISPLAY = [dice5_data.ALL_SNRS[4],
+                  dice5_data.ALL_SNRS[9],
+                  dice5_data.ALL_SNRS[19]]
 
 #############
 # Functions #
@@ -72,14 +81,26 @@ def frobenius_dst_score(X_test, X_pred, **kwargs):
 if not os.path.exists(OUTPUT_BASE_DIR):
     os.makedirs(OUTPUT_BASE_DIR)
 
-train_range = range(N_TRAIN)
-test_range = range(N_TRAIN, dice5_data.N_SAMPLES)
+# Load masks
+sub_objects = []
+for i in range(3):
+    filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(i=i)
+    full_filename = os.path.join(INPUT_MASK_DIR, filename)
+    sub_objects.append(np.load(full_filename))
 
-frobenius_dst = np.zeros((len(SNR),))
-evr = np.zeros((len(SNR),))
-dice = np.zeros((len(SNR), len(range(N_COMP))))
-correlation = np.zeros((len(SNR), len(range(N_COMP))))
-for i, snr in enumerate(SNR):
+frobenius_dst = np.zeros((len(dice5_data.ALL_SNRS),))
+evr = np.zeros((len(dice5_data.ALL_SNRS),))
+dice = np.zeros((len(dice5_data.ALL_SNRS), len(range(N_COMP))))
+correlation = np.zeros((len(dice5_data.ALL_SNRS), len(range(N_COMP))))
+for i, snr in enumerate(dice5_data.ALL_SNRS):
+    # Load data
+    input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE,
+                                             snr=snr)
+    std_data_path = os.path.join(input_dir,
+                                 INPUT_STD_DATASET_FILE)
+    X = np.load(std_data_path)
+
+    # Create output dir
     output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -88,30 +109,10 @@ for i, snr in enumerate(SNR):
     print snr
     model = dice5_data.create_model(snr)
 
-    X3d, y, beta3d = datasets.regression.dice5.load(
-        n_samples=dice5_data.N_SAMPLES, shape=dice5_data.SHAPE,
-        model=model,
-        random_seed=dice5_data.SEED)
-    objects = datasets.regression.dice5.dice_five_with_union_of_pairs(
-        dice5_data.SHAPE)
-    _, _, d3, _, _, union12, union45, _ = objects
-    sub_objects = [union12, union45, d3]
-
-    X = X3d.reshape((dice5_data.N_SAMPLES, np.prod(dice5_data.SHAPE)))
-    full_filename = os.path.join(output_dir,
-                                 OUTPUT_DATASET_FILE)
-    np.save(full_filename, X)
-
-    # Preprocessing
-    X = scale(X, axis=0, with_mean=True, with_std=False)
-    full_filename = os.path.join(output_dir,
-                                 OUTPUT_STD_DATASET_FILE)
-    np.save(full_filename, X)
-
     # Fit model & compute score
     pca = PCA(n_components=N_COMP)
-    X_train = X[train_range, :]
-    X_test = X[test_range, :]
+    X_train = X[TRAIN_RANGE, :]
+    X_test = X[TEST_RANGE, :]
     pca.fit(X_train)
     full_filename = os.path.join(output_dir,
                                  OUTPUT_PCA_FILE)
@@ -129,19 +130,19 @@ for i, snr in enumerate(SNR):
             L2_THRESHOLD)
         thresh_comp = pca.components_[j, :] > t
         dice[i, j] = dice5_metrics.dice(thresh_comp.reshape(dice5_data.SHAPE),
-                                        obj.get_mask())
+                                        obj)
         correlation[i, j] = \
             np.abs(np.corrcoef(pca.components_[j, :],
-                               obj.get_mask().ravel())[1, 0])
+                               obj.ravel())[1, 0])
 
 plt.figure()
-plt.plot(SNR, frobenius_dst)
+plt.plot(dice5_data.ALL_SNRS, frobenius_dst)
 plt.legend(['Frobenius distance'])
 
 for j in range(N_COMP):
     plt.figure()
     legend = 'Correlation between loading #{j} and object #{j}'.format(j=j+1)
-    plt.plot(SNR, correlation[:, j])
+    plt.plot(dice5_data.ALL_SNRS, correlation[:, j])
     plt.legend([legend])
 
 # Reload some weight maps
