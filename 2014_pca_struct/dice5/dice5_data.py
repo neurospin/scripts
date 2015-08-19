@@ -20,6 +20,10 @@ N_SAMPLES = 500
 # STDEV[2] is for l45
 STDEV = np.asarray([1, 0.5, 0.8])
 
+# All possible values of the SNR.
+# We use this form so the step is exactmy 0.01 and 0 is excluded.
+ALL_SNRS = np.linspace(0.0, 0.5, 51)[1:]
+
 
 def create_model(snr):
     """

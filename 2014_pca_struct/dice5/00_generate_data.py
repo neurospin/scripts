@@ -45,7 +45,7 @@ OUTPUT_L1MASK_FILE = "l1_max.txt"
 ##############
 
 # All SNR values
-SNRS = [0.05, 0.75, 1.0]
+SNRS = dice5_data.ALL_SNRS
 
 #############
 # Functions #
