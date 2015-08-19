@@ -5,13 +5,11 @@ Created on Tue Mar 18 10:57:39 2014
 @author:  edouard.duchesnay@cea.fr
 @license: BSD-3-Clause
 
-Generate test data for PCA with various SNR (controlled by INPUT_ALPHAS).
+Generate all the data to be used.
 
-We split the data into a train and test sets just for future usage.
-Train and test indices are fixed here.
-
-Finally center data and compute the l1_max value. As we use centered data, the
-value is always the same (approximatively sqrt(N_SAMPLES)/N_SAMPLES).
+After generation, we enter data and compute the l1_max value. As we use
+centered data, the value is always the same (approximatively
+sqrt(N_SAMPLES)/N_SAMPLES).
 
 """
 
