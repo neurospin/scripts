@@ -44,6 +44,7 @@ OUTPUT_PRED_FILE = "X_pred.npy"
 OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR, "Frobenius.svg")
 OUTPUT_LOADING_CORR_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
                                             "Correlation_Loading-Mask_{i}.svg")
+OUTPUT_LOADING_FILE_FMT = "Loading_{i}.svg"
 OUTPUT_CHOSEN_SNR_FILE = os.path.join(OUTPUT_BASE_DIR, "SNR.npy")
 
 ##############
@@ -142,7 +143,7 @@ for j in range(N_COMP):
     legend = 'Correlation between loading #{j} and object #{j}'.format(j=j+1)
     plt.plot(dice5_data.ALL_SNRS, correlation[:, j])
     plt.legend([legend])
-    filename = OUTPUT_LOADING_CORR_FILE_FMT.format(i=j)
+    filename = OUTPUT_LOADING_CORR_FILE_FMT.format(i=j+1)
     f.savefig(filename)
 
 print "Figures are saved. Close them to continue."
@@ -160,7 +161,6 @@ while True:
     if snr not in dice5_data.ALL_SNRS:
         print "Invalid SNR"
         continue
-    print "Close figures to continue."
     # Reload weight maps
     output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
     full_filename = os.path.join(output_dir,
@@ -173,7 +173,12 @@ while True:
                                                        snr=snr)
         plot_map2d(pca.components_[j, ].reshape(dice5_data.SHAPE),
                    title=legend)
+        f = plt.gcf()
+        filename = os.path.join(output_dir,
+                                OUTPUT_LOADING_FILE_FMT.format(i=j+1))
+        f.savefig(filename)
 
+    print "Figures are saved. Close them to continue."
     plt.show()
 
 # Store chosen SNR
