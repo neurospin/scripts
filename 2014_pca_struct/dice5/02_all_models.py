@@ -38,20 +38,24 @@ import metrics
 from brainomics import array_utils
 import brainomics.cluster_gabriel as clust_utils
 
+import dice5_data
 import dice5_metrics
+
+################
+# Input/Output #
+################
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
 INPUT_BASE_DATA_DIR = os.path.join(INPUT_BASE_DIR, "data")
-INPUT_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
-                                "data_{s[0]}_{s[1]}_{snr}")
+INPUT_MASK_DIR = os.path.join(INPUT_BASE_DATA_DIR, "masks")
+INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
+                                     "data_{s[0]}_{s[1]}_{snr}")
 INPUT_STD_DATASET_FILE = "data.std.npy"
-INPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 INPUT_L1MASK_FILE = "l1_max.txt"
-
-INPUT_SHAPE = (100, 100, 1)
-INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
+INPUT_SNR_FILE = os.path.join(INPUT_BASE_DIR,
+                              "calibrate",
+                              "SNR.npy")
 
 OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
@@ -62,6 +66,8 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 ##############
 
 N_COMP = 3
+TRAIN_RANGE = range(dice5_data.N_SAMPLES/2)
+TEST_RANGE = range(dice5_data.N_SAMPLES/2, dice5_data.N_SAMPLES)
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 1e1])
 # Relative penalties
@@ -102,7 +108,7 @@ def load_globals(config):
         filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
         masks.append(np.load(filename))
     im_shape = config["im_shape"]
-    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
+    Atv = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
     GLOBAL.masks = masks
 
@@ -119,6 +125,7 @@ def resample(config, resample_nb):
         GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k]
                                  for idx in [0, 1]]
                                  for k in GLOBAL.DATA}
+
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables:
@@ -448,20 +455,12 @@ def run_test(wd, config):
 #################
 
 if __name__ == '__main__':
+    # Read SNRs
+    input_snrs = np.load(INPUT_SNR_FILE)
     # Create a mapreduce config file for each dataset
-    for snr in INPUT_SNRS:
-        input_dir = INPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
-                                            snr=snr)
-        # Read indices
-        indices = []
-        for i in range(INPUT_N_SUBSETS):
-            filename = INPUT_INDEX_FILE_FORMAT.format(subset=i)
-            full_filename = os.path.join(input_dir, filename)
-            indices.append(np.load(full_filename).tolist())
-        rev_indices = indices[::-1]
-        resample_index = [indices, rev_indices]
-        resample_index.insert(0, None)  # first fold is None
-
+    for snr in input_snrs:
+        input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE,
+                                                 snr=snr)
         # Read l1_max file
         full_filename = os.path.join(input_dir, INPUT_L1MASK_FILE)
         with open(full_filename) as f:
@@ -483,7 +482,7 @@ if __name__ == '__main__':
 
         # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
-                                  OUTPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
+                                  OUTPUT_DIR_FORMAT.format(s=dice5_data.SHAPE,
                                                            snr=snr))
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -495,23 +494,24 @@ if __name__ == '__main__':
         # Copy the objects masks
         for i in range(N_COMP):
             filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-            src_filename = os.path.join(input_dir, filename)
+            src_filename = os.path.join(INPUT_MASK_DIR, filename)
             dst_filename = os.path.join(output_dir, filename)
             shutil.copy(src_filename, dst_filename)
 
         # Create files to synchronize with the cluster
         sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-        clust_utils.gabriel_make_sync_data_files(output_dir)
+            clust_utils.gabriel_make_sync_data_files(output_dir,
+                                                     user="md238665")
 
         # Create config file
         user_func_filename = os.path.abspath(__file__)
 
         config = OrderedDict([
             ('data', dict(X=INPUT_STD_DATASET_FILE)),
-            ('im_shape', INPUT_SHAPE),
+            ('im_shape', dice5_data.SHAPE),
             ('params', correct_params),
             ('l1_max', l1_max),
-            ('resample', resample_index),
+            ('resample', [[TRAIN_RANGE, TEST_RANGE]]),
             ('map_output', "results"),
             ('user_func', user_func_filename),
             ('ncore', 4),
