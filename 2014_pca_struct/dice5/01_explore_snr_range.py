@@ -14,10 +14,8 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import scale
 from sklearn.decomposition import PCA
 
-from parsimony import datasets
 from parsimony.utils import plot_map2d
 
 from brainomics import array_utils
@@ -43,6 +41,10 @@ OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "{snr}")
 OUTPUT_PCA_FILE = "model.pkl"
 OUTPUT_PRED_FILE = "X_pred.npy"
+OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR, "Frobenius.svg")
+OUTPUT_LOADING_CORR_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
+                                            "Correlation_Loading-Mask_{i}.svg")
+OUTPUT_CHOSEN_SNR_FILE = os.path.join(OUTPUT_BASE_DIR, "SNR.npy")
 
 ##############
 # Parameters #
@@ -54,12 +56,6 @@ L2_THRESHOLD = 0.99
 
 TRAIN_RANGE = range(dice5_data.N_SAMPLES/2)
 TEST_RANGE = range(dice5_data.N_SAMPLES/2, dice5_data.N_SAMPLES)
-
-# Chosen values (obtained after inspection of results)
-# Close to 0.05, 0.1 and 0.2
-SNR_TO_DISPLAY = [dice5_data.ALL_SNRS[4],
-                  dice5_data.ALL_SNRS[9],
-                  dice5_data.ALL_SNRS[19]]
 
 #############
 # Functions #
@@ -135,18 +131,37 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
             np.abs(np.corrcoef(pca.components_[j, :],
                                obj.ravel())[1, 0])
 
-plt.figure()
+# Draw and save figures
+f = plt.figure()
 plt.plot(dice5_data.ALL_SNRS, frobenius_dst)
 plt.legend(['Frobenius distance'])
+f.savefig(OUTPUT_FROBENIUS_DST_FILE)
 
 for j in range(N_COMP):
-    plt.figure()
+    f = plt.figure()
     legend = 'Correlation between loading #{j} and object #{j}'.format(j=j+1)
     plt.plot(dice5_data.ALL_SNRS, correlation[:, j])
     plt.legend([legend])
+    filename = OUTPUT_LOADING_CORR_FILE_FMT.format(i=j)
+    f.savefig(filename)
 
-# Reload some weight maps
-for snr in SNR_TO_DISPLAY:
+print "Figures are saved. Close them to continue."
+plt.show()
+
+while True:
+    input_str = raw_input("Enter a SNR value to display (or q to quit):")
+    if input_str == "q":
+        break
+    try:
+        snr = float(input_str)
+    except:
+        print "Can't parse input"
+        continue
+    if snr not in dice5_data.ALL_SNRS:
+        print "Invalid SNR"
+        continue
+    print "Close figures to continue."
+    # Reload weight maps
     output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
     full_filename = os.path.join(output_dir,
                                  OUTPUT_PCA_FILE)
@@ -159,4 +174,21 @@ for snr in SNR_TO_DISPLAY:
         plot_map2d(pca.components_[j, ].reshape(dice5_data.SHAPE),
                    title=legend)
 
-plt.show()
+    plt.show()
+
+# Store chosen SNR
+CHOSEN_SNR = []
+while True:
+    input_str = raw_input("Enter a SNR value to store (or q to quit):")
+    if input_str == "q":
+        break
+    try:
+        snr = float(input_str)
+    except:
+        print "Can't parse input"
+        continue
+    if snr not in dice5_data.ALL_SNRS:
+        print "Invalid SNR"
+        continue
+    CHOSEN_SNR.append(snr)
+np.save(OUTPUT_CHOSEN_SNR_FILE, sorted(CHOSEN_SNR))
