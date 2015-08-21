@@ -4,8 +4,7 @@ Created on Wed May 28 12:08:39 2014
 
 @author: md238665
 
-Process dice5 datasets with standard PCA, sklearn SparsePCA and our
-structured PCA.
+Process dice5 datasets with standard PCA and our structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
 We generate a map_reduce configuration file for each dataset and the files
@@ -137,11 +136,6 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         # Force the key
         global_pen = tv_ratio = l1_ratio = 0
-    if model_name == 'sparse_pca':
-        # Force the key
-        tv_ratio = 0
-        l1_ratio = 1
-        ll1 = global_pen
     if model_name == 'struct_pca':
         ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
                                                   tv_ratio,
@@ -160,9 +154,6 @@ def mapper(key, output_collector):
     # Fit model
     if model_name == 'pca':
         model = sklearn.decomposition.PCA(n_components=N_COMP)
-    if model_name == 'sparse_pca':
-        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,
-                                                alpha=ll1)
     if model_name == 'struct_pca':
         model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
                                     l1=ll1, l2=ll2, ltv=ltv,
@@ -179,13 +170,13 @@ def mapper(key, output_collector):
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
     # Save the projectors
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+    if (model_name == 'pca'):
         V = model.components_.T
     if model_name == 'struct_pca':
         V = model.V
 
     # Project train & test data
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+    if (model_name == 'pca'):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
     if (model_name == 'struct_pca'):
@@ -193,10 +184,10 @@ def mapper(key, output_collector):
         X_test_transform, _ = model.transform(X_test)
 
     # Reconstruct train & test data
-    # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
+    # For PCA, the formula is: UV^t (U is given by transform)
     # For StructPCA this is implemented in the predict method (which uses
     # transform)
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+    if (model_name == 'pca'):
         X_train_predict = np.dot(X_train_transform, V.T)
         X_test_predict = np.dot(X_test_transform, V.T)
     if (model_name == 'struct_pca'):
