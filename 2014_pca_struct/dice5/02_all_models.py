@@ -99,7 +99,7 @@ def compute_coefs_from_ratios(global_pen, tv_ratio, l1_ratio):
 
 
 def load_globals(config):
-    global INPUT_OBJECT_MASK_FILE_FORMAT
+    global INPUT_OBJECT_MASK_FILE_FORMAT, N_COMP
     import mapreduce as GLOBAL
     # Read masks
     masks = []
@@ -111,6 +111,8 @@ def load_globals(config):
     GLOBAL.Atv = Atv
     GLOBAL.masks = masks
     GLOBAL.l1_max = config["l1_max"]
+    GLOBAL.N_COMP = config["n_comp"]
+    GLOBAL.N_FOLDS = config["n_folds"]
 
 
 def resample(config, resample_nb):
@@ -153,9 +155,9 @@ def mapper(key, output_collector):
 
     # Fit model
     if model_name == 'pca':
-        model = sklearn.decomposition.PCA(n_components=N_COMP)
+        model = sklearn.decomposition.PCA(n_components=GLOBAL.N_COMP)
     if model_name == 'struct_pca':
-        model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
+        model = pca_tv.PCA_L1_L2_TV(n_components=GLOBAL.N_COMP,
                                     l1=ll1, l2=ll2, ltv=ltv,
                                     Atv=Atv,
                                     criterion="frobenius",
@@ -200,14 +202,14 @@ def mapper(key, output_collector):
 
     # Compute geometric metrics and norms of components
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
-    l0 = np.zeros((N_COMP,))
-    l1 = np.zeros((N_COMP,))
-    l2 = np.zeros((N_COMP,))
-    tv = np.zeros((N_COMP,))
-    recall = np.zeros((N_COMP,))
-    precision = np.zeros((N_COMP,))
-    fscore = np.zeros((N_COMP,))
-    for i in range(N_COMP):
+    l0 = np.zeros((GLOBAL.N_COMP,))
+    l1 = np.zeros((GLOBAL.N_COMP,))
+    l2 = np.zeros((GLOBAL.N_COMP,))
+    tv = np.zeros((GLOBAL.N_COMP,))
+    recall = np.zeros((GLOBAL.N_COMP,))
+    precision = np.zeros((GLOBAL.N_COMP,))
+    fscore = np.zeros((GLOBAL.N_COMP,))
+    for i in range(GLOBAL.N_COMP):
         # Norms
         l0[i] = np.linalg.norm(V[:, i], 0)
         l1[i] = np.linalg.norm(V[:, i], 1)
@@ -243,29 +245,26 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     output_collectors = values
-    global N_COMP, INPUT_N_SUBSETS
     import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    # Avoid taking into account the fold 0
-    values = [item.load() for item in output_collectors[1:]]
+    values = [item.load() for item in output_collectors]
 
-    N_FOLDS = INPUT_N_SUBSETS
     # Load components: each file is n_voxelsxN_COMP matrix.
     # We stack them on the third dimension (folds)
     components = np.dstack([item["components"] for item in values])
     # Thesholded components (list of tuples (comp, threshold))
     thresh_components = np.empty(components.shape)
-    thresholds = np.empty((N_COMP, N_FOLDS))
-    for l in range(N_FOLDS):
-        for k in range(N_COMP):
+    thresholds = np.empty((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    for l in range(GLOBAL.N_FOLDS):
+        for k in range(GLOBAL.N_COMP):
             thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
                                 components[:, k, l],
                                 .99)
             thresh_components[:, k, l] = thresh_comp
             thresholds[k, l] = t
     # Save thresholded comp
-    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
         filename = os.path.join(oc.output_dir, "thresh_comp.npz")
         np.savez(filename, thresh_components[:, :, l])
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
@@ -279,24 +278,24 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Compute precision/recall for each component and fold
-    precisions = np.zeros((N_COMP, N_FOLDS))
-    recalls = np.zeros((N_COMP, N_FOLDS))
-    fscores = np.zeros((N_COMP, N_FOLDS))
-    for k in range(N_COMP):
-        for n in range(N_FOLDS):
+    precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    for k in range(GLOBAL.N_COMP):
+        for n in range(GLOBAL.N_FOLDS):
             c = components[:, k, n]
             precisions[k, n], recalls[k, n], fscores[k, n] = \
-              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+              dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
     # Compute precision/recall for each thresholded component and fold
-    thresh_precisions = np.zeros((N_COMP, N_FOLDS))
-    thresh_recalls = np.zeros((N_COMP, N_FOLDS))
-    thresh_fscores = np.zeros((N_COMP, N_FOLDS))
-    for k in range(N_COMP):
-        for n in range(N_FOLDS):
+    thresh_precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    thresh_recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    thresh_fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    for k in range(GLOBAL.N_COMP):
+        for n in range(GLOBAL.N_FOLDS):
             c = thresh_components[:, k, n]
             thresh_precisions[k, n], thresh_recalls[k, n], thresh_fscores[k, n] = \
-              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+              dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
     # Average precision/recall across folds for each component
     av_frobenius_train = frobenius_train.mean(axis=0)
@@ -314,26 +313,11 @@ def reducer(key, values):
     av_l2 = l2.mean(axis=0)
     av_tv = tv.mean(axis=0)
 
-    # Compute correlations of components between all folds
-    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
-    correlations = np.zeros((N_COMP, n_corr))
-    for k in range(N_COMP):
-        R = np.corrcoef(np.abs(components[:, k, :].T))
-        # Extract interesting coefficients (upper-triangle)
-        correlations[k] = R[np.triu_indices_from(R, 1)]
-
-    # Transform to z-score
-    Z = 1. / 2. * np.log((1 + correlations) / (1 - correlations))
-    # Average for each component
-    z_bar = np.mean(Z, axis=1)
-    # Transform back to average correlation for each component
-    r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
-
     # Align sign of loading vectors to the first fold for each component
     aligned_thresh_comp = np.copy(thresh_components)
     REF_FOLD_NUMBER = 0
-    for k in range(N_COMP):
-        for i in range(N_FOLDS):
+    for k in range(GLOBAL.N_COMP):
+        for i in range(GLOBAL.N_FOLDS):
             ref = thresh_components[:, k, REF_FOLD_NUMBER].T
             if i != REF_FOLD_NUMBER:
                 r = np.corrcoef(thresh_components[:, k, i].T,
@@ -342,14 +326,14 @@ def reducer(key, values):
                     #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
                     aligned_thresh_comp[:, k, i] *= -1
     # Save aligned comp
-    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
+    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
         filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
         np.savez(filename, aligned_thresh_comp[:, :, l])
 
     # Compute fleiss_kappa and DICE on thresholded components
-    fleiss_kappas = np.empty(N_COMP)
-    dice_bars = np.empty(N_COMP)
-    for k in range(N_COMP):
+    fleiss_kappas = np.empty(GLOBAL.N_COMP)
+    dice_bars = np.empty(GLOBAL.N_COMP)
+    for k in range(GLOBAL.N_COMP):
         # One component accross folds
         thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
@@ -390,10 +374,6 @@ def reducer(key, values):
         ('thresh_fscore_2', av_thresh_fscore[2]),
         ('thresh_fscore_mean', np.mean(av_thresh_fscore)),
 
-        ('correlation_0', r_bar[0]),
-        ('correlation_1', r_bar[1]),
-        ('correlation_2', r_bar[2]),
-        ('correlation_mean', np.mean(r_bar)),
         ('kappa_0', fleiss_kappas[0]),
         ('kappa_1', fleiss_kappas[1]),
         ('kappa_2', fleiss_kappas[2]),
@@ -446,6 +426,8 @@ def run_test(wd, config):
 if __name__ == '__main__':
     # Read SNRs
     input_snrs = np.load(INPUT_SNR_FILE)
+    # Resample
+    resamplings = [[TRAIN_RANGE, TEST_RANGE]]
     # Create a mapreduce config file for each dataset
     for snr in input_snrs:
         input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE,
@@ -500,7 +482,9 @@ if __name__ == '__main__':
             ('im_shape', dice5_data.SHAPE),
             ('params', correct_params),
             ('l1_max', l1_max),
-            ('resample', [[TRAIN_RANGE, TEST_RANGE]]),
+            ('n_comp', N_COMP),
+            ('resample', resamplings),
+            ('n_folds', len(resamplings)),
             ('map_output', "results"),
             ('user_func', user_func_filename),
             ('ncore', 4),
