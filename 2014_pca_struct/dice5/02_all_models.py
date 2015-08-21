@@ -4,7 +4,8 @@ Created on Wed May 28 12:08:39 2014
 
 @author: md238665
 
-Process dice5 datasets with standard PCA and our structured PCA.
+Process dice5 datasets with standard PCA, sklearn SparsePCA and our
+structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
 We generate a map_reduce configuration file for each dataset and the files
@@ -99,7 +100,7 @@ def compute_coefs_from_ratios(global_pen, tv_ratio, l1_ratio):
 
 
 def load_globals(config):
-    global INPUT_OBJECT_MASK_FILE_FORMAT, N_COMP
+    global INPUT_OBJECT_MASK_FILE_FORMAT
     import mapreduce as GLOBAL
     # Read masks
     masks = []
@@ -110,9 +111,6 @@ def load_globals(config):
     Atv = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
     GLOBAL.masks = masks
-    GLOBAL.l1_max = config["l1_max"]
-    GLOBAL.N_COMP = config["n_comp"]
-    GLOBAL.N_FOLDS = config["n_folds"]
 
 
 def resample(config, resample_nb):
@@ -138,13 +136,19 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         # Force the key
         global_pen = tv_ratio = l1_ratio = 0
+    if model_name == 'sparse_pca':
+        # Force the key
+        tv_ratio = 0
+        l1_ratio = 1
+        ll1 = global_pen
     if model_name == 'struct_pca':
         ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
                                                   tv_ratio,
                                                   l1_ratio)
-        # This should not happen
-        if ll1 > GLOBAL.l1_max:
-            raise ValueError
+
+    # This should not happen
+    if ll1 > GLOBAL["l1_max"]:
+        raise ValueError
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -152,19 +156,24 @@ def mapper(key, output_collector):
 
     # A matrices
     Atv = GLOBAL.Atv
+    Al1 = scipy.sparse.eye(p, p)
 
     # Fit model
     if model_name == 'pca':
-        model = sklearn.decomposition.PCA(n_components=GLOBAL.N_COMP)
+        model = sklearn.decomposition.PCA(n_components=N_COMP)
+    if model_name == 'sparse_pca':
+        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,
+                                                alpha=ll1)
     if model_name == 'struct_pca':
-        model = pca_tv.PCA_L1_L2_TV(n_components=GLOBAL.N_COMP,
-                                    l1=ll1, l2=ll2, ltv=ltv,
-                                    Atv=Atv,
-                                    criterion="frobenius",
-                                    eps=1e-6,
-                                    max_iter=100,
-                                    inner_max_iter=int(1e4),
-                                    output=False)
+        model = pca_tv.PCA_SmoothedL1_L2_TV(n_components=N_COMP,
+                                            l1=ll1, l2=ll2, ltv=ltv,
+                                            Atv=Atv,
+                                            Al1=Al1,
+                                            criterion="frobenius",
+                                            eps=1e-6,
+                                            max_iter=100,
+                                            inner_max_iter=int(1e4),
+                                            output=False)
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
@@ -172,13 +181,13 @@ def mapper(key, output_collector):
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
     # Save the projectors
-    if (model_name == 'pca'):
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         V = model.components_.T
     if model_name == 'struct_pca':
         V = model.V
 
     # Project train & test data
-    if (model_name == 'pca'):
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
     if (model_name == 'struct_pca'):
@@ -186,10 +195,10 @@ def mapper(key, output_collector):
         X_test_transform, _ = model.transform(X_test)
 
     # Reconstruct train & test data
-    # For PCA, the formula is: UV^t (U is given by transform)
+    # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
     # For StructPCA this is implemented in the predict method (which uses
     # transform)
-    if (model_name == 'pca'):
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         X_train_predict = np.dot(X_train_transform, V.T)
         X_test_predict = np.dot(X_test_transform, V.T)
     if (model_name == 'struct_pca'):
@@ -202,14 +211,14 @@ def mapper(key, output_collector):
 
     # Compute geometric metrics and norms of components
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
-    l0 = np.zeros((GLOBAL.N_COMP,))
-    l1 = np.zeros((GLOBAL.N_COMP,))
-    l2 = np.zeros((GLOBAL.N_COMP,))
-    tv = np.zeros((GLOBAL.N_COMP,))
-    recall = np.zeros((GLOBAL.N_COMP,))
-    precision = np.zeros((GLOBAL.N_COMP,))
-    fscore = np.zeros((GLOBAL.N_COMP,))
-    for i in range(GLOBAL.N_COMP):
+    l0 = np.zeros((N_COMP,))
+    l1 = np.zeros((N_COMP,))
+    l2 = np.zeros((N_COMP,))
+    tv = np.zeros((N_COMP,))
+    recall = np.zeros((N_COMP,))
+    precision = np.zeros((N_COMP,))
+    fscore = np.zeros((N_COMP,))
+    for i in range(N_COMP):
         # Norms
         l0[i] = np.linalg.norm(V[:, i], 0)
         l1[i] = np.linalg.norm(V[:, i], 1)
@@ -245,25 +254,29 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     output_collectors = values
+    global N_COMP, INPUT_N_SUBSETS
     import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
+    # Avoid taking into account the fold 0
+    values = [item.load() for item in output_collectors[1:]]
 
+    N_FOLDS = INPUT_N_SUBSETS
     # Load components: each file is n_voxelsxN_COMP matrix.
     # We stack them on the third dimension (folds)
     components = np.dstack([item["components"] for item in values])
     # Thesholded components (list of tuples (comp, threshold))
     thresh_components = np.empty(components.shape)
-    thresholds = np.empty((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    for l in range(GLOBAL.N_FOLDS):
-        for k in range(GLOBAL.N_COMP):
+    thresholds = np.empty((N_COMP, N_FOLDS))
+    for l in range(N_FOLDS):
+        for k in range(N_COMP):
             thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
                                 components[:, k, l],
                                 .99)
             thresh_components[:, k, l] = thresh_comp
             thresholds[k, l] = t
     # Save thresholded comp
-    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
         filename = os.path.join(oc.output_dir, "thresh_comp.npz")
         np.savez(filename, thresh_components[:, :, l])
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
@@ -277,21 +290,21 @@ def reducer(key, values):
     times = [item["time"] for item in values]
 
     # Compute precision/recall for each component and fold
-    precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    for k in range(GLOBAL.N_COMP):
-        for n in range(GLOBAL.N_FOLDS):
+    precisions = np.zeros((N_COMP, N_FOLDS))
+    recalls = np.zeros((N_COMP, N_FOLDS))
+    fscores = np.zeros((N_COMP, N_FOLDS))
+    for k in range(N_COMP):
+        for n in range(N_FOLDS):
             c = components[:, k, n]
             precisions[k, n], recalls[k, n], fscores[k, n] = \
               dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
 
     # Compute precision/recall for each thresholded component and fold
-    thresh_precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    thresh_recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    thresh_fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    for k in range(GLOBAL.N_COMP):
-        for n in range(GLOBAL.N_FOLDS):
+    thresh_precisions = np.zeros((N_COMP, N_FOLDS))
+    thresh_recalls = np.zeros((N_COMP, N_FOLDS))
+    thresh_fscores = np.zeros((N_COMP, N_FOLDS))
+    for k in range(N_COMP):
+        for n in range(N_FOLDS):
             c = thresh_components[:, k, n]
             thresh_precisions[k, n], thresh_recalls[k, n], thresh_fscores[k, n] = \
               dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
@@ -313,9 +326,9 @@ def reducer(key, values):
     av_tv = tv.mean(axis=0)
 
     # Compute correlations of components between all folds
-    n_corr = GLOBAL.N_FOLDS * (GLOBAL.N_FOLDS - 1) / 2
-    correlations = np.zeros((GLOBAL.N_COMP, n_corr))
-    for k in range(GLOBAL.N_COMP):
+    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
+    correlations = np.zeros((N_COMP, n_corr))
+    for k in range(N_COMP):
         R = np.corrcoef(np.abs(components[:, k, :].T))
         # Extract interesting coefficients (upper-triangle)
         correlations[k] = R[np.triu_indices_from(R, 1)]
@@ -330,8 +343,8 @@ def reducer(key, values):
     # Align sign of loading vectors to the first fold for each component
     aligned_thresh_comp = np.copy(thresh_components)
     REF_FOLD_NUMBER = 0
-    for k in range(GLOBAL.N_COMP):
-        for i in range(GLOBAL.N_FOLDS):
+    for k in range(N_COMP):
+        for i in range(N_FOLDS):
             ref = thresh_components[:, k, REF_FOLD_NUMBER].T
             if i != REF_FOLD_NUMBER:
                 r = np.corrcoef(thresh_components[:, k, i].T,
@@ -340,14 +353,14 @@ def reducer(key, values):
                     #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
                     aligned_thresh_comp[:, k, i] *= -1
     # Save aligned comp
-    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
+    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
         filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
         np.savez(filename, aligned_thresh_comp[:, :, l])
 
     # Compute fleiss_kappa and DICE on thresholded components
-    fleiss_kappas = np.empty(GLOBAL.N_COMP)
-    dice_bars = np.empty(GLOBAL.N_COMP)
-    for k in range(GLOBAL.N_COMP):
+    fleiss_kappas = np.empty(N_COMP)
+    dice_bars = np.empty(N_COMP)
+    for k in range(N_COMP):
         # One component accross folds
         thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
@@ -498,9 +511,7 @@ if __name__ == '__main__':
             ('im_shape', dice5_data.SHAPE),
             ('params', correct_params),
             ('l1_max', l1_max),
-            ('n_comp', N_COMP),
             ('resample', [[TRAIN_RANGE, TEST_RANGE]]),
-            ('n_folds', 1),
             ('map_output', "results"),
             ('user_func', user_func_filename),
             ('ncore', 4),
