@@ -111,6 +111,7 @@ def load_globals(config):
     Atv = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
     GLOBAL.masks = masks
+    GLOBAL.l1_max = config["l1_max"]
 
 
 def resample(config, resample_nb):
@@ -145,10 +146,9 @@ def mapper(key, output_collector):
         ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
                                                   tv_ratio,
                                                   l1_ratio)
-
-    # This should not happen
-    if ll1 > GLOBAL["l1_max"]:
-        raise ValueError
+        # This should not happen
+        if ll1 > GLOBAL.l1_max:
+            raise ValueError
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -156,7 +156,6 @@ def mapper(key, output_collector):
 
     # A matrices
     Atv = GLOBAL.Atv
-    Al1 = scipy.sparse.eye(p, p)
 
     # Fit model
     if model_name == 'pca':
@@ -165,15 +164,14 @@ def mapper(key, output_collector):
         model = sklearn.decomposition.SparsePCA(n_components=N_COMP,
                                                 alpha=ll1)
     if model_name == 'struct_pca':
-        model = pca_tv.PCA_SmoothedL1_L2_TV(n_components=N_COMP,
-                                            l1=ll1, l2=ll2, ltv=ltv,
-                                            Atv=Atv,
-                                            Al1=Al1,
-                                            criterion="frobenius",
-                                            eps=1e-6,
-                                            max_iter=100,
-                                            inner_max_iter=int(1e4),
-                                            output=False)
+        model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
+                                    l1=ll1, l2=ll2, ltv=ltv,
+                                    Atv=Atv,
+                                    criterion="frobenius",
+                                    eps=1e-6,
+                                    max_iter=100,
+                                    inner_max_iter=int(1e4),
+                                    output=False)
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
