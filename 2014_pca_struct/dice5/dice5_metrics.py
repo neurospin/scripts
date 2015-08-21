@@ -10,8 +10,6 @@ import numpy as np
 
 from sklearn.metrics import precision_recall_fscore_support
 
-from  parsimony import datasets
-from parsimony.datasets.utils import Dot, ObjImage
 
 def geometric_metrics(mask, result):
     """
@@ -19,26 +17,29 @@ def geometric_metrics(mask, result):
 
     Examples
     --------
+    >>> from parsimony.datasets.regression import dice5
     >>> shape = (100, 100, 1)
-    >>> objects = dice_five_with_union_of_pairs(shape)
+    >>> all_objects = dice5.dice_five_with_union_of_pairs(shape)
+    >>> _, _, d3, _, _, union12, union45, _ = all_objects
+    >>> objects = [union12, union45, d3]
     >>> masks = [o.get_mask() for o in objects]
     >>> for mask in masks: \
-        print dice_five_geometric_metrics(mask, mask)
+        print geometric_metrics(mask, mask)
     (1.0, 1.0, 1.0)
     (1.0, 1.0, 1.0)
     (1.0, 1.0, 1.0)
     >>> empty_masks = [np.zeros(mask.shape, dtype=bool) for mask in masks]
     >>> for mask, empty in zip(masks, empty_masks): \
-        print dice_five_geometric_metrics(mask, empty)
+        print geometric_metrics(mask, empty)
     (0.0, 0.0, 0.0)
     (0.0, 0.0, 0.0)
     (0.0, 0.0, 0.0)
     >>> full_masks = [np.ones(mask.shape, dtype=bool) for mask in masks]
     >>> for mask, full in zip(masks, full_masks): \
-        print dice_five_geometric_metrics(mask, full)
+        print geometric_metrics(mask, full)
+    (0.0298, 1.0, 0.057875315595261212)
     (0.0298, 1.0, 0.057875315595261212)
     (0.0149, 1.0, 0.029362498768351564)
-    (0.0298, 1.0, 0.057875315595261212)
     """
     bin_result = result.ravel() != 0
     lin_mask = mask.ravel()
@@ -47,7 +48,7 @@ def geometric_metrics(mask, result):
     precision, recall, fscore, _ = \
         precision_recall_fscore_support(lin_mask, lin_result,
                                         pos_label=1,
-                                        average='micro')
+                                        average='binary')
 
     return (precision, recall, fscore)
 
@@ -68,3 +69,7 @@ def dice(binarized_component, mask):
         return 0.0
     else:
         return num/denom
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
