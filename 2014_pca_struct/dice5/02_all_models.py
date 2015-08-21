@@ -173,9 +173,19 @@ def mapper(key, output_collector):
 
     # Save the projectors
     if (model_name == 'pca'):
-        V = model.components_.T
+        components = model.components_.T
     if model_name == 'struct_pca':
-        V = model.V
+        components = model.V
+
+    # Threshold components
+    thresh_components = np.empty(components.shape)
+    thresholds = np.empty((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
+            components[:, k],
+            .99)
+        thresh_components[:, k] = thresh_comp
+        thresholds[k] = t
 
     # Project train & test data
     if (model_name == 'pca'):
@@ -190,8 +200,8 @@ def mapper(key, output_collector):
     # For StructPCA this is implemented in the predict method (which uses
     # transform)
     if (model_name == 'pca'):
-        X_train_predict = np.dot(X_train_transform, V.T)
-        X_test_predict = np.dot(X_test_transform, V.T)
+        X_train_predict = np.dot(X_train_transform, components.T)
+        X_test_predict = np.dot(X_test_transform, components.T)
     if (model_name == 'struct_pca'):
         X_train_predict = model.predict(X_train)
         X_test_predict = model.predict(X_test)
@@ -211,10 +221,10 @@ def mapper(key, output_collector):
     fscore = np.zeros((GLOBAL.N_COMP,))
     for i in range(GLOBAL.N_COMP):
         # Norms
-        l0[i] = np.linalg.norm(V[:, i], 0)
-        l1[i] = np.linalg.norm(V[:, i], 1)
-        l2[i] = np.linalg.norm(V[:, i], 2)
-        tv[i] = TV.f(V[:, i])
+        l0[i] = np.linalg.norm(components[:, i], 0)
+        l1[i] = np.linalg.norm(components[:, i], 1)
+        l2[i] = np.linalg.norm(components[:, i], 2)
+        tv[i] = TV.f(components[:, i])
 
     # Compute explained variance ratio
     evr_train = metrics.adjusted_explained_variance(X_train_transform)
@@ -224,7 +234,9 @@ def mapper(key, output_collector):
 
     ret = dict(frobenius_train=frobenius_train,
                frobenius_test=frobenius_test,
-               components=V,
+               components=components,
+               thresh_components=thresh_components,
+               thresholds=thresholds,
                X_train_transform=X_train_transform,
                X_test_transform=X_test_transform,
                X_train_predict=X_train_predict,
@@ -253,20 +265,8 @@ def reducer(key, values):
     # Load components: each file is n_voxelsxN_COMP matrix.
     # We stack them on the third dimension (folds)
     components = np.dstack([item["components"] for item in values])
-    # Thesholded components (list of tuples (comp, threshold))
-    thresh_components = np.empty(components.shape)
-    thresholds = np.empty((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    for l in range(GLOBAL.N_FOLDS):
-        for k in range(GLOBAL.N_COMP):
-            thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
-                                components[:, k, l],
-                                .99)
-            thresh_components[:, k, l] = thresh_comp
-            thresholds[k, l] = t
-    # Save thresholded comp
-    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
-        filename = os.path.join(oc.output_dir, "thresh_comp.npz")
-        np.savez(filename, thresh_components[:, :, l])
+    thresh_components = np.dstack([item["thresh_components"] for item in values])
+
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
     l0 = np.vstack([item["l0"] for item in values])
@@ -313,32 +313,6 @@ def reducer(key, values):
     av_l2 = l2.mean(axis=0)
     av_tv = tv.mean(axis=0)
 
-    # Align sign of loading vectors to the first fold for each component
-    aligned_thresh_comp = np.copy(thresh_components)
-    REF_FOLD_NUMBER = 0
-    for k in range(GLOBAL.N_COMP):
-        for i in range(GLOBAL.N_FOLDS):
-            ref = thresh_components[:, k, REF_FOLD_NUMBER].T
-            if i != REF_FOLD_NUMBER:
-                r = np.corrcoef(thresh_components[:, k, i].T,
-                                ref)
-                if r[0, 1] < 0:
-                    #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
-                    aligned_thresh_comp[:, k, i] *= -1
-    # Save aligned comp
-    for l, oc in zip(range(GLOBAL.N_FOLDS), output_collectors[1:]):
-        filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
-        np.savez(filename, aligned_thresh_comp[:, :, l])
-
-    # Compute fleiss_kappa and DICE on thresholded components
-    fleiss_kappas = np.empty(GLOBAL.N_COMP)
-    dice_bars = np.empty(GLOBAL.N_COMP)
-    for k in range(GLOBAL.N_COMP):
-        # One component accross folds
-        thresh_comp = aligned_thresh_comp[:, k, :]
-        fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
-        dice_bars[k] = metrics.dice_bar(thresh_comp)
-
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
@@ -374,14 +348,6 @@ def reducer(key, values):
         ('thresh_fscore_2', av_thresh_fscore[2]),
         ('thresh_fscore_mean', np.mean(av_thresh_fscore)),
 
-        ('kappa_0', fleiss_kappas[0]),
-        ('kappa_1', fleiss_kappas[1]),
-        ('kappa_2', fleiss_kappas[2]),
-        ('kappa_mean', np.mean(fleiss_kappas)),
-        ('dice_bar_0', dice_bars[0]),
-        ('dice_bar_1', dice_bars[1]),
-        ('dice_bar_2', dice_bars[2]),
-        ('dice_bar_mean', np.mean(dice_bars)),
         ('evr_train_0', av_evr_train[0]),
         ('evr_train_1', av_evr_train[1]),
         ('evr_train_2', av_evr_train[2]),
