@@ -52,6 +52,11 @@ WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv"
 def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
 def results_filenane(): return os.path.join(WD, "MCIc-CTL-FS_cs_modselectcv.xlsx")
 
+# for comparision we need the results with spatially smoothed data
+WD_s = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_s_modselectcv"
+def config_filenane_s(): return os.path.join(WD_s, "config_modselectcv.json")
+def results_filenane_s(): return os.path.join(WD_s, "MCIc-CTL-FS_cs_s_modselectcv.xlsx")
+
 def init():
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
@@ -455,8 +460,8 @@ def compare_models():
     scores_argmax_byfold = pd.read_excel(results_filenane(), sheetname='scores_argmax_byfold')
     config = json.load(open(config_filenane()))
 
-    ## Compare prediction performances
-    ## -------------------------------
+    ## Comparison: tv vs notv on non-smoothed data
+    ## --------------------------------------------
     l1l2tv_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2tv_sl1"]
     l1l2_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2_sl1"]
     scores_l1l2tv_sl1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()],
@@ -495,8 +500,6 @@ def compare_models():
     comp_pred["auc_perm_pval"] = [ll1_auc_pval, sl1_auc_pval]
 
     ## Compare weights map stability
-    ## -----------------------------
-
     # mean correlaction
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
@@ -526,6 +529,74 @@ def compare_models():
 
     comp_pred["beta_dice_mean_diff"] = [ll1_beta_dice_mean, sl1_beta_dice_mean]
     comp_pred["beta_dice_perm_pval"] = [ll1_beta_dice_pval, sl1_beta_dice_pval]
+
+    ## Comparison: tv vs notv on smoothed data
+    ## ---------------------------------------
+    scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
+    config_s = json.load(open(config_filenane_s()))
+    l1l2_sl1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_sl1"]
+    scores_l1l2_sl1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1_s.iterrows()],
+           config=config_s, ret_y=True)
+    assert np.all(scores_l1l2tv_sl1["y_true"] == scores_l1l2_sl1_s["y_true"])
+    l1l2tv_sl1_s_pval = mcnemar_test_classification(y_true=scores_l1l2tv_sl1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_sl1_s["y_pred"], cont_table=False)
+    #
+    scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
+    config_s = json.load(open(config_filenane_s()))
+    l1l2_ll1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_ll1"]
+    scores_l1l2_ll1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1_s.iterrows()],
+           config=config_s, ret_y=True)
+    assert np.all(scores_l1l2tv_ll1["y_true"] == scores_l1l2_ll1_s["y_true"])
+    l1l2tv_ll1_s_pval = mcnemar_test_classification(y_true=scores_l1l2tv_ll1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_ll1_s["y_pred"], cont_table=False)
+    comp_pred_s = pd.DataFrame([["l1l2_s vs l1l2tv (ll1)", l1l2tv_ll1_s_pval], ["l1l2_s vs l1l2tv (sl1)", l1l2tv_sl1_s_pval]],
+                       columns=["comparison", "mcnemar_p_value"])
+
+    ## p-value assesment by permutation
+    y_true =  scores_l1l2tv_ll1["y_true"]
+    y_pred1,  y_pred2 = scores_l1l2tv_ll1["y_pred"], scores_l1l2_ll1_s["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_ll1["prob_pred"], scores_l1l2_ll1_s["prob_pred"]
+    ll1_auc_s_pval, ll1_r_mean_s_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred1, prob_pred2, nperms=10000)
+
+    y_true =  scores_l1l2tv_sl1["y_true"]
+    y_pred1, y_pred2 = scores_l1l2tv_sl1["y_pred"], scores_l1l2_sl1_s["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_sl1["prob_pred"], scores_l1l2_sl1_s["prob_pred"]
+    sl1_auc_s_pval, sl1_r_mean_s_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred2, prob_pred2, nperms=10000)
+
+    comp_pred_s["recall_mean_perm_pval"] = [ll1_r_mean_s_pval, sl1_r_mean_s_pval]
+    comp_pred_s["auc_perm_pval"] = [ll1_auc_s_pval, sl1_auc_s_pval]
+
+    ## Compare weights map stability
+    # mean correlaction
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    ll1_beta_r_mean_s = np.mean(scores1 - scores2)
+    ll1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    sl1_beta_r_mean_s = np.mean(scores1 - scores2)
+    sl1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred_s["beta_r_mean_diff"] = [ll1_beta_r_mean_s, sl1_beta_r_mean_s]
+    comp_pred_s["beta_r_perm_pval"] = [ll1_beta_r_s_pval, sl1_beta_r_s_pval]
+
+    # mean dice
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    ll1_beta_dice_mean_s = np.mean(scores1 - scores2)
+    ll1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    sl1_beta_dice_mean_s = np.mean(scores1 - scores2)
+    sl1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred_s["beta_dice_mean_diff"] = [ll1_beta_dice_mean_s, sl1_beta_dice_mean_s]
+    comp_pred_s["beta_dice_perm_pval"] = [ll1_beta_dice_s_pval, sl1_beta_dice_s_pval]
+
+    comp_pred = comp_pred.append(comp_pred_s)
+    # End comparison with smoothed data
 
     xlsx = pd.ExcelFile(results_filenane())
     with pd.ExcelWriter(results_filenane()) as writer:
