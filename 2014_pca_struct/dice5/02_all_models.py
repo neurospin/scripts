@@ -287,6 +287,11 @@ def reducer(key, values):
         c = bin_components[:, k]
         precisions[k], recalls[k], fscores[k] = \
             dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
+    # Compute DICE coefficient for each binarized component
+    dices = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_components[:, k]
+        dices[k] = dice5_metrics.dice(GLOBAL.masks[k], c)
 
     # Compute precision/recall for each binarized thresholded component
     thresh_precisions = np.zeros((GLOBAL.N_COMP, ))
@@ -296,6 +301,11 @@ def reducer(key, values):
         c = bin_thresh_components[:, k]
         thresh_precisions[k], thresh_recalls[k], thresh_fscores[k] = \
             dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
+    # Compute DICE coefficient for each binarized thresholded component
+    thresh_dices = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_thresh_components[:, k]
+        thresh_dices[k] = dice5_metrics.dice(GLOBAL.masks[k], c)
 
     scores = OrderedDict((
         ('model', key[0]),
@@ -305,6 +315,12 @@ def reducer(key, values):
 
         ('frobenius_train', frobenius_train),
         ('frobenius_test', frobenius_test),
+        ('evr_train_0', evr_train[0]),
+        ('evr_train_1', evr_train[1]),
+        ('evr_train_2', evr_train[2]),
+        ('evr_test_0', evr_test[0]),
+        ('evr_test_1', evr_test[1]),
+        ('evr_test_2', evr_test[2]),
 
         ('recall_0', recalls[0]),
         ('recall_1', recalls[1]),
@@ -318,6 +334,10 @@ def reducer(key, values):
         ('fscore_1', fscores[1]),
         ('fscore_2', fscores[2]),
         ('fscore_mean', np.mean(fscores)),
+        ('dice_0', dices[0]),
+        ('dice_1', dices[1]),
+        ('dice_2', dices[2]),
+        ('dice_mean', np.mean(dices)),
 
         ('thresh_recall_0', thresh_recalls[0]),
         ('thresh_recall_1', thresh_recalls[1]),
@@ -331,13 +351,11 @@ def reducer(key, values):
         ('thresh_fscore_1', thresh_fscores[1]),
         ('thresh_fscore_2', thresh_fscores[2]),
         ('thresh_fscore_mean', np.mean(thresh_fscores)),
+        ('thresh_dice_0', thresh_dices[0]),
+        ('thresh_dice_1', thresh_dices[1]),
+        ('thresh_dice_2', thresh_dices[2]),
+        ('thresh_dice_mean', np.mean(thresh_dices)),
 
-        ('evr_train_0', evr_train[0]),
-        ('evr_train_1', evr_train[1]),
-        ('evr_train_2', evr_train[2]),
-        ('evr_test_0', evr_test[0]),
-        ('evr_test_1', evr_test[1]),
-        ('evr_test_2', evr_test[2]),
         ('l0_0', l0[0]),
         ('l0_1', l0[1]),
         ('l0_2', l0[2]),
