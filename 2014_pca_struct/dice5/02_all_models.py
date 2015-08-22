@@ -112,7 +112,6 @@ def load_globals(config):
     GLOBAL.masks = masks
     GLOBAL.l1_max = config["l1_max"]
     GLOBAL.N_COMP = config["n_comp"]
-    GLOBAL.N_FOLDS = config["n_folds"]
 
 
 def resample(config, resample_nb):
@@ -260,58 +259,41 @@ def reducer(key, values):
     import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    values = [item.load() for item in output_collectors]
+    if len(output_collectors) > 1:
+        raise ValueError
+    values = output_collectors[0].load()
 
-    # Load components: each file is n_voxelsxN_COMP matrix.
-    # We stack them on the third dimension (folds)
-    components = np.dstack([item["components"] for item in values])
-    thresh_components = np.dstack([item["thresh_components"] for item in values])
+    # Load component (n_voxelsxN_COMP matrix).
+    components = values["components"]
+    thresh_components = values["thresh_components"]
 
-    frobenius_train = np.vstack([item["frobenius_train"] for item in values])
-    frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-    l0 = np.vstack([item["l0"] for item in values])
-    l1 = np.vstack([item["l1"] for item in values])
-    l2 = np.vstack([item["l2"] for item in values])
-    tv = np.vstack([item["tv"] for item in values])
-    evr_train = np.vstack([item["evr_train"] for item in values])
-    evr_test = np.vstack([item["evr_test"] for item in values])
-    times = [item["time"] for item in values]
+    frobenius_train = values["frobenius_train"]
+    frobenius_test = values["frobenius_test"]
+    l0 = values["l0"]
+    l1 = values["l1"]
+    l2 = values["l2"]
+    tv = values["tv"]
+    evr_train = values["evr_train"]
+    evr_test = values["evr_test"]
+    time = values["time"]
 
-    # Compute precision/recall for each component and fold
-    precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    # Compute precision/recall for each component
+    precisions = np.zeros((GLOBAL.N_COMP, ))
+    recalls = np.zeros((GLOBAL.N_COMP, ))
+    fscores = np.zeros((GLOBAL.N_COMP, ))
     for k in range(GLOBAL.N_COMP):
-        for n in range(GLOBAL.N_FOLDS):
-            c = components[:, k, n]
-            precisions[k, n], recalls[k, n], fscores[k, n] = \
-              dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
+        c = components[:, k]
+        precisions[k], recalls[k], fscores[k] = \
+            dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
-    # Compute precision/recall for each thresholded component and fold
-    thresh_precisions = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    thresh_recalls = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
-    thresh_fscores = np.zeros((GLOBAL.N_COMP, GLOBAL.N_FOLDS))
+    # Compute precision/recall for each thresholded component
+    thresh_precisions = np.zeros((GLOBAL.N_COMP, ))
+    thresh_recalls = np.zeros((GLOBAL.N_COMP, ))
+    thresh_fscores = np.zeros((GLOBAL.N_COMP, ))
     for k in range(GLOBAL.N_COMP):
-        for n in range(GLOBAL.N_FOLDS):
-            c = thresh_components[:, k, n]
-            thresh_precisions[k, n], thresh_recalls[k, n], thresh_fscores[k, n] = \
-              dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
-
-    # Average precision/recall across folds for each component
-    av_frobenius_train = frobenius_train.mean(axis=0)
-    av_frobenius_test = frobenius_test.mean(axis=0)
-    av_precision = precisions.mean(axis=1)
-    av_recall = recalls.mean(axis=1)
-    av_fscore = fscores.mean(axis=1)
-    av_thresh_precision = thresh_precisions.mean(axis=1)
-    av_thresh_recall = thresh_recalls.mean(axis=1)
-    av_thresh_fscore = thresh_fscores.mean(axis=1)
-    av_evr_train = evr_train.mean(axis=0)
-    av_evr_test = evr_test.mean(axis=0)
-    av_l0 = l0.mean(axis=0)
-    av_l1 = l1.mean(axis=0)
-    av_l2 = l2.mean(axis=0)
-    av_tv = tv.mean(axis=0)
+        c = thresh_components[:, k]
+        thresh_precisions[k], thresh_recalls[k], thresh_fscores[k] = \
+            dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
     scores = OrderedDict((
         ('model', key[0]),
@@ -319,54 +301,55 @@ def reducer(key, values):
         ('tv_ratio', key[2]),
         ('l1_ratio', key[3]),
 
-        ('frobenius_train', av_frobenius_train[0]),
-        ('frobenius_test', av_frobenius_test[0]),
+        ('frobenius_train', frobenius_train),
+        ('frobenius_test', frobenius_test),
 
-        ('recall_0', av_recall[0]),
-        ('recall_1', av_recall[1]),
-        ('recall_2', av_recall[2]),
-        ('recall_mean', np.mean(av_recall)),
-        ('precision_0', av_precision[0]),
-        ('precision_1', av_precision[1]),
-        ('precision_2', av_precision[2]),
-        ('precision_mean', np.mean(av_precision)),
-        ('fscore_0', av_fscore[0]),
-        ('fscore_1', av_fscore[1]),
-        ('fscore_2', av_fscore[2]),
-        ('fscore_mean', np.mean(av_fscore)),
+        ('recall_0', recalls[0]),
+        ('recall_1', recalls[1]),
+        ('recall_2', recalls[2]),
+        ('recall_mean', np.mean(recalls)),
+        ('precision_0', precisions[0]),
+        ('precision_1', precisions[1]),
+        ('precision_2', precisions[2]),
+        ('precision_mean', np.mean(precisions)),
+        ('fscore_0', fscores[0]),
+        ('fscore_1', fscores[1]),
+        ('fscore_2', fscores[2]),
+        ('fscore_mean', np.mean(fscores)),
 
-        ('thresh_recall_0', av_thresh_recall[0]),
-        ('thresh_recall_1', av_thresh_recall[1]),
-        ('thresh_recall_2', av_thresh_recall[2]),
-        ('thresh_recall_mean', np.mean(av_thresh_recall)),
-        ('thresh_precision_0', av_thresh_precision[0]),
-        ('thresh_precision_1', av_thresh_precision[1]),
-        ('thresh_precision_2', av_thresh_precision[2]),
-        ('thresh_precision_mean', np.mean(av_thresh_precision)),
-        ('thresh_fscore_0', av_thresh_fscore[0]),
-        ('thresh_fscore_1', av_thresh_fscore[1]),
-        ('thresh_fscore_2', av_thresh_fscore[2]),
-        ('thresh_fscore_mean', np.mean(av_thresh_fscore)),
+        ('thresh_recall_0', thresh_recalls[0]),
+        ('thresh_recall_1', thresh_recalls[1]),
+        ('thresh_recall_2', thresh_recalls[2]),
+        ('thresh_recall_mean', np.mean(thresh_recalls)),
+        ('thresh_precision_0', thresh_precisions[0]),
+        ('thresh_precision_1', thresh_precisions[1]),
+        ('thresh_precision_2', thresh_precisions[2]),
+        ('thresh_precision_mean', np.mean(thresh_precisions)),
+        ('thresh_fscore_0', thresh_fscores[0]),
+        ('thresh_fscore_1', thresh_fscores[1]),
+        ('thresh_fscore_2', thresh_fscores[2]),
+        ('thresh_fscore_mean', np.mean(thresh_fscores)),
 
-        ('evr_train_0', av_evr_train[0]),
-        ('evr_train_1', av_evr_train[1]),
-        ('evr_train_2', av_evr_train[2]),
-        ('evr_test_0', av_evr_test[0]),
-        ('evr_test_1', av_evr_test[1]),
-        ('evr_test_2', av_evr_test[2]),
-        ('l0_0', av_l0[0]),
-        ('l0_1', av_l0[1]),
-        ('l0_2', av_l0[2]),
-        ('l1_0', av_l1[0]),
-        ('l1_1', av_l1[1]),
-        ('l1_2', av_l1[2]),
-        ('l2_0', av_l2[0]),
-        ('l2_1', av_l2[1]),
-        ('l2_2', av_l2[2]),
-        ('tv_0', av_tv[0]),
-        ('tv_1', av_tv[1]),
-        ('tv_2', av_tv[2]),
-        ('time', np.mean(times))))
+        ('evr_train_0', evr_train[0]),
+        ('evr_train_1', evr_train[1]),
+        ('evr_train_2', evr_train[2]),
+        ('evr_test_0', evr_test[0]),
+        ('evr_test_1', evr_test[1]),
+        ('evr_test_2', evr_test[2]),
+        ('l0_0', l0[0]),
+        ('l0_1', l0[1]),
+        ('l0_2', l0[2]),
+        ('l1_0', l1[0]),
+        ('l1_1', l1[1]),
+        ('l1_2', l1[2]),
+        ('l2_0', l2[0]),
+        ('l2_1', l2[1]),
+        ('l2_2', l2[2]),
+        ('tv_0', tv[0]),
+        ('tv_1', tv[1]),
+        ('tv_2', tv[2]),
+        ('time', time)
+    ))
 
     return scores
 
@@ -450,7 +433,6 @@ if __name__ == '__main__':
             ('l1_max', l1_max),
             ('n_comp', N_COMP),
             ('resample', resamplings),
-            ('n_folds', len(resamplings)),
             ('map_output', "results"),
             ('user_func', user_func_filename),
             ('ncore', 4),
