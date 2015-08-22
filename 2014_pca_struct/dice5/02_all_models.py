@@ -265,7 +265,9 @@ def reducer(key, values):
 
     # Load component (n_voxelsxN_COMP matrix).
     components = values["components"]
+    bin_components = components != 0
     thresh_components = values["thresh_components"]
+    bin_thresh_components = thresh_components != 0
 
     frobenius_train = values["frobenius_train"]
     frobenius_test = values["frobenius_test"]
@@ -277,21 +279,21 @@ def reducer(key, values):
     evr_test = values["evr_test"]
     time = values["time"]
 
-    # Compute precision/recall for each component
+    # Compute precision/recall for each binarized component
     precisions = np.zeros((GLOBAL.N_COMP, ))
     recalls = np.zeros((GLOBAL.N_COMP, ))
     fscores = np.zeros((GLOBAL.N_COMP, ))
     for k in range(GLOBAL.N_COMP):
-        c = components[:, k]
+        c = bin_components[:, k]
         precisions[k], recalls[k], fscores[k] = \
             dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
-    # Compute precision/recall for each thresholded component
+    # Compute precision/recall for each binarized thresholded component
     thresh_precisions = np.zeros((GLOBAL.N_COMP, ))
     thresh_recalls = np.zeros((GLOBAL.N_COMP, ))
     thresh_fscores = np.zeros((GLOBAL.N_COMP, ))
     for k in range(GLOBAL.N_COMP):
-        c = thresh_components[:, k]
+        c = bin_thresh_components[:, k]
         thresh_precisions[k], thresh_recalls[k], thresh_fscores[k] = \
             dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
 
