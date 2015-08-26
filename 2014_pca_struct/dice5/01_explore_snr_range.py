@@ -44,6 +44,8 @@ OUTPUT_PRED_FILE = "X_pred.npy"
 OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR, "Frobenius.svg")
 OUTPUT_LOADING_CORR_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
                                             "Correlation_Loading-Mask_{i}.svg")
+OUTPUT_LOADING_DICE_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
+                                            "DICE_Loading-Mask_{i}.svg")
 OUTPUT_LOADING_FILE_FMT = "Loading_{i}.svg"
 OUTPUT_CHOSEN_SNR_FILE = os.path.join(OUTPUT_BASE_DIR, "SNR.npy")
 
@@ -144,6 +146,14 @@ for j in range(N_COMP):
     plt.plot(dice5_data.ALL_SNRS, correlation[:, j])
     plt.legend([legend])
     filename = OUTPUT_LOADING_CORR_FILE_FMT.format(i=j+1)
+    f.savefig(filename)
+
+for j in range(N_COMP):
+    f = plt.figure()
+    legend = 'DICE between loading #{j} and object #{j}'.format(j=j+1)
+    plt.plot(dice5_data.ALL_SNRS, dice[:, j])
+    plt.legend([legend])
+    filename = OUTPUT_LOADING_DICE_FILE_FMT.format(i=j+1)
     f.savefig(filename)
 
 print "Figures are saved. Close them to continue."
