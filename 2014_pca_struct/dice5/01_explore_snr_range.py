@@ -6,6 +6,10 @@ Created on Thu Apr 30 11:58:49 2015
 
 This script explores a large range of SNR vales. The goal is to find when PCA
 starts to have difficulties.
+
+The script is interactive: we first fit the model and compute metrics for all
+SNR values in the range and then allow to select some of them to draw the
+loadings. Finally, we save some values of SNR in a file for next scripts.
 """
 import os
 import pickle
@@ -28,26 +32,39 @@ import dice5_metrics
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data"
-INPUT_MASK_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data/masks"
+BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/"
+INPUT_BASE_DIR = os.path.join(BASE_DIR,
+                              "data")
 INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DIR,
                                      "data_{s[0]}_{s[1]}_{snr}")
 INPUT_STD_DATASET_FILE = "data.std.npy"
+INPUT_MASK_DIR = INPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR,
+                                               "masks")
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
-INUT_MASK_FILE = "mask.npy"
 OUTPUT_L1MASK_FILE = "l1_max.txt"
 
 OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
+# Output for all models
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "{snr}")
 OUTPUT_PCA_FILE = "model.pkl"
 OUTPUT_PRED_FILE = "X_pred.npy"
-OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR, "Frobenius.svg")
-OUTPUT_LOADING_CORR_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
-                                            "Correlation_Loading-Mask_{i}.svg")
-OUTPUT_LOADING_DICE_FILE_FMT = os.path.join(OUTPUT_BASE_DIR,
-                                            "DICE_Loading-Mask_{i}.svg")
+# Output in OUTPUT_BASE_DIR because there is one output for all SNR values
+OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR,
+                                         "Frobenius.npy")
+OUTPUT_FROBENIUS_DST_FIG = os.path.join(OUTPUT_BASE_DIR,
+                                        "Frobenius.svg")
+OUTPUT_LOADING_CORR_FILE = os.path.join(OUTPUT_BASE_DIR,
+                                        "Correlation_Loading-Mask.npy")
+OUTPUT_LOADING_CORR_FIG_FMT = os.path.join(OUTPUT_BASE_DIR,
+                                           "Correlation_Loading-Mask_{i}.svg")
+OUTPUT_LOADING_DICE_FILE = os.path.join(OUTPUT_BASE_DIR,
+                                        "DICE_Loading-Mask.svg")
+OUTPUT_LOADING_DICE_FIG_FMT = os.path.join(OUTPUT_BASE_DIR,
+                                           "DICE_Loading-Mask_{i}.svg")
+# Only for selected values of SNR
 OUTPUT_LOADING_FILE_FMT = "Loading_{i}.svg"
-OUTPUT_CHOSEN_SNR_FILE = os.path.join(OUTPUT_BASE_DIR, "SNR.npy")
+# Output in BASE_DIR because this is used for input of next script
+OUTPUT_CHOSEN_SNR_FILE = os.path.join(BASE_DIR, "SNR.npy")
 
 ##############
 # Parameters #
@@ -108,7 +125,7 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
     print snr
     model = dice5_data.create_model(snr)
 
-    # Fit model & compute score
+    # Fit model & compute scores
     pca = PCA(n_components=N_COMP)
     X_train = X[TRAIN_RANGE, :]
     X_test = X[TEST_RANGE, :]
@@ -133,19 +150,23 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
         correlation[i, j] = \
             np.abs(np.corrcoef(pca.components_[j, :],
                                obj.ravel())[1, 0])
+# Save scores
+np.save(OUTPUT_FROBENIUS_DST_FILE, frobenius_dst)
+np.save(OUTPUT_LOADING_CORR_FILE, correlation)
+np.save(OUTPUT_LOADING_DICE_FILE, dice)
 
 # Draw and save figures
 f = plt.figure()
 plt.plot(dice5_data.ALL_SNRS, frobenius_dst)
 plt.legend(['Frobenius distance'])
-f.savefig(OUTPUT_FROBENIUS_DST_FILE)
+f.savefig(OUTPUT_FROBENIUS_DST_FIG)
 
 for j in range(N_COMP):
     f = plt.figure()
     legend = 'Correlation between loading #{j} and object #{j}'.format(j=j+1)
     plt.plot(dice5_data.ALL_SNRS, correlation[:, j])
     plt.legend([legend])
-    filename = OUTPUT_LOADING_CORR_FILE_FMT.format(i=j+1)
+    filename = OUTPUT_LOADING_CORR_FIG_FMT.format(i=j+1)
     f.savefig(filename)
 
 for j in range(N_COMP):
@@ -153,11 +174,15 @@ for j in range(N_COMP):
     legend = 'DICE between loading #{j} and object #{j}'.format(j=j+1)
     plt.plot(dice5_data.ALL_SNRS, dice[:, j])
     plt.legend([legend])
-    filename = OUTPUT_LOADING_DICE_FILE_FMT.format(i=j+1)
+    filename = OUTPUT_LOADING_DICE_FIG_FMT.format(i=j+1)
     f.savefig(filename)
 
 print "Figures are saved. Close them to continue."
 plt.show()
+
+#
+# Interactive part
+#
 
 while True:
     input_str = raw_input("Enter a SNR value to display (or q to quit):")
