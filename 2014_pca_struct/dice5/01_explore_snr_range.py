@@ -58,7 +58,7 @@ OUTPUT_LOADING_CORR_FILE = os.path.join(OUTPUT_BASE_DIR,
 OUTPUT_LOADING_CORR_FIG_FMT = os.path.join(OUTPUT_BASE_DIR,
                                            "Correlation_Loading-Mask_{i}.svg")
 OUTPUT_LOADING_DICE_FILE = os.path.join(OUTPUT_BASE_DIR,
-                                        "DICE_Loading-Mask.svg")
+                                        "DICE_Loading-Mask.npy")
 OUTPUT_LOADING_DICE_FIG_FMT = os.path.join(OUTPUT_BASE_DIR,
                                            "DICE_Loading-Mask_{i}.svg")
 # Only for selected values of SNR
@@ -145,8 +145,8 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
             pca.components_[j, :],
             L2_THRESHOLD)
         thresh_comp = pca.components_[j, :] > t
-        dice[i, j] = dice5_metrics.dice(thresh_comp.reshape(dice5_data.SHAPE),
-                                        obj)
+        dice[i, j] = dice5_metrics.dice(obj,
+                                        thresh_comp.reshape(dice5_data.SHAPE))
         correlation[i, j] = \
             np.abs(np.corrcoef(pca.components_[j, :],
                                obj.ravel())[1, 0])
