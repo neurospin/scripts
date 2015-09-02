@@ -48,6 +48,8 @@ import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
 
+NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
+
 WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv"
 def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
 def results_filenane(): return os.path.join(WD, "MCIc-CTL-FS_cs_modselectcv.xlsx")
@@ -61,7 +63,6 @@ def init():
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
     STRUCTURE = dict(mesh="lrh.pial.gii", mask="mask.npy")
-    NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
     #WD = os.path.join(WD, 'logistictvenet_5cv')
     if not os.path.exists(WD):
         os.makedirs(WD)
@@ -603,6 +604,142 @@ def compare_models():
         for sheet in xlsx.sheet_names:  # cp previous sheets
             xlsx.parse(sheet).to_excel(writer, sheet_name=sheet, index=False)
         comp_pred.to_excel(writer, sheet_name='comparisons', index=False)
+
+
+###############################################################################
+## vizu weight maps
+def vizu_weight_maps():
+    import glob, shutil
+    import brainomics.mesh_processing as mesh_utils
+
+    config = json.load(open(config_filenane()))
+    INPUT_BASE = os.path.join(os.path.dirname(WD), "MCIc-CTL-FS_cs", "5cv", "0")
+    OUTPUT = os.path.join(WD, "weights_map_mesh")
+    if not os.path.exists(OUTPUT):
+        os.mkdir(OUTPUT)
+
+    TEMPLATE_PATH = os.path.join(WD, "..", "freesurfer_template")
+    shutil.copyfile(os.path.join(TEMPLATE_PATH, "lh.pial.gii"), os.path.join(OUTPUT, "lh.pial.gii"))
+    shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT, "rh.pial.gii"))
+    
+    cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
+    cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
+    assert cor_l.shape[0] == cor_r.shape[0] == 163842
+    
+    cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(WD, config["structure"]["mesh"]))
+    mask__mesh = np.load(os.path.join(WD, config["structure"]["mask"]))
+    assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
+    assert mask__mesh.shape[0], mask__mesh.sum() == (327684, 317089)
+    
+    # Find the mapping from beta in masked mesh to left_mesh and right_mesh
+    # concat was initialy: cor = np.vstack([cor_l, cor_r])
+    mask_left__mesh = np.arange(mask__mesh.shape[0])  < mask__mesh.shape[0] / 2
+    mask_left__mesh[np.logical_not(mask__mesh)] = False
+    mask_right__mesh = np.arange(mask__mesh.shape[0]) >= mask__mesh.shape[0] / 2
+    mask_right__mesh[np.logical_not(mask__mesh)] = False
+    assert mask__mesh.sum() ==  (mask_left__mesh.sum() + mask_right__mesh.sum())
+    
+    # the mask of the left/right emisphere within the left/right mesh
+    mask_left__left_mesh = mask_left__mesh[:cor_l.shape[0]]
+    mask_right__right_mesh = mask_right__mesh[cor_l.shape[0]:]
+    
+    # compute mask from beta (in masked mesh) to left/right
+    a = np.zeros(mask__mesh.shape, int)
+    a[mask_left__mesh] = 1
+    a[mask_right__mesh] = 2
+    mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
+    mask_right__beta = a[mask__mesh] == 2
+    assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+    assert mask_left__mesh.sum() == mask_left__beta.sum()
+    assert mask_right__mesh.sum() == mask_right__beta.sum()
+    
+    # Check mapping from beta left part to left_mesh
+    assert mask_left__beta.sum() == mask_left__left_mesh.sum()
+    assert mask_right__beta.sum() == mask_right__right_mesh.sum()
+
+
+    # cf /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/MCIc-CTL-FS_cs_modselectcv.xlsx sheet score_refit
+    models = dict(
+        l1l2tv_sl1="0.1_0.02_0.18_0.8_-1.0",
+        l1l2_sl1="0.1_0.1_0.9_0.0_-1.0",
+        l1l2tv_ll1="0.1_0.18_0.02_0.8_-1.0",
+        l1l2_ll1="0.1_0.9_0.1_0.0_-1.0")
+
+    for mod in models:
+        #mod = 'l1l2tv_sl1'
+        #mod = 'l1l2tv_ll1'
+        #mod = 'l1l2_sl1'
+        #image_arr = np.zeros(mask.get_data().shape)
+        beta_map_filenames = glob.glob(os.path.dirname(INPUT_BASE)+"/*/"+models[mod]+"/beta.npz")
+
+        Betas = np.vstack([array_utils.arr_threshold_from_norm2_ratio(
+            np.load(filename)['arr_0'][config["penalty_start"]:, :].ravel(), .99)[0]
+            for filename in beta_map_filenames])
+        # left
+        tex = np.zeros(mask_left__left_mesh.shape)
+        tex[mask_left__left_mesh] = Betas[0, mask_left__beta]
+        print mod, "left", np.sum(tex != 0), tex.max(), tex.min()
+        mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_left_all.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
+        tex[mask_left__left_mesh] = np.sum(Betas[1:, mask_left__beta] != 0, axis=0) / float(NFOLDS_OUTER)
+        mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_left_count5cv.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
+        # right
+        tex = np.zeros(mask_right__right_mesh.shape)
+        tex[mask_right__right_mesh] = Betas[0, mask_right__beta]
+        print mod, "right", np.sum(tex != 0), tex.max(), tex.min()
+        mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_right_all.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
+        tex[mask_right__right_mesh] = np.sum(Betas[1:, mask_right__beta] != 0, axis=0) / float(NFOLDS_OUTER)
+        mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_right_count5cv.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
+        
+        count_bothhemi = np.sum(Betas[1:, :] != 0, axis=0) / float(NFOLDS_OUTER)
+        supports5cv_union = count_bothhemi != 0
+        print mod, supports5cv_union.sum(), np.mean(count_bothhemi[supports5cv_union]), np.median(count_bothhemi[supports5cv_union])
+
+"""
+l1l2tv_sl1 left 26062 0.000890264392951 -0.000987486259691
+l1l2tv_sl1 right 16390 0.0135458979138 -0.0142103149973
+l1l2tv_sl1 96107 0.434596855588 0.2
+l1l2_ll1 left 17 0.0 -0.190563935072
+l1l2_ll1 right 14 0.0 -0.132351265158
+l1l2_ll1 128 0.2328125 0.2
+l1l2_sl1 left 522 0.0247513777459 -0.0353264969457
+l1l2_sl1 right 407 0.0239399696221 -0.0310938132124
+l1l2_sl1 2966 0.28064733648 0.2
+l1l2tv_ll1 left 4070 0.0 -0.00159611730872
+l1l2tv_ll1 right 3058 0.0 -0.000938590832559
+l1l2tv_ll1 17735 0.45856216521 0.4
+
+cd /neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv/weights_map_mesh
+
+palette signed_value_whitecenter
+l1l2tv_sl1  -0.001 +0.001
+l1l2_sl1 -0.01 +0.01
+l1l2tv_ll1  -0.001 +0.001
+l1l2_ll1 -0.01 +0.01
+
+/neurospin/brainvisa/build/Ubuntu-14.04-x86_64/trunk/bin/bv_env /neurospin/brainvisa/build/Ubuntu-14.04-x86_64/trunk/bin/anatomist lh.pial.gii rh.pial.gii tex_*
+
+Pour lh/rh.pial charger les référentiels, les afficher dans lh.pial/rh.pial
+Color / Rendering / Polygines face is clockwize
+
+cvcount
+palette signed_value_whitecenter -1, 1
+
+
+cd /home/ed203246/mega/studies/2015_logistic_nestv/figures/weights_map_mesh/snapshots_beta
+ls *.png|while read input; do
+convert  $input -trim /tmp/toto.png;
+convert  /tmp/toto.png -transparent black $input;
+done
+
+cd /home/ed203246/mega/studies/2015_logistic_nestv/figures/weights_map_mesh/snapshots_countcv
+ls *.png|while read input; do
+convert  $input -trim /tmp/toto.png;
+convert  /tmp/toto.png -transparent black $input;
+done
+
+
+"""
+
 
 ###############################################################################
 def plot_perf():
