@@ -141,15 +141,19 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
     frobenius_dst[i] = frobenius_dst_score(X_test, X_pred)
     evr[i] = pca.explained_variance_ratio_.sum()
     for j, obj in zip(range(N_COMP), sub_objects):
-        _, t = array_utils.arr_threshold_from_norm2_ratio(
-            pca.components_[j, :],
+        c = pca.components_[j, :]
+        thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
+            c,
             L2_THRESHOLD)
-        thresh_comp = pca.components_[j, :] > t
-        dice[i, j] = dice5_metrics.dice(obj,
-                                        thresh_comp.reshape(dice5_data.SHAPE))
+        bin_thresh_comp = thresh_comp != 0
+
+        dice[i, j] = dice5_metrics.dice(
+            obj,
+            bin_thresh_comp.reshape(dice5_data.SHAPE))
         correlation[i, j] = \
-            np.abs(np.corrcoef(pca.components_[j, :],
+            np.abs(np.corrcoef(bin_thresh_comp,
                                obj.ravel())[1, 0])
+
 # Save scores
 np.save(OUTPUT_FROBENIUS_DST_FILE, frobenius_dst)
 np.save(OUTPUT_LOADING_CORR_FILE, correlation)
