@@ -38,8 +38,8 @@ INPUT_BASE_DIR = os.path.join(BASE_DIR,
 INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DIR,
                                      "data_{s[0]}_{s[1]}_{snr}")
 INPUT_STD_DATASET_FILE = "data.std.npy"
-INPUT_MASK_DIR = INPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR,
-                                               "masks")
+INPUT_MASK_DIR = os.path.join(INPUT_BASE_DIR,
+                              "masks")
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_L1MASK_FILE = "l1_max.txt"
 
