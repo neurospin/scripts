@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-Tool to resample data and explore a parameter grid based on MapReduce.
+Tool to resample data and explore a parameter grid based on the MapReduce
+paradigm.
 """
 
 import time
@@ -47,24 +48,31 @@ Execution
 The script calls functions defined in a separate script. Before calling them,
 the script will cd to the folder of the config file.
 
-load_globals(config) will be executed once at the beginning to load the data
-    and define constants
+load_globals(config) is executed once at the beginning to load the data and
+define constants.
 
-In map mode, resample(config, resample_nb) will be executed on each new
-resampling and then mapper(key) will be executed for each parameter.
+In map mode:
+    for each resampling:
+        call resample(config, resample_nb)
+        for each param in parameter:
+            call mapper(param)
 The program can use multiple cores to paralellize mappers.
 If the output directory for a given mapper already exists, it will be skipped
 (this allows parallelization between several computers with shared filesystem).
 
-In reducer mode, reducer(key, values) will be called for each group of output.
+In reduce mode:
+    output of mappers are grouped (either by resampling or by parameter)
+    for each key, list_of_values in group of output:
+        call reducer(key, list_of_values)
+Note that reduce mode is optionnal.
 
-Output hierarchy will be organized as follow:
+Output hierarchy is organized as follows:
     <map_output>/<resample_nb>/<params>
-If no resampling is provided the output will be organized as follow:
+If no resampling is provided the output is organized as follows:
     <map_output>/0/<params>
-If no parameters are provided the output will be organized as follow:
+If no parameters are provided the output is organized as follows:
      <map_output>/<resample_nb>/void
-If no parameters and no resamplins are provided the script stops.
+If no parameters and no resampling are provided the script stops.
 
 """
 
@@ -78,9 +86,9 @@ There are 3 required entries:
     "user_func": (string) path to a python file that contains the user defined
         functions.
     "reduce_group_by": (string; values """ + str(GROUP_BY_VALUES) + """,
-        default '""" + DEFAULT_GROUP_BY + """')
+        default '""" + DEFAULT_GROUP_BY + """'). Required only in reduce mode.
 
-Moreover at least one of the following entries are needed:
+Moreover at least one of the following entries is needed:
     "resample": (list) list of resamplings.
         resample will be called for each value in this list
         Ex: for cross-validation like resampling, use a list of list of list of
@@ -321,7 +329,7 @@ if __name__ == "__main__":
                         "mapper jobs did not end not properly.")
 
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
-                        help="Run reducer: iterate over map_output and call"
+                        help="Run reducer: iterate over map_output and call "
                         "reduce (defined in user_func)")
 
     parser.add_argument('-f', '--force', action='store_true', default=False,
