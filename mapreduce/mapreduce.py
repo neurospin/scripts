@@ -166,7 +166,7 @@ def _build_job_table(config):
 
     # Check that we have parameters; otherwise fake it
     if "params" not in config:
-        params = {_NULL_PARAMS:_NULL_PARAMS}
+        params = {_NULL_PARAMS: _NULL_PARAMS}
     else:
         params = config["params"]
     # If params are given as a file, load them
@@ -242,7 +242,7 @@ class OutputCollector:
 
     def clean(self):
         if os.path.exists(self.output_dir) \
-            and (len(os.listdir(self.output_dir)) == 0):
+                and (len(os.listdir(self.output_dir)) == 0):
             print "clean", self.output_dir
             os.rmdir(self.output_dir)
 
@@ -334,7 +334,8 @@ if __name__ == "__main__":
                         'contains a dictionary of configuration options.')
 
     default_nproc = cpu_count()
-    parser.add_argument('--ncore',
+    parser.add_argument(
+        '--ncore',
         help='Nb of cpu cores to use (default %i)' % default_nproc, type=int)
     options = parser.parse_args()
 
