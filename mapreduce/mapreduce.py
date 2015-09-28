@@ -23,7 +23,6 @@ from collections import OrderedDict
 
 _RESAMPLE_KEY = 'resample_key'
 _PARAMS = 'params'
-_PARAMS_KEY = 'params_key'
 _OUTPUT = 'output_dir'
 _OUTPUT_COLLECTOR = 'output collector'
 
@@ -31,8 +30,8 @@ GROUP_BY_VALUES = [_RESAMPLE_KEY, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
 # Default values for resample and params
-_NULL_RESAMPLE = 0
-_NULL_PARAMS = ["void"]
+_NULL_RESAMPLE = {0: None}
+_NULL_PARAMS = {"void": tuple()}
 
 # Global data
 DATA = dict()
@@ -148,13 +147,11 @@ def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
 
 
-def _build_job_table(config):
+def _build_job_table(map_output, resamplings, parameters):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 3 columns whose name is given by global variables:
       - _RESAMPLE_KEY: the index of the resampling
       - _PARAMS: the key passed to map (tuple of parameters)
-      - _PARAMS_KEY: representation of the parameters as a string (used in
-         output dir)
       - _OUTPUT: the output directory
       - _OUTPUT_COLLECTOR: the OutputCollector
     In order to be able to group by parameters, they must be hashable (it's the
@@ -163,43 +160,24 @@ def _build_job_table(config):
     given in the config file.
     """
     # Check that we have resamplings; otherwise fake it
-    if "resample" not in config:
-        resamples = [_NULL_RESAMPLE]
-    else:
-        resamples = config["resample"]
-    # if resamples is not a dict make it as a dict
-    if not isinstance(resamples, dict):
-        resamples = {str(resample_i):resamples[resample_i] for resample_i in xrange(len(resamples))}
-        config["resample"] = resamples
+    if resamplings is None:
+        resamplings = _NULL_RESAMPLE
 
     # Check that we have parameters; otherwise fake it
-    if "params" not in config:
-        params = {_NULL_PARAMS: _NULL_PARAMS}
-    else:
-        params = config["params"]
-    # If params are given as a file, load them
-    params = json.load(open(params)) \
-        if isinstance(params, str) else params
-
-    # if params is not a dict make it as a dict
-    if not isinstance(params, dict):
-        params = {param_sep.join([str(p) for p in param]):param for param in params}
-        config["params"] = params
+    if parameters is None:
+        parameters = _NULL_PARAMS
 
     # The parameters are given as list of values.
-    # As list are not hashable, we cast them to tuples.
     jobs = [[resample_key,
-             tuple(params[params_key]),
-             params_key,
-             os.path.join(config["map_output"],
-                          resample_key,
-                          params_key)]
-            for resample_key in resamples.keys()
-            for params_key in params.keys()]
+             parameters[params_key],
+             os.path.join(map_output,
+                          str(resample_key),
+                          str(params_key))]
+            for resample_key in resamplings.keys()
+            for params_key in parameters.keys()]
     jobs = pd.DataFrame.from_records(jobs,
                                      columns=[_RESAMPLE_KEY,
                                               _PARAMS,
-                                              _PARAMS_KEY,
                                               _OUTPUT])
     # Add OutputCollectors (we need all the rows so we do that latter)
     jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(lambda x: OutputCollector(x))
@@ -395,7 +373,40 @@ if __name__ == "__main__":
     # =======================================================================
     # == Build job table                                                   ==
     # =======================================================================
-    jobs = _build_job_table(config)
+    if "resample" in config:
+        do_resampling = True
+        resamplings = config["resample"]
+
+        # If resample is not a dict make it as a dict (the key is given by the
+        # index).
+        if not isinstance(resamplings, dict):
+            resamplings = {
+                i: resampling for i, resampling in enumerate(resamplings)}
+    else:
+        do_resampling = None
+        resamplings = None
+
+    if "params" in config:
+        params = config["params"]
+        # If params are given as a file, load them
+        params = json.load(open(params)) \
+            if isinstance(params, str) else params
+
+        # If params is not a dict make it as a dict (the key is given by the
+        # path for each parameter set).
+        if not isinstance(params, dict):
+            params = {
+                param_sep.join([str(p) for p in param]): param
+                for param in params}
+
+        # Cast values to tuples
+        keys = params.keys()
+        for key in keys:
+            params[key] = tuple(params[key])
+    else:
+        params = None
+
+    jobs = _build_job_table(config["map_output"], resamplings, params)
 
     # =======================================================================
     # == Load globals                                                      ==
@@ -413,7 +424,6 @@ if __name__ == "__main__":
     # == MAP                                                               ==
     # =======================================================================
     if options.map:
-        do_resampling = "resample" in config
         if options.verbose:
             print "** MAP WORKERS TO JOBS **"
         # Use this to load/slice data only once
