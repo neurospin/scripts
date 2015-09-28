@@ -65,8 +65,8 @@ if __name__ == "__main__":
 
     ###########################################################################
     ## Create config file without resampling
-    params = [[alpha, l1_ratio] for alpha in [0.1, 1] for l1_ratio
-        in [.1, .5, 1.]]
+    params = [[alpha, l1_ratio]
+              for alpha in [0.1, 1] for l1_ratio in [.1, .5, 1.]]
     user_func_filename = os.path.abspath(__file__)
 
     # mapreduce will set its WD to the directory that contains the config file
@@ -79,7 +79,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)

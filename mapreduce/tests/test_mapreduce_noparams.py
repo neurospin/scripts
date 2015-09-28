@@ -22,6 +22,7 @@ import pandas as pd
 
 from collections import OrderedDict
 
+
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -31,7 +32,7 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+                             for k in GLOBAL.DATA}
 
 
 def mapper(key, output_collector):
@@ -86,7 +87,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)
