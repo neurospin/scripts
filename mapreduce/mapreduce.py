@@ -21,16 +21,17 @@ from collections import OrderedDict
 # Constants #
 #############
 
-_RESAMPLE_KEY = 'resample_key'
-_PARAMS = 'params'
-_OUTPUT = 'output_dir'
-_OUTPUT_COLLECTOR = 'output collector'
+_RESAMPLE = u'resample'
+_RESAMPLE_KEY = u'resample_key'
+_PARAMS = u'params'
+_OUTPUT = u'output_dir'
+_OUTPUT_COLLECTOR = u'output collector'
 
 GROUP_BY_VALUES = [_RESAMPLE_KEY, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
 
 # Default values for resample and params
-_NULL_RESAMPLE = {0: None}
+_NULL_RESAMPLING = {0: None}
 _NULL_PARAMS = {"void": tuple()}
 
 # Global data
@@ -45,33 +46,48 @@ Execution
 ---------
 
 The script calls functions defined in a separate script. Before calling them,
-the script will cd to the folder of the config file.
+the script will cd to the folder of the config file. Four functions can be
+defined: load_globals, resample, mapper and reducer. Only mapper is mandatory.
 
-load_globals(config) is executed once at the beginning to load the data and
-define constants.
+There are 2 modes: map and reduce (controlled by CLI arguments).
+
+Execution is as follows:
+
+First, load_globals(config) is executed once at the beginning to load the data
+and define constants.
 
 In map mode:
     for each resampling:
-        call resample(config, resample_nb)
+        call resample(config, resample_key)
         for each param in parameter:
             call mapper(param)
-The program can use multiple cores to paralellize mappers.
+The program can use multiple cores to parallelize mappers.
 If the output directory for a given mapper already exists, it will be skipped
 (this allows parallelization between several computers with shared filesystem).
 
 In reduce mode:
     output of mappers are grouped (either by resampling or by parameter)
     for each key, list_of_values in group of output:
-        call reducer(key, list_of_values)
+        call reducer(key, dict_of_values)
+dict_of_values is a dict with keys given by the grouping parameter.
 Note that reduce mode is optionnal.
 
 Output hierarchy is organized as follows:
-    <map_output>/<resample_nb>/<params>
+    <map_output>/<resample_key>/<params_key>
 If no resampling is provided the output is organized as follows:
-    <map_output>/0/<params>
+    <map_output>/0/<params_key>
 If no parameters are provided the output is organized as follows:
-     <map_output>/<resample_nb>/void
-If no parameters and no resampling are provided the script stops.
+     <map_output>/<resample_key>/void
+If no parameters and no resamplings are provided the script stops.
+
+The resamplings are given in a iterable or dictionary (if it is an iterable, it
+will be converted to a dict with the index as key). The key is used for the
+directory.
+Parameters are given in a list or dict. The key is used for the directory. If
+absent (i.e. when the parameters are given in a list) it is generated from the
+values.
+In order to be able to group by parameters, they must be hashable (it's the
+case for tuples made of strings and floats).
 
 """
 
@@ -88,13 +104,13 @@ There are 3 required entries:
         default '""" + DEFAULT_GROUP_BY + """'). Required only in reduce mode.
 
 Moreover at least one of the following entries is needed:
-    "resample": (list) list of resamplings.
-        resample will be called for each value in this list
+    "resample": (list or dict) list of resamplings.
+        resample will be called for each value in this list/dict.
         Ex: for cross-validation like resampling, use a list of list of list of
             indices like [[[0, 2], [1, 3]], [[1, 3], [0, 2]]].
         Ex: for bootstraping/permutation like resampling, use list of list of
             indices, like [[0, 1, 2, 3], [1, 3, 0, 2]].
-    "params":  (list) list of parameters values.
+    "params":  (list or dict) list of parameters values.
         mapper will be called for each value in this list (after resampling).
         The value is often a list of values that will be interpreted in mapper.
         Ex: [[1.0, 0.1], [1.0, 0.9], [0.1, 0.1], [0.1, 0.9]].
@@ -149,25 +165,12 @@ def load_data(key_filename):
 
 def _build_job_table(map_output, resamplings, parameters):
     """Build a pandas dataframe representing the jobs.
-    The dataframe has 3 columns whose name is given by global variables:
+    The dataframe has 4 columns whose names are given by global variables:
       - _RESAMPLE_KEY: the index of the resampling
       - _PARAMS: the key passed to map (tuple of parameters)
       - _OUTPUT: the output directory
       - _OUTPUT_COLLECTOR: the OutputCollector
-    In order to be able to group by parameters, they must be hashable (it's the
-    case for tuples made of strings and floats).
-    Note that the index respects the natural ordering of (resample, params) as
-    given in the config file.
     """
-    # Check that we have resamplings; otherwise fake it
-    if resamplings is None:
-        resamplings = _NULL_RESAMPLE
-
-    # Check that we have parameters; otherwise fake it
-    if parameters is None:
-        parameters = _NULL_PARAMS
-
-    # The parameters are given as list of values.
     jobs = [[resample_key,
              parameters[params_key],
              os.path.join(map_output,
@@ -378,13 +381,13 @@ if __name__ == "__main__":
         resamplings = config["resample"]
 
         # If resample is not a dict make it as a dict (the key is given by the
-        # index).
+        # index). We keep the order here.
         if not isinstance(resamplings, dict):
-            resamplings = {
-                i: resampling for i, resampling in enumerate(resamplings)}
+            resamplings = OrderedDict([
+                (i, resampling) for i, resampling in enumerate(resamplings)])
     else:
         do_resampling = None
-        resamplings = None
+        resamplings = _NULL_RESAMPLING
 
     if "params" in config:
         params = config["params"]
@@ -393,18 +396,18 @@ if __name__ == "__main__":
             if isinstance(params, str) else params
 
         # If params is not a dict make it as a dict (the key is given by the
-        # path for each parameter set).
+        # path for each parameter set). We keep the order here.
         if not isinstance(params, dict):
-            params = {
-                param_sep.join([str(p) for p in param]): param
-                for param in params}
+            params = OrderedDict([
+                (param_sep.join([str(p) for p in param]), param)
+                for param in params])
 
         # Cast values to tuples
         keys = params.keys()
         for key in keys:
             params[key] = tuple(params[key])
     else:
-        params = None
+        params = _NULL_PARAMS
 
     jobs = _build_job_table(config["map_output"], resamplings, params)
 
@@ -488,43 +491,29 @@ if __name__ == "__main__":
             print >> sys.stderr, 'Attribute "reduce_group_by" ', \
                 "must be one of", GROUP_BY_VALUES, "or absent"
             sys.exit(os.EX_CONFIG)
+        outer_key = config["reduce_group_by"]
+        outer_key_index = GROUP_BY_VALUES.index(outer_key)
+        # If outer_key is params, this will yield resampling_key and
+        # vice-versa.
+        inner_key = GROUP_BY_VALUES[outer_key_index - 1]
 
-        # Create dict of list of OutputCollectors.
-        # It is important that the inner lists are ordered naturally because
-        # the reducer generally iterate through this list and some entries may
-        # have special meaning (for instance the first fold might be the full
-        # population without resampling):
-        #  - If grouping by parameters (the most common case) we sort by
-        # resample index (i.e. the first fold is the first loaded entry).
-        #  - If grouping by resample index, we sort by parameters (i.e. the
-        # first tuple of parameters is the first loaded entry)
-        # In both cases, the index gives the correct order (see function
-        # _build_job_table).
-        # Note that by default groupby sorts the key (hence the order of the
-        # groups is not and the final CSV is not naturally sorted). Therefore
-        # we pass sort=False.
-        grouped = jobs.groupby(config["reduce_group_by"], sort=False)
-        # Copy the groups in a dictionnary with the same keys than the GroupBy
-        # object and the same order. This is needed to sort the groups only
-        # once.
-        groups = OrderedDict(iter(grouped))
-        n_groups = len(groups)
-        ordered_keys = groups.keys()
-        # Sort inner groups by index
-        for key, group in groups.items():
-                group.sort_index(inplace=True)
-
+        # Group outputs by outer_key
+        grouped = jobs.groupby(outer_key)
+        index = grouped.groups.keys()  # Index of results DataFrame
         if options.verbose:
             print "== Groups found:"
-            for key, group in groups.items():
+            for key, group in grouped:
                 print key
                 print group
-        # Do the reduce
-        scores_tab = None  # Dict of all the results
-        for k in groups:
-            output_collectors = groups[k][_OUTPUT_COLLECTOR]
-                # Results for this key
-            scores = user_func.reducer(key=k, values=output_collectors)
+
+        # Do the reduce (we can no longer guarantee the order of output)
+        scores_tab = None  # DataFrame of all the results
+        for key, group in grouped:
+            # Create dict of OutputCollectors
+            group = group.set_index(inner_key)
+            output_collectors = group[_OUTPUT_COLLECTOR].to_dict()
+            # Call reducer for this key
+            scores = user_func.reducer(key=key, values=output_collectors)
             """ Do not catch exceptions
             try:
                 output_collectors = groups[k][_OUTPUT_COLLECTOR]
@@ -551,8 +540,8 @@ if __name__ == "__main__":
                 # tupleize_cols was introduced in pandas 0.14 to automatically
                 # create MultiIndex. For now we force it to False in 0.14 (it
                 # is ignored in previous versions).
-                index = pd.Index(ordered_keys,
-                                 name=config["reduce_group_by"],
+                index = pd.Index(index,
+                                 name=outer_key,
                                  tupleize_cols=False)
                 scores_tab = pd.DataFrame(index=index,
                                           columns=scores.keys())
@@ -561,7 +550,7 @@ if __name__ == "__main__":
             # it's interpreted as several index.
             # Therefore we use scores_tab.loc[k,].
             # Integer based access (scores_tab.iloc[i]) would work too.
-            scores_tab.loc[k, ] = scores.values()
+            scores_tab.loc[key, ] = scores.values()
         if scores_tab is None:
             print >> sys.stderr, "All reducers failed. Nothing saved."
             sys.exit(os.EX_SOFTWARE)
