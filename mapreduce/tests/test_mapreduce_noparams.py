@@ -97,7 +97,6 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    key = mapreduce._NULL_PARAMS
     y_true = list()
     y_pred = list()
     for tr, te in cv:
@@ -114,7 +113,7 @@ if __name__ == "__main__":
     # As we reload mapreduce results, the params will be interpreted as
     # strings representation of tuples.
     # Here we apply the same representation
-    res.append([str(tuple(key)), r2_score(y_true, y_pred)])
+    res.append([str(tuple()), r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys

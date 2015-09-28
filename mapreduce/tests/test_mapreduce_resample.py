@@ -79,7 +79,7 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_group_by="resample_index",
+                  reduce_group_by="resample_key",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -110,10 +110,10 @@ if __name__ == "__main__":
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
         res.append([i, r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["resample_index", "r2"])
+    true = pd.DataFrame(res, columns=["resample_key", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.resample_index) == np.sort(mr.resample_index))
-    m = pd.merge(true, mr, on="resample_index", suffixes=["_true", "_mr"])
+    assert np.all(np.sort(true.resample_key) == np.sort(mr.resample_key))
+    m = pd.merge(true, mr, on="resample_key", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

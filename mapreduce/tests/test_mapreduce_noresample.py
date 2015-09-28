@@ -108,7 +108,7 @@ if __name__ == "__main__":
         # Here we apply the same representation
         res.append([str(tuple(key)), r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["params", "r2"])
-    mr = pd.read_csv(os.path.join(WD, 'results.csv'))
+    mr = pd.read_csv(os.path.join(WD, 'results.csv')).sort(columns=["params"])
     # Check same keys
     assert np.all(true.params == mr.params)
     m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
