@@ -22,6 +22,7 @@ import pandas as pd
 
 from collections import OrderedDict
 
+
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -31,7 +32,7 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+                             for k in GLOBAL.DATA}
 
 
 def mapper(key, output_collector):
@@ -48,7 +49,7 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
     # load return dict corresponding to mapper ouput. they need to be loaded.
-    values = [item.load() for item in values]
+    values = [item.load() for item in values.itervalues()]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
@@ -57,7 +58,6 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    import mapreduce
 
     WD = tempfile.mkdtemp()
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)
@@ -97,7 +97,6 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    key = mapreduce._NULL_PARAMS
     y_true = list()
     y_pred = list()
     for tr, te in cv:
@@ -114,7 +113,7 @@ if __name__ == "__main__":
     # As we reload mapreduce results, the params will be interpreted as
     # strings representation of tuples.
     # Here we apply the same representation
-    res.append([str(tuple(key)), r2_score(y_true, y_pred)])
+    res.append([str(tuple()), r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys

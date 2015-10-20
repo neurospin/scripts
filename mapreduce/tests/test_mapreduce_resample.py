@@ -18,6 +18,7 @@ import pandas as pd
 
 from collections import OrderedDict
 
+
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -27,7 +28,7 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_nb]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+                             for k in GLOBAL.DATA}
 
 
 def mapper(key, output_collector):
@@ -44,7 +45,7 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
     # load return dict correspondning to mapper ouput. they need to be loaded.
-    values = [item.load() for item in values]
+    values = [item.load() for item in values.itervalues()]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
@@ -68,8 +69,8 @@ if __name__ == "__main__":
     ###########################################################################
     ## Create config file
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=2)]
-    params = [[alpha, l1_ratio] for alpha in [0.1, 1] for l1_ratio
-        in [.1, .5, 1.]]
+    params = [[alpha, l1_ratio]
+              for alpha in [0.1, 1] for l1_ratio in [.1, .5, 1.]]
     user_func_filename = os.path.abspath(__file__)
 
     # mapreduce will set its WD to the directory that contains the config file
@@ -79,11 +80,11 @@ if __name__ == "__main__":
                   params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
-                  reduce_group_by="resample_index",
+                  reduce_group_by="resample_key",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)
@@ -110,10 +111,10 @@ if __name__ == "__main__":
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
         res.append([i, r2_score(y_true, y_pred)])
-    true = pd.DataFrame(res, columns=["resample_index", "r2"])
+    true = pd.DataFrame(res, columns=["resample_key", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same keys
-    assert np.all(np.sort(true.resample_index) == np.sort(mr.resample_index))
-    m = pd.merge(true, mr, on="resample_index", suffixes=["_true", "_mr"])
+    assert np.all(np.sort(true.resample_key) == np.sort(mr.resample_key))
+    m = pd.merge(true, mr, on="resample_key", suffixes=["_true", "_mr"])
     # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)

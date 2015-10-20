@@ -65,7 +65,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s --map %s/config.json --ncore 2" % (exec_path, WD)

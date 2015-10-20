@@ -4,8 +4,7 @@ Created on Wed May 28 12:08:39 2014
 
 @author: md238665
 
-Process dice5 datasets with standard PCA, sklearn SparsePCA and our
-structured PCA.
+Process dice5 datasets with standard PCA and our structured PCA.
 We use several values for global penalization, TV ratio and L1 ratio.
 
 We generate a map_reduce configuration file for each dataset and the files
@@ -38,20 +37,24 @@ import metrics
 from brainomics import array_utils
 import brainomics.cluster_gabriel as clust_utils
 
+import dice5_data
 import dice5_metrics
+
+################
+# Input/Output #
+################
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5"
 INPUT_BASE_DATA_DIR = os.path.join(INPUT_BASE_DIR, "data")
-INPUT_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
-                                "data_{s[0]}_{s[1]}_{snr}")
+INPUT_MASK_DIR = os.path.join(INPUT_BASE_DATA_DIR, "masks")
+INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DATA_DIR,
+                                     "data_{s[0]}_{s[1]}_{snr}")
 INPUT_STD_DATASET_FILE = "data.std.npy"
-INPUT_INDEX_FILE_FORMAT = "indices_{subset}.npy"
 INPUT_OBJECT_MASK_FILE_FORMAT = "mask_{o}.npy"
 INPUT_L1MASK_FILE = "l1_max.txt"
-
-INPUT_SHAPE = (100, 100, 1)
-INPUT_N_SUBSETS = 2
-INPUT_SNRS = [0.1, 0.2, 0.25, 0.5, 1.0]
+INPUT_SNR_FILE = os.path.join(INPUT_BASE_DIR,
+                              "calibrate",
+                              "SNR.npy")
 
 OUTPUT_BASE_DIR = os.path.join(INPUT_BASE_DIR, "results")
 OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
@@ -62,6 +65,8 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 ##############
 
 N_COMP = 3
+TRAIN_RANGE = range(dice5_data.N_SAMPLES/2)
+TEST_RANGE = range(dice5_data.N_SAMPLES/2, dice5_data.N_SAMPLES)
 # Global penalty
 GLOBAL_PENALTIES = np.array([1e-3, 1e-2, 1e-1, 1, 1e1])
 # Relative penalties
@@ -94,7 +99,7 @@ def compute_coefs_from_ratios(global_pen, tv_ratio, l1_ratio):
 
 
 def load_globals(config):
-    global INPUT_OBJECT_MASK_FILE_FORMAT
+    global INPUT_OBJECT_MASK_FILE_FORMAT, N_COMP
     import mapreduce as GLOBAL
     # Read masks
     masks = []
@@ -102,9 +107,11 @@ def load_globals(config):
         filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
         masks.append(np.load(filename))
     im_shape = config["im_shape"]
-    Atv, n_compacts = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
+    Atv = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     GLOBAL.Atv = Atv
     GLOBAL.masks = masks
+    GLOBAL.l1_max = config["l1_max"]
+    GLOBAL.N_COMP = config["n_comp"]
 
 
 def resample(config, resample_nb):
@@ -120,6 +127,7 @@ def resample(config, resample_nb):
                                  for idx in [0, 1]]
                                  for k in GLOBAL.DATA}
 
+
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables:
     # GLOBAL.DATA
@@ -129,19 +137,13 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         # Force the key
         global_pen = tv_ratio = l1_ratio = 0
-    if model_name == 'sparse_pca':
-        # Force the key
-        tv_ratio = 0
-        l1_ratio = 1
-        ll1 = global_pen
     if model_name == 'struct_pca':
         ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
                                                   tv_ratio,
                                                   l1_ratio)
-
-    # This should not happen
-    if ll1 > GLOBAL["l1_max"]:
-        raise ValueError
+        # This should not happen
+        if ll1 > GLOBAL.l1_max:
+            raise ValueError
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -149,24 +151,19 @@ def mapper(key, output_collector):
 
     # A matrices
     Atv = GLOBAL.Atv
-    Al1 = scipy.sparse.eye(p, p)
 
     # Fit model
     if model_name == 'pca':
-        model = sklearn.decomposition.PCA(n_components=N_COMP)
-    if model_name == 'sparse_pca':
-        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,
-                                                alpha=ll1)
+        model = sklearn.decomposition.PCA(n_components=GLOBAL.N_COMP)
     if model_name == 'struct_pca':
-        model = pca_tv.PCA_SmoothedL1_L2_TV(n_components=N_COMP,
-                                            l1=ll1, l2=ll2, ltv=ltv,
-                                            Atv=Atv,
-                                            Al1=Al1,
-                                            criterion="frobenius",
-                                            eps=1e-6,
-                                            max_iter=100,
-                                            inner_max_iter=int(1e4),
-                                            output=False)
+        model = pca_tv.PCA_L1_L2_TV(n_components=GLOBAL.N_COMP,
+                                    l1=ll1, l2=ll2, ltv=ltv,
+                                    Atv=Atv,
+                                    criterion="frobenius",
+                                    eps=1e-6,
+                                    max_iter=100,
+                                    inner_max_iter=int(1e4),
+                                    output=False)
     t0 = time.clock()
     model.fit(X_train)
     t1 = time.clock()
@@ -174,13 +171,23 @@ def mapper(key, output_collector):
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
     # Save the projectors
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
-        V = model.components_.T
+    if (model_name == 'pca'):
+        components = model.components_.T
     if model_name == 'struct_pca':
-        V = model.V
+        components = model.V
+
+    # Threshold components
+    thresh_components = np.empty(components.shape)
+    thresholds = np.empty((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
+            components[:, k],
+            .99)
+        thresh_components[:, k] = thresh_comp
+        thresholds[k] = t
 
     # Project train & test data
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
+    if (model_name == 'pca'):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
     if (model_name == 'struct_pca'):
@@ -188,12 +195,12 @@ def mapper(key, output_collector):
         X_test_transform, _ = model.transform(X_test)
 
     # Reconstruct train & test data
-    # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
+    # For PCA, the formula is: UV^t (U is given by transform)
     # For StructPCA this is implemented in the predict method (which uses
     # transform)
-    if (model_name == 'pca') or (model_name == 'sparse_pca'):
-        X_train_predict = np.dot(X_train_transform, V.T)
-        X_test_predict = np.dot(X_test_transform, V.T)
+    if (model_name == 'pca'):
+        X_train_predict = np.dot(X_train_transform, components.T)
+        X_test_predict = np.dot(X_test_transform, components.T)
     if (model_name == 'struct_pca'):
         X_train_predict = model.predict(X_train)
         X_test_predict = model.predict(X_test)
@@ -204,19 +211,19 @@ def mapper(key, output_collector):
 
     # Compute geometric metrics and norms of components
     TV = parsimony.functions.nesterov.tv.TotalVariation(1, A=Atv)
-    l0 = np.zeros((N_COMP,))
-    l1 = np.zeros((N_COMP,))
-    l2 = np.zeros((N_COMP,))
-    tv = np.zeros((N_COMP,))
-    recall = np.zeros((N_COMP,))
-    precision = np.zeros((N_COMP,))
-    fscore = np.zeros((N_COMP,))
-    for i in range(N_COMP):
+    l0 = np.zeros((GLOBAL.N_COMP,))
+    l1 = np.zeros((GLOBAL.N_COMP,))
+    l2 = np.zeros((GLOBAL.N_COMP,))
+    tv = np.zeros((GLOBAL.N_COMP,))
+    recall = np.zeros((GLOBAL.N_COMP,))
+    precision = np.zeros((GLOBAL.N_COMP,))
+    fscore = np.zeros((GLOBAL.N_COMP,))
+    for i in range(GLOBAL.N_COMP):
         # Norms
-        l0[i] = np.linalg.norm(V[:, i], 0)
-        l1[i] = np.linalg.norm(V[:, i], 1)
-        l2[i] = np.linalg.norm(V[:, i], 2)
-        tv[i] = TV.f(V[:, i])
+        l0[i] = np.linalg.norm(components[:, i], 0)
+        l1[i] = np.linalg.norm(components[:, i], 1)
+        l2[i] = np.linalg.norm(components[:, i], 2)
+        tv[i] = TV.f(components[:, i])
 
     # Compute explained variance ratio
     evr_train = metrics.adjusted_explained_variance(X_train_transform)
@@ -226,7 +233,9 @@ def mapper(key, output_collector):
 
     ret = dict(frobenius_train=frobenius_train,
                frobenius_test=frobenius_test,
-               components=V,
+               components=components,
+               thresh_components=thresh_components,
+               thresholds=thresholds,
                X_train_transform=X_train_transform,
                X_test_transform=X_test_transform,
                X_train_predict=X_train_predict,
@@ -247,117 +256,56 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     output_collectors = values
-    global N_COMP, INPUT_N_SUBSETS
     import mapreduce as GLOBAL
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
-    # Avoid taking into account the fold 0
-    values = [item.load() for item in output_collectors[1:]]
+    if len(output_collectors) > 1:
+        raise ValueError
+    values = output_collectors[0].load()
 
-    N_FOLDS = INPUT_N_SUBSETS
-    # Load components: each file is n_voxelsxN_COMP matrix.
-    # We stack them on the third dimension (folds)
-    components = np.dstack([item["components"] for item in values])
-    # Thesholded components (list of tuples (comp, threshold))
-    thresh_components = np.empty(components.shape)
-    thresholds = np.empty((N_COMP, N_FOLDS))
-    for l in range(N_FOLDS):
-        for k in range(N_COMP):
-            thresh_comp, t = array_utils.arr_threshold_from_norm2_ratio(
-                                components[:, k, l],
-                                .99)
-            thresh_components[:, k, l] = thresh_comp
-            thresholds[k, l] = t
-    # Save thresholded comp
-    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
-        filename = os.path.join(oc.output_dir, "thresh_comp.npz")
-        np.savez(filename, thresh_components[:, :, l])
-    frobenius_train = np.vstack([item["frobenius_train"] for item in values])
-    frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-    l0 = np.vstack([item["l0"] for item in values])
-    l1 = np.vstack([item["l1"] for item in values])
-    l2 = np.vstack([item["l2"] for item in values])
-    tv = np.vstack([item["tv"] for item in values])
-    evr_train = np.vstack([item["evr_train"] for item in values])
-    evr_test = np.vstack([item["evr_test"] for item in values])
-    times = [item["time"] for item in values]
+    # Load component (n_voxelsxN_COMP matrix).
+    components = values["components"]
+    bin_components = components != 0
+    thresh_components = values["thresh_components"]
+    bin_thresh_components = thresh_components != 0
 
-    # Compute precision/recall for each component and fold
-    precisions = np.zeros((N_COMP, N_FOLDS))
-    recalls = np.zeros((N_COMP, N_FOLDS))
-    fscores = np.zeros((N_COMP, N_FOLDS))
-    for k in range(N_COMP):
-        for n in range(N_FOLDS):
-            c = components[:, k, n]
-            precisions[k, n], recalls[k, n], fscores[k, n] = \
-              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+    frobenius_train = values["frobenius_train"]
+    frobenius_test = values["frobenius_test"]
+    l0 = values["l0"]
+    l1 = values["l1"]
+    l2 = values["l2"]
+    tv = values["tv"]
+    evr_train = values["evr_train"]
+    evr_test = values["evr_test"]
+    time = values["time"]
 
-    # Compute precision/recall for each thresholded component and fold
-    thresh_precisions = np.zeros((N_COMP, N_FOLDS))
-    thresh_recalls = np.zeros((N_COMP, N_FOLDS))
-    thresh_fscores = np.zeros((N_COMP, N_FOLDS))
-    for k in range(N_COMP):
-        for n in range(N_FOLDS):
-            c = thresh_components[:, k, n]
-            thresh_precisions[k, n], thresh_recalls[k, n], thresh_fscores[k, n] = \
-              dice5_metrics.dice_five_geometric_metrics(GLOBAL.masks[k], c)
+    # Compute precision/recall for each binarized component
+    precisions = np.zeros((GLOBAL.N_COMP, ))
+    recalls = np.zeros((GLOBAL.N_COMP, ))
+    fscores = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_components[:, k]
+        precisions[k], recalls[k], fscores[k] = \
+            dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
+    # Compute DICE coefficient for each binarized component
+    dices = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_components[:, k]
+        dices[k] = dice5_metrics.dice(GLOBAL.masks[k], c)
 
-    # Average precision/recall across folds for each component
-    av_frobenius_train = frobenius_train.mean(axis=0)
-    av_frobenius_test = frobenius_test.mean(axis=0)
-    av_precision = precisions.mean(axis=1)
-    av_recall = recalls.mean(axis=1)
-    av_fscore = fscores.mean(axis=1)
-    av_thresh_precision = thresh_precisions.mean(axis=1)
-    av_thresh_recall = thresh_recalls.mean(axis=1)
-    av_thresh_fscore = thresh_fscores.mean(axis=1)
-    av_evr_train = evr_train.mean(axis=0)
-    av_evr_test = evr_test.mean(axis=0)
-    av_l0 = l0.mean(axis=0)
-    av_l1 = l1.mean(axis=0)
-    av_l2 = l2.mean(axis=0)
-    av_tv = tv.mean(axis=0)
-
-    # Compute correlations of components between all folds
-    n_corr = N_FOLDS * (N_FOLDS - 1) / 2
-    correlations = np.zeros((N_COMP, n_corr))
-    for k in range(N_COMP):
-        R = np.corrcoef(np.abs(components[:, k, :].T))
-        # Extract interesting coefficients (upper-triangle)
-        correlations[k] = R[np.triu_indices_from(R, 1)]
-
-    # Transform to z-score
-    Z = 1. / 2. * np.log((1 + correlations) / (1 - correlations))
-    # Average for each component
-    z_bar = np.mean(Z, axis=1)
-    # Transform back to average correlation for each component
-    r_bar = (np.exp(2 * z_bar) - 1) / (np.exp(2 * z_bar) + 1)
-
-    # Align sign of loading vectors to the first fold for each component
-    aligned_thresh_comp = np.copy(thresh_components)
-    REF_FOLD_NUMBER = 0
-    for k in range(N_COMP):
-        for i in range(N_FOLDS):
-            ref = thresh_components[:, k, REF_FOLD_NUMBER].T
-            if i != REF_FOLD_NUMBER:
-                r = np.corrcoef(thresh_components[:, k, i].T,
-                                ref)
-                if r[0, 1] < 0:
-                    #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
-                    aligned_thresh_comp[:, k, i] *= -1
-    # Save aligned comp
-    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
-        filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
-        np.savez(filename, aligned_thresh_comp[:, :, l])
-
-    # Compute fleiss_kappa and DICE on thresholded components
-    fleiss_kappas = np.empty(N_COMP)
-    dice_bars = np.empty(N_COMP)
-    for k in range(N_COMP):
-        # One component accross folds
-        thresh_comp = aligned_thresh_comp[:, k, :]
-        fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
-        dice_bars[k] = metrics.dice_bar(thresh_comp)
+    # Compute precision/recall for each binarized thresholded component
+    thresh_precisions = np.zeros((GLOBAL.N_COMP, ))
+    thresh_recalls = np.zeros((GLOBAL.N_COMP, ))
+    thresh_fscores = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_thresh_components[:, k]
+        thresh_precisions[k], thresh_recalls[k], thresh_fscores[k] = \
+            dice5_metrics.geometric_metrics(GLOBAL.masks[k], c)
+    # Compute DICE coefficient for each binarized thresholded component
+    thresh_dices = np.zeros((GLOBAL.N_COMP, ))
+    for k in range(GLOBAL.N_COMP):
+        c = bin_thresh_components[:, k]
+        thresh_dices[k] = dice5_metrics.dice(GLOBAL.masks[k], c)
 
     scores = OrderedDict((
         ('model', key[0]),
@@ -365,66 +313,63 @@ def reducer(key, values):
         ('tv_ratio', key[2]),
         ('l1_ratio', key[3]),
 
-        ('frobenius_train', av_frobenius_train[0]),
-        ('frobenius_test', av_frobenius_test[0]),
+        ('frobenius_train', frobenius_train),
+        ('frobenius_test', frobenius_test),
+        ('evr_train_0', evr_train[0]),
+        ('evr_train_1', evr_train[1]),
+        ('evr_train_2', evr_train[2]),
+        ('evr_test_0', evr_test[0]),
+        ('evr_test_1', evr_test[1]),
+        ('evr_test_2', evr_test[2]),
 
-        ('recall_0', av_recall[0]),
-        ('recall_1', av_recall[1]),
-        ('recall_2', av_recall[2]),
-        ('recall_mean', np.mean(av_recall)),
-        ('precision_0', av_precision[0]),
-        ('precision_1', av_precision[1]),
-        ('precision_2', av_precision[2]),
-        ('precision_mean', np.mean(av_precision)),
-        ('fscore_0', av_fscore[0]),
-        ('fscore_1', av_fscore[1]),
-        ('fscore_2', av_fscore[2]),
-        ('fscore_mean', np.mean(av_fscore)),
+        ('recall_0', recalls[0]),
+        ('recall_1', recalls[1]),
+        ('recall_2', recalls[2]),
+        ('recall_mean', np.mean(recalls)),
+        ('precision_0', precisions[0]),
+        ('precision_1', precisions[1]),
+        ('precision_2', precisions[2]),
+        ('precision_mean', np.mean(precisions)),
+        ('fscore_0', fscores[0]),
+        ('fscore_1', fscores[1]),
+        ('fscore_2', fscores[2]),
+        ('fscore_mean', np.mean(fscores)),
+        ('dice_0', dices[0]),
+        ('dice_1', dices[1]),
+        ('dice_2', dices[2]),
+        ('dice_mean', np.mean(dices)),
 
-        ('thresh_recall_0', av_thresh_recall[0]),
-        ('thresh_recall_1', av_thresh_recall[1]),
-        ('thresh_recall_2', av_thresh_recall[2]),
-        ('thresh_recall_mean', np.mean(av_thresh_recall)),
-        ('thresh_precision_0', av_thresh_precision[0]),
-        ('thresh_precision_1', av_thresh_precision[1]),
-        ('thresh_precision_2', av_thresh_precision[2]),
-        ('thresh_precision_mean', np.mean(av_thresh_precision)),
-        ('thresh_fscore_0', av_thresh_fscore[0]),
-        ('thresh_fscore_1', av_thresh_fscore[1]),
-        ('thresh_fscore_2', av_thresh_fscore[2]),
-        ('thresh_fscore_mean', np.mean(av_thresh_fscore)),
+        ('thresh_recall_0', thresh_recalls[0]),
+        ('thresh_recall_1', thresh_recalls[1]),
+        ('thresh_recall_2', thresh_recalls[2]),
+        ('thresh_recall_mean', np.mean(thresh_recalls)),
+        ('thresh_precision_0', thresh_precisions[0]),
+        ('thresh_precision_1', thresh_precisions[1]),
+        ('thresh_precision_2', thresh_precisions[2]),
+        ('thresh_precision_mean', np.mean(thresh_precisions)),
+        ('thresh_fscore_0', thresh_fscores[0]),
+        ('thresh_fscore_1', thresh_fscores[1]),
+        ('thresh_fscore_2', thresh_fscores[2]),
+        ('thresh_fscore_mean', np.mean(thresh_fscores)),
+        ('thresh_dice_0', thresh_dices[0]),
+        ('thresh_dice_1', thresh_dices[1]),
+        ('thresh_dice_2', thresh_dices[2]),
+        ('thresh_dice_mean', np.mean(thresh_dices)),
 
-        ('correlation_0', r_bar[0]),
-        ('correlation_1', r_bar[1]),
-        ('correlation_2', r_bar[2]),
-        ('correlation_mean', np.mean(r_bar)),
-        ('kappa_0', fleiss_kappas[0]),
-        ('kappa_1', fleiss_kappas[1]),
-        ('kappa_2', fleiss_kappas[2]),
-        ('kappa_mean', np.mean(fleiss_kappas)),
-        ('dice_bar_0', dice_bars[0]),
-        ('dice_bar_1', dice_bars[1]),
-        ('dice_bar_2', dice_bars[2]),
-        ('dice_bar_mean', np.mean(dice_bars)),
-        ('evr_train_0', av_evr_train[0]),
-        ('evr_train_1', av_evr_train[1]),
-        ('evr_train_2', av_evr_train[2]),
-        ('evr_test_0', av_evr_test[0]),
-        ('evr_test_1', av_evr_test[1]),
-        ('evr_test_2', av_evr_test[2]),
-        ('l0_0', av_l0[0]),
-        ('l0_1', av_l0[1]),
-        ('l0_2', av_l0[2]),
-        ('l1_0', av_l1[0]),
-        ('l1_1', av_l1[1]),
-        ('l1_2', av_l1[2]),
-        ('l2_0', av_l2[0]),
-        ('l2_1', av_l2[1]),
-        ('l2_2', av_l2[2]),
-        ('tv_0', av_tv[0]),
-        ('tv_1', av_tv[1]),
-        ('tv_2', av_tv[2]),
-        ('time', np.mean(times))))
+        ('l0_0', l0[0]),
+        ('l0_1', l0[1]),
+        ('l0_2', l0[2]),
+        ('l1_0', l1[0]),
+        ('l1_1', l1[1]),
+        ('l1_2', l1[2]),
+        ('l2_0', l2[0]),
+        ('l2_1', l2[1]),
+        ('l2_2', l2[2]),
+        ('tv_0', tv[0]),
+        ('tv_1', tv[1]),
+        ('tv_2', tv[2]),
+        ('time', time)
+    ))
 
     return scores
 
@@ -448,20 +393,14 @@ def run_test(wd, config):
 #################
 
 if __name__ == '__main__':
+    # Read SNRs
+    input_snrs = np.load(INPUT_SNR_FILE)
+    # Resample
+    resamplings = [[TRAIN_RANGE, TEST_RANGE]]
     # Create a mapreduce config file for each dataset
-    for snr in INPUT_SNRS:
-        input_dir = INPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
-                                            snr=snr)
-        # Read indices
-        indices = []
-        for i in range(INPUT_N_SUBSETS):
-            filename = INPUT_INDEX_FILE_FORMAT.format(subset=i)
-            full_filename = os.path.join(input_dir, filename)
-            indices.append(np.load(full_filename).tolist())
-        rev_indices = indices[::-1]
-        resample_index = [indices, rev_indices]
-        resample_index.insert(0, None)  # first fold is None
-
+    for snr in input_snrs:
+        input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE,
+                                                 snr=snr)
         # Read l1_max file
         full_filename = os.path.join(input_dir, INPUT_L1MASK_FILE)
         with open(full_filename) as f:
@@ -483,7 +422,7 @@ if __name__ == '__main__':
 
         # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
-                                  OUTPUT_DIR_FORMAT.format(s=INPUT_SHAPE,
+                                  OUTPUT_DIR_FORMAT.format(s=dice5_data.SHAPE,
                                                            snr=snr))
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -495,23 +434,25 @@ if __name__ == '__main__':
         # Copy the objects masks
         for i in range(N_COMP):
             filename = INPUT_OBJECT_MASK_FILE_FORMAT.format(o=i)
-            src_filename = os.path.join(input_dir, filename)
+            src_filename = os.path.join(INPUT_MASK_DIR, filename)
             dst_filename = os.path.join(output_dir, filename)
             shutil.copy(src_filename, dst_filename)
 
         # Create files to synchronize with the cluster
         sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-        clust_utils.gabriel_make_sync_data_files(output_dir)
+            clust_utils.gabriel_make_sync_data_files(output_dir,
+                                                     user="md238665")
 
         # Create config file
         user_func_filename = os.path.abspath(__file__)
 
         config = OrderedDict([
             ('data', dict(X=INPUT_STD_DATASET_FILE)),
-            ('im_shape', INPUT_SHAPE),
+            ('im_shape', dice5_data.SHAPE),
             ('params', correct_params),
             ('l1_max', l1_max),
-            ('resample', resample_index),
+            ('n_comp', N_COMP),
+            ('resample', resamplings),
             ('map_output', "results"),
             ('user_func', user_func_filename),
             ('ncore', 4),

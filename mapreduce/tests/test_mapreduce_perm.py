@@ -47,7 +47,7 @@ def reducer(key, values):
     # load return dict corresponding to mapper ouput. they need to be loaded.
     values = [item.load() for item in values]
     tvals_perm = np.concatenate([item["tvals_perm"].ravel()
-                                    for item in values])
+                                 for item in values])
     d = OrderedDict()
     d['maxT'] = np.max(tvals_perm)
     return d
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     ## Create config file
     nbperms = 10
     cv = [np.random.permutation(X.shape[0]).tolist()
-                                            for i in range(nbperms)]
+          for i in range(nbperms)]
     params = [[0]]
     user_func_filename = os.path.abspath(__file__)
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
 
     #########################################################################
     ## Apply map

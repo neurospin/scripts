@@ -16,6 +16,7 @@ import pandas as pd
 
 from collections import OrderedDict
 
+
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
@@ -25,7 +26,7 @@ def resample(config, resample_key):
     import mapreduce as GLOBAL  # access to global variables
     resample = config["resample"][resample_key]
     GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
-                            for k in GLOBAL.DATA}
+                             for k in GLOBAL.DATA}
 
 
 def mapper(key, output_collector):
@@ -42,7 +43,7 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
     # load return dict corresponding to mapper ouput. they need to be loaded.
-    values = [item.load() for item in values]
+    values = [item.load() for item in values.itervalues()]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
@@ -65,8 +66,8 @@ if __name__ == "__main__":
     ###########################################################################
     ## Create config file
     cv = [[tr.tolist(), te.tolist()] for tr, te in KFold(n, n_folds=2)]
-    params = [[alpha, l1_ratio] for alpha in [0.1, 1] for l1_ratio
-        in [.1, .5, 1.]]
+    params = [[alpha, l1_ratio]
+              for alpha in [0.1, 1] for l1_ratio in [.1, .5, 1.]]
     user_func_filename = os.path.abspath(__file__)
 
     # mapreduce will set its WD to the directory that contains the config file
@@ -79,7 +80,7 @@ if __name__ == "__main__":
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)

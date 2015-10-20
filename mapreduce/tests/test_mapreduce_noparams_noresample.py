@@ -16,12 +16,6 @@ import os
 import json
 import numpy as np
 import tempfile
-from sklearn.cross_validation import KFold
-from sklearn.linear_model import ElasticNet
-from sklearn.metrics import r2_score
-import pandas as pd
-
-from collections import OrderedDict
 
 if __name__ == "__main__":
     WD = tempfile.mkdtemp()
@@ -45,13 +39,12 @@ if __name__ == "__main__":
     # use relative path
     config = dict(data=dict(X="X.npy",
                             y="y.npy"),
-#                  resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
     exec_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                      "..", "mapreduce.py"))
+                                "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
     map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)

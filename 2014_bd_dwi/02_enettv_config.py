@@ -176,13 +176,13 @@ if __name__ == "__main__":
         input_y = os.path.basename(input_y)
         input_mask = os.path.basename(input_mask)
         config = dict(data=dict(X=input_x, y=input_y),
-                                params=params, resample=resamplings,
-                                mask=input_mask,
-                                penalty_start=penalty_start,
-                                map_output="results",
-                                user_func=user_func_filename,
-                                reduce_group_by="params",
-                                reduce_output="results.csv")
+                      params=params, resample=resamplings,
+                      mask=input_mask,
+                      penalty_start=penalty_start,
+                      map_output="results",
+                      user_func=user_func_filename,
+                      reduce_group_by="params",
+                      reduce_output="results.csv")
         config_full_filename = os.path.join(output_dir, CONFIG_FILENAME)
         json.dump(config, open(config_full_filename, "w"))
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
                           n_folds=NFOLDS,
                           shuffle=True,
                           random_state=SEED)
-    resamplings = [[tr.tolist(), te.tolist()] for tr,te in skf]
+    resamplings = [[tr.tolist(), te.tolist()] for tr, te in skf]
     resamplings.insert(0, None)  # first fold is None
 
     # Parameters grid

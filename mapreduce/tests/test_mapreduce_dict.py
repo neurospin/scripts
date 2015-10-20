@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct 24 18:16:17 2014
+Created on Thu May 29 18:22:21 2014
 
-@author: md238665
+@author: edouard.duchesnay@cea.fr
 
-Test that we correctly treat the case where no resampling is given.
-Copied from test_mapreduce.
-
-The resample function is not needed. The mapper function uses the same dataset
-for train and test.
+Test of mapreduce with resampling and parameters passed as dict.
 
 """
 
@@ -16,11 +12,13 @@ import os
 import json
 import numpy as np
 import tempfile
+from sklearn.cross_validation import KFold
 from sklearn.linear_model import ElasticNet
 from sklearn.metrics import r2_score
 import pandas as pd
 
 from collections import OrderedDict
+from itertools import product
 
 
 def load_globals(config):
@@ -28,15 +26,22 @@ def load_globals(config):
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
 
 
+def resample(config, resample_key):
+    import mapreduce as GLOBAL  # access to global variables
+    resample = config["resample"][resample_key]
+    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                             for k in GLOBAL.DATA}
+
+
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables
-    X_train = GLOBAL.DATA["X"]
-    X_test = GLOBAL.DATA["X"]
-    y_train = GLOBAL.DATA["y"].ravel()
-    y_test = GLOBAL.DATA["y"].ravel()
+    Xtrain = GLOBAL.DATA_RESAMPLED["X"][0]
+    Xtest = GLOBAL.DATA_RESAMPLED["X"][1]
+    ytrain = GLOBAL.DATA_RESAMPLED["y"][0].ravel()
+    ytest = GLOBAL.DATA_RESAMPLED["y"][1].ravel()
     mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
-    y_pred = mod.fit(X_train, y_train).predict(X_test)
-    output_collector.collect(key, dict(y_pred=y_pred, y_true=y_test))
+    y_pred = mod.fit(Xtrain, ytrain).predict(Xtest)
+    output_collector.collect(key, dict(y_pred=y_pred, y_true=ytest))
 
 
 def reducer(key, values):
@@ -52,7 +57,6 @@ def reducer(key, values):
 
 if __name__ == "__main__":
     WD = tempfile.mkdtemp()
-
     ###########################################################################
     ## Create dataset
     np.random.seed(13031981)
@@ -64,16 +68,22 @@ if __name__ == "__main__":
     np.save(os.path.join(WD, 'y.npy'), y)
 
     ###########################################################################
-    ## Create config file without resampling
-    params = [[alpha, l1_ratio]
-              for alpha in [0.1, 1] for l1_ratio in [.1, .5, 1.]]
+    ## Create config file
+    # Resampling output should be named "fold_0", "fold_1", etc.
+    cv = {"fold_" + str(i): [tr.tolist(), te.tolist()]
+          for i, (tr, te) in enumerate(KFold(n, n_folds=2))}
+    # Parameters output should be "param_0", "param_1", etc.
+    params = {}
+    for i, (alpha, l1_ratio) in enumerate(product([0.1, 1], [.1, .5, 1.])):
+        key = "params_" + str(i)
+        params[key] = [alpha, l1_ratio]
     user_func_filename = os.path.abspath(__file__)
 
     # mapreduce will set its WD to the directory that contains the config file
     # use relative path
     config = dict(data=dict(X="X.npy",
                             y="y.npy"),
-                  params=params,
+                  params=params, resample=cv,
                   map_output="results",
                   user_func=user_func_filename,
                   reduce_output="results.csv")
@@ -90,17 +100,19 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    for key in params:
+    for _, key in params.iteritems():
         # key = params[0]
         y_true = list()
         y_pred = list()
-        X_train = X
-        X_test = X
-        y_train = y.ravel()
-        y_test = y.ravel()
-        mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
-        y_pred.append(mod.fit(X_train, y_train).predict(X_test))
-        y_true.append(y_test)
+        for _, (tr, te) in cv.iteritems():
+            # tr, te = cv[0]
+            Xtrain = X[tr, :]
+            Xtest = X[te, :]
+            ytrain = y[tr, :].ravel()
+            ytest = y[te, :].ravel()
+            mod = ElasticNet(alpha=key[0], l1_ratio=key[1])
+            y_pred.append(mod.fit(Xtrain, ytrain).predict(Xtest))
+            y_true.append(ytest)
         y_true = np.hstack(y_true)
         y_pred = np.hstack(y_pred)
         # As we reload mapreduce results, the params will be interpreted as
@@ -109,8 +121,5 @@ if __name__ == "__main__":
         res.append([str(tuple(key)), r2_score(y_true, y_pred)])
     true = pd.DataFrame(res, columns=["params", "r2"])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
-    # Check same keys
-    assert np.all(np.sort(true.params) == np.sort(mr.params))
     m = pd.merge(true, mr, on="params", suffixes=["_true", "_mr"])
-    # Check same scores
     assert np.allclose(m.r2_true, m.r2_mr)
