@@ -1,6 +1,25 @@
 NEUROIMAGING DATA
 =================
 
+Data are availlable in neurospin pool "/neurospin/mescog/neuroimaging" and ftp server: ftp.cea.fr
+
+
+ftp.cea.fr
+==========
+Compte duchesnay
+Mot de passe ie(TiVOLLI
+mescog
+
+Compte mangin
+Mot de passe TDAWaTer(H
+
+login: during
+password: +ERmAiD3+r
+
+during
++ERmAiD3+r
+
+gftp-gtk
 
 - `original`: data received in March 2013 in Munich meeting
 - `ressources`: other ressources: atlas etc.
