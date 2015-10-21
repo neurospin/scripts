@@ -288,6 +288,12 @@ cross_val <- function(x, type=c("loo","k-fold"), k=10, random=FALSE,seed) {
   return(folds_test_idx)
 }
 
+bic<-function(rss, n, p){
+  return(n + n * log(2 * pi) + n * log(rss / n) + log(n) * (p + 1))
+}
+
+opel<-function(x){return(x)}
+
 #Recursive partitioning tree with adjusted intercept
 # Use a Recursive partitioning, within each cell estimate an intercept to minimize the error of the model:
 # TARGET = BASELINE + intercept

@@ -310,7 +310,7 @@ if __name__ == "__main__":
     atlas_sub = options.atlas_sub
     ##########################################################################
     #map_filename = "/tmp/beta_0.001_0.5_0.5_0.0_-1.0.nii_thresholded:0.003706/beta_0.001_0.5_0.5_0.0_-1.0.nii.gz"
-
+    #map_filename = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/weights_map_3d/l1l2_sl1_count5cv.nii.gz"
     output, ext = os.path.splitext(map_filename)
     if ext == ".gz":
         output, _ = os.path.splitext(output)

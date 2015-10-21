@@ -31,7 +31,7 @@ def dilation_labels(arr, size=(3, 3, 3)):
 
 def resample_atlas_harvard_oxford(ref, output,
         atlas_base_dir="/usr/share/data/harvard-oxford-atlases/HarvardOxford",
-        fsl_cmd = "fsl5.0-applywarp -i %s -r %s -o %s --interp=nn",
+        fsl_cmd = 'fsl5.0-applywarp -i "%s" -r "%s" -o "%s" --interp=nn',
         smooth_size=(3, 3, 3), dilation_size=(3, 3, 3),
         fill_wm=True):
     """Resample HarvardOxford atlas (cortical and subcortical) into reference
