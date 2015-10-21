@@ -176,6 +176,7 @@ ci<-function(theta_star, perc=c(.001,.01,.025,.05,.10,.25,.50,.75,.90,.95,.975,.
   return(ans)
 }
 
+
 bootpred_ci <-function(x, y, nboot, mod_fit, mod_predict, theta, ...){
   #x=X;y=y; nboot=NBOOT; mod_fit=fit_enet; mod_predict=predict_enet; theta=losses
   #x=X; y=y; nboot=NBOOT; mod_fit=fit_glm; mod_predict=predict_glm; theta=losses;
@@ -196,15 +197,17 @@ bootpred_ci <-function(x, y, nboot, mod_fit, mod_predict, theta, ...){
     yhat_star[b, -ii] = y_hat
     yhat_632[b, -ii] = 0.368 * yhat_0[-ii] + 0.632 * y_hat
   }
-  
+
   theta_star_mu = apply(theta_star, 2, mean)
   theta_star_sd = apply(theta_star, 2, sd)
   theta_632_mu = 0.368 * theta_0 + 0.632 * theta_star_mu
   theta_632_sd = 0.632 * theta_star_sd
-
+  
   theta_star_mu_ci = ci(theta_star)# boott(theta_star, theta=mean, nboott = 200)$confpoints
-  theta_star_632 = 0.368 * theta_0 + 0.632 * theta_star
+  theta_star_632 = t(0.368 * theta_0 + 0.632 * t(theta_star)) # take advantage of R's recycling rules, vec is recycled col by col
+  #all(theta_star_632[33, ] == 0.368 * theta_0 + 0.632 * theta_star[33, ])
   theta_632_mu_ci = ci(theta_star_632) # boott(theta_star_632, theta=mean, nboott = 200)$confpoints
+  
   #ci(theta_star)
   return(list(theta_star_mu=theta_star_mu, theta_star_sd=theta_star_sd, theta_632_mu=theta_632_mu, theta_632_sd=theta_632_sd, 
               theta_star_ci=theta_star_mu_ci, theta_632_ci=theta_632_mu_ci, yhat_star=yhat_star, yhat_632=yhat_632,
@@ -299,6 +302,8 @@ for(TARGET in TARGETS){
 }
 
 #TARGET = TARGETS[4]
+#TARGET = TARGETS[1]
+
 for(PREDICTORS_STR in names(SETTINGS)){
     cat("** PREDICTORS_STR:", PREDICTORS_STR, "**\n" )
   #PREDICTORS_STR = "BASELINE+NIGLOB"
@@ -326,6 +331,7 @@ for(PREDICTORS_STR in names(SETTINGS)){
       bic_enet = bic(sum((y - predict_enet(mod_enet, X))^2), n = length(y), p=dim(X)[2])
       coef_enet = as.double(mod_enet$beta); names(coef_enet) = rownames(mod_enet$beta);# coef_enet = coef_enet[coef_enet!=0]
       coef_enet = get_coef(coef_enet)
+      # x=X; nboot=NBOOT; mod_fit=fit_enet; mod_predict=predict_enet; theta=losses
       boot_enet  = bootpred_ci(x=X,y=y, nboot=NBOOT, mod_fit=fit_enet, mod_predict=predict_enet, theta=losses)
       RES_STRUCT[[TARGET]][[PREDICTORS_STR]] = boot_enet
       boot_enet
