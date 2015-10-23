@@ -19,6 +19,7 @@ PLINK = 'plink --noweb --silent '
 
 #'/volatile/frouin/baby_imagen/reacta/dataLinks'
 IMAGEN_CENTRAL = '/neurospin/brainomics/imagen_central/'
+HEIGHT_STUDY  = '/neurospin/brainomics/2015_imagen_height_study'
 OUT = '/volatile/frouin/baby_imagen/reacta/output'
 
 
@@ -71,12 +72,10 @@ if __name__ == "__main__":
     relgen = IMAGEN_CENTRAL + 'kinship/pruned_m0.05_g1_h6_wsi50_wsk5_vif10.0'
     # relgen '/qc_subjects_qc_genetics_all_snps_common_indep_pruned_50_5_10.0'
 
-    datapath =  os.path.dirname(__file__) + '/data'
-
     outdir = []
     # phenotype multiples
     ######################
-    phen1 = datapath + '/LhippoLog.phe'
+    phen1 = HEIGHT_STUDY + '/data/LhippoLog.phe'
     phen1_dict = {1: u'ICV', 2: u'Mhippo', 3: u'Mthal', 4: u'Mcaud', 5: u'Mpal',
                   6: u'Mput', 7: u'Mamyg', 8: u'Maccumb'}
     for k in phen1_dict.keys():
@@ -85,7 +84,7 @@ if __name__ == "__main__":
 
     # phenotype taille
     ##################
-    phen2 = datapath + '/height.phe'
+    phen2 = HEIGHT_STUDY + '/data/height.phe'
     phen2_dict = {1: u'height',}    
     outdir2 = []
     for k in phen2_dict.keys():
@@ -153,7 +152,9 @@ if __name__ == "__main__":
     plt.axhline(y=0.5,c="blue")
     plt.ion()
     plt.show()
-    plt.savefig('.' + '/herit.png', bbox_inches='tight')
+    outfn = HEIGHT_STUDY + '/plots/herit.png'
+    plt.savefig(outfn, bbox_inches='tight')
+    print "File %s generated: should be pushed in ~/gits/scripts/2015_height_study/notbooks"%outfn
     for d in outdir+ [tmp]:
         rmtree(d)
         
