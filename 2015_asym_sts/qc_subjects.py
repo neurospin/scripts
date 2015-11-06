@@ -138,7 +138,75 @@ from glob import glob
 from genibabel import imagen_subject_ids
 import pheno
 
+def _get_qc_sulci(sulci_path, out_path):
+    """ Function to get the information on sulci
+    
+    """
+    FULL_SULCI_PATH = sulci_path
+    OUT_PATH =out_path
+    # Sulci features of interest
+    features = ['surface',
+                'depthMax',
+                'depthMean',
+                'length',
+                'GM_thickness',
+                'opening']
+    
+    # List all files containing information on sulci
+    sulci_file_list = []
+    for file in glob(os.path.join(FULL_SULCI_PATH, 'mainmorpho_*.csv')):
+        sulci_file_list.append(file)
+    
+    print ('1) If the sulcus has not been recognized in 25% of the subjects, '
+           'we do not take it into account.')
+    
+    # Initialize dataframe that will contain data from all .csv sulci files
+    all_sulci_df = None
+    # Iterate along sulci files
+    sulcus_discarded = []
+    for i, s in enumerate(sulci_file_list):
+        sulc_name = s[83:-4]
+    
+        # Read each .csv file
+        sulci_df = pd.io.parsers.read_csv(os.path.join(FULL_SULCI_PATH, s),
+                                          sep=';',
+                                          index_col=0,
+                                          usecols=np.hstack(('subject',
+                                                             features)))
+    
+        # If the sulcus has not been recognized in 25% of the subjects, we do
+        # not take it into account.
+        # In this case the first quartile of the surface columns will be 0.
+        surface_first_quart = sulci_df['surface'].describe()['25%']
+        if (surface_first_quart == 0):
+            print "Sulcus", sulc_name, "is not recognized in more than 25% of subjects. Ignore it."
+            sulcus_discarded.append(sulc_name)
+        else:
+            # Select column corresponding to features of interest
+            recognized_sulci_df = sulci_df[features]
+    
+            # Rename columns according to the sulcus considered
+            colname = ['.'.join((sulc_name, feature)) for feature in features]
+            recognized_sulci_df.columns = colname
+            if all_sulci_df is None:
+                all_sulci_df = recognized_sulci_df
+            else:
+                all_sulci_df = all_sulci_df.join(recognized_sulci_df)
+    
+    print "Loaded", all_sulci_df.shape[1] / len(features), "sulci"
+                                          
+    # Keep name of index column
+    all_sulci_df.index = ['%012d' % int(i) for i in all_sulci_df.index]
+    all_sulci_df.index.name = 'subjects_id'
+    
+    # Drop rows that have any NaN values
+    all_sulci_df = all_sulci_df.dropna()
 
+    # Save this dataframe as a .csv file
+    all_sulci_df.to_csv(os.path.join(OUT_PATH, 'Q1_sulci_df.csv'))
+    print "Original dataframe has been saved."
+
+    return all_sulci_df, sulcus_discarded
 
 def _get_sulci_for_subject_with_genetics(sulci_df) :
     """Function that keep only information for subject with genetic avail.
@@ -162,75 +230,6 @@ def _get_sulci_for_subject_with_genetics(sulci_df) :
 
     return sulci_df.loc[list(subject_ids)]
 
-
-def _get_qc_sulci(sulci_path, out_path):
-    """ Function to get the information on sulci
-    
-    """
-    FULL_SULCI_PATH = sulci_path
-    OUTPATH =out_path
-    # Sulci features of interest
-    features = ['surface',
-                'depthMax',
-                'depthMean',
-                'length',
-                'GM_thickness',
-                'opening']
-    
-    # List all files containing information on sulci
-    sulci_file_list = []
-    for file in glob(os.path.join(FULL_SULCI_PATH, 'mainmorpho_*.csv')):
-        sulci_file_list.append(file)
-    
-    print ('1) If the sulcus has not been recognized in 25% of the subjects, '
-           'we do not take it into account.')
-    
-    # Initialize dataframe that will contain data from all .csv sulci files
-    all_sulci_df = None
-    # Iterate along sulci files
-    for i, s in enumerate(sulci_file_list):
-        sulc_name = s[83:-4]
-    
-        # Read each .csv file
-        sulci_df = pd.io.parsers.read_csv(os.path.join(FULL_SULCI_PATH, s),
-                                          sep=';',
-                                          index_col=0,
-                                          usecols=np.hstack(('subject',
-                                                             features)))
-    
-        # If the sulcus has not been recognized in 25% of the subjects, we do
-        # not take it into account.
-        # In this case the first quartile of the surface columns will be 0.
-        surface_first_quart = sulci_df['surface'].describe()['25%']
-        if (surface_first_quart == 0):
-            print "Sulcus", sulc_name, "is not recognized in more than 25% of subjects. Ignore it."
-        else:
-            # Select column corresponding to features of interest
-            recognized_sulci_df = sulci_df[features]
-    
-            # Rename columns according to the sulcus considered
-            colname = ['.'.join((sulc_name, feature)) for feature in features]
-            recognized_sulci_df.columns = colname
-            if all_sulci_df is None:
-                all_sulci_df = recognized_sulci_df
-            else:
-                all_sulci_df = all_sulci_df.join(recognized_sulci_df)
-    
-    print "Loaded", all_sulci_df.shape[1] / len(features), "sulci"
-                                          
-    # Keep name of index column
-    all_sulci_df.index = ['%012d' % int(i) for i in all_sulci_df.index]
-    all_sulci_df.index.name = 'subjects_id'
-    
-    # Drop rows that have any NaN values
-    all_sulci_df = all_sulci_df.dropna()
-
-    # Save this dataframe as a .csv file
-    all_sulci_df.to_csv(os.path.join(OUTPATH, 'Q1_sulci_df.csv'))
-    print "Original dataframe has been saved."
-
-    return all_sulci_df
-
 def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.03):
     """Perform QC on the subjects of the dataframe
     """
@@ -248,10 +247,11 @@ def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.03):
     # Filter subjects whose features lie outside the interv mean +/- 3 * sigma
     print "3) Eliminate subjects for whom at least one measure is aberrant"
     colnames = sulci_data_df1.columns.tolist()
-
+    
     #        opening_mean = sulci_data_df1[c].describe()['mean']
     #        opening_std = sulci_data_df1[c].describe()['std']
     num_features = len(colnames)
+    print "Nb features:" + str(num_features)
     opening_mean = np.mean(sulci_data_df, axis=0)
     opening_std = np.std(sulci_data_df, axis=0)
     h = np.asarray(sulci_data_df) > \
@@ -287,14 +287,14 @@ def qc_sulci_qc_subject(percent_tol=0.03):
                   'Imagen_mainSulcalMorphometry/full_sulci/')
     out_path = '/neurospin/brainomics/2015_asym_sts/data'
     #
-    sulci_dataframe = _get_qc_sulci(sulci_path, out_path)
+    sulci_dataframe, sulcus_discarded = _get_qc_sulci(sulci_path, out_path)
     #
     sulci_dataframe = _get_sulci_for_subject_with_genetics(sulci_dataframe)
     #
     sulci_dataframe = _get_sulci_qc_subject(sulci_dataframe, out_path, percent_tol)
 
     sulci_dataframe = pheno.fix_fid_iid_from_index(sulci_dataframe)
-    return sulci_dataframe
+    return sulci_dataframe, sulcus_discarded
 
 # Run
 #########################################
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     # Pathnames
     sulci_path = ('/neurospin/brainomics/2013_imagen_bmi/data/'
                   'Imagen_mainSulcalMorphometry/full_sulci/')
-    out_path = '/neurospin/brainomics/2015_asym_sts/data'
+    out_path = '/neurospin/brainomics/2015_asym_sts/data2/'
 
     #
     sulci_dataframe = _get_qc_sulci(sulci_path, out_path)

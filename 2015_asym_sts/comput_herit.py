@@ -13,7 +13,6 @@ import numpy as np
 import tempfile
 
 GCTA = 'gcta64-1.24 --thread-num 4 '
-OUT = '/volatile/frouin/baby_imagen/output'
 TMP = '/tmp'
 
 
@@ -22,14 +21,23 @@ def herit_compute(relgen, qcov, cov, phen, k, n):
 
     Parameters:
     -----------
-    relgen : string,
+    relgen: string,
     genetic relationship file (gz, file)
+    
+    qcov: string,
+    covariate file (quantitative traits)
 
-    cov : string,
+    cov: string,
     covariate file (categorical variables)
 
-    phen : string,
+    phen: string,
     phenotype file
+
+    k: int,
+    trait number
+    
+    n: string,
+    trait name
     """
     out = TMP + '/%s_Cov%s_Qcov%s_Phe%s_%s' % (os.path.basename(relgen),
                                               os.path.basename(cov),
@@ -51,18 +59,17 @@ def herit_compute(relgen, qcov, cov, phen, k, n):
     print 'filtered #subjects: ', p.shape[0]
     temp = tempfile.NamedTemporaryFile()
     pu.to_GCTA_pheno(p, temp.name)
-    pu.to_GCTA_pheno(p, '/tmp/tempphenonotdeleted.txt')  # TODEL
+    #pu.to_GCTA_pheno(p, '/tmp/tempphenonotdeleted.txt')  # TODEL
     local_phen = temp.name
     c = pu.readPheno(cov)
     c = c.loc[c['Pheno3'] == 'Right'][[u'FID', u'IID', u'Gender', u'Pheno2']]
     cotemp = tempfile.NamedTemporaryFile()
     pu.to_GCTA_qcovar(c, cotemp.name)
-    pu.to_GCTA_qcovar(c, '/tmp/tempcovnotdeleted.txt')  # TODEL
+    #pu.to_GCTA_qcovar(c, '/tmp/tempcovnotdeleted.txt')  # TODEL
     local_cov = cotemp.name
     #end add some filterings
 
     cmd = GCTA+' --grm %s --covar %s --qcovar %s --pheno %s --reml --out %s --mpheno %d' %(relgen, local_cov, qcov, local_phen, out, k)
-#    cmd = GCTA+' --grm %s --covar %s --pheno %s --reml --out %s --mpheno %d' %(relgen, local_cov, local_phen, out, k)
     print cmd
     try:
         #prints results and merges stdout and std
@@ -96,6 +103,7 @@ def herit_compute(relgen, qcov, cov, phen, k, n):
 
 
 if __name__ == "__main__":
+    
     pheno = os.path.join('/neurospin/brainomics/2015_asym_sts/pheno',
                         'STs.phe')
     kinship = 'maf1'
@@ -119,11 +127,7 @@ if __name__ == "__main__":
         exit(-1)
 
     #covariates
-#    qcov = '/volatile/frouin/baby_imagen/dataLinks' + '/AgeIBS.qcovar'
     qcov = '/neurospin/brainomics/imagen_central/covar' + '/AgeIBS.qcovar'
-#    cov = GCTAOUT + '/SexScanner.covar'
-    cov = os.path.join('/neurospin/brainomics/2015_asym_sts/data',
-                       'covar_GenCitHan_GCTA.cov')
     cov = os.path.join('/neurospin/brainomics/imagen_central/covar',
                        'covar_GenCitHan_GCTA.cov')
 
@@ -133,13 +137,11 @@ if __name__ == "__main__":
                maf3='pruned_m0.03_wsi50_wsk5_vif10.0',
                pairwise='qc_subjects_qc_genetics_all_snps_common_pruned_50_5_0.5',
                molpsymaf10='pruned_m0.10_g1_h6_wsi50_wsk5_vif10.0',
-               molpsy='pruned_m0.05_g1_h6_wsi50_wsk5_vif10.0',
+               molpsy='prunedYann_m0.01_g1_h6_wsi50_wsk5_vif10.0',#pruned_m0.05_g1_h6_wsi50_wsk5_vif10.0',
                molpsyvif3='pruned_m0.05_g1_h6_wsi50_wsk5_vif3.0',
                )
     relgen = os.path.join('/neurospin/brainomics/imagen_central/kinship',
                           grm[options.kinship])
-#    relgen = os.path.join('/volatile/frouin/baby_imagen/dataLinks',
-#                          grm[options.kinship])
 
     # Phenotype multiples
     phen = options.pheno

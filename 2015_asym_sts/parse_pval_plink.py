@@ -11,11 +11,12 @@ import tempfile
 
 if __name__ == "__main__":
     #linear = ('/neurospin/brainomics/2015_asym_sts/data/'
-    linear = ('/volatile/data/2015_asym_sts/data/'
-        'sts-sillons.STs_asym.assoc.linear')
+    #    'sts-sillons.STs_asym.assoc.linear')
     #linear = ('/neurospin/brainomics/2015_asym_sts/data/'
-    linear = ('/volatile/data/2015_asym_sts/data/'
-        '/STs_asym_rightonly_sts_gender_centre.STs_asym.assoc.linear')
+    #    '/STs_asym_rightonly_sts_gender_centre.STs_asym.assoc.linear')
+    trait = ["STsR", "STsL", "STs_asym"]
+    linear  = ('/neurospin/brainomics/2015_asym_sts/'
+               'pheno/STs_depth_sts_gender_centre.'+trait[2]+'.assoc.linear')
     parser = optparse.OptionParser()
     parser.add_option('-l', '--linear',
                       help='path to linear plink file to parse',

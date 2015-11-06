@@ -6,7 +6,9 @@ Created  01 12 2015
 import pandas as pd
 import pheno
 import optparse
-
+import re
+import glob
+import os
 from qc_subjects import qc_sulci_qc_subject
 
 
@@ -51,26 +53,21 @@ if __name__ == "__main__":
                       default=tol, type="float")
     (options, args) = parser.parse_args()
 
-    # get all qc data about sulci
-    sulci_dataframe = qc_sulci_qc_subject(percent_tol=options.tol)
-
-    # selection S.T.s   => phenotype
-    feature = 'depthMax'
-    sulcus = dict(zip(['S.T.s'], ['STs']))
-    sulc_pheno = extract_from_sulci_df(sulci_dataframe, feature, sulcus)
-
-    # now build the covar information  => covariate out
+    #### CREATE COV ####
+    # Actually the lines to build covariate files should rather be in a separate file create cov
+    # Build the covar information  => covariate out
     # q quantitative
     # c categorical
     demo_csv = ('/neurospin/brainomics/2015_asym_sts/'
                 'data/demographics.csv')
+    
     q, c = pheno.readCovar(demo_csv)
     covar = c[['FID', 'IID', 'Gender', 'City',
                u'Handedness from QualityReport']]
     covar.columns = ['FID', 'IID', 'Gender', 'City', 'Handedness']
     covar = covar.dropna()
     out = ('/neurospin/brainomics/imagen_central/'
-           'covar/sts_gender_centre.cov')
+               'covar/gender_centre.cov')
     pheno.to_PLINK_covar(covar[['FID', 'IID', 'Gender', 'City']], 
                          out, colnames=['Gender','City'])
     
@@ -81,12 +78,43 @@ if __name__ == "__main__":
     out = ('/neurospin/brainomics/imagen_central/'
            'covar/covar_GenCitHan_MEGHA.cov')
     pheno.to_MEGHA_covar(covar, out, colnames=['Gender', 'Handedness', 'City'])
-    out = ('/neurospin/brainomics/2015_asym_sts/'
-           'pheno/STs_tol%.2f.phe' % tol)
 
-    print sulc_pheno.head()   
-#    import numpy as np
-#    sulc_pheno['STs_left_depthMax'] = np.log(sulc_pheno['STs_left_depthMax'])
-#    sulc_pheno['STs_right_depthMax'] = np.log(sulc_pheno['STs_right_depthMax'])    
-    print sulc_pheno.head()
-    pheno.to_GCTA_pheno(sulc_pheno, out)
+
+
+    ##### CREATE PHENO #####
+    path = '/neurospin/brainomics/2013_imagen_bmi/data/Imagen_mainSulcalMorphometry/full_sulci'
+    # get all qc data about sulci
+    sulci_dataframe, sulcus_discarded = qc_sulci_qc_subject(percent_tol=options.tol)
+    sulcus_discarded_names = []
+    for j in range(len(sulcus_discarded)):
+        m = re.search('mainmorpho_(.+?)._(.*).csv', sulcus_discarded[j]+'.csv')
+        if m:
+            sulcus = m.group(1)
+            print "Discarded sulcus: " + str(sulcus)
+            sulcus_discarded_names.append(sulcus)
+
+    # selection S.T.s   => phenotype
+    feature = 'depthMax'
+    sulcus_list =  []
+    for filename in glob.glob(os.path.join(path,'mainmorpho_*_right.csv')):
+        print filename
+        m = re.search('mainmorpho_(.+?)._right.csv', filename)
+        if m:
+            sulcus = m.group(1)
+            print "Selected sulcus: " + str(sulcus)
+        if sulcus not in sulcus_discarded_names:
+            sulcus_list.append(dict(zip([sulcus], [sulcus.replace('.', '')])))
+            print "Sulcus " + str(sulcus) + " has been done"
+    #sulcus = dict(zip(['S.T.s'], ['STs']))
+    for j in range(len(sulcus_list)):
+        sulc_pheno = extract_from_sulci_df(sulci_dataframe, feature, sulcus_list[j])
+        print sulc_pheno.head()   
+
+        out = ('/neurospin/brainomics/2015_asym_sts/'
+               'pheno/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
+    
+        #    import numpy as np
+        #    sulc_pheno['STs_left_depthMax'] = np.log(sulc_pheno['STs_left_depthMax'])
+        #    sulc_pheno['STs_right_depthMax'] = np.log(sulc_pheno['STs_right_depthMax'])    
+        #    print sulc_pheno.head()
+        pheno.to_GCTA_pheno(sulc_pheno, out)

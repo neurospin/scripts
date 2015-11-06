@@ -1,20 +1,24 @@
 """
-Created  01 16 2015
+Created  11 07 2015
 
-@author vf140245
+@author yl247234
 """
-import os
+import os, glob, re
 import optparse
 import subprocess
-import re
 
 if __name__ == "__main__":
     geno = ('/neurospin/brainomics/imagen_central/'
             'geno/qc_sub_qc_gen_all_snps_common_autosome')
-    pheno = ('/neurospin/brainomics/2015_asym_sts/pheno/'
-             'STs_depth.phe')
-    covar = ('/neurospin/brainomics/imagen_central/'
-           'covar/sts_gender_centre.cov')
+    # threshold relative to the number of recognize features in each subject
+    tol = 0.02
+    path = '/neurospin/brainomics/2015_asym_sts/all_pheno'+str(tol)+'/'
+    for filename in glob.glob(os.path.join(path,'*tol'+str(tol)+'.phe')):
+        pheno = filename
+
+    #covariates
+    #qcov = '/neurospin/brainomics/imagen_central/covar/AgeIBS.qcovar'
+    covar = '/neurospin/brainomics/imagen_central/covar/covar_GenCitHan_GCTA.cov'
 
     parser = optparse.OptionParser()
     parser.add_option('-p', '--pheno',
@@ -36,21 +40,21 @@ if __name__ == "__main__":
            '--bfile %s' % options.geno,
            '--covar %s' % options.covar,
            '--pheno %s' % options.pheno,
-# Phenotype file with only one phenotype
            '--all-pheno',
             '--out %s' % out])
             #    ' --snps rs2483275'])
     print cmd
     try:
         p = subprocess.check_call(cmd, shell=True)
-    """except Exception as e:
+    except Exception as e:
         m = re.search('exit status (.+?)end', str(e)+"end")
         if m:
             error_number = m.group(1)
         if int(error_number) == 127:
             pass
         else:
-            print (e)"""
+            print (e)
+
     #Another way to write it, beginning:
     except subprocess.CalledProcessError, ex:  # error code <> 0
             print "--------error------"
@@ -59,5 +63,3 @@ if __name__ == "__main__":
             pass
         else:
             print (e)
-
-
