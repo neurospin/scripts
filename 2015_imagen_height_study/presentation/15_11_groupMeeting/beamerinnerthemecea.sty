@@ -1,0 +1,52 @@
+\mode<presentation>
+
+\setbeamertemplate{background}{
+    \begin{tikzpicture}[remember picture,overlay,every node/.style={inner sep=0,outer sep=0}]
+        \useasboundingbox (0,0) rectangle(\the\paperwidth,\the\paperheight);
+        %\fill[ top color=lightred, bottom color=darkred, shading=axis, shading angle=45] (0,0) rectangle (3,\the\paperheight);
+        \fill[color=white] (3,0) rectangle(\the\paperwidth,\the\paperheight);
+        \ifnum\thepage>1\relax%
+            \fill[white,opacity=1] (0,0) rectangle(\the\paperwidth,\the\paperheight);
+            \node[anchor=north west, yshift=0.15cm] at (current page.north west) {\includegraphics[width={\the\paperwidth}]{graphics/logo_cea_horizontal.png}};
+        \fi
+    \end{tikzpicture}
+}
+
+% Title page
+\defbeamertemplate*{title page}{cea}[1][]
+{
+    \begin{textblock}{0}(4,-4)
+        \begin{minipage}[b][\the\paperheight][t]{8cm}
+            \vfill
+            \begingroup
+                \vskip2em
+                \centering
+                \begin{beamercolorbox}[sep=12pt,center,#1]{title}
+                    \usebeamerfont{title}\inserttitle\par%
+                    \ifx\insertsubtitle\@empty%
+                    \else%
+                        \vskip1em%
+                    {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}%
+                    \fi%
+                \end{beamercolorbox}%
+                \begin{beamercolorbox}[sep=12pt,center,#1]{author}
+                    \usebeamerfont{author}\insertauthor
+                \end{beamercolorbox}
+                \begin{beamercolorbox}[sep=12pt,center,#1]{institute}
+                    \usebeamerfont{institute}\insertinstitute
+                \end{beamercolorbox}
+                \begin{beamercolorbox}[sep=12pt,left,#1]{date}
+                    \usebeamerfont{date}\insertdate
+                \end{beamercolorbox}
+                {\usebeamercolor[fg]{titlegraphic}\inserttitlegraphic\par}
+            \endgroup
+        \end{minipage}
+    \end{textblock}
+    \vfill
+    \vfill
+    \begin{tikzpicture}[remember picture,overlay,every node/.style={inner sep=0,outer sep=0}]
+        \node[anchor=north west, xshift=-0.5cm] at (current page.north west) {\includegraphics[height=\the\paperheight]{graphics/logo_cea_verticale.png}};
+    \end{tikzpicture}
+    \setcounter{framenumber}{0}
+}
+\mode<all>
