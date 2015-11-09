@@ -36,28 +36,18 @@ if __name__ == "__main__":
            '--bfile %s' % options.geno,
            '--covar %s' % options.covar,
            '--pheno %s' % options.pheno,
-# Phenotype file with only one phenotype
+            # Phenotype file with only one phenotype
            '--all-pheno',
             '--out %s' % out])
-            #    ' --snps rs2483275'])
+            #' --snps rs2483275'])
     print cmd
     try:
         p = subprocess.check_call(cmd, shell=True)
-    """except Exception as e:
-        m = re.search('exit status (.+?)end', str(e)+"end")
-        if m:
-            error_number = m.group(1)
-        if int(error_number) == 127:
-            pass
-        else:
-            print (e)"""
-    #Another way to write it, beginning:
     except subprocess.CalledProcessError, ex:  # error code <> 0
-            print "--------error------"
-            print '\n'.join([ex.cmd, ex.message, str(ex.returncode), ex.output])
         if int(ex.returncode) == 127:
             pass
         else:
-            print (e)
+            print "--------error------"
+            print 'Command ' + ex.cmd + ' returned non-zero exit status ' + str(ex.returncode)
 
 

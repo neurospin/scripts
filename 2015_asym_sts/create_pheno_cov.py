@@ -117,4 +117,8 @@ if __name__ == "__main__":
         #    sulc_pheno['STs_left_depthMax'] = np.log(sulc_pheno['STs_left_depthMax'])
         #    sulc_pheno['STs_right_depthMax'] = np.log(sulc_pheno['STs_right_depthMax'])    
         #    print sulc_pheno.head()
-        pheno.to_GCTA_pheno(sulc_pheno, out)
+        #pheno.to_GCTA_pheno(sulc_pheno, out)
+        
+        out = ('/neurospin/brainomics/2015_asym_sts/'
+               'PLINK_all_pheno'+str(tol)+'/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
+        pheno.to_PLINK_pheno(sulc_pheno, out)
