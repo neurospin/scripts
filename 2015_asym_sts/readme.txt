@@ -34,3 +34,7 @@ python  create_pheno_cov.py
 # Univariate study - plink based.
 python script-plink.py
 python parse_pval_plink.py
+
+###############################################################################
+## 17 nov 2015
+# Directories /neurospin/brainomics/ and /volatile/yann/ should be equivalent in all files

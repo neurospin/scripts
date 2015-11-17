@@ -91,8 +91,8 @@ def compute_grm(gf):
 
     """
     print "GF:  " + gf
-    #cmd0 = GCTA+' --bfile %s --make-grm-gz' %(gf)
-    cmd0 = GCTA+' --bfile %s --make-grm' %(gf)
+    cmd0 = GCTA+' --bfile %s --make-grm-gz' %(gf)
+    #cmd0 = GCTA+' --bfile %s --make-grm' %(gf)
     log = gf.split('.prune')[0]+'_log'
     chrom = gf.split('.prune')[0]+'_chr'
     for c in range(1, 23):
@@ -112,8 +112,8 @@ def compute_grm(gf):
     fp.close()
 
     fout = gf.split('.prune')[0]
-    #cmd = GCTA+' --grm-cutoff 0.025 --mgrm-gz %s --make-grm-gz --out %s' %(multi_out, fout)
-    cmd = GCTA+' --grm-cutoff 0.025 --mgrm %s --make-grm --out %s' %(multi_out, fout)
+    cmd = GCTA+' --grm-cutoff 0.025 --mgrm-gz %s --make-grm-gz --out %s' %(multi_out, fout)
+    #cmd = GCTA+' --grm-cutoff 0.025 --mgrm %s --make-grm --out %s' %(multi_out, fout)
     try:
         print cmd
         #prints results and merges stdout and std
@@ -167,8 +167,8 @@ if __name__ == "__main__":
     
     fout = compute_grm(pruned_geno)
     print fout
-    for i in ['.grm.id', '.grm.bin', '.grm.N.bin']:
-    #for i in ['.grm.id', '.grm.gz']:
+    #for i in ['.grm.id', '.grm.bin', '.grm.N.bin']:
+    for i in ['.grm.id', '.grm.gz']:
         src = fout + i
         dest = os.path.join(outdir, os.path.basename(src))
         move(src, dest)

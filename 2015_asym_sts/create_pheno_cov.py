@@ -67,8 +67,8 @@ if __name__ == "__main__":
     covar.columns = ['FID', 'IID', 'Gender', 'City', 'Handedness']
     covar = covar.dropna()
     out = ('/neurospin/brainomics/imagen_central/'
-               'covar/gender_centre.cov')
-    pheno.to_PLINK_covar(covar[['FID', 'IID', 'Gender', 'City']], 
+               'covar/gender_centre_handedness.cov')
+    pheno.to_PLINK_covar(covar[['FID', 'IID', 'Gender', 'City', 'Handedness']], 
                          out, colnames=['Gender','City'])
     
     #save data for further processings
@@ -76,8 +76,8 @@ if __name__ == "__main__":
            'covar/covar_GenCitHan_GCTA.cov')
     pheno.to_GCTA_qcovar(covar, out)
     out = ('/neurospin/brainomics/imagen_central/'
-           'covar/covar_GenCitHan_MEGHA.cov')
-    pheno.to_MEGHA_covar(covar, out, colnames=['Gender', 'Handedness', 'City'])
+           'covar/covar_GenCit_MEGHA.cov')
+    pheno.to_MEGHA_covar(covar[['FID', 'IID', 'Gender', 'City']], out, colnames=['Gender', 'City'])
 
 
 

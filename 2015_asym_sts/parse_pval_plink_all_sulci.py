@@ -11,7 +11,7 @@ import tempfile
 
 if __name__ == "__main__":
    
-    path = '/neurospin/brainomics/2015_asym_sts/all_sulci_pvals/'
+    path = '/neurospin/brainomics/2015_asym_sts/all_sulci_pvals_filtered/'
     features = ["depthMax"]
     pheno = ["right", "left", "asym"]
     sulcus_names = []
@@ -48,16 +48,17 @@ if __name__ == "__main__":
             cmd = ["head -1 %s > %s" % (options.linear, tmp),
                    ";",
                    "grep ADD %s >> %s" % (options.linear, tmp)]
-            print " ".join(cmd)
+            #print " ".join(cmd)
             p = subprocess.Popen(" ".join(cmd), shell=True)
             p.wait()
             cmd = ["awk '{print $1,$2,$3,$4,$5,$6,$7,$8,$9}' %s > %s " % (tmp, out)]
-            print " ".join(cmd)
+            #print " ".join(cmd)
             #check_call
             p = subprocess.check_call(" ".join(cmd), shell=True)
             os.remove(tmp)
             pval = pd.io.parsers.read_csv(out, sep=' ')
             pvalsub = pval.loc[pval['P'] < 5e-7]
+            print '=================================' + sulcus_names[j]+'_'+pheno[i] + '================================='
             print pvalsub
 
             pvalsub.to_csv(outsel,
