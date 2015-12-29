@@ -167,7 +167,8 @@ def dir_from_param_list(param_list):
     return param_sep.join([str(p) for p in param_list])
 
 
-def _build_job_table(map_output, resamplings, parameters, force_pickle=True):
+def _build_job_table(map_output, resamplings, parameters, compress,
+                     force_pickle):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 4 columns whose names are given by global variables:
       - _RESAMPLE_KEY: the index of the resampling
@@ -188,7 +189,7 @@ def _build_job_table(map_output, resamplings, parameters, force_pickle=True):
                                               _OUTPUT])
     # Add OutputCollectors (we need all the rows so we do that latter)
     jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(
-        lambda x: OutputCollector(x, force_pickle))
+        lambda x: OutputCollector(x, compress, force_pickle))
     return jobs
 
 
@@ -231,8 +232,9 @@ class OutputCollector:
     oc.set_running(False)
     oc.is_running()
     """
-    def __init__(self, output_dir, force_pickle=True):
+    def __init__(self, output_dir, compress=True, force_pickle=True):
         self.output_dir = output_dir
+        self.compress = compress
         self.force_pickle = force_pickle
 
     def clean(self):
@@ -245,9 +247,16 @@ class OutputCollector:
         _makedirs_safe(self.output_dir)
         for k in value:
             if isinstance(value[k], np.ndarray):
-                np.savez_compressed(os.path.join(self.output_dir, k), value[k])
+                if self.compress:
+                    np.savez_compressed(os.path.join(self.output_dir, k),
+                                        value[k])
+                else:
+                    np.save(os.path.join(self.output_dir, k), value[k])
             elif isinstance(value[k], nibabel.Nifti1Image):
-                value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
+                filename = os.path.join(self.output_dir, k + ".nii")
+                if self.compress:
+                    filename = filename + ".gz"
+                value[k].to_filename(filename)
             else:
                 if self.force_pickle:
                     of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
@@ -325,6 +334,10 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call "
                         "reduce (defined in user_func)")
+
+    parser.add_argument('--raw', action='store_true', default=False,
+                        help="Don't use compression for nibabel images and "
+                        "numpy array (default: use compression)")
 
     parser.add_argument('-j', '--json', action='store_true', default=False,
                         help="Try to serialize data with JSON first "
@@ -426,6 +439,7 @@ if __name__ == "__main__":
         params = _NULL_PARAMS
 
     jobs = _build_job_table(config["map_output"], resamplings, params,
+                            compress=not options.raw, 
                             force_pickle=not options.json)
 
     # =======================================================================
