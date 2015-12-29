@@ -18,3 +18,23 @@ python ~/gits/scripts/2015_asym_sts/03-get-pval.py -l sts_asym_sts_gender_centre
 
 ############# Pour interroger les informations de variants
 http://www.ncbi.nlm.nih.gov/gap/phegeni et entrer la liset de SNPs.
+
+
+
+###############################################################################
+# As of 15 oct 2015
+# Commands to run
+#
+
+# Creation of the pheno file (local for the project) and cov (in imagen_central)
+# this command use qc_subjects.py forits method 
+# "_get_sulci_for_subject_with_genetics"
+python  create_pheno_cov.py
+
+# Univariate study - plink based.
+python script-plink.py
+python parse_pval_plink.py
+
+###############################################################################
+## 17 nov 2015
+# Directories /neurospin/brainomics/ and /volatile/yann/ should be equivalent in all files

@@ -10,9 +10,13 @@ import pandas as pd
 import tempfile
 
 if __name__ == "__main__":
-    linear = ('/neurospin/brainomics/2015_asym_sts/data/'
-        'sts-sillons.STs_asym.assoc.linear')
-
+    #linear = ('/neurospin/brainomics/2015_asym_sts/data/'
+    #    'sts-sillons.STs_asym.assoc.linear')
+    #linear = ('/neurospin/brainomics/2015_asym_sts/data/'
+    #    '/STs_asym_rightonly_sts_gender_centre.STs_asym.assoc.linear')
+    trait = ["STsR", "STsL", "STs_asym"]
+    linear  = ('/neurospin/brainomics/2015_asym_sts/'
+               'pheno/STs_depth_sts_gender_centre.'+trait[2]+'.assoc.linear')
     parser = optparse.OptionParser()
     parser.add_option('-l', '--linear',
                       help='path to linear plink file to parse',
@@ -30,11 +34,11 @@ if __name__ == "__main__":
     cmd = ["head -1 %s > %s" % (options.linear, tmp),
            ";",
            "grep ADD %s >> %s" % (options.linear, tmp)]
-    #print " ".join(cmd)
+    print " ".join(cmd)
     p = subprocess.Popen(" ".join(cmd), shell=True)
     p.wait()
     cmd = ["awk '{print $1,$2,$3,$4,$5,$6,$7,$8,$9}' %s > %s " % (tmp, out)]
-    #print " ".join(cmd)
+    print " ".join(cmd)
     #check_call
     p = subprocess.check_call(" ".join(cmd), shell=True)
     os.remove(tmp)

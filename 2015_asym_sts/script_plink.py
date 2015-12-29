@@ -6,17 +6,15 @@ Created  01 16 2015
 import os
 import optparse
 import subprocess
+import re
 
 if __name__ == "__main__":
-    geno = ('/neurospin/brainomics/2013_imagen_anat_vgwas_gpu/'
-        '2012_imagen_shfj/genetics/'
-        'qc_sub_qc_gen_all_snps_common_autosome')
-    pheno = ('/neurospin/brainomics/2015_asym_sts/data/'
-        'sts_asym_rightonly.phe')
-    covar = ('/neurospin/brainomics/2015_asym_sts/data/'
-        'sts_gender_centre.cov')
-    out = ('/neurospin/brainomics/2015_asym_sts/data/'
-        'sts_gender_centre.cov')
+    geno = ('/neurospin/brainomics/imagen_central/'
+            'geno/qc_sub_qc_gen_all_snps_common_autosome')
+    pheno = ('/neurospin/brainomics/2015_asym_sts/pheno/'
+             'STs_depth.phe')
+    covar = ('/neurospin/brainomics/imagen_central/'
+           'covar/sts_gender_centre.cov')
 
     parser = optparse.OptionParser()
     parser.add_option('-p', '--pheno',
@@ -38,7 +36,18 @@ if __name__ == "__main__":
            '--bfile %s' % options.geno,
            '--covar %s' % options.covar,
            '--pheno %s' % options.pheno,
+            # Phenotype file with only one phenotype
            '--all-pheno',
-           '--out %s' % out])
+            '--out %s' % out])
+            #' --snps rs2483275'])
     print cmd
-    p = subprocess.check_call(cmd, shell=True)
+    try:
+        p = subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError, ex:  # error code <> 0
+        if int(ex.returncode) == 127:
+            pass
+        else:
+            print "--------error------"
+            print 'Command ' + ex.cmd + ' returned non-zero exit status ' + str(ex.returncode)
+
+

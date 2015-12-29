@@ -29,6 +29,11 @@ def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
 def results_filenane(): return os.path.join(WD, "MCIc-CTL_csi_modselectcv.xlsx")
 NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
 
+# for comparision we need the results with spatially smoothed data
+WD_s = "/neurospin/brainomics/2013_adni/MCIc-CTL_cs_s_modselectcv"
+def config_filenane_s(): return os.path.join(WD_s, "config_modselectcv.json")
+def results_filenane_s(): return os.path.join(WD_s, "MCIc-CTL_cs_s_modselectcv.xlsx")
+
 def init():
     INPUT_DATA_X = os.path.join('X.npy')
     INPUT_DATA_y = os.path.join('y.npy')
@@ -421,8 +426,8 @@ def compare_models():
     scores_argmax_byfold = pd.read_excel(results_filenane(), sheetname='scores_argmax_byfold')
     config = json.load(open(config_filenane()))
 
-    ## Compare prediction performances
-    ## -------------------------------
+    ## Comparison: tv vs notv on non-smoothed data
+    ## --------------------------------------------
     l1l2tv_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2tv_sl1"]
     l1l2_sl1 = scores_argmax_byfold[scores_argmax_byfold.method == "l1l2_sl1"]
     scores_l1l2tv_sl1 = scores("nestedcv", paths=[os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv_sl1.iterrows()],
@@ -441,8 +446,8 @@ def compare_models():
     assert np.all(scores_l1l2tv_ll1["y_true"] == scores_l1l2_ll1["y_true"])
     l1l2tv_ll1_pval = mcnemar_test_classification(y_true=scores_l1l2tv_ll1["y_true"], y_pred1=scores_l1l2tv_ll1["y_pred"], y_pred2=scores_l1l2_ll1["y_pred"], cont_table=False)
 
-    comp_pred = pd.DataFrame([["l1l2(no vs tv)ll1", l1l2tv_ll1_pval],
-                  ["l1l2(no vs tv)sl1", l1l2tv_sl1_pval]], columns=["comparison", "mcnemar_p_value"])
+    comp_pred = pd.DataFrame([["l1l2 vs l1l2tv (ll1)", l1l2tv_ll1_pval],
+                  ["l1l2 vs l1l2tv (sl1)", l1l2tv_sl1_pval]], columns=["comparison", "mcnemar_p_value"])
 
     ## p-value assesment by permutation
     from brainomics.stats import auc_recalls_permutations_pval
@@ -461,8 +466,6 @@ def compare_models():
     comp_pred["auc_perm_pval"] = [ll1_auc_pval, sl1_auc_pval]
 
     ## Compare weights map stability
-    ## -----------------------------
-
     # mean correlaction
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
@@ -493,11 +496,90 @@ def compare_models():
     comp_pred["beta_dice_mean_diff"] = [ll1_beta_dice_mean, sl1_beta_dice_mean]
     comp_pred["beta_dice_perm_pval"] = [ll1_beta_dice_pval, sl1_beta_dice_pval]
 
+    ## Comparison: tv vs notv on smoothed data
+    ## ---------------------------------------
+    scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
+    config_s = json.load(open(config_filenane_s()))
+    l1l2_sl1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_sl1"]
+    scores_l1l2_sl1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1_s.iterrows()],
+           config=config_s, ret_y=True)
+    assert np.all(scores_l1l2tv_sl1["y_true"] == scores_l1l2_sl1_s["y_true"])
+    l1l2tv_sl1_s_pval = mcnemar_test_classification(y_true=scores_l1l2tv_sl1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_sl1_s["y_pred"], cont_table=False)
+    #
+    scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
+    config_s = json.load(open(config_filenane_s()))
+    l1l2_ll1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_ll1"]
+    scores_l1l2_ll1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1_s.iterrows()],
+           config=config_s, ret_y=True)
+    assert np.all(scores_l1l2tv_ll1["y_true"] == scores_l1l2_ll1_s["y_true"])
+    l1l2tv_ll1_s_pval = mcnemar_test_classification(y_true=scores_l1l2tv_ll1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_ll1_s["y_pred"], cont_table=False)
+    comp_pred_s = pd.DataFrame([["l1l2_s vs l1l2tv (ll1)", l1l2tv_ll1_s_pval], ["l1l2_s vs l1l2tv (sl1)", l1l2tv_sl1_s_pval]],
+                       columns=["comparison", "mcnemar_p_value"])
+
+    ## p-value assesment by permutation
+    y_true =  scores_l1l2tv_ll1["y_true"]
+    y_pred1,  y_pred2 = scores_l1l2tv_ll1["y_pred"], scores_l1l2_ll1_s["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_ll1["prob_pred"], scores_l1l2_ll1_s["prob_pred"]
+    ll1_auc_s_pval, ll1_r_mean_s_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred1, prob_pred2, nperms=10000)
+
+    y_true =  scores_l1l2tv_sl1["y_true"]
+    y_pred1, y_pred2 = scores_l1l2tv_sl1["y_pred"], scores_l1l2_sl1_s["y_pred"]
+    prob_pred1, prob_pred2 = scores_l1l2tv_sl1["prob_pred"], scores_l1l2_sl1_s["prob_pred"]
+    sl1_auc_s_pval, sl1_r_mean_s_pval = auc_recalls_permutations_pval(y_true, y_pred1,  y_pred2, prob_pred2, prob_pred2, nperms=10000)
+
+    comp_pred_s["recall_mean_perm_pval"] = [ll1_r_mean_s_pval, sl1_r_mean_s_pval]
+    comp_pred_s["auc_perm_pval"] = [ll1_auc_s_pval, sl1_auc_s_pval]
+
+    ## Compare weights map stability
+    # mean correlaction
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    ll1_beta_r_mean_s = np.mean(scores1 - scores2)
+    ll1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    sl1_beta_r_mean_s = np.mean(scores1 - scores2)
+    sl1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred_s["beta_r_mean_diff"] = [ll1_beta_r_mean_s, sl1_beta_r_mean_s]
+    comp_pred_s["beta_r_perm_pval"] = [ll1_beta_r_s_pval, sl1_beta_r_s_pval]
+
+    # mean dice
+    from brainomics.stats import sign_permutation_pval
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    ll1_beta_dice_mean_s = np.mean(scores1 - scores2)
+    ll1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    sl1_beta_dice_mean_s = np.mean(scores1 - scores2)
+    sl1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
+
+    comp_pred_s["beta_dice_mean_diff"] = [ll1_beta_dice_mean_s, sl1_beta_dice_mean_s]
+    comp_pred_s["beta_dice_perm_pval"] = [ll1_beta_dice_s_pval, sl1_beta_dice_s_pval]
+
+    comp_pred = comp_pred.append(comp_pred_s)
+    # End comparison with smoothed data
+
+    ## Save
     xlsx = pd.ExcelFile(results_filenane())
     with pd.ExcelWriter(results_filenane()) as writer:
         for sheet in xlsx.sheet_names:  # cp previous sheets
             xlsx.parse(sheet).to_excel(writer, sheet_name=sheet, index=False)
         comp_pred.to_excel(writer, sheet_name='comparisons', index=False)
+
+"""
+%run -i ~/git/scripts/2013_adni/MCIc-CTL/02_tvenet_modselectcv_csi.py
+import pandas as pd
+
+def float_format(x): return "%.2f" % x
+
+d = pd.read_excel("/home/ed203246/mega/studies/2015_logistic_nestv/adni/summary.xlsx", "VBM+Cort")
+d.to_latex("/tmp/tab.tex", na_rep='', index_names=False, float_format=float_format)
+"""
 
 ###############################################################################
 ## vizu weight maps
@@ -505,7 +587,7 @@ def vizu_weight_maps():
     import glob
     config = json.load(open(config_filenane()))
     INPUT_BASE = os.path.join(os.path.dirname(WD), "MCIc-CTL_csi", "5cv", "0")
-    OUTPUT = os.path.join(WD, "weights_map")
+    OUTPUT = os.path.join(WD, "weights_map_3d")
     if not os.path.exists(OUTPUT):
         os.mkdir(OUTPUT)
     mask = nibabel.load(os.path.join(WD, config["mask_filename"]))
@@ -518,7 +600,8 @@ def vizu_weight_maps():
  
     for mod in models:
         #mod = 'l1l2tv_sl1'
-        # mod = 'l1l2tv_ll1'
+        #mod = 'l1l2tv_ll1'
+        #mod = 'l1l2_sl1'
         image_arr = np.zeros(mask.get_data().shape)
         beta_map_filenames = glob.glob(os.path.dirname(INPUT_BASE)+"/*/"+models[mod]+"/beta.npz")
         beta_map_all_filename = beta_map_filenames[0]
@@ -537,44 +620,65 @@ def vizu_weight_maps():
             mask_out = beta_map>0.001
             assert np.sum(mask_out) == 264 # 3 > 0.01
             beta_map[mask_out] = 0.001
-        print mod, beta_map.min(), beta_map.max()
+        #print mod, beta_map.min(), beta_map.max()
         
         image_arr[mask.get_data() != 0] = beta_map
         out_im = nibabel.Nifti1Image(image_arr, affine=mask.get_affine())
         out_im.to_filename(output_filename)
         cmd = "~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
             ("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)
-        print cmd
-        os.popen(cmd)
+        #print cmd
+        #os.popen(cmd)
 
         # Image of count of non null betas over the 5cv
         output_filename = os.path.join(OUTPUT, mod + "_count5cv.nii.gz")
         beta_maps = np.vstack([np.load(filename)['arr_0'][config['penalty_start']:,:].ravel() for filename in beta_map_cv_filenames])
-        beta_maps[np.abs(beta_maps) < 1e-10] = 0
+        beta_maps = np.vstack([array_utils.arr_threshold_from_norm2_ratio(beta_maps[i, :], .99)[0] for i in xrange(beta_maps.shape[0])])
+        #beta_maps[np.abs(beta_maps) < 1e-10] = 0
         count = np.sum(beta_maps != 0, axis=0) / float(NFOLDS_OUTER)
         image_arr[mask.get_data() != 0] = count
         out_im = nibabel.Nifti1Image(image_arr, affine=mask.get_affine())
         out_im.to_filename(output_filename)
-        cmd = "~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
+        cmd = "~/git/scripts/brainomics/image_clusters_analysis.py --atlas_cort %s --atlas_sub %s %s" % \
             ("/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)
-        print cmd
-        os.popen(cmd)
+        #print cmd
+        #os.popen(cmd)
+        supports5cv_union = count != 0
+        print mod, supports5cv_union.sum(), np.mean(count[supports5cv_union]), np.median(count[supports5cv_union])
+        #print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_all l1l2_sl1_all l1l2tv_ll1_all l1l2_ll1_all"
+        #print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_count5cv l1l2_sl1_count5cv l1l2tv_ll1_count5cv l1l2_ll1_count5cv"
 
-
-        print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_all l1l2_sl1_all l1l2tv_ll1_all l1l2_ll1_all"
-        print "~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_count5cv l1l2_sl1_count5cv l1l2tv_ll1_count5cv l1l2_ll1_count5cv"
+    #~/git/scripts/brainomics/image_clusters_rendering.py l1l2tv_sl1_count5cv l1l2tv_ll1_count5cv l1l2_ll1_count5cv
+    #~/git/scripts/brainomics/image_clusters_analysis.py --atlas_cort /neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz --atlas_sub /neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz /neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv/weights_map_3d/l1l2_sl1_count5cv.nii.gz
 
 """
+l1l2_ll1    286     0.244055944056 0.2
+l1l2tv_ll1  8987    0.375208634695 0.4
+l1l2_sl1    2421    0.300454357703 0.2
+l1l2tv_sl1  82556   0.408045447939 0.2
+
+
 min / max
 for all FUSION2D/ control fusion / Geometric
 
 for both tv palette signed_values 1 et 3 / Bounds -0.001 / 0.001
-for both notv palette signed_values 2 et 4 / Bounds -0.01 / 0.01
+for both notv palette signed_values 2 et 4 / Bounds -0.05 / 0.05
 
-l1l2tv_sl1 -0.000627157369334 0.0658951745904
-l1l2_ll1 -0.497446647882 0.245831238659
-l1l2_sl1 -0.0493606630084 0.0472100744003
-l1l2tv_ll1 -0.000780363605003 0.0419459097813
+MNI152_T1_1mm_Bothhemi / Color / material / Opacity=40%
+MNI152_T1_1mm_Bothhemi / Color / Rendering / wireframe with hidden faces
+--
+cvcount
+palette actifred u fusion,
+fusion linear A / if B is white
+
+
+ls *.png|while read input; do
+convert  $input -trim /tmp/toto.png;
+convert  /tmp/toto.png -transparent black $input;
+done
+
+
+
 """
 #~/git/scripts/brainomics/image_clusters_analysis.py -t 0.99 --atlas_cort %s --atlas_sub %s %s" % \
 #/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz", "/neurospin/brainomics/2013_adni/MCIc-CTL_csi/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz", output_filename)

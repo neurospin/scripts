@@ -307,7 +307,7 @@ def do_mesh_cluster_rendering(title,
     a.execute("Fusion2DMethod", object=fusion2d)
     # change 2D fusion settings
     a.execute("TexturingParams", texture_index=1, objects=[fusion2d, ],
-                  mode="linear_A_if_B_black", rate=0.1)
+                  mode="Geometric")#, rate=0.1)
 
     ##############
     # Coronal view

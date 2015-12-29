@@ -3,6 +3,9 @@
 Created on Fri May 30 20:03:12 2014
 
 @author: edouard.duchesnay@cea.fr
+
+%run -i ~/git/scripts/2013_adni/MCIc-CTL-FS/03_tvenet_cs.py
+
 """
 
 import os
@@ -17,6 +20,13 @@ import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
 from statsmodels.stats.inter_rater import fleiss_kappa
 
+WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs"
+
+def config_filenane():
+    return os.path.join(WD, "config_5cv.json")
+
+def results_filenane():
+    return os.path.join(WD, "MCIc-CTL-FS_cs.xlsx")
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
@@ -179,8 +189,7 @@ def reducer(key, values):
     return scores
 
 
-if __name__ == "__main__":
-    WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS"
+def init():
     #BASE = "/neurospin/tmp/brainomics/testenettv"
     #WD_CLUSTER = WD.replace("/neurospin/brainomics", "/neurospin/tmp/brainomics")
     #print "Sync data to %s/ " % os.path.dirname(WD)
@@ -240,8 +249,8 @@ if __name__ == "__main__":
                   user_func=user_func_filename,
                   #reduce_input="5cv/*/*",
                   reduce_group_by='params',
-                  reduce_output="MCIc-CTL-FS.csv")
-    json.dump(config, open(os.path.join(WD, "config_5cv.json"), "w"))
+                  reduce_output=os.path.basename(results_filenane()).replace("xlsx", "csv"))
+    json.dump(config, open(config_filenane(), "w"))
 
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
@@ -338,8 +347,8 @@ def plot_perf():
 def build_summary():
     import pandas as pd
     config_filenane = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS/config_5cv.json"
-    os.chdir(os.path.dirname(config_filenane))
-    config = json.load(open(config_filenane))
+    os.chdir(os.path.dirname(config_filenane()))
+    config = json.load(open(config_filenane()))
     from collections import OrderedDict
     models = OrderedDict()
     models["l2"]     = (0.010,	0.000, 1.000, 0.000)
@@ -389,3 +398,75 @@ def build_summary():
     orig_cv.to_excel(xlsx, 'All')
     summary.to_excel(xlsx, 'Summary')
     xlsx.save()
+
+
+
+###############################################################################
+def plot_perf_article():
+    import os
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    data = pd.read_excel(results_filenane(), sheetname='All')
+    data = data[(data.tv >= 0.05) | (data.tv == 0.0)]
+    full_tv = data[(data.tv == 1) & (data.k==-1)]
+    
+    #def close(vec, val, tol=1e-4):
+    #    return np.abs(vec - val) < tol
+    
+    l1l2_ratio_, a_  = [.1, .9], [.01, .1, 1.]
+    outut_filename = results_filenane().replace(".xlsx", "_balanced_accuracy.svg")
+    #color_map = {0.:'#D40000', 0.01: 'black', 0.1:'#F0a513',  0.5:'#2CA02C',  0.9:'#87AADE',  1.:'#214478'}
+    color_map_a = {0.:'#D40000', 0.01:'#F0a513',  0.1:'#2CA02C',  0.5:'#87AADE',  .9:'#214478', 1.: 'black'}
+    color_map_a = {1:'blue', 0.1:'green',  0.01:'red'}
+    line_map_l1l2_ratio = {0.1:'-',  0.9:'--'}
+    
+    data.l1l2_ratio = np.round(data.l1l2_ratio, 5)
+    data.a = np.round(data.a, 5)
+    
+    data = data[data.l1l2_ratio.isin(l1l2_ratio_) & data.a.isin(a_) & (data.k == -1)]
+    assert len(np.unique(data.l1l2_ratio)) == len(l1l2_ratio_)
+    assert len(np.unique(data.a)) == len(a_)
+
+    #%pylab qt
+    #plt.close('all')
+    pagewidth = 7.3
+    fig = plt.figure(figsize=(pagewidth / 2, pagewidth*0.5))
+    plt.rc("text", usetex=True)
+    plt.rc('font', family='serif')
+    for a, da in data.groupby("a"):
+        print full_tv[full_tv.a == a].shape 
+        for l1l2_ratio, d in da.groupby("l1l2_ratio"):
+            d = d.append(full_tv[full_tv.a == a]) # add full tv for all lines
+            print a, l1l2_ratio
+            d = d.sort("tv")
+            plt.plot(d.tv, d.recall_mean, line_map_l1l2_ratio[l1l2_ratio],
+                     label=r"$\ell_1:%.1f$ $\alpha:%.2f$" % (l1l2_ratio, a), color=color_map_a[a],
+                     linewidth=2)
+
+    plt.ylim(.5, .9)
+    plt.title("2D cortical thickness")
+    plt.ylabel("Balanced accuracy")
+    plt.xlabel(r'TV ratio: $\lambda_{tv}/(\lambda_1 + \lambda_1 + \lambda_{tv})$')
+    plt.grid(True)
+    plt.legend()
+    #plt.show()
+    plt.savefig(outut_filename, transparent = True)
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-i', '--init', action='store_true', default=False,
+                        help="Init config file & sync to cluster")
+ 
+    parser.add_argument('-r', '--reduce', action='store_true', default=False,
+                        help="Reduce, ie.: compute scores")
+
+    options = parser.parse_args()
+
+    if options.init:
+        init()
+
+    elif options.reduce:
+        reducer()
