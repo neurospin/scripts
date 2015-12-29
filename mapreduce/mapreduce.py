@@ -163,6 +163,10 @@ def load_data(key_filename):
     return {key: np.load(key_filename[key]) for key in key_filename}
 
 
+def dir_from_param_list(param_list):
+    return param_sep.join([str(p) for p in param_list])
+
+
 def _build_job_table(map_output, resamplings, parameters):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 4 columns whose names are given by global variables:
@@ -398,9 +402,8 @@ if __name__ == "__main__":
         # If params is not a dict make it as a dict (the key is given by the
         # path for each parameter set). We keep the order here.
         if not isinstance(params, dict):
-            params = OrderedDict([
-                (param_sep.join([str(p) for p in param]), param)
-                for param in params])
+            params = OrderedDict([(dir_from_param_list(param), param)
+                                  for param in params])
 
         # Cast values to tuples
         keys = params.keys()
