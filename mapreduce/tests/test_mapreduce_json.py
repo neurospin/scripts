@@ -2,7 +2,9 @@
 """
 Created on Thu May 29 18:22:21 2014
 
-@author: edouard.duchesnay@cea.fr
+@author: mathieu.dubois@cea.fr
+
+Test optional JSON output.
 """
 
 import os
@@ -84,7 +86,7 @@ if __name__ == "__main__":
                                 "..", "mapreduce.py"))
     ###########################################################################
     ## Apply map
-    map_cmd = "%s -v --map %s/config.json" % (exec_path, WD)
+    map_cmd = "%s --json -v --map %s/config.json" % (exec_path, WD)
     reduce_cmd = "%s -v --reduce %s/config.json" % (exec_path, WD)
     os.system(map_cmd)
     os.system(reduce_cmd)

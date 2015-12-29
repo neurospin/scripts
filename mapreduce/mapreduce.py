@@ -167,7 +167,7 @@ def dir_from_param_list(param_list):
     return param_sep.join([str(p) for p in param_list])
 
 
-def _build_job_table(map_output, resamplings, parameters):
+def _build_job_table(map_output, resamplings, parameters, force_pickle=True):
     """Build a pandas dataframe representing the jobs.
     The dataframe has 4 columns whose names are given by global variables:
       - _RESAMPLE_KEY: the index of the resampling
@@ -187,7 +187,8 @@ def _build_job_table(map_output, resamplings, parameters):
                                               _PARAMS,
                                               _OUTPUT])
     # Add OutputCollectors (we need all the rows so we do that latter)
-    jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(lambda x: OutputCollector(x))
+    jobs[_OUTPUT_COLLECTOR] = jobs[_OUTPUT].map(
+        lambda x: OutputCollector(x, force_pickle))
     return jobs
 
 
@@ -230,8 +231,9 @@ class OutputCollector:
     oc.set_running(False)
     oc.is_running()
     """
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, force_pickle=True):
         self.output_dir = output_dir
+        self.force_pickle = force_pickle
 
     def clean(self):
         if os.path.exists(self.output_dir) \
@@ -247,14 +249,21 @@ class OutputCollector:
             elif isinstance(value[k], nibabel.Nifti1Image):
                 value[k].to_filename(os.path.join(self.output_dir, k + ".nii"))
             else:
-                try:
-                    of = open(os.path.join(self.output_dir, k + ".json"), "w")
-                    json.dump(value[k], of)
-                    of.close()
-                except:
+                if self.force_pickle:
                     of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
                     pickle.dump(value[k], of)
                     of.close()
+                else:
+                    try:
+                        of = open(os.path.join(self.output_dir, k + ".json"),
+                                  "w")
+                        json.dump(value[k], of)
+                        of.close()
+                    except:
+                        of = open(os.path.join(self.output_dir, k + ".pkl"),
+                                  "w")
+                        pickle.dump(value[k], of)
+                        of.close()
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.output_dir)
@@ -316,6 +325,10 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Run reducer: iterate over map_output and call "
                         "reduce (defined in user_func)")
+
+    parser.add_argument('-j', '--json', action='store_true', default=False,
+                        help="Try to serialize data with JSON first "
+                        "(default: try pickle first)")
 
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help="Force call to mapper even if output is present")
@@ -412,7 +425,8 @@ if __name__ == "__main__":
     else:
         params = _NULL_PARAMS
 
-    jobs = _build_job_table(config["map_output"], resamplings, params)
+    jobs = _build_job_table(config["map_output"], resamplings, params,
+                            force_pickle=not options.json)
 
     # =======================================================================
     # == Load globals                                                      ==
