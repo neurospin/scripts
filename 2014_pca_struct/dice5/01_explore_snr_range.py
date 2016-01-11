@@ -11,11 +11,11 @@ The script is interactive: we first fit the model and compute metrics for all
 SNR values in the range and then allow to select some of them to draw the
 loadings. Finally, we save some values of SNR in a file for next scripts.
 """
+
 import os
 import pickle
 
 import numpy as np
-import scipy
 import matplotlib.pyplot as plt
 
 from sklearn.decomposition import PCA
@@ -25,7 +25,6 @@ from parsimony.utils import plot_map2d
 from brainomics import array_utils
 
 import dice5_data
-import metrics
 import dice5_metrics
 
 ################
@@ -36,7 +35,7 @@ BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/"
 INPUT_BASE_DIR = os.path.join(BASE_DIR,
                               "data")
 INPUT_DATA_DIR_FORMAT = os.path.join(INPUT_BASE_DIR,
-                                     "data_{s[0]}_{s[1]}_{snr}")
+                                     "data_{s[0]}_{s[1]}_{snr:.2f}")
 INPUT_STD_DATASET_FILE = "data.std.npy"
 INPUT_MASK_DIR = os.path.join(INPUT_BASE_DIR,
                               "masks")
@@ -45,9 +44,11 @@ OUTPUT_L1MASK_FILE = "l1_max.txt"
 
 OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/calibrate"
 # Output for all models
-OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR, "{snr}")
+OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
+                                 "data_{s[0]}_{s[1]}_{snr:.2f}")
 OUTPUT_PCA_FILE = "model.pkl"
 OUTPUT_PRED_FILE = "X_pred.npy"
+OUTPUT_LOADING_IMAGE_FMT = "Loading_{i}.svg"
 # Output in OUTPUT_BASE_DIR because there is one output for all SNR values
 OUTPUT_FROBENIUS_DST_FILE = os.path.join(OUTPUT_BASE_DIR,
                                          "Frobenius.npy")
@@ -61,8 +62,6 @@ OUTPUT_LOADING_DICE_FILE = os.path.join(OUTPUT_BASE_DIR,
                                         "DICE_Loading-Mask.npy")
 OUTPUT_LOADING_DICE_FIG_FMT = os.path.join(OUTPUT_BASE_DIR,
                                            "DICE_Loading-Mask_{i}.svg")
-# Only for selected values of SNR
-OUTPUT_LOADING_FILE_FMT = "Loading_{i}.svg"
 # Output in BASE_DIR because this is used for input of next script
 OUTPUT_CHOSEN_SNR_FILE = os.path.join(BASE_DIR, "SNR.npy")
 
@@ -90,6 +89,17 @@ def frobenius_dst_score(X_test, X_pred, **kwargs):
     n = X_pred.shape[0]
     return np.linalg.norm(X_test - X_pred, ord='fro') / (2 * n)
 
+
+def plot_loadings(components):
+    figs = []
+    for j in range(N_COMP):
+        legend = 'Loading #{j} for model {snr}'.format(j=j+1,
+                                                       snr=snr)
+        plot_map2d(components[j, ].reshape(dice5_data.SHAPE),
+                   title=legend)
+        figs.append(plt.gcf())
+    return figs
+
 ##########
 # Script #
 ##########
@@ -109,21 +119,18 @@ evr = np.zeros((len(dice5_data.ALL_SNRS),))
 dice = np.zeros((len(dice5_data.ALL_SNRS), len(range(N_COMP))))
 correlation = np.zeros((len(dice5_data.ALL_SNRS), len(range(N_COMP))))
 for i, snr in enumerate(dice5_data.ALL_SNRS):
+    print snr
+
     # Load data
-    input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE,
-                                             snr=snr)
+    input_dir = INPUT_DATA_DIR_FORMAT.format(s=dice5_data.SHAPE, snr=snr)
     std_data_path = os.path.join(input_dir,
                                  INPUT_STD_DATASET_FILE)
     X = np.load(std_data_path)
 
     # Create output dir
-    output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
+    output_dir = OUTPUT_DIR_FORMAT.format(s=dice5_data.SHAPE, snr=snr)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
-    # Create dataset for this SNR value
-    print snr
-    model = dice5_data.create_model(snr)
 
     # Fit model & compute scores
     pca = PCA(n_components=N_COMP)
@@ -154,12 +161,21 @@ for i, snr in enumerate(dice5_data.ALL_SNRS):
             np.abs(np.corrcoef(bin_thresh_comp,
                                obj.ravel())[1, 0])
 
+    # Create figures and export them (pickle don't work on figures so we just
+    # save an image and recreate the figure later of needed)
+    figs = plot_loadings(pca.components_)
+    for j, fig in enumerate(figs):
+        filename = os.path.join(output_dir,
+                                OUTPUT_LOADING_IMAGE_FMT.format(i=j+1))
+        fig.savefig(filename)
+    plt.close('all')
+
 # Save scores
 np.save(OUTPUT_FROBENIUS_DST_FILE, frobenius_dst)
 np.save(OUTPUT_LOADING_CORR_FILE, correlation)
 np.save(OUTPUT_LOADING_DICE_FILE, dice)
 
-# Draw and save figures
+# Draw and save global figures (function of SNR)
 f = plt.figure()
 plt.plot(dice5_data.ALL_SNRS, frobenius_dst)
 plt.legend(['Frobenius distance'])
@@ -200,25 +216,16 @@ while True:
     if snr not in dice5_data.ALL_SNRS:
         print "Invalid SNR"
         continue
-    # Reload weight maps
+    # Reload model and recreate weight maps figures
     output_dir = OUTPUT_DIR_FORMAT.format(snr=snr)
     full_filename = os.path.join(output_dir,
                                  OUTPUT_PCA_FILE)
     with open(full_filename) as f:
         pca = pickle.load(f)
-
-    for j in range(N_COMP):
-        legend = 'Loading #{j} for model {snr}'.format(j=j+1,
-                                                       snr=snr)
-        plot_map2d(pca.components_[j, ].reshape(dice5_data.SHAPE),
-                   title=legend)
-        f = plt.gcf()
-        filename = os.path.join(output_dir,
-                                OUTPUT_LOADING_FILE_FMT.format(i=j+1))
-        f.savefig(filename)
-
-    print "Figures are saved. Close them to continue."
+        figs = plot_loadings(pca.components_)
+    print "Close figures to continue."
     plt.show()
+    plt.close('all')
 
 # Store chosen SNR
 CHOSEN_SNR = []
