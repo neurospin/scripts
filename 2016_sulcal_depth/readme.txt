@@ -1,3 +1,7 @@
+# NOTE:
+In all of these file directory refering to "/volatile/yann/" should be replaced by "/neurospin/brainomics/"
+
+
 This directory should contains the following scripts:
 
 create_grm.py 
@@ -11,13 +15,15 @@ It excludes sulci not recognize in at least 25% as well as subjects with less th
 In addition, it excludes subject who have less than % tolerance_threshold of their sulci features within mu+/-sigma.
 There are 6 sulci features per sulci on each side.
 
-create_covar.py 
+create_covar_MEGHA.py 
 creates two covar files in the MEGHA format
 first one with the covariates: Gender, Cities, 5 first PCA of the Identity by state matrix and the ICV (from the eTIV of Freesurfer)
-second one same covariate and adding Handedness (loosing between 100 to 200 subjects in IMAGEN because of missing data).
+second one same covariate and adding Handedness (loosing 198 subjects in IMAGEN because of missing data).
+Note it takes a long time ~2-5min
 
-create_sulcus_files.py
+create_sulcus_files.py 
 Collect the information output of Morphologist for each subject and assemble it in one file per sulci for each side.
+Note it takes a long time ~10min
 
 create_pheno.py 
 performs the QC using the function available in qc_subjects_sulci.py
@@ -41,8 +47,10 @@ maps the heritability or pvalue given by MEGHA.m on each sulci using PyAnatomist
 
 map_sulcaldepth_clusters.py
 maps the significant cluster given by MEGHASurf.m using PyAnatomist
-NOTE:
-to map the heritability or pvalue use the example freeview command available inside
+#NOTE:
+to map the heritability or pvalue use the example freeview command available inside at the end
+such as:
+freeview -f /neurospin/imagen/BL/processed/freesurfer/fsaverage/surf/lh.inflated:overlay=/volatile/yann/megha/cluster_1000perm_covar_done/covar_GenCit5PCA_ICV_MEGHALogPvalLh.mgh
 
 draw_histogram.py
 plots the histograms of the depthMax for a particular sulci
