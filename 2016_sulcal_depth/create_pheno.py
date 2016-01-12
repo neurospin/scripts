@@ -9,9 +9,9 @@ from qc_subjects import qc_sulci_qc_subject
 
 ## INPUTS ##
 TOLERANCE_THRESHOLD = 0.05
-DIRECTORY_SULCI = '/volatile/yann/sulci_data/all_sulci/BL'
+DIRECTORY_SULCI = '/neurospin/brainomics/imagen_central/sulci_data/all_sulci/BL'
 ## OUTPUT ##
-DIRECTORY_PHENOTYPE = '/volatile/yann/2016_sulcal_depth/pheno/'
+DIRECTORY_PHENOTYPE = '/neurospin/brainomics/2016_sulcal_depth/pheno/'
 
 def extract_from_sulci_df(sulci_dataframe, feature, sulcus):
     """

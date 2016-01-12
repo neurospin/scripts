@@ -6,7 +6,7 @@ import optparse
 import re, glob, os
 
 
-path = '/volatile/yann/2015_asym_sts/PLINK_all_pheno0.05v2016/main_sulci_qc_all'
+path = '/neurospin/brainomics/2015_asym_sts/PLINK_all_pheno0.05v2016/main_sulci_qc_all'
 
 count = 0
 for filename in glob.glob(os.path.join(path,'*.phe')):

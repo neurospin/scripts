@@ -42,7 +42,7 @@ for subject in subjects_BL:
 IID_T1_QC_gen_real = [subject for subject in subject_ids if subject in subjects_BL_real] 
 
 
-directory = '/volatile/yann/imagen_central/covar/'
+directory = '/neurospin/brainomics/imagen_central/covar/'
 df_sex = pd.read_csv(directory + 'plink.sexcheck', delim_whitespace=True)
 #df_sex = df_sex.loc[np.logical_not(df_sex['SNPSEX']== 0)]
 df3 = df_sex[['IID','SNPSEX']]
@@ -112,8 +112,8 @@ df0= pd.DataFrame()
 df0['IID'] = IID_T1_QC_gen_real
 df0.index = df0['IID']
 
-covar_path = '/volatile/yann/imagen_central/covar/'
-clean_covar_path = '/volatile/yann/imagen_central/clean_covar/'
+covar_path = '/neurospin/brainomics/imagen_central/covar/'
+clean_covar_path = '/neurospin/brainomics/imagen_central/clean_covar/'
 df2 = pd.read_csv(covar_path+'ancestry_coordinates.mds', delim_whitespace=True)
 df2 = df2[['FID', 'IID', 'C1', 'C2', 'C3', 'C4', 'C5']]
 

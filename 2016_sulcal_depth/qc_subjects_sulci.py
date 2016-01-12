@@ -196,8 +196,8 @@ def qc_sulci_qc_subject(percent_tol=TOLERANCE_THRESHOLD):
     """
     # Pathnames
     #sulci_path = '/neurospin/imagen/workspace/cati/morphometry/sulcal_morphometry/BL/'
-    sulci_path = '/volatile/yann/sulci_data/all_sulci/BL/'
-    out_path = '/volatile/yann/imagen_central/pheno/BL/'
+    sulci_path = '/neurospin/brainomics/imagen_central/sulci_data/all_sulci/BL/'
+    out_path = '/neurospin/brainomics/imagen_central/pheno/BL/'
     #
     sulci_dataframe, sulcus_discarded = _get_qc_sulci(sulci_path, out_path)
     #
@@ -213,8 +213,8 @@ def qc_sulci_qc_subject(percent_tol=TOLERANCE_THRESHOLD):
 if __name__ == "__main__":
     # Pathnames
     sulci_path = '/neurospin/imagen/workspace/cati/morphometry/sulcal_morphometry/BL/'
-    sulci_path = '/volatile/yann/sulci_data/all_sulci/BL/'
-    out_path = '/volatile/yann/imagen_central/pheno/BL/'
+    sulci_path = '/neurospin/brainomics/imagen_central/imagen_central/sulci_data/all_sulci/BL/'
+    out_path = '/neurospin/brainomics/imagen_central/pheno/BL/'
 
     #
     sulci_dataframe = _get_qc_sulci(sulci_path, out_path)

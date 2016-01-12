@@ -10,7 +10,7 @@ import os, glob, re
 side = 'r' # side of the maillage
 sideCAP = 'R' # side of the cluster
 # path to the .mat file containing all the results of the MEGHA surf simulation
-mat_results = '/volatile/yann/megha/OHBM/more_subjects/1763subjects_covar_GenCit5PCA_ICV_MEGHAcovar_GenCit5PCA_ICV_MEGHA.mat'
+mat_results = os.path.join(os.getcwd(),'megha/OHBM/more_subjects/1763subjects_covar_GenCit5PCA_ICV_MEGHAcovar_GenCit5PCA_ICV_MEGHA.mat'
 
 # To import the environment variable for anatomist
 # which -a anatomist
@@ -30,9 +30,9 @@ def updateWindow(obj):
 
 
 #### DEFINING THE PATH TO GET THE REPRESENTATION OF THE MAILLAGE #####
-faverage_pial = '/volatile/yann/folder_gii/'+side+'h.pial.gii'
-faverage_Lwhite_inflated = '/volatile/yann/folder_gii/'+side+'h_inflated.white.gii'
-faverage_inflated = '/volatile/yann/folder_gii/'+side+'h.inflated.gii'
+faverage_pial = '/neurospin/brainomics/folder_gii/'+side+'h.pial.gii'
+faverage_Lwhite_inflated = '/neurospin/brainomics/folder_gii/'+side+'h_inflated.white.gii'
+faverage_inflated = '/neurospin/brainomics/folder_gii/'+side+'h.inflated.gii'
 
 import scipy.io
 mat = scipy.io.loadmat(mat_results)
@@ -50,7 +50,7 @@ from soma import aims
 tex = aims.TimeTexture(dtype='FLOAT')
 #tex[0].assign(lh_pval2)
 tex[0].assign(Logpval_clus)
-aims.write(tex, '/volatile/yann/megha/cluster_1000perm/tex_test.gii')
+aims.write(tex, os.path.join(os.getcwd(),'megha/cluster_1000perm/tex_test.gii')
 
 atex = ana.toAObject(tex)
 lh_white = ana.loadObject(faverage_pial)

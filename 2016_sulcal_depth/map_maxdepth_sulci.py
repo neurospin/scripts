@@ -10,7 +10,7 @@ import os, glob, re
 #right 'R' or left 'L'
 side = 'R'
 # directory and filename of the MEGHA.m output file
-directory = '/volatile/yann/megha/OHBM_max_depth_more_subjects/2nd_wave_tol0.05/'
+directory = os.path.join(os.getcwd(),'megha/OHBM_max_depth_more_subjects/2nd_wave_tol0.05/')
 filename = 'covar_GenCit5PCA_ICV_MEGHAMEGHAstat.txt'#covar_GenCitHan5PCA_ICV_MEGHAMEGHAstat.txt'
 THRESHOLD_PVAL = 5e-1
 # feature display 'h2' or 'LogPval'

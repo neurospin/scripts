@@ -101,7 +101,7 @@ for i in range(len(sulcus_list)):
                                 })
         df_sulci_BL.index = df_sulci_BL['subject']
         df_sulci_BL = df_sulci_BL[['subject', 'label', 'side', 'surface', 'depthMax', 'depthMean', 'length', 'GM_thickness', 'opening']]
-        df_sulci_BL.to_csv('/volatile/yann/sulci_data/all_sulci/BL/morpho_'+sulcus_list[i]+'.csv', sep= ';', header=True, index= False)
+        df_sulci_BL.to_csv('/neurospin/brainomics/imagen_central/sulci_data/all_sulci/BL/morpho_'+sulcus_list[i]+'.csv', sep= ';', header=True, index= False)
 
        
 
@@ -156,4 +156,4 @@ for i in range(len(sulcus_list)):
                                  })
         df_sulci_FU2.index = df_sulci_FU2['subject']
         df_sulci_FU2 = df_sulci_FU2[['subject', 'label', 'side', 'surface', 'depthMax', 'depthMean', 'length', 'GM_thickness', 'opening']]
-        df_sulci_FU2.to_csv('/volatile/yann/sulci_data/all_sulci/FU2/morpho_'+sulcus_list[i]+'.csv', sep= ';', header=True, index= False)
+        df_sulci_FU2.to_csv('/neurospin/brainomics/imagen_central/sulci_data/all_sulci/FU2/morpho_'+sulcus_list[i]+'.csv', sep= ';', header=True, index= False)

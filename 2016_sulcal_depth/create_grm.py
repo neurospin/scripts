@@ -31,7 +31,7 @@ GCTA = 'gcta64-1.24 --thread-num 4 '
 PLINK = 'plink --noweb --silent '
 
 ## INPUTS ##
-SNP_FILES = ('/volatile/yann/imagen_central/geno/'
+SNP_FILES = ('/neurospin/brainomics/imagen_central/geno/'
             'qc_subjects_qc_genetics_all_snps_common')
 MAF = 0.01
 HWE = 1e-6
@@ -40,7 +40,7 @@ VIF = 10
 WIN_SIZE = 50
 WIN_SKIP = 5
 ## OUTPUT ##
-OUTPUT_DIRECTORY = '/volatile/yann/imagen_central/kinship/'
+OUTPUT_DIRECTORY = '/neurospin/brainomics/imagen_central/kinship/'
 
 
 def select_snp_indep(geno, vif=, maf=MAF, win_size=WIN_SIZE, win_skip=WIN_SKIP, frc=False):
