@@ -154,7 +154,7 @@ def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol= TOLERANCE_THRESH
     subject_mask = (QC_subject_df['25%'] == 0.0)
     sulci_data_df1 = sulci_data_df.loc[~subject_mask]
     print "Removing subjects:", sulci_data_df.loc[subject_mask].index.values
-
+    print len(sulci_data_df.loc[subject_mask].index.values)
     # criterium 2: eliminate subjects for whom at least one measure is aberrant
     # Filter subjects whose features lie outside the interv mean +/- 3 * sigma
     print "3) Eliminate subjects for whom at least "+str(percent_tol*100)+ "% measures are aberrant"
@@ -213,7 +213,7 @@ def qc_sulci_qc_subject(percent_tol=TOLERANCE_THRESHOLD):
 if __name__ == "__main__":
     # Pathnames
     sulci_path = '/neurospin/imagen/workspace/cati/morphometry/sulcal_morphometry/BL/'
-    sulci_path = '/neurospin/brainomics/imagen_central/imagen_central/sulci_data/all_sulci/BL/'
+    sulci_path = '/neurospin/brainomics/imagen_central/sulci_data/all_sulci/BL/'
     out_path = '/neurospin/brainomics/imagen_central/pheno/BL/'
 
     #
