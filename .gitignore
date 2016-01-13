@@ -4,4 +4,6 @@
 *.pdf
 *.doc
 *.docx
+*.mat
+*.mgh
 .spyderproject

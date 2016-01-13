@@ -41,6 +41,8 @@ print '[-------------------------- MULM score  -----------------------------]'
 mask = [snps.subject_ids.tolist().index(i) for i in subjects]
 X, Y = univariate(mask, snps, studyPgS)
 
+
+
 # - now perform multivariate analysis
 print '[----------------------- mutlivariate analysis -----------------------]'
 multivariate(X, Y)

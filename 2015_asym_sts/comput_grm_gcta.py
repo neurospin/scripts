@@ -39,14 +39,14 @@ def select_snp_indep(geno, vif=10, maf=0.01, win_size=50, win_skip=5, frc=False)
     """
     print "GENO:  " + geno
     # 1) perform the filtering only maf vary
-    genorate = 0.01  # previous 0.05
+    genorate = 0.05  # previous 0.05
     hwe = 1e-6       # previous 1e-4
     cmd = PLINK+' --maf %f --geno %f --hwe %f ' % (maf, genorate, hwe)
     cmd = cmd+' --bfile %s --indep %d %d %f' \
         % (geno, win_size, win_skip, vif)
     temp_dir = mkdtemp()
-    fout = temp_dir + '/prunedYann_m%1.2f_g%d_h%d_wsi%d_wsk%d_vif%2.1f' % \
-        (maf, int(100 * genorate), int(-log10(hwe)), win_size, win_skip, vif)
+    fout = temp_dir + '/kinship_matrix_m'+str(maf)+'_g%d_h%d_wsi%d_wsk%d_vif%2.1f' % \
+        (int(100 * genorate), int(-log10(hwe)), win_size, win_skip, vif)
     cmd = cmd+' --out '+fout
 
     if not os.path.exists(fout+'.prune.in') or frc:
@@ -135,42 +135,48 @@ def compute_grm(gf):
 
 if __name__ == "__main__":
     ### HERE IS TO CHANGE BY GETTING THE FILE DIRECTLY FROM IMAGEN2 ###
-    bfile =('/neurospin/brainomics/imagen_central/geno/'
+    bfile =('/volatile/yann/imagen_central/geno/'
             'qc_subjects_qc_genetics_all_snps_common')
-    maf = 0.01
-    vif = 10.0
-    outdir = ('/neurospin/brainomics/imagen_central/kinship/')
+    maf = [0.001, 0.01, 0.02, 0.05, 0.08, 0.1, 0.12, 0.15, 0.18, 0.20]
+    win_size = 50
+    win_skip = 5
+    vif = [2.0, 3.0, 4.0, 5.0,8.0, 10.0, 20.0]
+    maf = [0.01]
+    vif = [10]
+    for j in range(len(vif)):
+        for i in range(len(maf)):
+            outdir = ('/volatile/yann/imagen_central/kinship/')
 
-    parser = optparse.OptionParser()
-    parser.add_option('-m', '--maf',
-                      help='maf',
-                      default=maf, type="float")
-    parser.add_option('-v', '--vif',
-                      help='vif value',
-                      default=vif, type="float")
-    parser.add_option('-b', '--bfile',
-                      help='path to genotyping file',
-                      default=bfile, type="string")
-    parser.add_option('-o', '--outdir',
-                      help='Out directory',
-                      default=outdir, type="string")
+            parser = optparse.OptionParser()
+            parser.add_option('-m', '--maf',
+                              help='maf',
+                              default=maf[i], type="float")
+            parser.add_option('-v', '--vif',
+                              help='vif value',
+                              default=vif[j], type="float")
+            parser.add_option('-b', '--bfile',
+                              help='path to genotyping file',
+                              default=bfile, type="string")
+            parser.add_option('-o', '--outdir',
+                              help='Out directory',
+                              default=outdir, type="string")
 
-    (options, args) = parser.parse_args()
-    print options
-#    out = os.path.join(os.path.dirname(options.pheno),
-#                       os.path.splitext(os.path.basename(options.pheno))[0] + '_' +
-#                       os.path.splitext(os.path.basename(options.covar))[0])
+            (options, args) = parser.parse_args()
+            print options
+            #    out = os.path.join(os.path.dirname(options.pheno),
+            #                       os.path.splitext(os.path.basename(options.pheno))[0] + '_' +
+            #                       os.path.splitext(os.path.basename(options.covar))[0])
     
-#    select_snp(0.5)
-    pruned_geno, temp_todel = select_snp_indep(bfile, 
-                                               vif=options.vif, maf=options.maf, frc=True)
+            #    select_snp(0.5)
+            pruned_geno, temp_todel = select_snp_indep(bfile, 
+                                                       vif=options.vif, maf=options.maf, frc=True)
     
-    fout = compute_grm(pruned_geno)
-    print fout
-    #for i in ['.grm.id', '.grm.bin', '.grm.N.bin']:
-    for i in ['.grm.id', '.grm.gz']:
-        src = fout + i
-        dest = os.path.join(outdir, os.path.basename(src))
-        move(src, dest)
-    rmtree(temp_todel)
+            fout = compute_grm(pruned_geno)
+            print fout
+            #for i in ['.grm.id', '.grm.bin', '.grm.N.bin']:
+            for i in ['.grm.id', '.grm.gz']:
+                src = fout + i
+                dest = os.path.join(outdir, os.path.basename(src))
+                move(src, dest)
+            rmtree(temp_todel)
 
