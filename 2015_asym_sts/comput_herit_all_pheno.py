@@ -45,7 +45,6 @@ def herit_compute(relgen, qcov, cov, phen, k, trait):
                                               os.path.basename(phen),
                                                trait)
 
-    
     m = re.search('/neurospin/brainomics/2015_asym_sts/all_pheno0.02/(.+?)_tol0.02.phe', phen)
     if m:
         sulcus = m.group(1)
@@ -67,7 +66,9 @@ def herit_compute(relgen, qcov, cov, phen, k, trait):
 
     local_phen = temp.name
     c = pu.readPheno(cov)
+    # Below only selecting Right handed people
     c = c.loc[c['Pheno3'] == 'Right'][[u'FID', u'IID', u'Gender', u'Pheno2']]
+    c = c[u'FID', u'IID', u'Gender', u'Pheno2']
     cotemp = tempfile.NamedTemporaryFile()
     pu.to_GCTA_qcovar(c, cotemp.name)
     local_cov = cotemp.name
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     
     # threshold relative to the number of recognize features in each subject
     tol = 0.02
-    path = '/neurospin/brainomics/2015_asym_sts/all_pheno'+str(tol)+'/'
+    path = '/volatile/yann/2015_asym_sts/all_pheno'+str(tol)+'/'
     for filename in glob.glob(os.path.join(path,'*tol'+str(tol)+'.phe')):
         pheno = filename
         kinship = 'molpsy'
@@ -134,9 +135,9 @@ if __name__ == "__main__":
             exit(-1)
 
         #covariates
-        qcov = '/neurospin/brainomics/imagen_central/covar' + '/AgeIBS.qcovar'
-        cov = os.path.join('/neurospin/brainomics/imagen_central/covar',
-                               'covar_GenCitHan_GCTA.cov')
+        qcov = '/volatile/yann/imagen_central/covar' + '/AgeIBS_ICV.qcovar'
+        cov = os.path.join('/volatile/yann/imagen_central/covar',
+                               'covar_GenCit_GCTA.cov')
 
         # Fichiers de GRM
         grm = dict(maf1='pruned_m0.01_wsi50_wsk5_vif10.0',  # donne les meilleurs
@@ -144,10 +145,10 @@ if __name__ == "__main__":
                    maf3='pruned_m0.03_wsi50_wsk5_vif10.0',
                    pairwise='qc_subjects_qc_genetics_all_snps_common_pruned_50_5_0.5',
                    molpsymaf10='pruned_m0.10_g1_h6_wsi50_wsk5_vif10.0',
-                   molpsy='prunedYann_m0.01_g1_h6_wsi50_wsk5_vif10.0',
+                   molpsy='pruned2Yann_m0.01_g1_h6_wsi50_wsk5_vif10.0',
                    molpsyvif3='pruned_m0.05_g1_h6_wsi50_wsk5_vif3.0',
                )
-        relgen = os.path.join('/neurospin/brainomics/imagen_central/kinship',
+        relgen = os.path.join('/volatile/yann/imagen_central/kinship',
                               grm[options.kinship])
 
         # Phenotype multiples
