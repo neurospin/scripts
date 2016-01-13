@@ -1,0 +1,37 @@
+
+R version 3.0.2 (2013-09-25) -- "Frisbee Sailing"
+Copyright (C) 2013 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R est un logiciel libre livré sans AUCUNE GARANTIE.
+Vous pouvez le redistribuer sous certaines conditions.
+Tapez 'license()' ou 'licence()' pour plus de détails.
+
+R est un projet collaboratif avec de nombreux contributeurs.
+Tapez 'contributors()' pour plus d'information et
+'citation()' pour la façon de le citer dans les publications.
+
+Tapez 'demo()' pour des démonstrations, 'help()' pour l'aide
+en ligne ou 'help.start()' pour obtenir l'aide au format HTML.
+Tapez 'q()' pour quitter R.
+
+> # R script to convert GRM from bin to txt
+> source("ParseGRMbin.R")
+> directory = "/neurospin/brainomics/imagen_central/kinship/"
+> radical = "pruned_m0.01_wsi50_wsk5_vif10.0"
+> GRMbin_path = paste(directory,radical, ".grm.bin", collapse = NULL, sep= "")
+> GRMid_path = paste(directory,radical, ".grm.id", collapse = NULL, sep= "")
+> 
+> ID <- read.table(GRMid_path, header=FALSE, comment.char="")   # read the file containing subject IDs
+> SubjID <- ID[[1]]   # extract subject IDs
+> Nsubj <- length(SubjID)   # calculate the number of subjects
+> 
+> BinFile <- file(GRMbin_path, "rb")   # read the GRM file
+> GRM <- readBin(BinFile, what=numeric(), n=Nsubj*(Nsubj+1)/2, size=4)   # read the binary GRM file
+> close(BinFile)   # close the GRM file
+> filename = paste(radical,".txt", collapse= NULL, sep="")
+> write.table(GRM, file=filename, row.names=FALSE, col.names=FALSE)
+> 
+> proc.time()
+utilisateur     système      écoulé 
+      2.157       0.045       2.381 
