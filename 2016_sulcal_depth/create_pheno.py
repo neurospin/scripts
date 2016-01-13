@@ -5,7 +5,7 @@ import pandas as pd
 import pheno
 import optparse
 import re, glob, os
-from qc_subjects import qc_sulci_qc_subject
+from qc_subjects_sulci import qc_sulci_qc_subject
 
 ## INPUTS ##
 TOLERANCE_THRESHOLD = 0.05
@@ -80,7 +80,9 @@ if __name__ == "__main__":
     for j in range(len(sulcus_list)):
         sulc_pheno = extract_from_sulci_df(sulci_dataframe, feature, sulcus_list[j])  
 
-        out = (DIRECTORY_PHENOTYPE
-               'PLINK_all_pheno'+str(tol)+'/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
+        out = (DIRECTORY_PHENOTYPE +
+               'PLINK_all_pheno'+str(tol)+'/all_sulci_qc/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
+        if not os.path.exists(os.path.dirname(out)):
+            os.makedirs(os.path.dirname(out))
         
         pheno.to_PLINK_pheno(sulc_pheno, out)
