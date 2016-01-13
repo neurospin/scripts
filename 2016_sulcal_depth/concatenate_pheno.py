@@ -6,7 +6,15 @@ import optparse
 import re, glob, os
 
 
+<<<<<<< HEAD
 path = '/neurospin/brainomics/2015_asym_sts/PLINK_all_pheno0.05v2016/main_sulci_qc_all'
+=======
+<<<<<<< HEAD
+path = '/neurospin/brainomics/2015_asym_sts/PLINK_all_pheno0.05v2016/main_sulci_qc_all'
+=======
+path = '/neurospin/brainomics/2016_sulcal_depth/pheno/PLINK_all_pheno0.05/all_sulci_qc'
+>>>>>>> 5e917581aa7d7a6fd63a8642382b3bcf6e2143bf
+>>>>>>> ac32a39e8a187ebca41d5caacc1a1e165696f891
 
 count = 0
 for filename in glob.glob(os.path.join(path,'*.phe')):

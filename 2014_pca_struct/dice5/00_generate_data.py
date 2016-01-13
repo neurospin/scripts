@@ -31,10 +31,10 @@ import dice5_data
 OUTPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data"
 OUTPUT_MASK_DIR = "/neurospin/brainomics/2014_pca_struct/dice5/data/masks"
 OUTPUT_DATA_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
-                                      "data_{s[0]}_{s[1]}_{snr}")
+                                      "data_{s[0]}_{s[1]}_{snr:.2f}")
 OUTPUT_DATASET_FILE = "data.npy"
 OUTPUT_STD_DATASET_FILE = "data.std.npy"
-OUTPUT_BETA_FILE = "beta3d.std.npy"
+OUTPUT_BETA_FILE = "beta3d.npy"
 OUTPUT_OBJECT_MASK_FILE_FORMAT = "mask_{i}.npy"
 OUTPUT_MASK_FILE = "mask.npy"
 OUTPUT_L1MASK_FILE = "l1_max.txt"

@@ -13,9 +13,20 @@ pheno = ['right', 'left', 'asym']
 side_to_exclude = 'zzzz' # choose a value from pheno, else write whatever doesn't match in a filename like 'zzzz'
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     #path = os.path.join(os.getcwd(),'megha/all_sulci_1000000perm_fullcovar/')
     path = os.path.join(os.getcwd(), 'megha/OHBM_max_depth_more_subjects/main_sulci_qc_all_tol0.02/')
     #path =  os.path.join(os.getcwd(),'megha/OHBM_max_depth_more_subjects/all_sulci_tol0.02/')
+=======
+<<<<<<< HEAD
+    #path = os.path.join(os.getcwd(),'megha/all_sulci_1000000perm_fullcovar/')
+    path = os.path.join(os.getcwd(), 'megha/OHBM_max_depth_more_subjects/main_sulci_qc_all_tol0.02/')
+    #path =  os.path.join(os.getcwd(),'megha/OHBM_max_depth_more_subjects/all_sulci_tol0.02/')
+=======
+    
+    path = '/neurospin/brainomics/2016_sulcal_depth/megha/all_sulci_qc/tol0.05/';
+>>>>>>> 5e917581aa7d7a6fd63a8642382b3bcf6e2143bf
+>>>>>>> ac32a39e8a187ebca41d5caacc1a1e165696f891
     for filename in glob.glob(os.path.join(path,'*.txt')):
         print '\n'
         print filename

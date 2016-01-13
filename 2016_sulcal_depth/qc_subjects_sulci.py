@@ -158,23 +158,24 @@ def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol= TOLERANCE_THRESH
     # criterium 2: eliminate subjects for whom at least one measure is aberrant
     # Filter subjects whose features lie outside the interv mean +/- 3 * sigma
     print "3) Eliminate subjects for whom at least "+str(percent_tol*100)+ "% measures are aberrant"
+    # Don't know why the lign below was not present before (Yann's comment)
+    #sulci_data_df = sulci_data_df1
     colnames = sulci_data_df1.columns.tolist()
     
-    #        opening_mean = sulci_data_df1[c].describe()['mean']
-    #        opening_std = sulci_data_df1[c].describe()['std']
+
     num_features = len(colnames)
     print "Nb features:" + str(num_features)
-    opening_mean = np.mean(sulci_data_df, axis=0)
-    opening_std = np.std(sulci_data_df, axis=0)
+    features_mean = np.mean(sulci_data_df, axis=0)
+    features_std = np.std(sulci_data_df, axis=0)
     h = np.asarray(sulci_data_df) > \
-        (opening_mean + 3 * opening_std).reshape(-1, num_features)
+        (features_mean + 3 * features_std).reshape(-1, num_features)
     b = np.asarray(sulci_data_df) < \
-        (opening_mean - 3 * opening_std).reshape(-1, num_features)
+        (features_mean - 3 * features_std).reshape(-1, num_features)
     h = np.sum(h, axis=1) > (percent_tol * num_features)
     b = np.sum(b, axis=1) > (percent_tol * num_features)
     to_drop_index = h | b
-#    print "DBG> ", sum(to_drop_index)
-
+    #    print "DBG> ", sum(to_drop_index)
+    
     # Keep subjects whose sulci features have been well recognized
     sulci_data_qc_df = sulci_data_df[~to_drop_index]
     print "Removing subjects:", sulci_data_df.loc[to_drop_index].index.values

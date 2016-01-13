@@ -11,12 +11,12 @@ import pheno
 import numpy as np
 import pandas as pd
 
-out = '/volatile/yann/imagen_central/covar/MEGHA_covar.cov'
+out = '/volatile/yann/imagen_central/covar/MEGHA_covar_with_ICV.cov'
 path = '/volatile/yann/imagen_central/covar/'
-df1 = pd.read_csv(path+'AgeIBS.qcovar', delim_whitespace=True, header=None, names=[u'IID', u'FID', 'Age', 'C1', 'C2', 'C3', 'C4'])
+df1 = pd.read_csv(path+'AgeIBS_ICV.qcovar', delim_whitespace=True, header=None, names=[u'IID', u'FID', 'Age', 'C1', 'C2', 'C3', 'C4', 'ICV'])
 
 df1.index = df1[u'IID']
-df2 = pd.read_csv(path+'covar_GenCit_MEGHA.cov', delim_whitespace=True,  header=None, names=['IID','FID', 'Gender_Female',	'City_BERLIN',	'City_DRESDEN',	'City_DUBLIN',	'City_HAMBURG',	'City_LONDON',	'City_MANNHEIM', 'City_NOTTINGHAM'])
+df2 = pd.read_csv(path+'covar_GenCit_MEGHA.cov', delim_whitespace=True,  header=None, names=['IID','FID', 'Gender_Female',  'City_BERLIN',  'City_DRESDEN', 'City_DUBLIN',	'City_HAMBURG',	'City_LONDON',	'City_MANNHEIM', 'City_NOTTINGHAM'])
 df2.index = df2[u'IID']
 df = df1
 df[df2.columns]=df2[df2.columns]
@@ -57,3 +57,22 @@ df0['IID'] = ['%012d' % int(i) for i in df0['IID']]
 df0.index = df0['IID']
 df0['FID'] = ['%012d' % int(i) for i in df0['FID']]
 df0.to_csv(out, sep= '\t', header=True, index=False)
+
+
+
+out = '/volatile/yann/imagen_central/covar/AgeIBS_ICV.qcovar'
+path = '/volatile/yann/imagen_central/covar/'
+df1 = pd.read_csv(path+'AgeIBS.qcovar', delim_whitespace=True, header=None, names=[u'IID', u'FID', 'Age', 'C1', 'C2', 'C3', 'C4'])
+
+df1.index = df1[u'IID']
+df2 = pd.read_csv(path+'ICV.cov', delim_whitespace=True,  header=None, names=['IID','FID', 'ICV'])
+df2.index = df2[u'IID']
+df = df1
+df[df2.columns]=df2[df2.columns]
+for column in df.columns:
+    df = df.loc[np.logical_not(np.isnan(df[column]))]
+
+df['IID'] = ['%012d' % int(i) for i in df['IID']] 
+df.index = df[u'IID']
+df['FID'] = df['IID']
+df.to_csv(out, sep= '\t', header=False, index=False)

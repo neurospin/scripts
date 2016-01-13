@@ -56,7 +56,7 @@ ALPHA = 0.25# seq(0, 1, .25)
 TARGETS = c("TMTB_TIME.CHANGE", "MDRS_TOTAL.CHANGE", "MRS.CHANGE", "MMSE.CHANGE")
 BASELINES = unlist(lapply(strsplit(TARGETS, "[.]"), function(x)x[1]))
 
-NBOOT = 200
+NBOOT = 250
 
 
 SETTINGS = list("BASELINE"       = c(),
@@ -178,6 +178,7 @@ ci<-function(theta_star, perc=c(.001,.01,.025,.05,.10,.25,.50,.75,.90,.95,.975,.
 
 
 bootpred_ci <-function(x, y, nboot, mod_fit, mod_predict, theta, ...){
+  #Efron, B., and R. Tibshirani. “Bootstrap Methods for Standard Errors, Confidence Intervals, and Other Measures of Statistical Accuracy.” Statistical Science 1, no. 1 (February 1986): 54–75. doi:10.1214/ss/1177013815.
   #x=X;y=y; nboot=NBOOT; mod_fit=fit_enet; mod_predict=predict_enet; theta=losses
   #x=X; y=y; nboot=NBOOT; mod_fit=fit_glm; mod_predict=predict_glm; theta=losses;
   x <- as.matrix(x)
@@ -307,12 +308,13 @@ for(TARGET in TARGETS){
 for(PREDICTORS_STR in names(SETTINGS)){
     cat("** PREDICTORS_STR:", PREDICTORS_STR, "**\n" )
   #PREDICTORS_STR = "BASELINE+NIGLOB"
+  #PREDICTORS_STR = "BASELINE"
   for(TARGET in TARGETS){
     cat("** TARGET:", TARGET, "**\n" )
     BASELINE = strsplit(TARGET, "[.]")[[1]][1]
     PREDICTORS = unique(c(BASELINE, SETTINGS[[PREDICTORS_STR]]))
     D = db$DB[!is.na(db$DB[, TARGET]),]
-    X = as.matrix(D[, PREDICTORS])
+    X = as.matrix(D[, PREDICTORS, drop=FALSE])
     y = D[, TARGET]
     
     ## Scores
@@ -356,7 +358,7 @@ for(PREDICTORS_STR in names(SETTINGS)){
 
 
 ###########################################################################################################################
-## Models comparision
+## Models comparison
 ###########################################################################################################################
 
 preffix_name<-function(x, preffix){
@@ -462,6 +464,17 @@ saveWorkbook(wb)
 
 library(ggplot2)
 d = summary
+
+# Significance: is zero lies withis the CIs
+d$sinificance_r2 = "*"
+prod_cis = d[, "r2_ci.025"] * d[, "r2_ci.975"]
+d$sinificance_r2[prod_cis < 0] = NA
+
+d$sinificance_r2_632="*"
+prod_cis = d[, "r2_632_ci.025"] * d[, "r2_632_ci.975"]
+d$sinificance_r2_632[prod_cis < 0] = NA
+
+# add Junk to create space
 junk = d[1:4, ]
 junk[,] = NA
 junk$target = levels(d$target)
@@ -469,37 +482,34 @@ junk$model_nb = 3.5
 junk2 = junk
 junk2$model_nb = 6.5
 junk = rbind(junk2, junk)
-
 d = rbind(d, junk)
 
+# x = Model
 d$model_nb = as.factor(d$model_nb)
 
 palette_col = brewer.pal(10, "Paired")[c(1, 5, 3, 2, 6, 4, 10)]
-
 #palette = c(palette[1:3], "white", palette[4:6],  "white", "slategray4")
 palette_col = c(palette_col[1:3],  "white", palette_col[4:6],  "white", palette_col[length(palette_col)])
+
 
 r2boot = ggplot(d, aes(x = model_nb, y = r2, fill=model_nb)) +
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
   geom_errorbar(aes(ymin=r2-r2_se, ymax=r2+r2_se), width=.1) +
+  geom_text(aes(x=model_nb, y=r2+r2_se+0.01, label=sinificance_r2))+
   #scale_y_continuous(expand=c(.1, 0))+
-  facet_wrap(~target) + scale_fill_manual(values=palette_col) + ggtitle("Bootstrap") + theme(legend.position="none")
+  facet_wrap(~target, scales="free") + scale_fill_manual(values=palette_col) + ggtitle("Bootstrap") + theme(legend.position="none")
 #  theme(legend.position="bottom", legend.direction="vertical")
 x11(); print(r2boot)
 
-# Significance: is zero lies withis the CIs
-d$sinificance="*"
-prod_cis = d[, "r2_632_ci.025"] * d[, "r2_632_ci.975"]
-d$sinificance[prod_cis < 0] = NA
  
 r2632 = ggplot(d, aes(x = model_nb, y = r2_632, fill=model_nb)) +
   geom_bar(stat = "identity", position="dodge", limits=c(.1, 1)) +
   geom_errorbar(aes(ymin=r2_632-r2_632_se, ymax=r2_632+r2_632_se), width=.1) +
-  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.01, label=sinificance))+
-  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.02, label=sinificance))+
-  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.03, label=sinificance))+
+  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.01, label=sinificance_r2_632))+
+  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.02, label=sinificance_r2_632))+
+  geom_text(aes(x=model_nb, y=r2_632+r2_632_se+0.03, label=sinificance_r2_632))+
   #scale_y_continuous(expand=c(.1, 0))+
-  facet_wrap(~target, scales="free") + scale_fill_manual(values=palette_col) + ggtitle("Bootstrap") + theme(legend.position="none")
+  facet_wrap(~target, scales="free") + scale_fill_manual(values=palette_col) + ggtitle("Bootstrap") + theme(legend.position="none", strip.text = element_text(size=14))
 #  theme(legend.position="bottom", legend.direction="vertical")
 x11(); print(r2632)
 
@@ -508,7 +518,12 @@ print(r2boot)
 print(r2632)
 dev.off()
 
-svg(paste(OUTPUT, "/r2_prediction_bootstrap.svg", sep=""), width=7, height=7)
+svg(paste(OUTPUT, "/r2_prediction_bootstrap.svg", sep=""), width=8, height=7)
+#print(r2boot)
+print(r2632)
+dev.off()
+
+pdf(paste(OUTPUT, "/r2_prediction_bootstrap_.pdf", sep=""), width=8, height=7)
 #print(r2boot)
 print(r2632)
 dev.off()
@@ -536,16 +551,24 @@ for(TARGET in TARGETS){
   D = db$DB[!is.na(db$DB[, TARGET]),]
   X = as.matrix(D[, PREDICTORS])
   change_true = D[, TARGET]
-  res_best  = bootpred_ci(x=X, y=change_true, nboot=NBOOT, mod_fit=fit_simple, mod_predict=predict_simple, theta=losses)
-  changehat_632_mu = apply(res_best$yhat_632, 2, mean, na.rm=TRUE)
+  res_boot  = bootpred_ci(x=X, y=change_true, nboot=NBOOT, mod_fit=fit_simple, mod_predict=predict_simple, theta=losses)
+  changehat_632_mu = apply(res_boot$yhat_632, 2, mean, na.rm=TRUE)
   mod_simple = fit_simple(X, change_true)
   change_hat = predict_simple(mod_simple, X)
   group = as.factor(mod_simple$labels)
   baseline = D[, BASELINE]
   m36 = D[, M36]
   fitted = baseline + change_hat
-  err_change_632_se = apply(res_best$yhat_632 - change_true, 2, sd, na.rm=TRUE)
-  #apply(res_best$yhat_632, 2, sd, na.rm=TRUE)
+  
+  #theta_star_632 = t(0.368 * theta_0 + 0.632 * t(theta_star)) # take advantage of R's recycling rules, vec is recycled col by col
+  
+  err_change_632 = t(t(res_boot$yhat_632) - change_true)
+
+  v = 
+  #err_change_632 = res_boot$yhat_632 - change_true
+  err_change_632_se = apply(err_change_632, 2, sd, na.rm=TRUE)
+  #err_change_632_se = apply(res_boot$yhat_632 - change_true, 2, sd, na.rm=TRUE)
+  #apply(res_boot$yhat_632, 2, sd, na.rm=TRUE)
   # smooth se by group
   for(g in levels(group)){
     #g = "-6.42857142857143"

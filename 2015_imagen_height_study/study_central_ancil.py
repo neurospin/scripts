@@ -108,6 +108,7 @@ def var_explained_pgs(covInfo, PgSInfo, col='height', covLabel=['Sex', 'Age']):
     covariate = numpy.matrix(pandas.get_dummies(PgSInfo['ScanningCentre'],
                                              prefix='Centre')[range(7)])
     covariate = numpy.hstack((covariate, numpy.asarray(PgSInfo[covLabel])))
+
     X = numpy.asarray(PgSInfo['PgS'])
     y = PgSInfo[col]
     X = X.reshape(-1, 1)
@@ -138,7 +139,11 @@ def univariate(mask, snps, studyPgS, col='height'):
     y = studyPgS.loc[permuter][col]
     covariate = numpy.matrix(pandas.get_dummies(studyPgS.loc[permuter]['ScanningCentre'],
                                                   prefix='Centre')[range(7)])
+    print "COVARIATE"
+    print covariate
     covariate = numpy.hstack((covariate, numpy.asarray(studyPgS.loc[permuter][['Sex', 'Age']])))
+    print "COVARIATE"
+    print covariate
     
     from sklearn.linear_model import LinearRegression
     Y = y - LinearRegression().fit(covariate, y).predict(covariate)
