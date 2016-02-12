@@ -8,10 +8,11 @@ import re, glob, os
 from qc_subjects_sulci import qc_sulci_qc_subject
 
 ## INPUTS ##
-TOLERANCE_THRESHOLD = 0.05
+TOLERANCE_THRESHOLD = 0.02
 DIRECTORY_SULCI = '/neurospin/brainomics/imagen_central/sulci_data/all_sulci/BL'
 ## OUTPUT ##
-DIRECTORY_PHENOTYPE = '/neurospin/brainomics/2016_sulcal_depth/pheno/'
+DIRECTORY_PHENOTYPE = '/neurospin/brainomics/2016_sulcal_depth/pheno/all_features/'
+FEATURE = 'length'
 
 def extract_from_sulci_df(sulci_dataframe, feature, sulcus):
     """
@@ -66,7 +67,7 @@ if __name__ == "__main__":
             sulcus_discarded_names.append(sulcus)
 
     # selection S.T.s   => phenotype
-    feature = 'depthMax'
+    feature = FEATURE
     sulcus_list =  []
     for filename in glob.glob(os.path.join(path,'morpho_*_right.csv')):
         #print filename
@@ -81,7 +82,7 @@ if __name__ == "__main__":
         sulc_pheno = extract_from_sulci_df(sulci_dataframe, feature, sulcus_list[j])  
 
         out = (DIRECTORY_PHENOTYPE +
-               'PLINK_all_pheno'+str(tol)+'/all_sulci_qc/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
+               feature+str(tol)+'/all_sulci_qc/'+sulcus_list[j].values()[0]+'_tol%.2f.phe' % tol)
         if not os.path.exists(os.path.dirname(out)):
             os.makedirs(os.path.dirname(out))
         

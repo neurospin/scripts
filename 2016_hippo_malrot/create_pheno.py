@@ -11,9 +11,10 @@ import re, glob, os
 DIRECTORY_PHENO = '/neurospin/brainomics/2016_hippo_malrot/data/'
 filename = 'IMAGEN_allNot_cleaned.xlsx'
 columns = ['FID', 'IID', 'Sci_L_thresh', 'Sci_R_thresh','SCi_L', 'SCi_R','C0_L', 'C0_R']
+columns = ['FID', 'IID', 'Sci_L_thresh', 'Sci_R_thresh', 'SCi_L', 'SCi_R']
 ## OUTPUT ##
 OUT_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/pheno/'
-OUTPUT_FILE = 'hippo_IHI_pruned.phe'
+OUTPUT_FILE = 'hippo_IHI_logcontinuous.phe'
 
 
 df = pd.read_excel(DIRECTORY_PHENO+filename)
@@ -25,24 +26,26 @@ SCi_L = np.log(np.asarray(df['SCi_L']+1).tolist())
 SCi_R = np.log(np.asarray(df['SCi_R']+1).tolist())
 
 df['SCi_L'] = SCi_L
-df['SCi_R'] = SCi_R 
-for j in range(len(df['C0_L'])):
+df['SCi_R'] = SCi_R
+"""for j in range(len(df['C0_L'])):
     if df['C0_L'][j] == 'Y':
-        df['C0_L'][j] = 0.0
+        df['C0_L'][j] = 1
     elif df['C0_L'][j] == 'N':
-        df['C0_L'][j] = 1.0
+        df['C0_L'][j] = 2
     else:
         df['C0_L'][j] = np.nan
 for j in range(len(df['C0_R'])):
     if df['C0_R'][j] == 'Y':
-        df['C0_R'][j] = 0.0
+        df['C0_R'][j] = 1
     elif df['C0_R'][j] == 'N':
-        df['C0_R'][j] = 1.0
+        df['C0_R'][j] = 2
     else:
         df['C0_R'][j] = np.nan
-df = df.dropna()
+df = df.dropna()"""
 df['IID'] = ['%012d' % int(i) for i in df['IID']]
 df['FID'] = ['%012d' % int(i) for i in df['FID']]
+df['Sci_L_thresh'] = [int(i)+1 for i in df['Sci_L_thresh']]
+df['Sci_R_thresh'] = [int(i)+1 for i in df['Sci_R_thresh']]
 df.index = df['IID']
 
 df.to_csv(OUT_DIRECTORY+OUTPUT_FILE, sep= '\t',  header=True, index=False)

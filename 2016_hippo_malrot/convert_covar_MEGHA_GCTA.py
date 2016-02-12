@@ -8,18 +8,18 @@ import optparse
 import re, glob, os
 
 ### INPUTS ###
-megha_covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_ICV_MEGHA.cov'
+megha_covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_hemclose_Bv_MEGHA.cov'
 columns_names = [u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
                  u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
                  u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham',
-                 u'SNPSEX', u'ICV'] 
+                 u'SNPSEX', u'ICV_Bv'] 
 ### OUTPUTS ###
-columns_qcovar = [u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'ICV']
+columns_qcovar = [u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'ICV_Bv']
 columns_covar = [u'IID',u'FID', u'Centres_Berlin',u'Centres_Dresden',
                 u'Centres_Dublin', u'Centres_Hamburg',u'Centres_London',
-                u'Centres_Mannheim', u'Centres_Nottingham',u'SNPSEX']
+                 u'Centres_Mannheim', u'Centres_Nottingham',u'SNPSEX']
 
-gcta_qcovar = '/neurospin/brainomics/imagen_central/clean_covar/covar_5PCA_ICV_GCTA.qcov'
+gcta_qcovar = '/neurospin/brainomics/imagen_central/clean_covar/covar_5PCA_ICV_Bv_GCTA.qcov'
 gcta_covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit_GCTA.cov'
 
 

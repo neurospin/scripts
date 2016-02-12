@@ -6,7 +6,7 @@ import optparse
 import re, glob, os
 
 
-path = '/neurospin/brainomics/2016_sulcal_depth/pheno/PLINK_all_pheno0.05/all_sulci_qc'
+path = '/neurospin/brainomics/2016_sulcal_depth/pheno/all_features/length0.02/all_sulci_qc'
 
 
 count = 0

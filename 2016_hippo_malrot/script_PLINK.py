@@ -7,56 +7,31 @@ import subprocess
 from numpy import log10
 
 ### INPUTS ###
-geno = '/neurospin/brainomics/imagen_central/geno/qc_sub_qc_gen_all_snps_common_autosome'
+geno = '/neurospin/brainomics//2016_hippo_malrot/PLINK_output/geno/pruned_m0.01_g1_h6_wsi50_wsk5_vif10.0' 
+#249058 variants remaining over the 466125 variants loaded from .bim file
 covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_ICV_PLINK.cov'
-pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno/hippo_IHI_pruned.phe'
-# to FILTER THE SNPS
-genorate = 0.01
-hwe = 1e-6
-maf = 0.01
-vif = 10
-win_size = 50 
-win_skip = 5
+pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno/hippo_IHI_logcontinuous.phe'
+
 
 
 ### OUTPUTS ###
-WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/'
-OUTPUT_FILTERED_GENO = os.path.join(WORKING_DIRECTORY,
-                      'pheno_pruned_m%1.2f_g%d_h%d_wsi%d_wsk%d_vif%2.1f' % \
-                      (maf, int(100 * genorate), int(-log10(hwe)), win_size, win_skip, vif))
-        
+WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/brut_output/'
 OUTPUT = os.path.join(WORKING_DIRECTORY,
                       os.path.splitext(os.path.basename(pheno))[0] + '_' +
                       os.path.splitext(os.path.basename(covar))[0])
 
-
-
 if __name__ == "__main__":
-    cmd = " ".join(['plink --noweb --silent',
-                    '--bfile %s' % geno,
-                    '--maf %f' % maf,
-                    '--geno %f' % genorate,
-                    '--hwe %f' % hwe,
-                    '--indep %d %d %f' % (win_size, win_skip, vif),
-                    '--out %s' % OUTPUT_FILTERED_GENO])
-    p = subprocess.check_call(cmd, shell=True)    
-    cmd = " ".join(['plink --noweb',
-                    '--maf %f' % maf,
-                    '--geno %f' % genorate,
-                    '--hwe %f' % hwe,
-                    '--bfile %s' % geno,
-                    '--make-bed',
-                    '--extract %s.prune.in' % OUTPUT_FILTERED_GENO,
-                    '--out %s' % OUTPUT_FILTERED_GENO])
-    p = subprocess.check_call(cmd, shell=True)
-    
+
+    """Ignoring phenotypes of missing-sex samples.  If you don't want those
+phenotypes to be ignored, use the --allow-no-sex flag."""
     cmd = " ".join(['plink --noweb',
                     '--logistic',
                     '--bfile %s' % geno,
                     '--covar %s' % covar,
                     '--pheno %s' % pheno,
                     '--all-pheno',
-                    '--out %s' % OUTPUT_FILTERED_GENO])
+                    '--allow-no-sex',
+                    '--out %s' % OUTPUT])
     try:
         p = subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError, ex:  # error code <> 0
@@ -65,3 +40,4 @@ if __name__ == "__main__":
         else:
             print "--------error------"
             print 'Command ' + ex.cmd + ' returned non-zero exit status ' + str(ex.returncode)
+

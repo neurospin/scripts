@@ -3,13 +3,13 @@
 clear 
 clc
 disp('----- Do not forget to set pathdef to include surfstat -----')
-addpath('/neurospin/brainomics/surfstat'))
+addpath('/neurospin/brainomics/2016_sulcal_depth/surfstat')
 
 tic
 %% MEGHAsurf.m
 for j= 1:2
 SurfDir = '/neurospin/imagen/BL/processed/freesurfer/smooth_textures/';
-ImgSubj = strcat(pwd,'/labels.txt');
+ImgSubj = strcat(pwd,'/labels_filtered.txt');
 
 ImgFileLh = '_lh.curv.pial.mgz';
 ImgFileRh = '_rh.curv.pial.mgz';
@@ -27,13 +27,17 @@ GRMFile = '/neurospin/brainomics/imagen_central/kinship/prunedYann_m0.01_g1_h6_w
 GRMid = '/neurospin/brainomics/imagen_central/kinship/prunedYann_m0.01_g1_h6_wsi50_wsk5_vif10.0.grm.id';
 Nperm = 1000;
 WriteImg = 1;
-OutDir = strcat(pwd,'/smooth_curv_pial/', CoVFileBasename);
-
+out_directory = '/neurospin/brainomics/2016_sulcal_depth/megha/smooth_curv_pial_same_subjects/';
+OutDir = strcat(out_directory,CoVFileBasename);
+if exist(out_directory)
+else
+mkdir(out_directory)    
+end
 Pthre = 0.01;
 %
 [PvalLh, PvalRh, h2Lh, h2Rh, SE, ClusPLh, ClusPRh, PeakLh, ClusLh, ClusidLh, PeakRh, ClusRh, ClusidRh, Nsubj, NvetLh, NvetRh, Ncov] = ...
     MEGHASurf(SurfDir, ImgSubj, ImgFileLh, ImgFileRh, FSDir, CovFile, delimiter, GRMFile, GRMid, WriteImg, OutDir, Nperm, Pthre);
-save(strcat(OutDir,CoVFileBasename,'.mat'))
+save(strcat(OutDir,'.mat'))
 end
 toc
 %% MEGHAsurfmat.m

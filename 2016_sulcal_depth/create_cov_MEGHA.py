@@ -136,7 +136,6 @@ df1.to_csv(covar_path+out, sep= '\t', header=True, index=False)
 df =df2
 df[ldf.columns]=ldf[ldf.columns]
 df[df3.columns]=df3[df3.columns]
-df[df2.columns]=df2[df2.columns]
 df[df1.columns]=df1[df1.columns]
 df15 = df[[u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
        u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
@@ -189,3 +188,45 @@ df38.to_csv(clean_covar_path+out, sep= '\t',  header=False, index=False)
 # 1763 without Han (df16)
 # 1565 with Han (df)
 # 1383 right only (df38)
+
+brainvisa_icv = '/neurospin/imagen/workspace/cati/morphometry/volumes/BL_morphologist_tissues_volumes.csv'
+df21 = pd.read_csv(brainvisa_icv, sep=';')
+df21['IID'] = ['%012d' % int(i) for i in df21['subject'] ]
+df21.index = df21['IID']
+df22=df[[u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
+       u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
+       u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham', u'Handness',
+           u'SNPSEX']]
+df22['ICV_Bv'] = df21['eTIV']
+out = 'covar_GenCitHan5PCA_ICV_Bv_MEGHA.cov'
+df22 = df22.dropna()
+df22.to_csv(clean_covar_path+out, sep= '\t', header=False, index=False)
+df23=df[[u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
+       u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
+       u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham', u'Handness',
+           u'SNPSEX']]
+out = 'covar_GenCitHan5PCA_hemclose_Bv_MEGHA.cov'
+df23['hem_close']= df21['hemi_closed']
+df23 = df23.dropna()
+df23.to_csv(clean_covar_path+out, sep= '\t', header=False, index=False)
+
+
+
+df32=df16[[u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
+       u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
+       u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham',
+           u'SNPSEX']]
+df33 = df32
+df32['ICV_Bv'] = df21['eTIV']
+out = 'covar_GenCit5PCA_ICV_Bv_MEGHA.cov'
+df32 = df32.dropna()
+df32.to_csv(clean_covar_path+out, sep= '\t', header=False, index=False)
+
+df33=df16[[u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
+       u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
+       u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham',
+           u'SNPSEX']]
+out = 'covar_GenCit5PCA_hemclose_Bv_MEGHA.cov'
+df33['hem_close']= df21['hemi_closed']
+df33 = df33.dropna()
+df33.to_csv(clean_covar_path+out, sep= '\t', header=False, index=False)

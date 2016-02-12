@@ -11,15 +11,22 @@ import tempfile
 ### INPUTS ###
 WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/'
 pheno_names = ['SCi_L', 'SCi_R','Sci_L_thresh', 'Sci_R_thresh','C0_L', 'C0_R']
+#pheno_names = ['SCi_L', 'SCi_R','Sci_L_thresh', 'Sci_R_thresh']
+case = '_binary_PLINK'
+brut = WORKING_DIRECTORY+'brut_output/'
+parsed = WORKING_DIRECTORY+'parse_output/'
 for pheno_name in pheno_names:
-    linear = WORKING_DIRECTORY+'pheno_pruned_m0.01_g1_h6_wsi50_wsk5_vif10.0.'+pheno_name+'.assoc.linear'
+    if 'C0' in pheno_name or 'thresh' in pheno_name:
+        linear = brut+'hippo_IHI'+case+'_covar_GenCit5PCA_ICV_PLINK.'+pheno_name+'.assoc.logistic'
+    else:
+        linear = brut+'hippo_IHI'+case+'_covar_GenCit5PCA_ICV_PLINK.'+pheno_name+'.assoc.linear'
 
     ### OUTPUTS ###
-    out = os.path.join(WORKING_DIRECTORY,
-                       pheno_name+'_logistic_pruned.pval')
+    out = os.path.join(parsed,
+                       pheno_name+'_logistic'+case+'.pval')
     
-    outsel = os.path.join(WORKING_DIRECTORY,
-                          pheno_name +'_logistic_pruned.sel6')
+    outsel = os.path.join(parsed,
+                          pheno_name +'_logistic'+case+'.sel3')
 
 
     tmp = tempfile.mktemp()
@@ -35,7 +42,7 @@ for pheno_name in pheno_names:
     p = subprocess.check_call(" ".join(cmd), shell=True)
     os.remove(tmp)
     pval = pd.io.parsers.read_csv(out, sep=' ')
-    pvalsub = pval.loc[pval['P'] < 5e-6]
+    pvalsub = pval.loc[pval['P'] < 5e-3]
     print pvalsub
 
     pvalsub.to_csv(outsel,

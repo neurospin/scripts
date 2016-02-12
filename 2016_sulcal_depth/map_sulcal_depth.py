@@ -10,15 +10,14 @@ import os, glob, re
 side = 'r' # side of the maillage
 sideCAP = 'R' # side of the cluster
 # path to the .mat file containing all the results of the MEGHA surf simulation
-mat_results = os.path.join(os.getcwd(),'megha/OHBM/more_subjects/1763subjects_covar_GenCit5PCA_ICV_MEGHAcovar_GenCit5PCA_ICV_MEGHA.mat'
+#mat_results = '/neurospin/brainomics/2016_sulcal_depth/megha/OHBM/more_subjects/1763subjects_covar_GenCit5PCA_ICV_MEGHAcovar_GenCit5PCA_ICV_MEGHA.mat'
+mat_results = '/neurospin/brainomics/2016_sulcal_depth/megha/smooth_sulc_same_subjects/covar_GenCitHan5PCA_ICV_MEGHA.mat'
+THRESHOLD_PVAL =  4e-1
 
 # To import the environment variable for anatomist
 # which -a anatomist
 # . ../bv_env.sh
 import anatomist.api 
-from PyQt4 import QtGui
-# Qt app
-app = QtGui.QApplication([])
 ana = anatomist.api.Anatomist()
 # this module path is added only after Anatomist is initialized
 import paletteViewer
@@ -38,7 +37,7 @@ import scipy.io
 mat = scipy.io.loadmat(mat_results)
 clus = mat['Clusid'+sideCAP+'h'][0]
 Logpval = -np.log10(mat['ClusP'+sideCAP+'h'][0])
-thresholded_pval = Logpval > -np.log10(0.99)
+thresholded_pval = Logpval > -np.log10(THRESHOLD_PVAL)
 for j in range(len(thresholded_pval)):
     Logpval[j] = Logpval[j]*thresholded_pval[j]
 
@@ -50,7 +49,6 @@ from soma import aims
 tex = aims.TimeTexture(dtype='FLOAT')
 #tex[0].assign(lh_pval2)
 tex[0].assign(Logpval_clus)
-aims.write(tex, os.path.join(os.getcwd(),'megha/cluster_1000perm/tex_test.gii')
 
 atex = ana.toAObject(tex)
 lh_white = ana.loadObject(faverage_pial)
@@ -83,9 +81,6 @@ ana.execute('WindowConfig', windows=[window], snapshot='/tmp/snapshot.jpg')
 #gw = window.parent().findChild(paletteViewer.GroupPaletteWidget)
 #fig = gw.get(paletteViewer.getObjectId(atex)).findChild(paletteViewer.PaletteWidget).figure
 #fig.savefig('/tmp/palette.png')
-
-# not needed if the script just returns
-#app.exec_()
 
 print "Length average mesh"
 lh_aims_white = ana.toAimsObject(white_inflated)

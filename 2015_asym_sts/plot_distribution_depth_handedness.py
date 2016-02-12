@@ -14,18 +14,23 @@ mpl.rcParams['xtick.labelsize'] = label_size
 mpl.rcParams['ytick.labelsize'] = label_size 
 text_size = 26
 
+tol = 0.02
 number_bins = 100
 
 if __name__ == "__main__":
 
-    covar = '/neurospin/brainomics/imagen_central/covar/gender_centre_handedness.cov'
-    df_covar = pd.read_csv(covar, delim_whitespace=True)
+    covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCitHan5PCA_ICV_MEGHA.cov'
+    df_covar = pd.read_csv(covar, delim_whitespace=True, header=False)
+    df_covar.columns = [u'IID',u'FID', u'C1', u'C2', u'C3', u'C4', u'C5', u'Centres_Berlin',
+                        u'Centres_Dresden', u'Centres_Dublin', u'Centres_Hamburg',
+                        u'Centres_London', u'Centres_Mannheim', u'Centres_Nottingham',
+                         u'Handedness', u'SNPSEX', u'ICV'] 
+
     df_covar.index = df_covar['IID']
-    index_left = df_covar['IID'][df_covar['Handedness'] == 'Left']
-    index_right = df_covar['IID'][df_covar['Handedness'] == 'Right']
+    index_left = df_covar['IID'][df_covar['Handedness'] == 1]
+    index_right = df_covar['IID'][df_covar['Handedness'] == 0]
     # threshold relative to the number of recognize features in each subject
-    tol = 0.02
-    path = '/neurospin/brainomics/2015_asym_sts/PLINK_all_pheno'+str(tol)+'/'
+    path = '/neurospin/brainomics/2016_sulcal_depth/pheno/PLINK_all_pheno0.02/all_sulci_qc/'
     i = 0
     sulcus_names = []
     for filename in glob.glob(os.path.join(path,'*tol'+str(tol)+'.phe')):

@@ -11,7 +11,7 @@ import pandas as pd
 
 
 if __name__ == "__main__":    
-    path = '/neurospin/brainomics/2016_hippo_malrot/megha/';
+    path = '/neurospin/brainomics/2016_hippo_malrot/megha/'
     for filename in glob.glob(os.path.join(path,'*stat.txt')):
         print '\n'
         print filename

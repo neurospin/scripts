@@ -8,11 +8,11 @@ import os, glob, re
 
 ## INPUTS ###
 #right 'R' or left 'L'
-side = 'R'
+side = 'L'
 # directory and filename of the MEGHA.m output file
-directory = os.path.join(os.getcwd(),'megha/OHBM_max_depth_more_subjects/2nd_wave_tol0.05/')
+directory = '/neurospin/brainomics/2016_sulcal_depth/megha/all_features/depthMaxtol0.02/'
 filename = 'covar_GenCit5PCA_ICV_MEGHAMEGHAstat.txt'#covar_GenCitHan5PCA_ICV_MEGHAMEGHAstat.txt'
-THRESHOLD_PVAL = 5e-1
+THRESHOLD_PVAL = 1e-1
 # feature display 'h2' or 'LogPval'
 FEATURE_DISPLAY = 'h2' 
 # interval display for h2 [0,1.0] recommended and for LogPval [0,5.0] to adapt
@@ -34,9 +34,6 @@ feature = '_depthMax'
 # which -a anatomist
 # . ../bv_env.sh
 import anatomist.api 
-from PyQt4 import QtGui
-# Qt app
-app = QtGui.QApplication([])
 ana = anatomist.api.Anatomist()
 # this module path is added only after Anatomist is initialized
 import paletteViewer
@@ -136,5 +133,3 @@ gw = window.parent().findChild(paletteViewer.GroupPaletteWidget)
 fig = gw.get(paletteViewer.getObjectId(sulci)).findChild(paletteViewer.PaletteWidget).figure
 fig.savefig('/tmp/palette.png')
 
-# not needed if the script just returns
-#app.exec_()

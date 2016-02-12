@@ -7,10 +7,11 @@ import subprocess
 from numpy import log10
 
 ### INPUTS ###
-qcovar = '/neurospin/brainomics/imagen_central/clean_covar/covar_5PCA_ICV_GCTA.qcov'
+qcovar = '/neurospin/brainomics/imagen_central/clean_covar/covar_5PCA_ICV_Bv_GCTA.qcov'
 covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit_GCTA.cov'
-pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno/hippo_IHI.phe'
+pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno/hippo_IHI_binary.phe'
 columns_pheno = ['Sci_L_thresh', 'Sci_R_thresh','SCi_L', 'SCi_R','C0_L', 'C0_R']
+#columns_pheno = ['SCi_L', 'SCi_R']
 GCTA = 'gcta64-1.24 --thread-num 4 '
 genorate = 0.01
 hwe = 1e-6
@@ -23,7 +24,7 @@ grm = '/neurospin/brainomics/imagen_central/kinship/'+ grm_file
 
 
 ### OUTPUTS ###
-OUT_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/GCTA_output/'
+OUT_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/GCTA_output/ICV_Bv/binary/'
 
 
 for i,c_pheno in enumerate(columns_pheno):
@@ -37,7 +38,7 @@ for i,c_pheno in enumerate(columns_pheno):
                     '--qcovar %s' % qcovar,
                     '--pheno %s' % pheno,
                     '--reml --out %s' % out,
-                    '--mpheno %s' % str(i+2)])
+                    '--mpheno %s' % str(i+1)])
     print cmd
     try:
         #prints results and merges stdout and std
@@ -53,7 +54,7 @@ for i,c_pheno in enumerate(columns_pheno):
         print '================ %s =================' % (pheno)
         cmd = 'cat ' + out + '.hsq'
         result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
-        #print result
+        print result
     except subprocess.CalledProcessError, ex: # error code <> 0
         print "--------error------"
         print ex.cmd
