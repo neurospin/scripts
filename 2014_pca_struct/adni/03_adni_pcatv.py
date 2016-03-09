@@ -32,9 +32,9 @@ import brainomics.cluster_gabriel as clust_utils
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_5"    
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_4comp"    
 TEMPLATE_PATH = os.path.join(INPUT_BASE_DIR, "freesurfer_template")                      
-OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_5"
+OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_4comp"
 
 
 #############################################################################
@@ -64,6 +64,8 @@ STRUCT_PCA_PARAMS = list(product(['struct_pca'],
                                  
 SPARSE_PCA = [('sparse_pca', 0.1, 1e-6, 0.01),('sparse_pca', 0.1,  1e-6, 0.5)]
 PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS + SPARSE_PCA
+
+PARAMS= [["struct_pca", 0.1, 0.5, 0.1],["struct_pca", 0.1,1e-06, 0.1],["sparse_pca", 0.0, 0.0,1.0],["pca",0.0,0.0,0.0]]
 
 #############
 # Functions #
@@ -101,11 +103,17 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         # Force the key
         global_pen = tv_ratio = l1_ratio = 0
-    if model_name == 'sparse_pca':
-        # Force the key
-        ltv = 1e-6
-        ll1 = l1_ratio * global_pen
-        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+#    if model_name == 'sparse_pca':
+#        # Force the key
+#        ltv = 1e-6
+#        ll1 = l1_ratio * global_pen
+#        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+        
+    if model_name == 'sparse_pca':   
+        
+        global_pen = tv_ratio = 0
+        ll1=l1_ratio
+            
         
     if model_name == 'struct_pca':
         ltv = global_pen * tv_ratio
@@ -124,15 +132,18 @@ def mapper(key, output_collector):
     # Fit model
     if model_name == 'pca':
         model = sklearn.decomposition.PCA(n_components=N_COMP)
+#    if model_name == 'sparse_pca':
+#       model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
+#                                    l1=ll1, l2=ll2, ltv=ltv,
+#                                    Atv=Atv,
+#                                    criterion="frobenius",
+#                                    eps=1e-6,
+#                                    max_iter=100,
+#                                    inner_max_iter=int(1e4),
+#                                    output=False)
     if model_name == 'sparse_pca':
-       model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
-                                    l1=ll1, l2=ll2, ltv=ltv,
-                                    Atv=Atv,
-                                    criterion="frobenius",
-                                    eps=1e-6,
-                                    max_iter=100,
-                                    inner_max_iter=int(1e4),
-                                    output=False)
+        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,alpha=ll1)   
+        
     if model_name == 'struct_pca':
         model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
                                     l1=ll1, l2=ll2, ltv=ltv,
@@ -150,17 +161,17 @@ def mapper(key, output_collector):
     #print "X_test", GLOBAL.DATA["X"][1].shape
 
     # Save the projectors
-    if (model_name == 'pca') :
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         V = model.components_.T
-    if model_name == 'struct_pca' or (model_name == 'sparse_pca'):
+    if model_name == 'struct_pca' :
         V = model.V
 
     # Project train & test data
-    if (model_name == 'pca'):
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
         
-    if (model_name == 'struct_pca')  or (model_name == 'sparse_pca'):
+    if (model_name == 'struct_pca')  :
         X_train_transform, _ = model.transform(X_train)
         X_test_transform, _ = model.transform(X_test)
 
@@ -168,11 +179,11 @@ def mapper(key, output_collector):
     # For SparsePCA or PCA, the formula is: UV^t (U is given by transform)
     # For StructPCA this is implemented in the predict method (which uses
     # transform)
-    if (model_name == 'pca') :
+    if (model_name == 'pca') or (model_name == 'sparse_pca'):
         X_train_predict = np.dot(X_train_transform, V.T)
         X_test_predict = np.dot(X_test_transform, V.T)
         
-    if (model_name == 'struct_pca') or (model_name == 'sparse_pca'):
+    if (model_name == 'struct_pca') :
         X_train_predict = model.predict(X_train)
         X_test_predict = model.predict(X_test)
 
@@ -222,20 +233,21 @@ def mapper(key, output_collector):
     
 def reducer(key, values):
     output_collectors = values
-    print output_collectors
+    #print output_collectors
     global N_COMP
     import mapreduce as GLOBAL
     N_FOLDS = GLOBAL.N_FOLDS
-    components=np.zeros((317091,3,5))
-    frobenius_train = np.zeros((3,5))
+    components=np.zeros((317379,N_COMP,5))
+    frobenius_train = np.zeros((N_COMP,5))
     frobenius_test = np.zeros((1,5))
-    evr_train = np.zeros((3,5))
-    evr_test = np.zeros((3,5))
-    l0 = np.zeros((3,5))
-    l1 = np.zeros((3,5))
-    l2 =np.zeros((3,5))
-    tv = np.zeros((3,5))
+    evr_train = np.zeros((N_COMP,5))
+    evr_test = np.zeros((N_COMP,5))
+    l0 = np.zeros((N_COMP,5))
+    l1 = np.zeros((N_COMP,5))
+    l2 =np.zeros((N_COMP,5))
+    tv = np.zeros((N_COMP,5))
     times = np.zeros((1,5))
+    
     # N_FOLDS is the number of true folds (not the number of resamplings)
     # key : string of intermediary key
     # load return dict corresponding to mapper ouput. they need to be loaded.]
@@ -253,8 +265,16 @@ def reducer(key, values):
             evr_train[:,item] = values["evr_train"]
             evr_test[:,item] = values["evr_test"]
             times[:,item] = values["time"]
-       
-
+            
+     #Solve non-identifiability problem  (baseline = frst fold)
+    for i in range(1,5):
+            if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
+                print "components inverted" 
+                print i
+                temp_comp2 = np.copy(components[:,2,i])
+                components[:,2,i] = components[:,1,i]
+                components[:,1,i] = temp_comp2  
+                
     # Thesholded components (list of tuples (comp, threshold))
     thresh_components = np.empty(components.shape)
     thresholds = np.empty((N_COMP, N_FOLDS))
@@ -296,10 +316,6 @@ def reducer(key, values):
                 if r[0, 1] < 0:
                     #print "Reverting comp {k} of fold {i} for model {key}".format(i=i+1, k=k, key=key)
                     aligned_thresh_comp[:, k, i] *= -1
-    # Save aligned comp
-#    for l, oc in zip(range(N_FOLDS), output_collectors[1:]):
-#        filename = os.path.join(oc.output_dir, "aligned_thresh_comp.npz")
-#        np.savez(filename, aligned_thresh_comp[:, :, l])
 
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
@@ -330,7 +346,16 @@ def reducer(key, values):
         ('dice_bar_1', dice_bars[1]),
         ('dice_bar_2', dice_bars[2]),
         ('dice_bar_mean', np.mean(dice_bars)),
-        ('time', np.mean(times))))
+        ('time', np.mean(times)),
+        ('evr_test_0',evr_test.mean(axis=1)[0]),
+        ('evr_test_1',evr_test.mean(axis=1)[1]),
+        ('evr_test_2',evr_test.mean(axis=1)[2]),
+        ('evr_test_sum',evr_test.mean(axis=1)[0]+evr_test.mean(axis=1)[1]+evr_test.mean(axis=1)[2]),
+        ('frob_test_fold1',frobenius_test[0][0]),
+        ('frob_test_fold2',frobenius_test[0][1]),
+        ('frob_test_fold3',frobenius_test[0][2]),
+        ('frob_test_fold4',frobenius_test[0][3]),
+        ('frob_test_fold5',frobenius_test[0][4])))
 
     return scores
 
@@ -383,28 +408,28 @@ def create_config(y, n_folds, output_dir, filename,
     json.dump(config, open(config_full_filename, "w"))
 
     # Create files to synchronize with the cluster
-    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-    clust_utils.gabriel_make_sync_data_files(full_output_dir)
+#    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
+#    clust_utils.gabriel_make_sync_data_files(full_output_dir)
 
     # Create job files
     # As the dataset is big we don't use standard files
-    limits = OrderedDict()
-    limits['host'] = OrderedDict()
-    limits['host']['nodes'] = 10
-    limits['host']['ppn'] = 6
-    limits['mem'] = "25gb"
-    limits['walltime'] = "96:00:00"
-    queue = "Cati_long"
-    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
-                            dir=CLUSTER_WD,
-                            file=filename,
-                            ppn=limits['host']['ppn'])
-    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
-    clust_utils.write_job_file(job_file_name,
-                               job_name=output_dir,
-                               cmd=cluster_cmd,
-                               queue=queue,
-                               job_limits=limits)
+#    limits = OrderedDict()
+#    limits['host'] = OrderedDict()
+#    limits['host']['nodes'] = 10
+#    limits['host']['ppn'] = 6
+#    limits['mem'] = "25gb"
+#    limits['walltime'] = "96:00:00"
+#    queue = "Cati_long"
+#    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
+#                            dir=CLUSTER_WD,
+#                            file=filename,
+#                            ppn=limits['host']['ppn'])
+#    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
+#    clust_utils.write_job_file(job_file_name,
+#                               job_name=output_dir,
+#                               cmd=cluster_cmd,
+#                               queue=queue,
+#                               job_limits=limits)
     return config
 
 #################

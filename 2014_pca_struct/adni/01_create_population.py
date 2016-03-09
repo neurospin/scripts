@@ -16,7 +16,7 @@ GROUP_MAP = {'CTL': 0, 'MCIc': 1}
 
 BASE_PATH = "/neurospin/brainomics/2014_pca_struct/adni"
 INPUT_CLINIC_FILENAME = '/neurospin/cati/ADNI/push_ida_adni1/2015_ADNI/csv/population.csv'
-INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage5")
+INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage6")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,"population.csv")
 
@@ -60,15 +60,15 @@ converters_bool= (((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD
 
 
 
-mcic = clinic[converters_bool][['Subject ID', 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
+mcic = clinic[converters_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
 mcic["DX"] = "MCIc"
 
-ctl = clinic[controls_bool][['Subject ID', 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
+ctl = clinic[controls_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
 ctl["DX"] = "CTL"
 
 
 pop = pd.concat([mcic, ctl])
-assert pop.shape == (360, 7)
+assert pop.shape == (360, 8)
 
 # Map group
 pop['DX.num'] = pop["DX"].map(GROUP_MAP)

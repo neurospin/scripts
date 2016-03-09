@@ -19,12 +19,12 @@ GENDER_MAP = {'female': 0, 'male': 1}
 
 BASE_PATH = "/neurospin/brainomics/2014_pca_struct/adni"
 
-INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage5")
+INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage6")
 
-TEMPLATE_PATH = os.path.join(BASE_PATH, "fs_5/freesurfer_template")
+TEMPLATE_PATH = os.path.join(BASE_PATH, "fs_6/freesurfer_template")
 
 INPUT_CSV = os.path.join(BASE_PATH,"population.csv")
-OUTPUT = os.path.join(BASE_PATH,"fs_5")
+OUTPUT = os.path.join(BASE_PATH,"fs_6")
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
@@ -65,13 +65,13 @@ Xtot = np.vstack(surfaces)
 assert Xtot.shape == (360, 81924)
 
 mask = ((np.max(Xtot, axis=0) > 0) & (np.std(Xtot, axis=0) > 1e-2))
-assert mask.sum() == 79440
+#assert mask.sum() == 317379
 
 np.save(os.path.join(OUTPUT, "mask.npy"), mask)
 
 # Xcs
 X = Xtot[:, mask]
-assert X.shape == (360, 79440)
+#assert X.shape == (360, 317379)
 
 #############################################################################
 # Some basic stat before centering/scaling
