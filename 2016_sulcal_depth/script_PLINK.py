@@ -7,15 +7,15 @@ import subprocess
 from numpy import log10
 
 ### INPUTS ###
-geno = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/geno/pruned_m0.01_g1_h6'
-#452177 variants remaining over the 466125 variants loaded from .bim file
-covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_PLINK.cov'
-pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno_update/hippo_IHI.phe'
+geno = '/neurospin/brainomics//2016_sulcal_depth/PLINK_output/geno/pruned_m0.01_g1_h6' 
+#249058 variants remaining over the 466125 variants loaded from .bim file
+covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCitHan5PCA_ICV_Bv_PLINK.cov'
+pheno = '/neurospin/brainomics/2016_sulcal_depth/STAP_output/pheno/left_STAP_PLINK.phe'
 
 
 
 ### OUTPUTS ###
-WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/brut_output_update/'
+WORKING_DIRECTORY = '/neurospin/brainomics/2016_sulcal_depth/PLINK_output/brut_output/'
 OUTPUT = os.path.join(WORKING_DIRECTORY,
                       os.path.splitext(os.path.basename(pheno))[0] + '_' +
                       os.path.splitext(os.path.basename(covar))[0])
@@ -40,4 +40,3 @@ phenotypes to be ignored, use the --allow-no-sex flag."""
         else:
             print "--------error------"
             print 'Command ' + ex.cmd + ' returned non-zero exit status ' + str(ex.returncode)
-

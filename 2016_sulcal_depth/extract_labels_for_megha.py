@@ -11,8 +11,8 @@ path_saved = os.getcwd()+'/megha/'
 filename_sav = 'labels_filtered.txt'
 
 # Create the file fist else not all information are written
-thefile = open(path_saved+ filename_sav, 'wb')
-thefile.close
+"""thefile = open(path_saved+ filename_sav, 'w')
+thefile.close"""
 
 QC_sulci_maxdepth = [u'000047102665', u'000021218872', u'000075438006', u'000025000478',
  u'000020355013', u'000079748525', u'000010400245', u'000003726191',
@@ -45,7 +45,7 @@ for filename in glob.glob(os.path.join(path,'*')):
 
 #labels = np.asarray(labels)
 #np.savetxt(, labels)
-thefile = open(path_saved+ filename_sav, 'wb')
+thefile = open(path_saved+ filename_sav, 'w')
 for item in labels:
   thefile.write("%s\n" % item)
 thefile.close
