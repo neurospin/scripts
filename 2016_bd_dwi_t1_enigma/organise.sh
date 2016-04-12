@@ -110,13 +110,14 @@ verbose=true
 #Converts found DICOM images to nifti (recommended)
 convertIMAtonii=true
 #Sorts the files from input path to output path, rest of pipeline assumes this has happened
-tosort=true
+tosort=false
 #Eddy_correct for the nifti files (cannot run without doing sort)
 toeddy=false
 parameddy="parameddy.txt"
 #Brain image extraction for the nifti files (cannot run without doing sort)
-tobet=false
-parambet="parambet.txt"
+tobet=true
+parambetdwi="parambet.txt"
+parambett1="parambett1.txt"
 #Runs the dtifit which outputs the FA files (cannot run without doing Bet)
 todtifit=false
 
@@ -489,7 +490,9 @@ if $toeddy; then
 				echo ${filepath}
 				eddy_correct ${filepath} ${newpath}__eddy.${file_ext} trilinear
 				mv ${filepath} ${dirpath}/No_EddyCorrect/${filename}
+				bash fdt_rotate_bvecs.sh ${dirpath}${fileid}.bvec ${dirpath}${fileid}__eddy.bvec ${newpath}__eddy.ecclog
 				mv ${newpath}__eddy.ecclog ${dirpath}/Logs/${fileid}__eddy.ecclog
+				mv ${dirpath}${fileid}.bvec ${dirpath}/No_EddyCorrect/${fileid}.bvec
 				i=$((i+1))
 				echo "$i files done, $((filesnii-i)) remaining"
 			done 
@@ -501,6 +504,12 @@ fi
 
 if $tobet; then
 	echo "Running Bet"
+	
+	
+	#for filepath in ${sorted_dir}/t1/mannheim/*.nii*
+	#	python fixt1.py $filepath
+	#done
+	
 	for dirpath in ${sorted_dir}/dwi/*/; do
 		
 		mkcdir ${dirpath}/NoBet
@@ -537,7 +546,7 @@ if $tobet; then
 		dirname=`basename $dirpath`
 		dirname=$(echo $dirname | sed -e "s/\///g")
 		echo $dirname
-		searchthresh $dirname $parambet
+		searchthresh $dirname $parambett1
 		filesnii=$(find ${dirpath} -type f -print | grep nii | wc -l) 
 		echo "$filesnii to bet in $dirname with a threshold of $thresh" 
 		
@@ -546,11 +555,13 @@ if $tobet; then
 			
 			filename=`basename $filepath`
 			newpath=$(echo $filepath | sed -e "s/.nii/__brain.nii/g")
-			bet ${filepath} ${newpath} -F -f ${thresh}
+			bet ${filepath} ${newpath} -f ${thresh} -g 0
 			i=$((i+1))
 			
 			mv ${filepath} ${dirpath}/NoBet/${filename}
-			mv ${dirpath}/${filename%%.*}__brain_mask* ${dirpath}/Brainmask
+			#mv ${dirpath}/${filename%%.*}__brain_mask* ${dirpath}/Brainmask
+			fslreorient2std ${newpath}.nii.gz ${newpath}.nii.gz
+			
 			echo "$i files done, $((filesnii-i)) remaining"	
 		done
 	done

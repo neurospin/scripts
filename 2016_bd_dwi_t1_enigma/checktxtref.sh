@@ -8,6 +8,8 @@ fi
 
 i=0
 
+bash test.sh
+
 while IFS='' read -r line || [[ -n "$line" ]]; do
 	#echo $line
 	#a=( $line )
