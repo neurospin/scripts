@@ -151,10 +151,16 @@ def _get_qc_sulci(sulci_path, out_path):
                 'length',
                 'GM_thickness',
                 'opening']
+    """features = ['surface_talairach',
+                'maxdepth_talairach',
+                'meandepth_talairach',
+                'length_talairach',
+                'GM_thickness',
+                'opening']"""
     
     # List all files containing information on sulci
     sulci_file_list = []
-    for file in glob(os.path.join(FULL_SULCI_PATH, 'mainmorpho_*.csv')):
+    for file in glob(os.path.join(FULL_SULCI_PATH, '*.csv')):
         sulci_file_list.append(file)
     
     print ('1) If the sulcus has not been recognized in 25% of the subjects, '
@@ -165,18 +171,18 @@ def _get_qc_sulci(sulci_path, out_path):
     # Iterate along sulci files
     sulcus_discarded = []
     for i, s in enumerate(sulci_file_list):
-        sulc_name = s[83:-4]
-    
+        sulc_name = os.path.basename(s)
+        sulc_name = sulc_name[:len(sulc_name)-4]
         # Read each .csv file
         sulci_df = pd.io.parsers.read_csv(os.path.join(FULL_SULCI_PATH, s),
                                           sep=';',
                                           index_col=0,
                                           usecols=np.hstack(('subject',
                                                              features)))
-    
         # If the sulcus has not been recognized in 25% of the subjects, we do
         # not take it into account.
         # In this case the first quartile of the surface columns will be 0.
+        #surface_first_quart = sulci_df['surface_talairach'].describe()['25%']
         surface_first_quart = sulci_df['surface'].describe()['25%']
         if (surface_first_quart == 0):
             print "Sulcus", sulc_name, "is not recognized in more than 25% of subjects. Ignore it."
@@ -230,7 +236,7 @@ def _get_sulci_for_subject_with_genetics(sulci_df) :
 
     return sulci_df.loc[list(subject_ids)]
 
-def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.03):
+def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.05):
     """Perform QC on the subjects of the dataframe
     """
     # Get rid of outliers
@@ -245,7 +251,7 @@ def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.03):
 
     # criterium 2: eliminate subjects for whom at least one measure is aberrant
     # Filter subjects whose features lie outside the interv mean +/- 3 * sigma
-    print "3) Eliminate subjects for whom at least one measure is aberrant"
+    print "3) Eliminate subjects for whom at least "+str(percent_tol*100)+ "% measures are aberrant"
     colnames = sulci_data_df1.columns.tolist()
     
     #        opening_mean = sulci_data_df1[c].describe()['mean']
@@ -276,16 +282,16 @@ def _get_sulci_qc_subject(sulci_data_df, out_path, percent_tol=0.03):
     return sulci_data_qc_df
 
 
-def qc_sulci_qc_subject(percent_tol=0.03):
+def qc_sulci_qc_subject(percent_tol=0.05):
     """ Function to get information on the sulci with
     sulci   must be recognized at least 25 % among other sulci.
     subject must have at least 75 percent of sulci recognized
             with feature val that not oversized mean+3sd more that percent_tol
     """
     # Pathnames
-    sulci_path = ('/neurospin/brainomics/2013_imagen_bmi/data/'
-                  'Imagen_mainSulcalMorphometry/full_sulci/')
-    out_path = '/neurospin/brainomics/2015_asym_sts/data'
+    #sulci_path = '/neurospin/imagen/workspace/cati/morphometry/sulcal_morphometry/BL/'
+    sulci_path = '/volatile/yann/sulci_data/all_sulci/BL/'
+    out_path = '/volatile/yann/imagen_central/pheno/BL/'
     #
     sulci_dataframe, sulcus_discarded = _get_qc_sulci(sulci_path, out_path)
     #
@@ -300,20 +306,20 @@ def qc_sulci_qc_subject(percent_tol=0.03):
 #########################################
 if __name__ == "__main__":
     # Pathnames
-    sulci_path = ('/neurospin/brainomics/2013_imagen_bmi/data/'
-                  'Imagen_mainSulcalMorphometry/full_sulci/')
-    out_path = '/neurospin/brainomics/2015_asym_sts/data2/'
+    sulci_path = '/neurospin/imagen/workspace/cati/morphometry/sulcal_morphometry/BL/'
+    sulci_path = '/volatile/yann/sulci_data/all_sulci/BL/'
+    out_path = '/volatile/yann/imagen_central/pheno/BL/'
 
     #
     sulci_dataframe = _get_qc_sulci(sulci_path, out_path)
+    print sulci_dataframe[0].shape
+
+    #
+    sulci_dataframe = _get_sulci_for_subject_with_genetics(sulci_dataframe[0])
     print sulci_dataframe.shape
 
     #
-    sulci_dataframe = _get_sulci_for_subject_with_genetics(sulci_dataframe)
-    print sulci_dataframe.shape
-
-    #
-    sulci_dataframe = _get_sulci_qc_subject(sulci_dataframe, out_path, percent_tol=0.03)    
+    sulci_dataframe = _get_sulci_qc_subject(sulci_dataframe, out_path, percent_tol=0.02)    
     print sulci_dataframe.shape
     
     sulci_dataframe = pheno.fix_fid_iid_from_index(sulci_dataframe)

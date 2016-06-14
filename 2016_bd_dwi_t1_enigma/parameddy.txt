@@ -1,0 +1,12 @@
+creteil
+false
+udine1.5T
+true
+pittsburgh
+false
+mannheim
+false
+udine3T
+true
+grenoble_Philipps
+true

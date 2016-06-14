@@ -1,7 +1,11 @@
+*.nii.gz
+*.nii
 *.pyc
 *~
 .nfs*
 *.pdf
 *.doc
 *.docx
+*.mat
+*.mgh
 .spyderproject
