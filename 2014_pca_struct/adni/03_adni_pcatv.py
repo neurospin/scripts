@@ -28,13 +28,15 @@ import metrics
 from brainomics import array_utils
 import brainomics.mesh_processing as mesh_utils
 import brainomics.cluster_gabriel as clust_utils
+
+
 ################
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_4comp"    
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs"    
 TEMPLATE_PATH = os.path.join(INPUT_BASE_DIR, "freesurfer_template")                      
-OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_4comp"
+OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_3comp_patients_only"
 
 
 #############################################################################
@@ -48,24 +50,32 @@ OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_4comp"
 CONFIGS = [[5, "adni_5folds", "config_5folds.json", True]]
 N_COMP = 3
 # Global penalty
-GLOBAL_PENALTIES = np.array([0.1])
-# Relative penalties
-# 0.33 ensures that there is a case with TV = L1 = L2
-TVRATIO = np.array([0.5,0.1])
-L1RATIO = np.array([0.5,1e-1])
-
-PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
-
-STRUCT_PCA_PARAMS = list(product(['struct_pca'],
-                                 GLOBAL_PENALTIES,
-                                 TVRATIO,
-                                 L1RATIO))                            
+#GLOBAL_PENALTIES = np.array([0.1])
+## Relative penalties
+## 0.33 ensures that there is a case with TV = L1 = L2
+#TVRATIO = np.array([0.5,0.1])
+#L1RATIO = np.array([0.5,1e-1])
+#
+#PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
+#
+#STRUCT_PCA_PARAMS = list(product(['struct_pca'],
+#                                 GLOBAL_PENALTIES,
+#                                 TVRATIO,
+#                                 L1RATIO))                            
+#                                 
                                  
-                                 
-SPARSE_PCA = [('sparse_pca', 0.1, 1e-6, 0.01),('sparse_pca', 0.1,  1e-6, 0.5)]
-PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS + SPARSE_PCA
+#SPARSE_PCA = [('sparse_pca', 0.1, 1e-6, 0.01),('sparse_pca', 0.1,  1e-6, 0.5)]
+#PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS + SPARSE_PCA
 
-PARAMS= [["struct_pca", 0.1, 0.5, 0.1],["struct_pca", 0.1,1e-06, 0.1],["sparse_pca", 0.0, 0.0,1.0],["pca",0.0,0.0,0.0]]
+#PARAMS= [["struct_pca", 0.1, 0.5, 0.1],["struct_pca", 0.1,1e-06, 0.1],["sparse_pca", 0.0, 0.0,1.0],["pca",0.0,0.0,0.0]]
+
+PARAMS= [('struct_pca', 0.1, 0.1, 0.1),('struct_pca', 0.1, 0.1, 0.5),\
+('struct_pca', 0.1, 0.1, 0.8),('struct_pca', 0.1, 0.5, 0.1),\
+('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.1, 0.5, 0.8),\
+('struct_pca', 0.1, 0.8, 0.1),('struct_pca', 0.1, 0.8, 0.5),('struct_pca', 0.1, 0.8, 0.8)]
+
+
+
 
 #############
 # Functions #
@@ -122,6 +132,7 @@ def mapper(key, output_collector):
         assert(np.allclose(ll1 + ll2 + ltv, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
+    print X_train.shape
     n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
 
@@ -152,7 +163,7 @@ def mapper(key, output_collector):
                                     eps=1e-6,
                                     max_iter=100,
                                     inner_max_iter=int(1e4),
-                                    output=False)
+                                    output=True)
     t0 = time.clock()
     t0 = time.clock()
     model.fit(X_train)
@@ -266,7 +277,7 @@ def reducer(key, values):
             evr_test[:,item] = values["evr_test"]
             times[:,item] = values["time"]
             
-     #Solve non-identifiability problem  (baseline = frst fold)
+     #Solve non-identifiability problem  (baseline = first fold)
     for i in range(1,5):
             if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
                 print "components inverted" 
@@ -286,8 +297,8 @@ def reducer(key, values):
             thresh_components[:, k, l] = thresh_comp
             thresholds[k, l] = t
     # Average precision/recall across folds for each component
-    av_frobenius_train = frobenius_train.mean(axis=0)
-    av_frobenius_test = frobenius_test.mean(axis=0)
+    av_frobenius_train = frobenius_train.mean(axis=1)
+    av_frobenius_test = frobenius_test.mean(axis=1)
 
     # Compute correlations of components between all folds
     n_corr = N_FOLDS * (N_FOLDS - 1) / 2
@@ -320,12 +331,20 @@ def reducer(key, values):
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
     dice_bars = np.empty(N_COMP)
+    dices = np.zeros((10,3))
     for k in range(N_COMP):
         # One component accross folds
         thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
-        dice_bars[k] = metrics.dice_bar(thresh_comp)
-        
+        dice_bars[k],dices[:,k] = metrics.dice_bar(thresh_comp) 
+    
+    print dices.mean(axis=1) 
+    dices_mean_path = os.path.join(OUTPUT_DIR,'adni_5folds','results','dices_mean_%s.npy' %key[0])
+    if key[0] == 'struct_pca' and key[2]==1e-06:
+        dices_mean_path = os.path.join(OUTPUT_DIR,'adni_5folds','results','dices_mean_%s.npy' %'enet')
+         
+    np.save(dices_mean_path,dices.mean(axis=1) )
+    
     print key
     scores = OrderedDict((
         ('model', key[0]),
@@ -389,7 +408,7 @@ def create_config(y, n_folds, output_dir, filename,
         resample_index.insert(0, None)  # first fold is None
 
     # Copy the learning data & mask
-    INPUT_DATASET = os.path.join(INPUT_BASE_DIR,'X.npy')
+    INPUT_DATASET = os.path.join(INPUT_BASE_DIR,'X_hallu_only.npy')
     shutil.copy2(INPUT_DATASET, full_output_dir)
 
     # Create config file
@@ -407,29 +426,7 @@ def create_config(y, n_folds, output_dir, filename,
     config_full_filename = os.path.join(full_output_dir, filename)
     json.dump(config, open(config_full_filename, "w"))
 
-    # Create files to synchronize with the cluster
-#    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-#    clust_utils.gabriel_make_sync_data_files(full_output_dir)
 
-    # Create job files
-    # As the dataset is big we don't use standard files
-#    limits = OrderedDict()
-#    limits['host'] = OrderedDict()
-#    limits['host']['nodes'] = 10
-#    limits['host']['ppn'] = 6
-#    limits['mem'] = "25gb"
-#    limits['walltime'] = "96:00:00"
-#    queue = "Cati_long"
-#    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
-#                            dir=CLUSTER_WD,
-#                            file=filename,
-#                            ppn=limits['host']['ppn'])
-#    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
-#    clust_utils.write_job_file(job_file_name,
-#                               job_name=output_dir,
-#                               cmd=cluster_cmd,
-#                               queue=queue,
-#                               job_limits=limits)
     return config
 
 #################
@@ -442,7 +439,7 @@ if __name__ == "__main__":
     #Retreive variables
     #############################################################################
     y=np.load(os.path.join(INPUT_BASE_DIR,'y.npy'))
-   
+    y= y[y==1]
     # Create config files
     config_5folds = create_config(y, *(CONFIGS[0]))
 

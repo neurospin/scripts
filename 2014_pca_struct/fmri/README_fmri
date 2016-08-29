@@ -1,0 +1,11 @@
+
+
+##############################################################################
+
+# OOfmri_mapreduce: mapreduce code
+ 
+# 01_components_view: code to save components of interest as nifti images in the "components_selected" folder. The #"anatomist_folder_vizu is the folder containing all anatomist information such as  clusters indfos and snapshots.
+
+# 02_metrics_validation.py: Assess reconstruction error and Stability across resmapling. + statistical testing
+
+0# 3_clinic_correlation.py: Mixed linear model to test correlation of projections with cilinical state. (Adjusted for subject)

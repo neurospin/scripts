@@ -16,7 +16,7 @@ GROUP_MAP = {'CTL': 0, 'MCIc': 1}
 
 BASE_PATH = "/neurospin/brainomics/2014_pca_struct/adni"
 INPUT_CLINIC_FILENAME = '/neurospin/cati/ADNI/push_ida_adni1/2015_ADNI/csv/population.csv'
-INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage6")
+INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage")
 
 OUTPUT_CSV = os.path.join(BASE_PATH,"population.csv")
 
@@ -58,10 +58,20 @@ converters_bool= (((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD
      ((clinic["status.sc"] == 'MCI')  & (clinic["status.m18"] =='AD')) |
       ((clinic["status.sc"] == 'MCI')  & (clinic["status.m24"] =='AD')) )
 
-
+#converters_m6_bool= ((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD'))
+#converters_m12_bool= ((clinic["status.sc"] == 'MCI')  & ((clinic["status.m06"] =='MCI')| (clinic["status.m06"].isnull())) & (clinic["status.m12"] =='AD'))
+#converters_m18_bool= ((clinic["status.sc"] == 'MCI') & ((clinic["status.m12"] =='MCI')| (clinic["status.m12"].isnull())) & (clinic["status.m18"] =='AD'))
+#converters_m24_bool= ((clinic["status.sc"] == 'MCI')  & ((clinic["status.m18"] =='MCI')| (clinic["status.m18"].isnull()))& (clinic["status.m24"] =='AD'))
+#
+#converters_time = np.zeros((converters_bool.shape))
+#converters_time[np.array(converters_m6_bool)] = 6
+#converters_time[np.array(converters_m12_bool)] = 12
+#converters_time[np.array(converters_m18_bool)] = 18
+#converters_time[np.array(converters_m24_bool)] = 24
 
 mcic = clinic[converters_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
 mcic["DX"] = "MCIc"
+#mcic["time_of_conversion"] = converters_time[np.array(converters_bool==True)]
 
 ctl = clinic[controls_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
 ctl["DX"] = "CTL"

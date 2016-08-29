@@ -1,0 +1,9 @@
+
+##############################################################################
+
+# 00generate_data.py:  Create datasets with a given SNR
+# 01run_dice_mapreduce.py: Run the mapreduce file (dice_mapreduce) on each o the 50 sets 
+# 02metrics_validation.py: compute metrics (Frobenius, MSE and Dice index) and test their statistical significance
+# 03plot_components.py: plot figures
+
+# dice_mapreduce.py is the mapreduce file 
