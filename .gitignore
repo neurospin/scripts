@@ -1,3 +1,5 @@
+*.nii.gz
+*.nii
 *.pyc
 *~
 .nfs*

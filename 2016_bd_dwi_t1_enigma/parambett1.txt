@@ -1,0 +1,12 @@
+creteil
+0.4
+udine1.5T
+0.5
+pittsburgh
+0.4
+mannheim
+0.3
+udine3T
+0.2
+grenoble_Philipps
+0.2

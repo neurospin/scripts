@@ -7,15 +7,15 @@ import subprocess
 from numpy import log10
 
 ### INPUTS ###
-geno = '/neurospin/brainomics//2016_hippo_malrot/PLINK_output/geno/pruned_m0.01_g1_h6_wsi50_wsk5_vif10.0' 
-#249058 variants remaining over the 466125 variants loaded from .bim file
-covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_ICV_PLINK.cov'
-pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno/hippo_IHI_logcontinuous.phe'
+geno = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/geno/pruned_m0.01_g1_h6'
+#452177 variants remaining over the 466125 variants loaded from .bim file
+covar = '/neurospin/brainomics/imagen_central/clean_covar/covar_GenCit5PCA_PLINK.cov'
+pheno = '/neurospin/brainomics/2016_hippo_malrot/pheno_update/hippo_IHI.phe'
 
 
 
 ### OUTPUTS ###
-WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/brut_output/'
+WORKING_DIRECTORY = '/neurospin/brainomics/2016_hippo_malrot/PLINK_output/brut_output_update/'
 OUTPUT = os.path.join(WORKING_DIRECTORY,
                       os.path.splitext(os.path.basename(pheno))[0] + '_' +
                       os.path.splitext(os.path.basename(covar))[0])

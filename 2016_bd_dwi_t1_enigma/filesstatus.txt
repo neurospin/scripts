@@ -1,0 +1,116 @@
+
+1°) Looking at the excel file references, then comparing with the nifti files. All "missing files" are the files mentioned in excel
+but not found in the nifti folders.
+
+
+
+Creteil:
+
+Missing file: cn0001
+This file is probably the one found with the name cn1000
+
+There are 44 subjects found in both nifti and excel file.
+
+Grenoble_Phillips:
+
+Missing files: BipEd01, BipEd02
+It should be noted however, that there are two subjects that can't be identified in phillips. Will probably be dealt with soon.
+
+This brings us to 31 excel subjects found as images.
+
+Mannheim:
+
+Missing file: None
+
+There are 77 subjects found in both nifti and excel file.
+
+
+Pittsburgh:
+
+Missing files: 031108, 125200
+
+This brings us to 33 files total.
+
+Udine1.5T:
+
+There are NO missing files, all the ones mentioned in the excel can be found.
+
+This brings us to 61 excel subjects found as images.
+
+Udine3T:
+
+Missing files: 44, 46, 47, 48, 49, 5, 50, 51, 52, 53, 54, 55, 56, 57, 58, 6, 60, 61, 65, 7, 70, 71, 74, 76, 8, 82, 86, 89, 9, 90, 93, 94, 96, 97 
+
+It should be noted that the folders which would supposedly contain those files do exist, however they are completely empty.
+
+This brings us to 69 excel subjects found as images.
+
+
+
+2°) Looking at the nifti folders and comparing with excel. All "missing references" are the files found in a nifti folder but not mentioned
+in the excel file.
+
+Creteil:
+
+Missing refs:
+
+ ab1004.nii, ag1103.nii, ak1000.nii, am1302.nii, cb1100.nii, cc1101.nii, cf1301.nii
+ cl1003.nii, cn1000.nii, dc1103.nii, dm1302.nii, ea1301.nii, ea1302.nii, ef1004.nii
+ eM1005.nii, et1002.nii, fh1202.nii, gb1003.nii, gg1201.nii, hl1001.nii, in1005.nii
+ ip1005.nii, jg1201.nii, jj1202.nii, jl1000.nii, jl1303.nii, kk1002.nii, ks1000.nii
+ lj1002.nii, mb1301.nii, md1103.nii, mn1003.nii, mv1303.nii, ns1101.nii, oj1000.nii
+ pb0903.nii, ph1202.nii, rc1004.nii, rc1301.nii, sc1001.nii, sc1101.nii, sd1002.nii
+ sf1004.nii, yp1202.nii
+
+There are 44 nifti files in creteil not mentioned in the corresponding excel file.
+
+
+Grenoble_Philipps:
+
+Missing refs:
+
+BipEd19.nii, BipEd34.nii, BipEd72.nii, BipEd75.nii
+
+There are 4 nifti files in grenoble_Philipps not mentioned in the corresponding excel file.
+
+
+Mannheim:
+
+Missing refs:
+
+ C6_HB_003.nii.gz, C6_HB_020.nii.gz, C6_HB_025.nii.gz, C6_HB_027.nii.gz
+ C6_HK_009.nii.gz, C6_HK_017.nii.gz, C6_HK_034.nii.gz, MZ142211.nii.gz
+
+There are 8 nifti files in Mannheim not mentioned in the corresponding excel file.
+
+
+
+
+Pittsburgh:
+
+Missing refs:
+
+ 027344.nii.gz, 027349.nii.gz, 203531.nii.gz, 203856.nii.gz
+ 212488.nii.gz, 213342.nii.gz, 214469.nii.gz, 214834.nii.gz
+ 215362.nii.gz
+
+
+There are 9 nifti files in Pittsburgh not mentioned in the corresponding excel file.
+
+udine1.5T:
+
+Missing refs:
+
+476.nii.gz
+
+There are 1 nifti files in udine1.5T not mentioned in the corresponding excel file.
+
+udine3T:
+
+Missing refs:
+
+ 151.nii.gz, 185.nii.gz, 194.nii.gz
+
+There are 3 nifti files in udine3T not mentioned in the corresponding excel file.
+
+

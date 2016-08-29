@@ -1,8 +1,0 @@
-creteil
-0.25
-udine
-0.1
-Pittsburgh
-0.2
-Mannheim
-0.2

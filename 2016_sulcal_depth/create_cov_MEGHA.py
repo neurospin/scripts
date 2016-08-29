@@ -126,7 +126,8 @@ out = 'ICV_bis.cov'
 df1 = pd.read_csv(covar_path+'aseg_stats_volume_BL.csv')
 df1 = df1[['Measure:volume', 'EstimatedTotalIntraCranialVol']]
 df1.columns = ['IID', 'ICV']
-
+df1.index = df1['IID']
+df1 = df1.sort_index(axis=0)
 df1['IID'] = ['%012d' % int(i) for i in df1['IID']]
 df1.index = df1['IID']
 df1['FID'] = df1['IID']

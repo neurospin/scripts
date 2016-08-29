@@ -78,7 +78,7 @@ for j in range(len(index_p_values)):
 df =  pd.DataFrame({'Sulci': np.asarray(sulcus_names_selected),
                     'h2': np.asarray(variance_explained_selected),
                     'LogPval': -np.log10(np.asarray(p_values_selected))
-                                    })
+                })
 df.index = df['Sulci']
 
 #### DEFINING THE PATH TO GET THE REPRESENTATION OF THE MAILLAGE #####
