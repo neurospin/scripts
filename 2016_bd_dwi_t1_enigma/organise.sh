@@ -115,9 +115,16 @@ tosort=false
 toeddy=false
 parameddy="parameddy.txt"
 #Brain image extraction for the nifti files (cannot run without doing sort)
-tobet=true
-parambetdwi="parambet.txt"
+tobet=false
+paramrunbet="paramrunbet.txt"
+parambetdwi="parambetdwi.txt"
 parambett1="parambett1.txt"
+#Aligns the T1 to the ICBM Atlas (provided by John Hopkins University, 1mm resolution)
+towarpwT1=false
+towarpwT1suite=true
+#bdpaddress="~/Documents/BrainSuite15c/bdp/bdp.sh"
+bdpaddress="../BrainSuite15c/bdp/bdp.sh"
+
 #Runs the dtifit which outputs the FA files (cannot run without doing Bet)
 todtifit=false
 
@@ -519,7 +526,8 @@ if $tobet; then
 		dirname=`basename $dirpath`
 		dirname=$(echo $dirname | sed -e "s/\///g")
 		echo $dirname
-		searchthresh $dirname $parambet
+		toruneddy $dirname $paramrunbet
+		searchthresh $dirname $parambetdwi
 		filesnii=$(find ${dirpath} -type f -print | grep nii | wc -l) 
 		echo "$filesnii to bet in $dirname with a threshold of $thresh" 
 		
@@ -537,38 +545,124 @@ if $tobet; then
 		done
 	done
 
-	for dirpath in ${sorted_dir}/t1/*/; do
-		
-		mkcdir ${dirpath}/NoBet
-		mkcdir ${dirpath}/Brainmask
+#*	for dirpath in ${sorted_dir}/t1/*/; do
+#		
+#		mkcdir ${dirpath}/NoBet
+#		mkcdir ${dirpath}/Brainmask
+#		
+#		i=0
+#		dirname=`basename $dirpath`
+#		dirname=$(echo $dirname | sed -e "s/\///g")
+#		echo $dirname
+#		searchthresh $dirname $parambett1
+#		filesnii=$(find ${dirpath} -type f -print | grep nii | wc -l) 
+#		echo "$filesnii to bet in $dirname with a threshold of $thresh" 
+#		
+#		
+#		for filepath in ${dirpath}*.nii* ; do
+#			
+#			filename=`basename $filepath`
+#			newpath=$(echo $filepath | sed -e "s/.nii/__brain.nii/g")
+#			bet ${filepath} ${newpath} -S -f ${thresh} -g 0
+#			#bet ${newpath} ${newpath} -R -f ${thresh} -g 0
+#			i=$((i+1))
+#			
+#			mv ${filepath} ${dirpath}/NoBet/${filename}
+#			#mv ${dirpath}/${filename%%.*}__brain_mask* ${dirpath}/Brainmask
+#			fslreorient2std ${newpath} ${newpath}
+#			
+#			echo "$i files done, $((filesnii-i)) remaining"	
+#		done
+#	done
+
+fi
+
+if $towarpwT1suite; then
+	echo "Dealing with susceptibility artefacts by using the T1"
+	for dwipath in ${sorted_dir}/dwi/mannheim/; do
+		dirname=`basename $dwipath`
+		dirname=$(echo $dirname | sed -e "s/\///g")		
+		echo $dirname		
+		t1path=${sorted_dir}/t1/${dirname}
 		
 		i=0
+		filesnii=$(find ${dirpath} -type f -print | grep nii | wc -l) 
+		echo "$filesnii to warp in $dirname" 
+		for filepath in ${dwipath}*.nii* ; do
+			filename=`basename $filepath`
+			filename=${filename%%__*}
+			bash $bdpaddress ${t1path}/${filename}*.bfc.nii.gz --tensor --odf --nii ${filepath} -g ${dwipath}/${filename}*.bvec -b ${dwipath}/${filename}*.bval 
+			mkcdir ${t1path}/${filename}
+			mv ${t1path}/${filename}.* ${t1path}/${filename}/
+			echo ${t1path}/${filename}/
+		done
+	done
+fi	
+
+			
+			
+
+if $towarpwT1; then
+	echo "Dealing with susceptibility artefacts by using the T1"
+	for dirpath in ${sorted_dir}/t1/*/; do
+		
+		
 		dirname=`basename $dirpath`
 		dirname=$(echo $dirname | sed -e "s/\///g")
-		echo $dirname
-		searchthresh $dirname $parambett1
+		echo $dirname		
+		dwipath=${sorted_dir}/dwi/${dirname}/
+		
+		mkcdir ${dirpath}/Matfiles
+		mkcdir ${dwipath}/Matfiles
+		mkcdir ${dirpath}/Nowarp
+		mkcdir ${dwipath}/Nowarp
+		i=0
+
+		#searchthresh $dirname $parambett1
 		filesnii=$(find ${dirpath} -type f -print | grep nii | wc -l) 
-		echo "$filesnii to bet in $dirname with a threshold of $thresh" 
+		echo "$filesnii to warp in $dirname" 
+		
 		
 		
 		for filepath in ${dirpath}*.nii* ; do
 			
 			filename=`basename $filepath`
-			newpath=$(echo $filepath | sed -e "s/.nii/__brain.nii/g")
-			bet ${filepath} ${newpath} -f ${thresh} -g 0
+			filename=${filename%%__*}
+			newpath=$(echo $filepath | sed -e "s/.nii/__warpedtoicbm.nii/g")
+			flirt -in ${filepath} -ref /usr/share/data/jhu-dti-whitematter-atlas/JHU/JHU-ICBM-DWI-1mm.nii.gz -omat ${dirpath}/Matfiles/${filename%%.*}.omat -out ${newpath} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 12  -interp trilinear
 			i=$((i+1))
+			bet ${newpath} ${newpath} -f 0.5 -g 0
+			echo "first flirt done"
 			
-			mv ${filepath} ${dirpath}/NoBet/${filename}
+			flirt -in ${dwipath}${filename}*.nii* -ref ${newpath} -omat ${dwipath}Matfiles/${filename%%.*}2.omat -out ${dwipath}${filename%%.*}_warped.nii.gz -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9  -interp trilinear
+			echo "second flirt done"
+			rm ${dwipath}${filename%%.*}_warped.nii.gz
+
+			echo "flirt -in ${dwipath}${filename}*.nii* -applyxfm -init ${dwipath}Matfiles/${filename%%.*}2.omat -out ${dwipath}${filename%%.*}_warped2.nii.gz -paddingsize 0.0 -interp trilinear -ref ${newpath}"
+			flirt -in ${dwipath}${filename}*.nii* -applyxfm -init ${dwipath}Matfiles/${filename%%.*}2.omat -out ${dwipath}${filename%%.*}__warped.nii.gz -paddingsize 0.0 -interp trilinear -ref ${newpath}
+
+			
+			#flirt -in ${dwipath}${filename}*.nii* -ref ${newpath} -out ${dwipath}${filename%%.*}_warped2.nii.gz -init ${dwipath}Matfiles/${filename%%.*}2.omat -applyxfm
+			echo "third flirt done"
+			
+			
 			#mv ${dirpath}/${filename%%.*}__brain_mask* ${dirpath}/Brainmask
-			fslreorient2std ${newpath}.nii.gz ${newpath}.nii.gz
+			
+			
+			#flirt -in ${filepath} -ref /usr/share/data/jhu-dti-whitematter-atlas/JHU/JHU-ICBM-DWI-1mm.nii.gz -omat ${dirpath}/Matfiles/${filename%%.*}1.omat -out ${newpath} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 12  -interp trilinear
+			#flirt -in ${dwipath}${filename} -ref ${filepath} -omat ${dwipath}Matfiles/${filename%%.*}2.omat -out ${dwipath}${filename%%.*}_warped.nii.gz -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 12  -interp trilinear
+			#convert_xfm -concat ${dirpath}/Matfiles/${filename%%.*}1.omat -omat ${dwipath}Matfiles/${filename%%.*}3.omat ${dwipath}Matfiles/${filename%%.*}2.omat
+			#flirt -in ${dwipath}${filename} 
+			
+			#mv ${dwipath}${filename} ${dirpath}/Nowarp/${filename}
 			
 			echo "$i files done, $((filesnii-i)) remaining"	
-		done
+		done		
+		
 	done
+fi	
 
-fi
-
-#Needs for the images to be nifti, needs to be Betted (brain mask), needs the bvec and bval
+#Needs for the images to be nifti, needs to be Betted (brain mask), needs the bvec and bval, if they have some susceptibility artefacts, the warp to t1 or some other method must be employed
 if $todtifit; then
 	echo "Running DTIFIT"
 	for dirpath in ${sorted_dir}/dwi/*/; do

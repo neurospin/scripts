@@ -5,6 +5,7 @@ These are the scripts used to manage the Enigma pipeline on the folders referred
 
 Creteil, Grenoble_Philipps, mannheim, pittsburgh, udine1.5T, udine3T
 
+This is for the information found in /neurospin/cati/bipolar/sandbox/niftii . All processes will remain within /neurospin/cati/bipolar
 
 Main Process: organise.sh
 ============
@@ -14,15 +15,15 @@ The main file to run is organise.sh.
 It is a bash file that takes as inputs the folder in which the data is currently located, and the folder 
 in which we want to reorganize said data.
 
-For example, if the data for creteil is located at data/nifti/creteil, and should be placed in an as yet non-existing
-folder called sorted/, the inputs would be:
+For example, in our case if the data for different sites, such as creteil is located at neurospin/cati/bipolar/sandbox/niftii/creteil, and we want them to be reorganized somewhere in the current folder ( /neurospin/cati/bipolar ), the inputs would be:
 
-data/nifti/creteil	sorted/
+sandbox/niftii/	./
 
 
 There are four main components to the organise.sh script.
 (Those can be turned on or off inside the code parameters, ex: if {tosort=true} the sort will launch first, otherwise it will be skipped.)
- 
+
+It should be noted that these components are assumed to be launched in a certain order, and that the "Sort the data" must be done first, as all other components use the same organisational data as the one created by "Sort the data"
 
 Sort the data
 -------
@@ -34,6 +35,7 @@ sorted/dwi/creteil/{files}	for the diffusion weighted images
 
 sorted/t1/creteil/{files}	for the T1 images
 
+This will be done differently for all sites, in such a manner as to have the file names corresponding to the NAME of the subjects found in BASE_NEW (can be found in /neurospin/cati/bipolar)
 
 Eddy_correct
 -------
@@ -46,14 +48,15 @@ it will do the eddy correction. Otherwise, it will proceed to the next folder.
 Bet
 -------
 
-Here, it will run the Bet on all dwi and t1 files found in the different folders under sorted/.
-This time, it will refer to parambet.txt for the dwi and parambett1.txt for the t1 files. (To change soon)
+Here, it will run the Bet on all dwi found in the different folders under sorted/.
+This time, it will refer to parambet.txt for the dwi
 : the txt files will specify the folders to bet followed by
 the value of the threshold of the Bet
 
 Dtifit
 -------
 
+This part has been discontinued due to its lack of dealing properly with susceptibility artefacts
 This will run the Dtifit on the sorted folder. Possible additions to follow.
 
 
