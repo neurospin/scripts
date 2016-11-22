@@ -23,7 +23,7 @@ import pandas as pd
 from collections import OrderedDict
 
 BASE_PATH = '/neurospin/brainomics/2016_deptms'
-WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/svm/svm_model_selection_5folds'
+WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/svm/model_selection_5folds'
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
@@ -145,7 +145,7 @@ def reducer(key, values):
 
     print '## Refit scores'
     print '## ------------'
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if p.count("all/all")],3) 
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
 
     data = [byparams_scores[k].values() for k in byparams_scores]
@@ -156,7 +156,7 @@ def reducer(key, values):
     print '## doublecv scores by outer-cv and by params'
     print '## -----------------------------------------'
     data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.iteritems():
         print fold
         byparams = groupby_paths([p for p in paths_fold], 3)
@@ -173,7 +173,7 @@ def reducer(key, values):
 
     print '## Apply best model on refited'
     print '## ---------------------------'
-    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in svm.iterrows()], config)
+    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
 
    
     scores_cv = pd.DataFrame([["svm"] + scores_svm.values()], columns=["method"] + scores_svm.keys())
@@ -216,10 +216,8 @@ if __name__ == "__main__":
     cv = collections.OrderedDict()
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
-            cv["all"] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["all/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
+            cv["all/all"] = [tr_val, te]
+         
         else:    
             cv["cv%02d/all" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)

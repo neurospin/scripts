@@ -16,7 +16,7 @@ import shutil
 
 BASE_PATH= "/neurospin/brainomics/2016_deptms/analysis/Freesurfer"    
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")                      
-OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv/model_selection"
+OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv/model_selection_5folds"
 
 
 

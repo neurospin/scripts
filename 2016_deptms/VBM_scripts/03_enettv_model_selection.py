@@ -38,8 +38,8 @@ def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = np.load(config["structure"])
-    A = tv_helper.A_from_mask(STRUCTURE)
+    STRUCTURE = nibabel.load(config["structure"])
+    A = tv_helper.A_from_mask(STRUCTURE.get_data())
     GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
 
 
@@ -57,7 +57,7 @@ def mapper(key, output_collector):
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
     
-    penalty_start = 2
+    penalty_start = 3
     
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
@@ -143,11 +143,7 @@ def reducer(key, values):
     os.chdir(os.path.dirname(config_filename()))
     config = json.load(open(config_filename()))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
-    paths.sort()
-    #Reduced grid
-    paths = [p for p in paths if not p.count("0.01_")]
-    paths = [p for p in paths if not p.count("0.5_")]
-    print  len(paths)
+    #paths = [p for p in paths if not p.count("0.8_-1")]
 
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
@@ -167,7 +163,7 @@ def reducer(key, values):
 
     print '## Refit scores'
     print '## ------------'
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if p.count("all/all")],3) 
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
 
     data = [byparams_scores[k].values() for k in byparams_scores]
@@ -178,30 +174,29 @@ def reducer(key, values):
     print '## doublecv scores by outer-cv and by params'
     print '## -----------------------------------------'
     data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.iteritems():
         print fold
         byparams = groupby_paths([p for p in paths_fold], 3)
         byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
         data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
-    scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
+        scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
-    rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
-    np.sum(rm)
-    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
-    l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
-        
 
     print '## Model selection'
     print '## ---------------'
-    l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
-    scores_argmax_byfold = l1l2tv
+    svm = argmaxscore_bygroup(scores_dcv_byparams); svm["method"] = "svm"
+    
+    scores_argmax_byfold = svm
+
     print '## Apply best model on refited'
     print '## ---------------------------'
-    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
-    scores_cv = pd.DataFrame([
-                  ["l1l2tv"] + scores_l1l2tv.values()], columns=["method"] + scores_l1l2tv.keys())
-    print scores_l1l2tv.values()           
+    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
+
+   
+    scores_cv = pd.DataFrame([["svm"] + scores_svm.values()], columns=["method"] + scores_svm.keys())
+   
+         
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='scores_all', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
@@ -215,7 +210,7 @@ if __name__ == "__main__":
     WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/enettv/model_selection_5folds'    
     INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/X.npy'
     INPUT_DATA_y = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/mask.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/mask.nii'
     INPUT_CSV = '/neurospin/brainomics/2016_deptms/analysis/VBM/population.csv'
 
     pop = pd.read_csv(INPUT_CSV,delimiter=' ')
@@ -238,7 +233,7 @@ if __name__ == "__main__":
     cv = collections.OrderedDict()
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
-            cv["all"] = [tr_val, te]
+            cv["all/all"] = [tr_val, te]
         else:    
             cv["cv%02d/all" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
