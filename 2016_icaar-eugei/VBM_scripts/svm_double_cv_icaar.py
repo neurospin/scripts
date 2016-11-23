@@ -80,56 +80,50 @@ def mapper(key, output_collector):
 
        
 
-def scores(key, paths, config):
+def scores(key, paths, config, ret_y=False):
     import mapreduce
     print key
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
+    #FOLD O is a refit on all samples. DOn't take into account in test.
+    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
+        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]    
+    y_pred = [item["y_pred"].ravel() for item in values]
+    #prob_pred = [item["proba_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
-#    prob_pred = [item["proba_pred"].ravel() for item in values]
-#    prob_pred = np.concatenate(prob_pred)
+    #prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, y_pred) #area under curve score.
-    betas = np.hstack([item["beta"] for item in values]).T    
-    # threshold betas to compute fleiss_kappa and DICE
-    import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
-    success = r * s
-    success = success.astype('int')
-    accuracy = (r[0] * s[0] + r[1] * s[1])
-    accuracy = accuracy.astype('int')
-    prob_class1 = np.count_nonzero(y_true) / float(len(y_true))  
-    pvalue_recall0 = binom_test(success[0], s[0], 1 - prob_class1)
-    pvalue_recall1 = binom_test(success[1], s[1], prob_class1)
-    pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
+    n_ite = None
+    betas = np.hstack([item["beta"] for item in values]).T
     scores = OrderedDict()
     try:    
-        a, l1, l2 , tv  = [float(par) for par in key.split("_")]
-        scores['a'] = a
-        scores['l1'] = l1
-        scores['l2'] = l2
-        scores['tv'] = tv
-        left = float(1 - tv)
-        if left == 0: left = 1.
-        scores['l1_ratio'] = float(l1) / left
+        c = float(key[0])
+        
+        scores['c'] = c
     except:
         pass
-    scores['recall_mean'] = r.mean()
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
-    scores['accuracy'] = accuracy/ float(len(y_true))
-    scores['pvalue_recall_0'] = pvalue_recall0
-    scores['pvalue_recall_1'] = pvalue_recall1
-    scores['pvalue_accuracy'] = pvalue_accuracy
-    scores['max_pvalue_recall'] = np.maximum(pvalue_recall0, pvalue_recall1)
     scores['recall_mean'] = r.mean()
-    scores['auc'] = auc
-    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
-                                    float(np.prod(betas_t.shape))
+    scores["auc"] = auc
+    scores['recall_mean_std'] = recall_mean_std
+    scores['precision_0'] = p[0]
+    scores['precision_1'] = p[1]
+    scores['precision_mean'] = p.mean()
+    scores['f1_0'] = f[0]
+    scores['f1_1'] = f[1]
+    scores['f1_mean'] = f.mean()
+    scores['support_0'] = s[0]
+    scores['support_1'] = s[1]
+    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) / \
+                                    float(np.prod(betas.shape))
+    scores['n_ite'] = n_ite
     scores['param_key'] = key
+    if ret_y:
+        scores["y_true"], scores["y_pred"] = y_true, y_pred
     return scores
     
     
@@ -138,7 +132,6 @@ def reducer(key, values):
     os.chdir(os.path.dirname(config_filename()))
     config = json.load(open(config_filename()))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
-    #paths.sort()
     #paths = [p for p in paths if not p.count("0.8_-1")]
 
     def close(vec, val, tol=1e-4):
@@ -159,7 +152,7 @@ def reducer(key, values):
 
     print '## Refit scores'
     print '## ------------'
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if p.count("all") and not p.count("all/all")],3) 
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
 
     data = [byparams_scores[k].values() for k in byparams_scores]
@@ -170,31 +163,31 @@ def reducer(key, values):
     print '## doublecv scores by outer-cv and by params'
     print '## -----------------------------------------'
     data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.iteritems():
         print fold
         byparams = groupby_paths([p for p in paths_fold], 3)
         byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
         data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
-    scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
+        scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
-    rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
-    np.sum(rm)
-    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
-    l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
 
     print '## Model selection'
     print '## ---------------'
-    l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
-    scores_argmax_byfold = l1l2tv
+    svm = argmaxscore_bygroup(scores_dcv_byparams); svm["method"] = "svm"
+    
+    scores_argmax_byfold = svm
+
     print '## Apply best model on refited'
     print '## ---------------------------'
-    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
-    scores_cv = pd.DataFrame([
-                  ["l1l2tv"] + scores_l1l2tv.values()], columns=["method"] + scores_l1l2tv.keys())
-    print scores_l1l2tv.values()           
+    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
+
+   
+    scores_cv = pd.DataFrame([["svm"] + scores_svm.values()], columns=["method"] + scores_svm.keys())
+   
+         
     with pd.ExcelWriter(results_filename()) as writer:
-        scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
+        scores_refit.to_excel(writer, sheet_name='scores_all', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
         scores_argmax_byfold.to_excel(writer, sheet_name='scores_argmax_byfold', index=False)
         scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
@@ -229,7 +222,7 @@ if __name__ == "__main__":
     cv = collections.OrderedDict()
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
-            cv["refit/refit"] = [tr_val, te]
+            cv["all/all"] = [tr_val, te]
 #            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
 #            for cv_inner_i, (tr, val) in enumerate(cv_inner):
 #                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
