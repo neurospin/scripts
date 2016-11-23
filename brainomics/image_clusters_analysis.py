@@ -14,6 +14,7 @@ Generated information:
 """
 
 import os, sys, argparse
+import subprocess
 import numpy as np
 import scipy, scipy.ndimage
 from soma import aims
@@ -263,7 +264,9 @@ if __name__ == "__main__":
     thresh_pos_high = np.inf
     thresh_norm_ratio = 1.
     referential = 'Talairach-MNI template-SPM'
-    fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
+    #fsl_warp_cmd = "fsl5.0-applywarp -i %s -r %s -o %s"
+    fsl_warp_cmd = ['fsl5.0-applywarp', '-i', '%s', '-r', '%s', '-o', '%s', '--interp=nn']
+
     MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
     atlas_cort_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz'
     atlas_sub_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz'
@@ -336,7 +339,7 @@ if __name__ == "__main__":
     ##########################################################################
     # Read volume
     ima = aims.read(map_filename)
-
+    """
     # force referential to MNI
     has_to_force_to_mni = False
     for i in xrange(len(ima.header()['referentials'])):
@@ -346,6 +349,7 @@ if __name__ == "__main__":
     if has_to_force_to_mni:
         writer.write(ima, map_filename)
         ima = aims.read(map_filename)
+    """
     trm_xyz_to_mm = ima_get_trm_xyz_to_mm(ima)
     arr = np.asarray(ima).squeeze()
     if len(arr.shape) > 3:
@@ -411,16 +415,24 @@ if __name__ == "__main__":
         clusters_mesh = clusters_large_mesh
 
     writer.write(clusters_mesh, output_clusters_mesh_filename)
+
+    fsl_warp_cmd[2], fsl_warp_cmd[4], fsl_warp_cmd[6] = \
+        MNI152_T1_1mm_brain_filename, map_filename, output_MNI152_T1_1mm_brain_filename
+    #cmd = fsl_cmd[] % (sub_filename, ref, "/tmp/sub")
+    #print fsl_warp_cmd
+    print " ".join(fsl_warp_cmd)
+    subprocess.call(fsl_warp_cmd)
     # warp  MNI152_T1_1mm into map referential
-    os.system(fsl_warp_cmd % (MNI152_T1_1mm_brain_filename, map_filename,
-                              output_MNI152_T1_1mm_brain_filename))
+    # os.system(fsl_warp_cmd % (MNI152_T1_1mm_brain_filename, map_filename,
+    #                          output_MNI152_T1_1mm_brain_filename))
     #print MNI152_T1_1mm_brain_filename, map_filename, output_MNI152_T1_1mm_brain_filename
     # Force same referential
+    """
     MNI152_T1_1mm_brain =  aims.read(output_MNI152_T1_1mm_brain_filename)
     MNI152_T1_1mm_brain.header()['referentials'] = ima.header()['referentials']
     MNI152_T1_1mm_brain.header()['transformations'] = ima.header()['transformations']
     writer.write(MNI152_T1_1mm_brain, output_MNI152_T1_1mm_brain_filename)
-
+    """
     print "Output directory:", output
 
 

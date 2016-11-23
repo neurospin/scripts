@@ -31,7 +31,7 @@ def dilation_labels(arr, size=(3, 3, 3)):
 
 def resample_atlas_harvard_oxford(ref, output,
         atlas_base_dir="/usr/share/data/harvard-oxford-atlases/HarvardOxford",
-        fsl_cmd = 'fsl5.0-applywarp -i %s -r %s -o %s --interp=nn',
+        fsl_cmd = ['fsl5.0-applywarp', '-i', '%s', '-r', '%s', '-o', '%s', '--interp=nn'],
         smooth_size=(3, 3, 3), dilation_size=(3, 3, 3),
         fill_wm=True):
     """Resample HarvardOxford atlas (cortical and subcortical) into reference
@@ -52,9 +52,10 @@ def resample_atlas_harvard_oxford(ref, output,
     sub_filename = os.path.join(atlas_base_dir, "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz")
     # resamp subcortical
     #os.system(fsl_cmd % (sub_filename, ref, "/tmp/sub"))
-    cmd = fsl_cmd % (sub_filename, ref, "/tmp/sub")
-    print cmd
-    subprocess.call(cmd.split())
+    fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = sub_filename, ref, "/tmp/sub"
+    #cmd = fsl_cmd[] % (sub_filename, ref, "/tmp/sub")
+    print fsl_cmd
+    subprocess.call(fsl_cmd)
     # rename WM, GM, ventriculus
     sub_image = nib.load("/tmp/sub.nii.gz")
     sub_arr = sub_image.get_data()
@@ -65,9 +66,10 @@ def resample_atlas_harvard_oxford(ref, output,
 
     #sub_image.to_filename("/tmp/sub.nii.gz")
     # resamp cortical
-    cmd = fsl_cmd % (cort_filename, ref, "/tmp/cort")
-    print cmd
-    subprocess.call(cmd.split())
+    #cmd = fsl_cmd % (cort_filename, ref, "/tmp/cort")
+    fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = cort_filename, ref, "/tmp/cort"
+    print fsl_cmd
+    subprocess.call(fsl_cmd)
     #os.system(fsl_cmd % (cort_filename, ref, "/tmp/cort"))
     cort_image = nib.load("/tmp/cort.nii.gz")
     atlas_arr = cort_image.get_data()

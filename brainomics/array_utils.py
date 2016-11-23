@@ -33,7 +33,12 @@ def arr_get_threshold_from_norm2_ratio(v, ratio=.99):
     #(v_n2 * ratio) ** 2
     cumsum2 = np.cumsum(v2)  #np.sqrt(np.cumsum(v2))
     select = cumsum2 <= ((v_n2 * ratio) ** 2)
-    thres = np.sqrt(v2[select][-1])
+    if select.sum() !=0:
+        thres = np.sqrt(v2[select][-1])
+        
+    else:
+        thres = 0
+        
     return thres
 
 def arr_threshold_from_norm2_ratio(v, ratio=.99):

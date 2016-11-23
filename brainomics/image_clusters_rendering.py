@@ -99,14 +99,15 @@ class SnapshotAction(anatomist.cpp.Action):
         image_dim = IMAGE.header()['volume_dimension'].arraydata()[:3]
         voxel_size = IMAGE.header()['voxel_size'].arraydata()[:3]
         print image_dim, voxel_size, image_dim * voxel_size
-        image_dim *= voxel_size
+        image_dim = image_dim * voxel_size
+	print image_dim
         for name, view_type in VIEWS:
             #, VIEWS[(name, view_type)]
             win, mesh = VIEWS[(name, view_type)]
             print name, view_type, win, mesh, view_type == "axial"
             if view_type == "axial":
                 print "snapshot axial"
-                for slice_ in range(SCLICE_THIKNESS, image_dim[2], SCLICE_THIKNESS):
+                for slice_ in range(SCLICE_THIKNESS, int(image_dim[2]), SCLICE_THIKNESS):
                     sclice_axial(mesh, -slice_)
                     filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
                     print filename
@@ -114,7 +115,7 @@ class SnapshotAction(anatomist.cpp.Action):
                                        snapshot=filename)
             if view_type == "coronal":
                 print "snapshot coronal"
-                for slice_ in range(SCLICE_THIKNESS, image_dim[1], SCLICE_THIKNESS):
+                for slice_ in range(SCLICE_THIKNESS, int(image_dim[1]), SCLICE_THIKNESS):
                     sclice_coronal(mesh, -slice_)
                     filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
                     print filename
@@ -122,7 +123,7 @@ class SnapshotAction(anatomist.cpp.Action):
                                        snapshot=filename)
             if view_type == "sagital":
                 print "snapshot sagital"
-                for slice_ in range(SCLICE_THIKNESS, image_dim[0], SCLICE_THIKNESS):
+                for slice_ in range(SCLICE_THIKNESS, int(image_dim[0]), SCLICE_THIKNESS):
                     sclice_sagital(mesh, -slice_)
                     filename = '%s/%s_%s_%03d.png' % (OUTPUT, name, view_type, slice_)
                     print filename
