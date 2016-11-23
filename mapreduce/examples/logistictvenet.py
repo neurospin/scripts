@@ -111,12 +111,12 @@ if __name__ == "__main__":
     json.dump(config, open(os.path.join(WD, "config.json"), "w"))
 
     ###########################################################################
-    print "# Run Locally:"
-    print "mapreduce.py --map %s/config.json" % WD
+    print("# Run Locally:")
+    print("mapreduce.py --map %s/config.json" % WD)
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
 
     ###########################################################################
-    print "# Reduce"
-    print "mapreduce.py --reduce %s/config.json" % WD
+    print("# Reduce")
+    print("mapreduce.py --reduce %s/config.json" % WD)
 
 

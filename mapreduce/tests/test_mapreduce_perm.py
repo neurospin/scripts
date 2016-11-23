@@ -121,7 +121,7 @@ if __name__ == "__main__":
                                                        pval=False)
         max_t.append(np.max(tvals_perm))
 
-    true = pd.DataFrame.from_items([("permutation", range(nbperms)),
+    true = pd.DataFrame.from_items([("permutation", list(range(nbperms))),
                                     ("maxT", max_t)])
     mr = pd.read_csv(os.path.join(WD, 'results.csv'))
     # Check same scores

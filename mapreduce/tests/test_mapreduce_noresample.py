@@ -42,7 +42,7 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
     # load return dict corresponding to mapper ouput. they need to be loaded.
-    values = [item.load() for item in values.itervalues()]
+    values = [item.load() for item in values.values()]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()

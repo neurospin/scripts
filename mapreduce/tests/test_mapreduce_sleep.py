@@ -26,10 +26,10 @@ def resample(config, resample_nb):
 
 
 def info(title):
-    print title
-    print 'module name:', __name__
-    print 'parent process:', os.getppid()
-    print 'process id:', os.getpid()
+    print(title)
+    print('module name:', __name__)
+    print('parent process:', os.getppid())
+    print('process id:', os.getpid())
 
 
 def mapper(key, output_collector):

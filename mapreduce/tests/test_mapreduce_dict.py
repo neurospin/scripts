@@ -47,7 +47,7 @@ def mapper(key, output_collector):
 def reducer(key, values):
     # values are OutputCollectors containing a path to the results.
     # load return dict corresponding to mapper ouput. they need to be loaded.
-    values = [item.load() for item in values.itervalues()]
+    values = [item.load() for item in values.values()]
     y_true = np.concatenate([item["y_true"].ravel() for item in values])
     y_pred = np.concatenate([item["y_pred"].ravel() for item in values])
     d = OrderedDict()
@@ -100,11 +100,11 @@ if __name__ == "__main__":
     ###########################################################################
     ## Do it without mapreduce
     res = list()
-    for _, key in params.iteritems():
+    for _, key in params.items():
         # key = params[0]
         y_true = list()
         y_pred = list()
-        for _, (tr, te) in cv.iteritems():
+        for _, (tr, te) in cv.items():
             # tr, te = cv[0]
             Xtrain = X[tr, :]
             Xtest = X[te, :]

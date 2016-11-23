@@ -21,11 +21,11 @@ from collections import OrderedDict
 # Constants #
 #############
 
-_RESAMPLE = u'resample'
-_RESAMPLE_KEY = u'resample_key'
-_PARAMS = u'params'
-_OUTPUT = u'output_dir'
-_OUTPUT_COLLECTOR = u'output collector'
+_RESAMPLE = 'resample'
+_RESAMPLE_KEY = 'resample_key'
+_PARAMS = 'params'
+_OUTPUT = 'output_dir'
+_OUTPUT_COLLECTOR = 'output collector'
 
 GROUP_BY_VALUES = [_RESAMPLE_KEY, _PARAMS]
 DEFAULT_GROUP_BY = _PARAMS
@@ -181,8 +181,8 @@ def _build_job_table(map_output, resamplings, parameters, compress,
              os.path.join(map_output,
                           str(resample_key),
                           str(params_key))]
-            for resample_key in resamplings.keys()
-            for params_key in parameters.keys()]
+            for resample_key in list(resamplings.keys())
+            for params_key in list(parameters.keys())]
     jobs = pd.DataFrame.from_records(jobs,
                                      columns=[_RESAMPLE_KEY,
                                               _PARAMS,
@@ -240,7 +240,7 @@ class OutputCollector:
     def clean(self):
         if os.path.exists(self.output_dir) \
                 and (len(os.listdir(self.output_dir)) == 0):
-            print "clean", self.output_dir
+            print("clean", self.output_dir)
             os.rmdir(self.output_dir)
 
     def collect(self, key, value):
@@ -359,19 +359,19 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     if not options.config:
-        print >> sys.stderr, 'Required config file'
+        print('Required config file', file=sys.stderr)
         sys.exit(os.EX_USAGE)
     config_filename = options.config
 
     # Check that at least one mode is given
     if not (options.map or options.reduce or options.clean):
-        print >> sys.stderr, 'Require a mode (map, reduce or clean)'
+        print('Require a mode (map, reduce or clean)', file=sys.stderr)
         sys.exit(os.EX_USAGE)
     # Check that only one mode is given
     if (options.map and options.reduce) or \
        (options.map and options.clean) or \
        (options.reduce and options.clean):
-        print >> sys.stderr, 'Require only one mode (map, reduce or clean)'
+        print('Require only one mode (map, reduce or clean)', file=sys.stderr)
         sys.exit(os.EX_USAGE)
 
     ## TO DEBUG just set config_filename here
@@ -389,18 +389,18 @@ if __name__ == "__main__":
     #== Check config file                                                   ==
     #=========================================================================
     if "user_func" not in config:
-        print >> sys.stderr, 'Attribute "user_func" is required'
+        print('Attribute "user_func" is required', file=sys.stderr)
         sys.exit(os.EX_CONFIG)
     user_func = _import_user_func(config["user_func"])
 
     # Check that we have at least resample or params
     if ("resample" not in config) and ("params" not in config):
-        print >> sys.stderr, 'Attributes "resample" or "params" are required'
+        print('Attributes "resample" or "params" are required', file=sys.stderr)
         sys.exit(os.EX_CONFIG)
 
     # Check that we have map_output
     if "map_output" not in config:
-        print >> sys.stderr, 'map_output" is required'
+        print('map_output" is required', file=sys.stderr)
         sys.exit(os.EX_CONFIG)
 
     # =======================================================================
@@ -432,7 +432,7 @@ if __name__ == "__main__":
                                   for param in params])
 
         # Cast values to tuples
-        keys = params.keys()
+        keys = list(params.keys())
         for key in keys:
             params[key] = tuple(params[key])
     else:
@@ -459,7 +459,7 @@ if __name__ == "__main__":
     # =======================================================================
     if options.map:
         if options.verbose:
-            print "** MAP WORKERS TO JOBS **"
+            print("** MAP WORKERS TO JOBS **")
         # Use this to load/slice data only once
         resamples_file_cur = resample_key_cur = None
         data_cur = None
@@ -477,7 +477,7 @@ if __name__ == "__main__":
                         p.join()
                         workers.remove(p)
                         if options.verbose:
-                            print "Joined:", str(p)
+                            print("Joined:", str(p))
                 time.sleep(1)
             #job = jobs.loc[i]
             try:
@@ -494,7 +494,7 @@ if __name__ == "__main__":
             output_collector = job[_OUTPUT_COLLECTOR]
             p = Process(target=user_func.mapper, args=(key, output_collector))
             if options.verbose:
-                print "Start :", str(p), str(output_collector)
+                print("Start :", str(p), str(output_collector))
             p.start()
             workers.append(p)
 
@@ -504,7 +504,7 @@ if __name__ == "__main__":
             p.join()
             workers.remove(p)
             if options.verbose:
-                print "Joined:", str(p)
+                print("Joined:", str(p))
 
     if options.clean:
         for i, job in jobs.iterrows():
@@ -519,8 +519,8 @@ if __name__ == "__main__":
         if "reduce_group_by" not in config:
             config["reduce_group_by"] = DEFAULT_GROUP_BY
         if config["reduce_group_by"] not in GROUP_BY_VALUES:
-            print >> sys.stderr, 'Attribute "reduce_group_by" ', \
-                "must be one of", GROUP_BY_VALUES, "or absent"
+            print('Attribute "reduce_group_by" ', \
+                "must be one of", GROUP_BY_VALUES, "or absent", file=sys.stderr)
             sys.exit(os.EX_CONFIG)
         outer_key = config["reduce_group_by"]
         outer_key_index = GROUP_BY_VALUES.index(outer_key)
@@ -530,12 +530,12 @@ if __name__ == "__main__":
 
         # Group outputs by outer_key
         grouped = jobs.groupby(outer_key)
-        index = grouped.groups.keys()  # Index of results DataFrame
+        index = list(grouped.groups.keys())  # Index of results DataFrame
         if options.verbose:
-            print "== Groups found:"
+            print("== Groups found:")
             for key, group in grouped:
-                print key
-                print group
+                print(key)
+                print(group)
 
         # Do the reduce (we can no longer guarantee the order of output)
         scores_tab = None  # DataFrame of all the results
@@ -575,18 +575,18 @@ if __name__ == "__main__":
                                  name=outer_key,
                                  tupleize_cols=False)
                 scores_tab = pd.DataFrame(index=index,
-                                          columns=scores.keys())
+                                          columns=list(scores.keys()))
             # Append those results to scores
             # scores_tab.loc[k] don't work because as k is a tuple
             # it's interpreted as several index.
             # Therefore we use scores_tab.loc[k,].
             # Integer based access (scores_tab.iloc[i]) would work too.
-            scores_tab.loc[key, ] = scores.values()
+            scores_tab.loc[key, ] = list(scores.values())
         if scores_tab is None:
-            print >> sys.stderr, "All reducers failed. Nothing saved."
+            print("All reducers failed. Nothing saved.", file=sys.stderr)
             sys.exit(os.EX_SOFTWARE)
         if "reduce_output" in config:
-            print "Save results into: %s" % config["reduce_output"]
+            print("Save results into: %s" % config["reduce_output"])
             scores_tab.to_csv(config["reduce_output"], index=True)
         else:
-            print scores_tab.to_string()
+            print(scores_tab.to_string())
