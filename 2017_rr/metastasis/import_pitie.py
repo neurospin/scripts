@@ -291,7 +291,7 @@ if args.process:
         s=sids,
         p=protocols,
         d=dcmdirs,
-        o="/volatile/frouin/radiomique_radiogenomique/base2",
+        o="/volatile/frouin/radiomique_radiogenomique/base2/raw",
         t=True,
         r="/volatile/frouin/radiomique_radiogenomique/base2/transcoding.json",
         x=True,
