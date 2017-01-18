@@ -49,20 +49,25 @@ SEQ_NUMF_MAP={'AxT1enhanced':{'min':100, 'max':300},  #numfiles
              'AxT2':{'min':20, 'max':109},           #numfiles
              }
 SEQ_NAME_MAP ={
-    'Ax FSPGR G':               'AxT1enhanced',
-    'Ax FSPGR 1.2 mm 1 plan':   'AxT1enhanced',
-    'Ax FSPGR 3D 1.2mm':        'AxT1enhanced',
-    'Ax FSPGR 3D HD 1.2mm':     'AxT1enhanced',
+    'AX FSPGR G':               'AxT1enhanced',
+    'AX FSPGR 1.2 MM 1 PLAN':   'AxT1enhanced',
+    'AX FSPGR 3D 1.2MM':        'AxT1enhanced',
+    'AX FSPGR 3D HD 1.2MM':     'AxT1enhanced',
     'AX CUBE T1':               'AxT1enhanced',
+    'T1-3D-GADO.*':               'AxT1enhanced',
+    '3D-IR-FSPGR-G':            'AxT1enhanced',
     '3D GADO':                  'AxT1enhanced',
-    '3D T1 BRAVO gado':         'AxT1enhanced',
+    '3D T1 BRAVO GADO':         'AxT1enhanced',
+    '3D-T1-BRAVO-G.*':         'AxT1enhanced',
     '3D-T1-GADO':               'AxT1enhanced',
-    'Ax T2* GRE' :              'AxT2FLAIR',
-    'AxFLAIR GADO' :            'AxT2FLAIR',
-    'AxFLAIR' :                 'AxT2FLAIR',
-    'Ax FLAIR' :                'AxT2FLAIR',
-    'Ax T2 FLAIR 5/0' :         'AxT2FLAIR',
-    '.*FLAIR' :                   'AxT2FLAIR',}
+    '3D-T1-G':                  'AxT1enhanced',
+    'AX-T1-SE-G.*':            'AxT1enhanced',
+    'AX T2* GRE' :              'AxT2FLAIR',
+    'AXFLAIR GADO' :            'AxT2FLAIR',
+    'AXFLAIR' :                 'AxT2FLAIR',
+    'AX FLAIR' :                'AxT2FLAIR',
+    'AX T2 FLAIR 5/0' :         'AxT2FLAIR',
+    '.*FLAIR' :                 'AxT2FLAIR',}
 SEQ_NAME = SEQ_NAME_MAP.keys()
 REQ_SEQ_NAME = unique(SEQ_NAME_MAP.values())
 
@@ -109,7 +114,7 @@ def searchfor(target, snames, snums, stes):
     for r, sname in enumerate(snames):
         for ref_seq_name in SEQ_NAME_MAP.keys():
             if SEQ_NAME_MAP[ref_seq_name] == target:
-                if re.compile(ref_seq_name, re.I).match(sname) is not None:
+                if re.compile(ref_seq_name, re.I).match(sname.upper()) is not None:
                     votes[r] += 1
         if votes[r] >= 1:
             if ((SEQ_TES_MAP[target]['min'] < stes[r]) &
@@ -196,6 +201,7 @@ args = parser.parse_args()
 if 'd' in args.steps:
     print('=======', args.indir)
     selseries = detect_series(args.indir)
+    print('=======')
     print(selseries)
 print('\n')
 
@@ -221,5 +227,5 @@ if 'c' in args.steps:
                 print(' '.join(cmd))
                 returncode += subprocess.call(cmd)
 
-    id returncode > 0:
+    if returncode > 0:
         raise ValueError("One of the conversion failed.")

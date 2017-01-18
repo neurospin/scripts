@@ -94,7 +94,7 @@ if __name__ == "__main__":
     parser = define_parser()
     args = parser.parse_args()
     logfile = os.path.join(args.outdir, 'logfile.txt')
-    indirs = glob(os.path.join(args.indir, '*', 'Subj*'))[:1]
+    indirs = glob(os.path.join(args.indir, '*', 'Subj*'))
     
     if len(indirs) > 0:
         print("indirs {0} [{1} ... {2}])".format(
