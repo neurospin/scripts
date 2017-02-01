@@ -19,6 +19,7 @@ fenh = glob(os.path.join(pold, 'raw', '*', 'AxT1enhanced', '*'))
 sid = [i.split('/')[7] for i in fenh]
 sid = unique(sid).tolist()
 
+#anat
 for s in sid:
     print(s)
     ind_path = os.path.join(pnew, s)
@@ -77,3 +78,75 @@ id=s, seq_type='AxT2', file='AxT2.pdf')
         os.makedirs(os.path.join(ind_path, 'model01'))
     if not os.path.exists(os.path.join(ind_path, 'model02')):
         os.makedirs(os.path.join(ind_path, 'model02'))
+
+#registry
+for s in sid:
+    print(s)
+    ind_path = os.path.join(pnew, s)
+    reg_dir = os.path.join(ind_path, 'model01')
+    if not os.path.exists(reg_dir):
+        os.makedirs(reg_dir)
+    reg = os.path.join(pold, 'preprocess', s, 'rAxT2.nii.gz')
+    reg_new = "{path}/{id}_{seq_type}.{ext}".format(path=reg_dir, id=s, seq_type='rAxT2', ext='nii.gz')
+    copy2(reg, reg_new)
+    reg_txt = os.path.join(pold, 'preprocess', s, 'rAxT2.nii.txt')
+    reg_txt_new = "{path}/{id}_{seq_type}.{ext}".format(path=reg_dir, id=s, seq_type='rAxT2', ext='nii.txt')
+    copy2(reg_txt, reg_txt_new)
+    #print(T1)
+    #print(T1_new)
+    rlogs_dir = os.path.join(reg_dir, 'logs')
+    if not os.path.exists(rlogs_dir):
+        os.makedirs(rlogs_dir)
+    rlog = "{path}/{file}".format(path=os.path.join(pold, 'preprocess'),file='log.txt')
+    rlog_new = "{path}/{file}".format(path=rlogs_dir, file='log.txt')
+    copy2(rlog, rlog_new)
+    rqc_dir = os.path.join(reg_dir, 'qc')
+    if not os.path.exists(rqc_dir):
+        os.makedirs(rqc_dir)
+    rqc_ax = "{path}/{id}/{file}".format(path=os.path.join(pold, 'preprocess'), 
+id=s, file='qc_axi.pdf')
+    rqc_ax_new = "{path}/{id}_{file}".format(path=rqc_dir, id=s, file='axi.pdf')
+    copy2(rqc_ax, rqc_ax_new)
+    rqc_sag = "{path}/{id}/{file}".format(path=os.path.join(pold, 'preprocess'), 
+id=s, file='qc_sag.pdf')
+    rqc_sag_new = "{path}/{id}_{file}".format(path=rqc_dir, id=s, file='sag.pdf')
+    copy2(rqc_sag, rqc_sag_new)
+
+#segmentation MJ -> model10
+seg_old = os.path.join(ROOT, 'resource', 'poumon', 'metas_poumon_MJ')
+mod = 'model10'
+for s in sid:
+    print(s)
+    edema = glob(os.path.join(seg_old, s, 'mask_edema*'))
+    lesion = glob(os.path.join(seg_old, s, 'mask_lesion*'))
+    necrosis = glob(os.path.join(seg_old, s, 'mask_necrosis*'))
+    enh = glob(os.path.join(seg_old, s, 'mask_enh*'))
+    ind_path = os.path.join(pnew, s)
+    seg_dir = os.path.join(ind_path, mod)
+    if not os.path.exists(seg_dir):
+        os.makedirs(seg_dir)
+    n=0
+    for e in edema : 
+        n+=1
+        new_ed = "{path}/{id}_{model}_{type}_{num}.{ext}".format(path=seg_dir, 
+id=s, model=mod, type='mask_edema', num=n, ext='nii.gz')
+        copy2(e, new_ed)
+    n=0
+    for l in lesion : 
+        n+=1
+        new_le = "{path}/{id}_{model}_{type}_{num}.{ext}".format(path=seg_dir, 
+id=s, model='model10', type='mask_lesion', num=n, ext='nii.gz')
+        copy2(l, new_le)
+    n=0
+    for ne in necrosis : 
+        n+=1
+        new_ne = "{path}/{id}_{model}_{type}_{num}.{ext}".format(path=seg_dir, 
+id=s, model='model10', type='mask_necrosis', num=n, ext='nii.gz')
+        copy2(ne, new_ne)
+    n=0
+    for en in enh : 
+        n+=1
+        new_en = "{path}/{id}_{model}_{type}_{num}.{ext}".format(path=seg_dir, 
+id=s, model='model10', type='mask_enh', num=n, ext='nii.gz')
+        copy2(en, new_en)
+    
