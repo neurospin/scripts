@@ -4,6 +4,7 @@ Created on Thu May 29 20:31:01 2014
 
 @author: edouard.duchesnay@cea.fr
 """
+from __future__ import print_function
 import os
 import numpy as np
 import scipy.ndimage
@@ -54,7 +55,7 @@ def resample_atlas_harvard_oxford(ref, output,
     #os.system(fsl_cmd % (sub_filename, ref, "/tmp/sub"))
     fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = sub_filename, ref, "/tmp/sub"
     #cmd = fsl_cmd[] % (sub_filename, ref, "/tmp/sub")
-    print fsl_cmd
+    print(fsl_cmd)
     subprocess.call(fsl_cmd)
     # rename WM, GM, ventriculus
     sub_image = nib.load("/tmp/sub.nii.gz")
@@ -68,7 +69,7 @@ def resample_atlas_harvard_oxford(ref, output,
     # resamp cortical
     #cmd = fsl_cmd % (cort_filename, ref, "/tmp/cort")
     fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = cort_filename, ref, "/tmp/cort"
-    print fsl_cmd
+    print(fsl_cmd)
     subprocess.call(fsl_cmd)
     #os.system(fsl_cmd % (cort_filename, ref, "/tmp/cort"))
     cort_image = nib.load("/tmp/cort.nii.gz")
@@ -95,7 +96,7 @@ def resample_atlas_harvard_oxford(ref, output,
     assert np.all(atlas_arr_int == atlas_arr)
     atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.get_affine())
     atlas_im.to_filename(output)
-    print "Watch if everything is OK:"
-    print "fslview %s %s" % (output, ref)
+    print("Watch if everything is OK:")
+    print("fslview %s %s" % (output, ref))
     return atlas_im
 

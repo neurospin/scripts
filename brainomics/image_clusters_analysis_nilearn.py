@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog=epilog)
     parser.add_argument('input', help='Input map volume', type=str)
     parser.add_argument('-o', '--output',
-        help='Output directory', default="current directory", type=str)
+        help='Output directory', type=str)
     parser.add_argument('--thresh_size',
         help='Threshold, in voxels nb, between small and large clusters'
         '(default %i)' % thresh_size, default=thresh_size, type=float)
@@ -245,6 +245,7 @@ if __name__ == "__main__":
     output_clusters_labels_filename  = output + "_clust_labels.nii.gz"
     output_clusters_values_filename  = output + "_clust_values.nii.gz"
 
+    print("Outputs:", output, output_figure_filename)
     ##########################################################################
     # Find clusters (connected component above a given threshold)
     print(thresh_neg_low, thresh_neg_high, thresh_pos_low, thresh_pos_high)
