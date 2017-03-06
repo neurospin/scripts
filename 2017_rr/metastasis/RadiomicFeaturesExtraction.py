@@ -19,6 +19,7 @@ import tempfile
 import json
 import yaml
 from glob import glob
+import re
 
 
 # Script documentation
@@ -106,14 +107,14 @@ def is_dir(dirarg):
     if not os.path.isdir(dirarg):
         raise argparse.ArgumentError(
             "The dir '{0}' does not exist!".format(dirarg))
-    if glob(os.path.join(dirarg, '*')) != []:
-        raise argparse.ArgumentError(
-            "The dir '{0}' is not empty!".format(dirarg))
+#    if glob(os.path.join(dirarg, '*')) != []:
+#        raise argparse.ArgumentError(
+#            "The dir '{0}' is not empty!".format(dirarg))
     return dirarg
 
 def is_image(image):
     template = '/neurospin/radiomics/studies/metastasis/base'
-    aimage = os.path.abspath(image)
+    image = os.path.abspath(image)
     if not image.find(template) > -1:
         raise argparse.ArgumentError(
             "The path '{0}' is not correct (should be in {1}) !".format(image, template))
@@ -168,6 +169,9 @@ def main():
                             tmpdir, 
                             '{0}_enh-gado_T1w_bfc_WS_rad-'.format(subject))
 
+        lesion_name=re.search(r"lesion-[0-9][0-9]?", lesion) 
+        print("### Radiomics for "+lesion_name.group(0)+" ###")
+        lesion_nb=re.search(r"[0-9]+", lesion_name.group(0))
         # run tissue type by tissue type
         vois = ni.load(lesion)
         cumul = np.zeros(vois.get_shape()[:-1], dtype='int16')
@@ -177,8 +181,8 @@ def main():
             labels = np.unique(img3d.get_data())
             if labels.shape[0] == 2:
                 sname = label_to_shortname(np.sort(labels)[1], vois)
-                fmask = prefix_outfile + 'ttype-{0}.nii.gz'.format(sname)
-                jsonout = prefix_outfile + 'ttype-{0}.json'.format(sname)
+                fmask = prefix_outfile + 'ttype-{0}{1}.nii.gz'.format(sname, lesion_nb.group(0))
+                jsonout = prefix_outfile + 'ttype-{0}{1}.json'.format(sname, lesion_nb.group(0))
                 bin_img3d = np.asarray((img3d.get_data() > 0) * 1, dtype='uint16')
                 ni.save(ni.Nifti1Image(bin_img3d, affine=vois.get_affine()), fmask)
                 #
@@ -196,8 +200,8 @@ def main():
                 raise Exception('Cannot find a tissue from tissuetype.json.')
         # run for the whole lesion
         cumul = np.asarray((cumul > 0) * 1, dtype='uint16')
-        fmask = prefix_outfile + 'ttype-{0}.nii.gz'.format('all')
-        jsonout = prefix_outfile + 'ttype-{0}.json'.format('all')
+        fmask = prefix_outfile + 'ttype-{0}.nii.gz'.format(lesion_name.group(0))
+        jsonout = prefix_outfile + 'ttype-{0}.json'.format(lesion_name.group(0))
         ni.save(ni.Nifti1Image(cumul, affine=vois.get_affine()), fmask)        
         #
         cmd = ['pyradiomics',
@@ -210,6 +214,7 @@ def main():
         results = subprocess.check_call(cmd)
         # try to edit generated json file
         edit_header_name(jsonout, paramfile)
+        print(jsonout+" done")
         
         #move
         flist = glob(os.path.join(tmpdir,'*ttype*json')) + \
