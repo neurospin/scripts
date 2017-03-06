@@ -10,14 +10,16 @@ from glob import glob
 import os
 from shutil import copy2
 from numpy import unique
+import re
 
-ROOT='/neurospin/radiomics/studies/metastasis'
+ROOT='/neurospin/radiomics/studies/metastasis/'
 pold = os.path.join(ROOT, 'baseOld')
-pnew = os.path.join(ROOT, 'baseTest')
+pnew = os.path.join(ROOT, 'base')
 
-fenh = glob(os.path.join(pold, 'raw', '*', 'AxT1enhanced', '*'))
-sid = [i.split('/')[7] for i in fenh]
-sid = unique(sid).tolist()
+#fenh = glob(os.path.join(pold, 'raw', '*', 'AxT1enhanced', '*'))
+fenh = glob(os.path.join(ROOT, 'base', '*'))
+sid = [i.split('/')[6] for i in fenh]
+sid = unique(sid).tolist()[0:-5]
 
 #anat
 for s in sid:
@@ -149,4 +151,92 @@ id=s, model='model10', type='mask_necrosis', num=n, ext='nii.gz')
         new_en = "{path}/{id}_{model}_{type}_{num}.{ext}".format(path=seg_dir, 
 id=s, model='model10', type='mask_enh', num=n, ext='nii.gz')
         copy2(en, new_en)
+    
+
+#segmentation ADP -> model11
+seg_old = os.path.join(ROOT, 'resource', 'poumon', 'Alberto.ADP')
+mod = 'model11'
+edema=[]
+enh=[]
+necrosis=[]
+for s in sid :
+    print(s)
+    edema = glob(os.path.join(seg_old, s, 'AxT1enhanced', 'mask_edema*'))
+    print(edema)
+    lesion = glob(os.path.join(seg_old, s, 'AxT1enhanced', 'mask_lesion*'))
+    print(lesion)
+    necrosis = glob(os.path.join(seg_old, s, 'AxT1enhanced', 'mask_necrosis*'))
+    print(necrosis)
+    enh = glob(os.path.join(seg_old, s, 'AxT1enhanced', 'mask_enh*'))
+    print(enh)
+    ind_path = os.path.join(pnew, s)
+    seg_dir = os.path.join(ind_path, mod)
+    if not os.path.exists(seg_dir):
+        os.makedirs(seg_dir)
+    if len(edema) != 0 : 
+        if len(edema) > 1 :
+            n=0
+            for e in edema : 
+                n = re.search(r"[0-9]+", e.split('/')[10])
+                new_ed = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_edema', num=n.group(0), ext='nii.gz')
+                print(e)
+                print(new_ed)
+                copy2(e, new_ed)
+                #print(new_ed)
+        else : 
+            new_ed = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_edema', num=1, ext='nii.gz')
+            print(edema[0])
+            print(new_ed)
+            copy2(edema[0], new_ed)
+            #print(new_ed)
+    if len(lesion) != 0 :
+        if len(lesion) > 1 :
+            n=0
+            for l in lesion : 
+                n = re.search(r"[0-9]+", l.split('/')[10])
+                new_le = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_lesion', num=n.group(0), ext='nii.gz')
+                copy2(l, new_le)
+                print(l)
+                print(new_le)
+        else :
+            new_le = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_lesion', num=1, ext='nii.gz')
+            copy2(lesion[0], new_le)
+            print(lesion[0])
+            print(new_le)
+    if len(necrosis) != 0 :
+        if len(necrosis) > 1 :
+            n=0
+            for ne in necrosis : 
+                n = re.search(r"[0-9]+", ne.split('/')[10])
+                new_ne = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_necrosis', num=n.group(0), ext='nii.gz')
+                copy2(ne, new_ne)
+                print(ne)
+                print(new_ne)
+        else :
+            new_ne = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_necrosis', num=1, ext='nii.gz')
+            copy2(necrosis[0], new_ne)
+            print(necrosis[0])
+            print(new_ne)
+    if len(enh) != 0 :
+        if len(enh) > 1 :
+            n=0
+            for en in enh : 
+                n = re.search(r"[0-9]", en.split('/')[10])
+                new_en = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_enh', num=n.group(0), ext='nii.gz')
+                copy2(en, new_en)
+                print(en)
+                print(new_en)
+        else :
+            new_en = "{path}/{pt}_{model}_{tp}_{num}.{ext}".format(path=seg_dir, 
+        pt=s, model=mod, tp='mask_enh', num=1, ext='nii.gz')
+            copy2(enh[0], new_en)
+            print(enh[0])
+            print(new_en)
     
