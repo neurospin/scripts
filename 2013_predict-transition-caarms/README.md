@@ -1,3 +1,12 @@
+WIP
+===
+@4.3 Anhedonia
+@5.4 Aggression/dangerous behavior
+@7.4 Mood swings/lability
+@7.6 Obsessive compulsive symptoms
+@7.7 symptomes dissociatifs
+
+
 Project
 =======
 
