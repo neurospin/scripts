@@ -69,7 +69,7 @@ def resample_atlas_harvard_oxford(ref, output,
     # resamp cortical
     #cmd = fsl_cmd % (cort_filename, ref, "/tmp/cort")
     fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = cort_filename, ref, "/tmp/cort"
-    print(fsl_cmd)
+    print("".join(fsl_cmd))
     subprocess.call(fsl_cmd)
     #os.system(fsl_cmd % (cort_filename, ref, "/tmp/cort"))
     cort_image = nib.load("/tmp/cort.nii.gz")
