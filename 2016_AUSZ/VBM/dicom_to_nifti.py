@@ -16,7 +16,7 @@ import nibabel as nib
 import glob
 
 BASE_PATH =  '/neurospin/brainomics/2016_AUSZ'
-in_file ='/neurospin/brainomics/2016_AUSZ/subject_DICOM_dir.txt'
+in_file ='/neurospin/brainomics/2016_AUSZ/data/list_dicom_dir.txt'
 
 
 
@@ -28,7 +28,7 @@ for subject_dir in inf.readlines():
     subject_dir = subject_dir.replace("\n","")   
     os.chdir(subject_dir)
     list_acquisitions = glob.glob(subject_dir+'*')
-    print subject_dir
+    print(subject_dir)
     for i in range (len(list_acquisitions)):
         seq = os.path.basename(list_acquisitions[i])
         name = "sequence_" + seq

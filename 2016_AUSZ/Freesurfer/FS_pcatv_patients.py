@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan  6 09:36:31 2017
+Created on Mon Feb  1 16:00:53 2016
 
 @author: ad247405
-"""
 
+Run standard PCA, sparse PCA , Enet PCA and PCA-TV on fmri dataset. 
+"""
 
 import os
 import json
@@ -13,18 +13,17 @@ from collections import OrderedDict
 import numpy as np
 import sklearn.decomposition
 import pca_tv
-import metrics
-import nibabel 
+import metrics 
 import sklearn
 import array_utils
 import parsimony.functions.nesterov.tv as tv_helper
 from sklearn.cross_validation import StratifiedKFold
 import shutil
 
-BASE_PATH= '/neurospin/brainomics/2016_AUSZ/results/VBM'
-WD = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only'
-NFOLDS_OUTER = 5
-NFOLDS_INNER = 5
+
+
+
+WD = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/FS_pca_tv_patients_only'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
@@ -36,23 +35,19 @@ def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = nibabel.load(config["structure"])
-    A = tv_helper.A_from_mask(STRUCTURE.get_data())
+    STRUCTURE = np.load(config["structure"])
+    A = tv_helper.A_from_mask(STRUCTURE)
     N_COMP = config["N_COMP"]
     GLOBAL.A, GLOBAL.STRUCTURE,GLOBAL.N_COMP = A, STRUCTURE,N_COMP
+
 
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    if resample is not None:
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
                             for k in GLOBAL.DATA}
-    else:  # resample is None train == test
-        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
-                            for k in GLOBAL.DATA}
-
 
 
 def mapper(key, output_collector):
@@ -72,8 +67,9 @@ def mapper(key, output_collector):
         ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
         assert(np.allclose(ll1 + ll2 + ltv, global_pen))
-  
-            
+
+        
+    
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
@@ -151,8 +147,8 @@ def mapper(key, output_collector):
                evr_test=evr_test)
 
     output_collector.collect(key, ret)
-
-
+    
+    
 def scores(key, paths, config):
     import mapreduce
     values = [mapreduce.OutputCollector(p) for p in paths]
@@ -173,29 +169,26 @@ def scores(key, paths, config):
 
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-    comp = np.stack([item["components"] for item in values])
+
+
+    #save mean pariwise across folds for further analysis   
+#    dices_mean_path = os.path.join(WD,'dices_mean_%s.npy' %key.split("_")[0])
+#    if key.split("_")[0] == 'struct_pca' and key.split("_")[2]<1e-3:
+#        dices_mean_path = os.path.join(WD,'dices_mean_%s.npy' %"enet_pca")
+#
+#    np.save(dices_mean_path,dice_pairwise_values.mean(axis=0))
 
     
-   
     #Mean frobenius norm across folds  
     mean_frobenius_train = frobenius_train.mean()
     mean_frobenius_test = frobenius_test.mean()
 
-    comp_t = np.zeros(comp.shape)
-    comp_t_non_zero = np.zeros((5,10))
-    for i in range(comp.shape[0]):
-        for j in range(comp.shape[2]):
-            comp_t[i,:,j] = array_utils.arr_threshold_from_norm2_ratio(comp[i, :,j], .99)[0] 
-            comp_t_non_zero[i,j] = float(np.count_nonzero(comp_t[i,:,j]))/float(comp.shape[1])
-    prop_non_zero_mean = np.mean(comp_t_non_zero[:,1:4])#do not count first comp
-    print(prop_non_zero_mean)
     print(key)
     scores = OrderedDict((
         ('param_key',key),
         ('model', model),
         ('frobenius_train', mean_frobenius_train),
-        ('frobenius_test', mean_frobenius_test),
-        ('prop_non_zeros_mean',prop_non_zero_mean))) 
+        ('frobenius_test', mean_frobenius_test)))             
     return scores
     
     
@@ -206,12 +199,7 @@ def reducer(key, values):
     results_file_path = os.path.join(dir_path,"results_dCV_5folds.xlsx")
     config = json.load(open(config_path))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
-    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_5.0")]
-    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.5")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.8")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.01")]
+    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.8")]
 
    
     def close(vec, val, tol=1e-4):
@@ -240,11 +228,10 @@ def reducer(key, values):
     columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
     
-         
+
     with pd.ExcelWriter(results_file_path) as writer:
         scores_refit.to_excel(writer, sheet_name='scores_all', index=False)
-       
-
+        
 
 def run_test(wd, config):
     print("In run_test")
@@ -266,14 +253,13 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
-    BASE_PATH = '/neurospin/brainomics/2016_AUSZ/results/VBM'
-    WD = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only'    
-    INPUT_DATA_X = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/X_patients_only.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/mask.nii'
+    WD = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/FS_pca_tv_patients_only'    
+    INPUT_DATA_X = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/X_patients_only.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/mask.npy'
 
-    NFOLDS = 5
-    NCOMP = 5
-    number_features = np.load(INPUT_DATA_X).shape[1]
+    NFOLDS_OUTER = 5
+    NFOLDS_INNER = 5
+    N_COMP = 5
 
     #############################################################################
     ## Create config file
@@ -299,6 +285,7 @@ if __name__ == "__main__":
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
       
     print((list(cv.keys())))  
+
     ###########################
     #Grid of parameters to explore
     ###########################
@@ -311,16 +298,15 @@ if __name__ == "__main__":
              ('struct_pca', 0.01, 0.1, 0.5),('struct_pca', 0.01, 0.5, 0.1),('struct_pca', 0.01, 0.5, 0.5),\
              ('struct_pca', 0.1, 0.5, 0.8),('struct_pca', 0.1, 0.1, 0.8),('struct_pca', 0.1, 0.8, 0.1),\
              ('struct_pca', 0.1, 0.8, 0.5),('struct_pca', 0.1, 0.8, 0.8)]         
-    
     shutil.copy(INPUT_DATA_X, WD)
-    shutil.copy(INPUT_MASK_PATH, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)       
     
-    user_func_filename = "/home/ad247405/git/scripts/2016_AUSZ/VBM/pcatv_patients.py"
+    user_func_filename = "/home/ad247405/git/scripts/2016_AUSZ/Freesurfer/FS_pcatv_patients.py"
     
     config = dict(data=dict(X="X_patients_only.npy"),
-                  params=params, resample= cv,
-                  structure="mask.nii",
-                  N_COMP = NCOMP,
+                  params=params, resample=cv,
+                  structure="mask.npy",
+                  N_COMP = N_COMP,
                   map_output="model_selectionCV", 
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
@@ -330,15 +316,17 @@ if __name__ == "__main__":
     
     
     
-    
-    #################################################################
+        #################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime="1000:00:00")
-
+#        ################################################################
+#        # Sync to cluster
+    #print ("Sync data to gabriel.intra.cea.fr: ")
+    #os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
@@ -358,3 +346,4 @@ if __name__ == "__main__":
     #########################################################################
     print "# Reduce"
     print "mapreduce.py --reduce %s/config.json" % WD"""
+

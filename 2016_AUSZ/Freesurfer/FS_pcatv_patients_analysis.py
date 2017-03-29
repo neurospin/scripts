@@ -1,11 +1,10 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Oct 25 17:24:46 2016
+Created on Wed Feb  1 15:12:19 2017
 
 @author: ad247405
 """
-
-
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -28,18 +27,16 @@ from sklearn.metrics import precision_recall_fscore_support,recall_score
 from sklearn.metrics import roc_auc_score, recall_score
 from sklearn.metrics import roc_auc_score, recall_score
 
-INPUT_BASE_DIR = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca'
-INPUT_MASK = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/mask.nii'             
-DATA_Y = "/neurospin/brainomics/2016_AUSZ/results/VBM/data/y.npy"
+INPUT_BASE_DIR = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/FS_pca_tv_patients_only'
+INPUT_MASK = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/mask.npy'             
+DATA_Y = "/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/y.npy"
 
 y = np.load(DATA_Y) 
 y = y[y!=0]
 
-WD = "/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1"
+WD = "/neurospin/brainomics/2016_AUSZ/results/Freesurfer/FS_pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.8_0.1"
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 projections =  np.load(os.path.join(WD,"X_test_transform.npz"))['arr_0']
-
-#############################################################################
 
 #############################################################################
 
@@ -111,27 +108,3 @@ for i in range(3):
     P.plot(x, y, 'bo', alpha=0.6)
 
 P.show()
-
-#4th component
-y = np.load(DATA_Y) 
-y = y[y!=0]
-
-scz = projections[y==1,4]
-scz_asd = projections[y==2,4]
-asd = projections[y==3,4]
-data = [scz,scz_asd,asd]
-
-import pylab as P
-import numpy as np
-P.figure()
-bp = P.boxplot(data)
-P.ylabel('Predicted')
-plt.ylabel('Score on 4th component')
-P.xticks([1, 2, 3], ['SCZ', 'SCZ-ASD', 'ASD'])
-for i in range(3):
-    y = data[i]
-    x = np.random.normal(1+i, 0.04, size=len(y))
-    P.plot(x, y, 'bo', alpha=0.6)
-
-P.show()
-

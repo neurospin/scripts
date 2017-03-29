@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 24 17:43:28 2016
+Created on Mon Oct 24 17:42:52 2016
 
 @author: ad247405
 """
@@ -22,19 +22,18 @@ from sklearn.metrics import roc_auc_score
 import array_utils
 import shutil
 
-BASE_PATH =  '/neurospin/brainomics/2016_AUSZ/results/VBM'
-WD = '/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/enettv_scz_vs_scz-asd'
+BASE_PATH =  '/neurospin/brainomics/2016_AUSZ/results/Freesurfer'
+WD = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/scz_vs_asd/enettv_scz_vs_asd'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
-
 #############################################################################
 
 
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = nibabel.load(config["structure"])
-    A = tv_helper.A_from_mask(STRUCTURE.get_data())
+    STRUCTURE = np.load(config["structure"])
+    A = tv_helper.A_from_mask(STRUCTURE)
     GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
 
 
@@ -199,12 +198,12 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH =  '/neurospin/brainomics/2016_AUSZ/results/VBM'
-    WD = '/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/enettv_scz_vs_scz-asd'
-    INPUT_DATA_X = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/mask.nii'
-    INPUT_CSV = '/neurospin/brainomics/2016_AUSZ/results/VBM/population.csv'
+    BASE_PATH =  '/neurospin/brainomics/2016_AUSZ/results/Freesurfer'
+    WD = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer//scz_vs_asd/enettv_scz_vs_asd'
+    INPUT_DATA_X = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/X.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/y.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/data/mask.npy'
+    INPUT_CSV = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/population.csv'
 
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
@@ -212,17 +211,18 @@ if __name__ == "__main__":
     X = np.load(INPUT_DATA_X)
     y = np.load(INPUT_DATA_y)
 
-    X = X[y!= 1,:]
-    y = y[y!= 1]
+
+    #SCZ vs CONTROLS (3 vs 0)
+    ##########################
     X = X[y!= 0,:]
     y = y[y!= 0]
-
+    X = X[y!= 2,:]
+    y = y[y!= 2]
     y[y==3]=0
-    y[y==2]=1
-    np.save('/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/X.npy',X)
-    np.save('/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/y.npy',y)
-    new_X = '/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/X.npy'
-    new_y = '/neurospin/brainomics/2016_AUSZ/results/VBM/scz_vs_scz-asd/y.npy'
+    np.save('/neurospin/brainomics/2016_AUSZ/results/Freesurfer/scz_vs_asd/X.npy',X)
+    np.save('/neurospin/brainomics/2016_AUSZ/results/Freesurfer/scz_vs_asd/y.npy',y)
+    new_X = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/scz_vs_asd/X.npy'
+    new_y = '/neurospin/brainomics/2016_AUSZ/results/Freesurfer/scz_vs_asd/y.npy'
     
         # Copy the learning data
     shutil.copy(new_X, WD)
@@ -230,6 +230,7 @@ if __name__ == "__main__":
     shutil.copy(INPUT_MASK_PATH, WD)
 
     #############################################################################
+    ## Create config file
     ## Create config file
     y = np.load(new_y)
 
@@ -268,18 +269,19 @@ if __name__ == "__main__":
     params = [np.round(params,2).tolist() for params in alphal1l2tv]
 
 
-    user_func_filename = "/home/ad247405/git/scripts/2016_AUSZ/VBM/EnetTV/enettv_scz_vs_scz_asd.py"
+
+
+    user_func_filename = "/home/ad247405/git/scripts/2016_AUSZ/Freesurfer/EnetTV/enettv_scz_vs_asd.py"
     
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
-                  structure="mask.nii",
+                  structure="mask.npy",
                   map_output="results", 
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="params",
                   reduce_output="results.csv")
     json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
-    
     
         #################################################################
     # Build utils files: sync (push/pull) and PBS
@@ -291,4 +293,4 @@ if __name__ == "__main__":
         ################################################################
         # Sync to cluster
     print ("Sync data to gabriel.intra.cea.fr: ")
-    os.system(sync_push_filename)
+    #os.system(sync_push_filename)

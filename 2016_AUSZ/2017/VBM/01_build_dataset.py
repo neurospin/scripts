@@ -29,9 +29,9 @@ import mulm
 import sklearn
 
 
-BASE_PATH = '/neurospin/brainomics/2016_AUSZ'
-INPUT_CSV= os.path.join(BASE_PATH,"results","VBM","population.csv")
-OUTPUT = os.path.join(BASE_PATH,"results","VBM","data")
+BASE_PATH = '/neurospin/brainomics/2016_AUSZ/2017/'
+INPUT_CSV= os.path.join(BASE_PATH,"VBM","population.csv")
+OUTPUT = os.path.join(BASE_PATH,"VBM","data")
 
 
 # Read pop csv
@@ -70,7 +70,7 @@ shape = babel_image.get_data().shape
 Xtot = np.vstack(images)
 mask = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
 mask = mask.reshape(shape)
-assert mask.sum() == 397541
+assert mask.sum() == 303240
 
 #############################################################################
 # Compute atlas mask
@@ -83,7 +83,7 @@ assert np.sum(mask_atlas != 0) == 617728
 mask_atlas[np.logical_not(mask)] = 0  # apply implicit mask
 # smooth
 mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
-assert np.sum(mask_atlas != 0) ==  352467
+assert np.sum(mask_atlas != 0) ==  261210
 out_im = nibabel.Nifti1Image(mask_atlas,
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask.nii"))
@@ -93,7 +93,7 @@ assert np.all(mask_atlas == im.get_data())
 #############################################################################
 # Compute mask with atlas but binarized (not group tv)
 mask_bool = mask_atlas != 0
-mask_bool.sum() == 352467
+mask_bool.sum() == 261210
 out_im = nibabel.Nifti1Image(mask_bool.astype("int16"),
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask.nii"))
@@ -109,12 +109,12 @@ X = Xtot[:, mask_bool.ravel()]
 #imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
 #Z = imput.fit_transform(Z)
 X = np.hstack([Z, X])
-assert X.shape == (123, 352470)
+assert X.shape ==  (123, 261213)
 
 #Remove nan lines 
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-assert X.shape == (123, 352470)
+assert X.shape == (123, 261213)
 
 
 X -= X.mean(axis=0)
@@ -123,6 +123,11 @@ X[:, 0] = 1.
 n, p = X.shape
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+np.save(os.path.join(OUTPUT, "X_patients_only.npy"), X[y!=0,:])
+np.save(os.path.join(OUTPUT, "y_patients_only.npy"), y[y!=0])
+
+
 
 ###############################################################################
 X = np.load(os.path.join(OUTPUT, "X.npy"))

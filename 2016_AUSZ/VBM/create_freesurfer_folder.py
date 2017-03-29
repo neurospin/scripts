@@ -15,7 +15,7 @@ import nibabel as nib
 import glob
 
 BASE_PATH =  '/neurospin/brainomics/2016_AUSZ'
-in_file ='/neurospin/brainomics/2016_AUSZ/subject_DICOM_dir.txt'
+in_file ='/neurospin/brainomics/2016_AUSZ/data/list_dicom_dir.txt'
 
 
 FS_directory = '/neurospin/brainomics/2016_AUSZ/data/Freesurfer'
@@ -26,7 +26,7 @@ inf=open(in_file, "r")
 for subject_dir in inf.readlines():
     subject_dir = subject_dir.replace("\n","")   
     os.chdir(subject_dir)
-    print subject_dir
+    print(subject_dir)
     name = os.path.basename(os.path.split(subject_dir)[0])
     cmd = "cp T1_VBM/T1.nii "+ FS_directory+'/'+name+'_T1.nii'
     os.system(cmd)

@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Nov 16 16:05:57 2016
+Created on Mon Oct 24 09:42:15 2016
 
 @author: ad247405
 """
 
 import os
-import pandas as pd
 import glob
+import pandas as pd
 
+#import proj_classif_config
 GROUP_MAP = {1: 1, '2a': 2, '2b': 3, 3 : 0}
 GENDER_MAP = {'F': 0, 'M': 1}
 
-
+#1 TSA
+#2a scz-asd
+#2b: schizophrenia
+#3 controls
 
 BASE_PATH = '/neurospin/brainomics/2016_AUSZ'
 INPUT_CLINIC_FILENAME = '/neurospin/brainomics/2016_AUSZ/documents/Tableau_IRM_AUSZ_GM_16_12.xlsx'
-INPUT_FS = '/neurospin/brainomics/2016_AUSZ/preproc_FS/freesurfer_assembled_data_fsaverage'
-
-OUTPUT_CSV = os.path.join(BASE_PATH,"results","Freesurfer","population.csv")
+INPUT_DATA = '/neurospin/brainomics/2016_AUSZ/data/'
+OUTPUT_CSV = os.path.join(BASE_PATH,"2017","VBM","population.csv")
 
 
 #AUSZpopulation file
@@ -67,57 +70,36 @@ clinic.loc[row_index,"IRM.1"] =  'RC160676'
 assert  clinic.shape == (136, 11)
 
 
-# Read free surfer assembled_data
-input_subjects_fs = dict()
-paths = glob.glob(INPUT_FS+"/*_lh.mgh")
-for path in paths:
-    subject = os.path.basename(path)[:-10]
-    input_subjects_fs[subject] = [path]
+subjects = list()
+paths = glob.glob(INPUT_DATA+"/*/*/*/T1_VBM/mwc1T1.nii")
+for i in range(len(paths)):
+    subjects.append(os.path.split(os.path.split(os.path.split(os.path.split(paths[i])[0])[0])[0])[1]) 
 
-paths = glob.glob(INPUT_FS+"/*_rh.mgh")
-for path in paths:
-    subject =os.path.basename(path)[:-10]
-    input_subjects_fs[subject].append(path)
-    
-# drop images that do not correspond to AUSZ dataset    
-
-# Remove if some hemisphere is missing
-input_subjects_fs = [[k]+input_subjects_fs[k] for k in input_subjects_fs if len(input_subjects_fs[k]) == 2]
-
-input_subjects_fs = pd.DataFrame(input_subjects_fs,  columns=["IRM.1", "mri_path_lh",  "mri_path_rh"])
-assert input_subjects_fs.shape == (130, 3)
+input_subjects_vbm = pd.DataFrame(subjects, columns=["IRM.1"])
+input_subjects_vbm["path_VBM"] = paths
+assert input_subjects_vbm.shape == (130, 2)                        
 
 #Remove the 4 images that are not AUSZ (according to Gilles mail)
-input_subjects_fs = input_subjects_fs[input_subjects_fs["IRM.1"] != "SA130280"]
-input_subjects_fs = input_subjects_fs[input_subjects_fs["IRM.1"] != "CF140297"]
-input_subjects_fs = input_subjects_fs[input_subjects_fs["IRM.1"] != "BM130180"]
-input_subjects_fs = input_subjects_fs[input_subjects_fs["IRM.1"] != "CT130238"]
+input_subjects_vbm = input_subjects_vbm[input_subjects_vbm["IRM.1"] != "SA130280"]
+input_subjects_vbm = input_subjects_vbm[input_subjects_vbm["IRM.1"] != "CF140297"]
+input_subjects_vbm = input_subjects_vbm[input_subjects_vbm["IRM.1"] != "BM130180"]
+input_subjects_vbm = input_subjects_vbm[input_subjects_vbm["IRM.1"] != "CT130238"]
 
-assert input_subjects_fs.shape == (126, 3)
+assert input_subjects_vbm.shape == (126, 2)
+
 
 
 # intersect with subject with image
-clinic = clinic.merge(input_subjects_fs, on="IRM.1")
-pop = clinic[["IRM.1","Groupe", "Sexe", "Âge", "mri_path_lh",  "mri_path_rh"]]
-assert pop.shape == (126, 6)
+clinic = clinic.merge(input_subjects_vbm, on="IRM.1")
+pop = clinic[["IRM.1","Groupe", "Sexe", "Âge", "path_VBM"]]
+assert pop.shape == (126, 5) 
 
 pop = pop[pop["Groupe"]!="exclu"]
-assert pop.shape == (123, 6) 
+assert pop.shape == (123, 5) 
 
 # Map group
 pop['group.num'] = pop["Groupe"].map(GROUP_MAP)
 pop['sex.num'] = pop["Sexe"].map(GENDER_MAP)
-
 # Save population information
 pop.to_csv(OUTPUT_CSV, encoding='utf-8' ) 
 ##############################################################################
-
-
-
-
-
- #Check subjects that do not correpsond between images and clinic   
-#for i, ID in enumerate(input_subjects_fs["IRM.1"] ):
-#    if ID not in list(clinic["IRM.1"]):
-#        print (ID)
-#        print ("is not in list")

@@ -16,9 +16,9 @@ import json
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca'
-INPUT_DIR = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca/5_folds/results'
-INPUT_MASK = '/neurospin/brainomics/2016_AUSZ/results/VBM/mask.nii'             
+INPUT_BASE_DIR = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only'
+INPUT_DIR = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV'
+INPUT_MASK = '/neurospin/brainomics/2016_AUSZ/results/VBM/data/mask.nii'             
 INPUT_RESULTS_FILE=os.path.join(INPUT_BASE_DIR,"results.csv")                          
 INPUT_CONFIG_FILE = os.path.join(INPUT_BASE_DIR,"5_folds","config.json")
 OUTPUT_DIR = os.path.join(INPUT_BASE_DIR,"components_extracted")
@@ -47,38 +47,45 @@ OUTPUT_COMPONENTS_FILE_FORMAT = os.path.join(OUTPUT_DIR,'{name}.nii')
 config = json.load(open(INPUT_CONFIG_FILE))
 
 
-# Load components and store them as nifti images
-####################################################################
-#data = pd.read_csv(INPUT_RESULTS_FILE)
 
-for param in config["params"]:
-    components = np.zeros((number_features, N_COMP))
-    fold=0
-    key = '_'.join([str(p)for p in param])
-    print "process", key
 
-    components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=fold,key=key)
-    projections_filename = INPUT_PROJECTIONS_FILE_FORMAT.format(fold=fold,key=key) 
 
-    components = np.load(components_filename)['arr_0']
-    projections = np.load(projections_filename)['arr_0']
-    assert projections.shape[1] == components.shape[1]
+WD = "/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1"
+comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
+for i in range(comp.shape[1]):
+    current_comp = comp[:,i]
+    arr = np.zeros(mask_bool.shape);
+    arr[mask_bool] = current_comp.ravel()
+    out_im = nib.Nifti1Image(arr, affine=babel_mask.get_affine())
+    filename = os.path.join(WD,"comp_%d.nii.gz" %i)
+    out_im.to_filename(filename)
 
-    # Loading as images
-    loadings_arr = np.zeros((mask_bool.shape[0], mask_bool.shape[1], mask_bool.shape[2], N_COMP))
-    for l in range(components.shape[1]):
-        loadings_arr[mask_bool, l] = components[:,l]
- 
-            
-    im = nib.Nifti1Image(loadings_arr,affine = babel_mask.get_affine())
-    figname = OUTPUT_COMPONENTS_FILE_FORMAT.format(name=key)
-    nib.save(im, figname)
-#####################################################################
 
-#
-#
-#import nilearn  
-#from nilearn import plotting
-#from nilearn import image
-#filename = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca/components_extracted/struct_pca_0.1_0.5_0.8/vol0004.nii.gz'
-#nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
+import nilearn  
+from nilearn import plotting
+from nilearn import image
+filename = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1/comp_0.nii.gz'
+beta = nibabel.load(filename).get_data()
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
+
+filename = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1/comp_1.nii.gz'
+beta = nibabel.load(filename).get_data()
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
+
+
+filename = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1/comp_2.nii.gz'
+beta = nibabel.load(filename).get_data()
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
+
+
+filename = '/neurospin/brainomics/2016_AUSZ/results/VBM/pca_tv_patients_only/model_selectionCV/all/all/struct_pca_0.1_0.1_0.1/comp_3.nii.gz'
+beta = nibabel.load(filename).get_data()
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
