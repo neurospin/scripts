@@ -85,7 +85,7 @@ def mapper(key, output_collector):
     
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
-    print "l1:%f, l2:%f, tv:%f" % (l1, l2, tv)
+    print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
 
     class_weight="auto" # unbiased
     
@@ -111,7 +111,7 @@ def mapper(key, output_collector):
 
 def scores(key, paths, config, ret_y=False):
     import mapreduce
-    print key
+    print(key)
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -125,7 +125,7 @@ def scores(key, paths, config, ret_y=False):
     betas = np.hstack([item["beta"] for item in values]).T    
     # threshold betas to compute fleiss_kappa and DICE
     import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
     success = r * s
     success = success.astype('int')
     accuracy = (r[0] * s[0] + r[1] * s[1])
@@ -178,32 +178,32 @@ def reducer(key, values):
             groups[p.split("/")[pos]].append(p)
         return groups
 
-    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="recall_mean"):
+    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="auc"):
         arg_max_byfold = list()
         for fold, data_fold in data.groupby(groupby):
             assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    print '## Refit scores'
-    print '## ------------'
+    print('## Refit scores')
+    print('## ------------')
     byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
-    byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
-    data = [byparams_scores[k].values() for k in byparams_scores]
+    data = [list(byparams_scores[k].values()) for k in byparams_scores]
 
-    columns = byparams_scores[byparams_scores.keys()[0]].keys()
+    columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
     
-    print '## doublecv scores by outer-cv and by params'
-    print '## -----------------------------------------'
+    print('## doublecv scores by outer-cv and by params')
+    print('## -----------------------------------------')
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
-    for fold, paths_fold in bycv.iteritems():
-        print fold
+    for fold, paths_fold in bycv.items():
+        print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
-        byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
-        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+        data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
     rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
@@ -211,18 +211,18 @@ def reducer(key, values):
     scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
     l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
 
-    print '## Model selection'
-    print '## ---------------'
+    print('## Model selection')
+    print('## ---------------')
     l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
     scores_argmax_byfold = l1l2tv
-    print '## Apply best model on refited'
-    print '## ---------------------------'
-    print l1l2tv
-    print [row for index, row in l1l2tv.iterrows()]
+    print('## Apply best model on refited')
+    print('## ---------------------------')
+    print(l1l2tv)
+    print([row for index, row in l1l2tv.iterrows()])
     scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
     scores_cv = pd.DataFrame([
-                  ["l1l2tv"] + scores_l1l2tv.values()], columns=["method"] + scores_l1l2tv.keys())
-    print scores_l1l2tv.values()           
+                  ["l1l2tv"] + list(scores_l1l2tv.values())], columns=["method"] + list(scores_l1l2tv.keys()))
+    print(list(scores_l1l2tv.values()))           
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
@@ -283,7 +283,7 @@ if __name__ == "__main__":
                 cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
     for k in cv:
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]       
-    print cv.keys()  
+    print(list(cv.keys()))  
     ###########################################################################
 
 #    # Full Parameters grid   

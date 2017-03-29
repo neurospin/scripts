@@ -163,7 +163,7 @@ def mapper(key, output_collector):
     # Compute Frobenius norm between original and recontructed datasets
     frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
-    print frobenius_test 
+    print(frobenius_test) 
 
 
     # Compute explained variance ratio
@@ -221,15 +221,15 @@ def reducer(key, values):
     #Solve non-identifiability problem  (baseline = first fold)
     for i in range(1,5):
         if np.abs(np.corrcoef(components[:,0,0],components[:,0,i])[0,1]) <  np.abs(np.corrcoef(components[:,0,0],components[:,1,i])[0,1]):
-            print "components inverted" 
-            print i
+            print("components inverted") 
+            print(i)
             temp_comp1 = np.copy(components[:,1,i])
             components[:,1,i] = components[:,0,i]
             components[:,0,i] = temp_comp1
             
         if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
-            print "components inverted" 
-            print i
+            print("components inverted") 
+            print(i)
             temp_comp2 = np.copy(components[:,2,i])
             components[:,2,i] = components[:,1,i]
             components[:,1,i] = temp_comp2    
@@ -279,7 +279,7 @@ def reducer(key, values):
 #    print dices_mean_path    
 #    np.save(dices_mean_path,dices.mean(axis=1) )
 
-    print key
+    print(key)
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
@@ -309,7 +309,7 @@ def reducer(key, values):
 
 
 def run_test(wd, config):
-    print "In run_test"
+    print("In run_test")
     import mapreduce
     os.chdir(wd)
     params = config['params'][-1]

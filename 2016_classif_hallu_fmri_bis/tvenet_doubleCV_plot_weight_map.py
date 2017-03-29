@@ -73,7 +73,7 @@ WD = ''
 arr = np.zeros(mask_bool.shape);
 arr[mask_bool] = beta.ravel()
 out_im = nibabel.Nifti1Image(arr, affine=babel_mask.get_affine())
-filename = os.path.join(WD,"weight_map_0.1_0.0_0.6_0.4.nii.gz")
+filename = os.path.join(WD,"weight_map.nii.gz")
 out_im.to_filename(filename)
   
   
@@ -88,5 +88,5 @@ beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
 import nilearn  
 from nilearn import plotting
 from nilearn import image
-nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,vmin = -0.001,vmax = 0.001)
 

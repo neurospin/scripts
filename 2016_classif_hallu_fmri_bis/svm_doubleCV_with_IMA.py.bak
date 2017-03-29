@@ -30,8 +30,7 @@ import pandas as pd
 from collections import OrderedDict
 
 BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
-#WD = os.path.join(BASE_PATH,"results/multivariate_analysis","svm","svm_model_selection")
-WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/model_selection'
+WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/with_IMA_model_selection'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
@@ -40,6 +39,7 @@ def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    GLOBAL.DATA_IMA = GLOBAL.load_data(config["data_IMA"])
     
 
 def resample(config, resample_nb):
@@ -56,12 +56,20 @@ def mapper(key, output_collector):
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
 
+    T_IMA = GLOBAL.DATA_IMA["X_IMA"] 
+    y_IMA = GLOBAL.DATA_IMA["y_IMA"] 
+    T = GLOBAL.DATA["X"]
+    y = GLOBAL.DATA["y"]
+    Tdiff=np.mean(T_IMA,axis=0)-np.mean(T[y==0],axis=0)
+    T_IMA_diff=T_IMA-Tdiff
+    
+    Xtr=np.vstack((T_IMA_diff,Xtr))
+    ytr=np.hstack((y_IMA,ytr))
+     
     
     c = float(key[0])
-    print("c:%f" % (c))
-
-    class_weight="auto" # unbiased
-    
+    print "c:%f" % (c)
+    class_weight="auto" # unbiased   
     mask = np.ones(Xtr.shape[0], dtype=bool)
    
     scaler = preprocessing.StandardScaler().fit(Xtr)
@@ -80,10 +88,9 @@ def mapper(key, output_collector):
 
 
        
-
 def scores(key, paths, config, ret_y=False):
     import mapreduce
-    print(key)
+    print key
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -97,7 +104,7 @@ def scores(key, paths, config, ret_y=False):
 
     betas = np.hstack([item["beta"] for item in values]).T
     import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
+    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
     success = r * s
     success = success.astype('int')
     accuracy = (r[0] * s[0] + r[1] * s[1])
@@ -145,47 +152,47 @@ def reducer(key, values):
             groups[p.split("/")[pos]].append(p)
         return groups
 
-    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="auc"):
+    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="recall_mean"):
         arg_max_byfold = list()
         for fold, data_fold in data.groupby(groupby):
             assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    print('## Refit scores')
-    print('## ------------')
+    print '## Refit scores'
+    print '## ------------'
     byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
-    byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
 
-    data = [list(byparams_scores[k].values()) for k in byparams_scores]
+    data = [byparams_scores[k].values() for k in byparams_scores]
 
-    columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
+    columns = byparams_scores[byparams_scores.keys()[0]].keys()
     scores_refit = pd.DataFrame(data, columns=columns)
     
-    print('## doublecv scores by outer-cv and by params')
-    print('## -----------------------------------------')
+    print '## doublecv scores by outer-cv and by params'
+    print '## -----------------------------------------'
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
-    for fold, paths_fold in bycv.items():
-        print(fold)
+    for fold, paths_fold in bycv.iteritems():
+        print fold
         byparams = groupby_paths([p for p in paths_fold], 3)
-        byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
-        data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
         scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
 
-    print('## Model selection')
-    print('## ---------------')
+    print '## Model selection'
+    print '## ---------------'
     svm = argmaxscore_bygroup(scores_dcv_byparams); svm["method"] = "svm"
     
     scores_argmax_byfold = svm
 
-    print('## Apply best model on refited')
-    print('## ---------------------------')
+    print '## Apply best model on refited'
+    print '## ---------------------------'
     scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in svm.iterrows()], config)
 
    
-    scores_cv = pd.DataFrame([["svm"] + list(scores_svm.values())], columns=["method"] + list(scores_svm.keys()))
+    scores_cv = pd.DataFrame([["svm"] + scores_svm.values()], columns=["method"] + scores_svm.keys())
    
          
     with pd.ExcelWriter(results_filename()) as writer:
@@ -194,17 +201,20 @@ def reducer(key, values):
         scores_argmax_byfold.to_excel(writer, sheet_name='scores_argmax_byfold', index=False)
         scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
 
+
 ##############################################################################
 
 
 if __name__ == "__main__":
     BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
-    
-    WD = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/model_selection"
-    INPUT_DATA_X = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','T.npy')
-    INPUT_DATA_y = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','y_state.npy')
-    INPUT_DATA_subject = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','subject.npy')
-    INPUT_MASK_PATH = os.path.join(BASE_PATH,'results_nov',"multivariate_analysis","data","MNI152_T1_3mm_brain_mask.nii.gz")
+    WD = WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/with_IMA_model_selection'
+    INPUT_DATA_X = os.path.join(BASE_PATH,'results26/multivariate_analysis/data','T.npy')
+    INPUT_DATA_y = os.path.join(BASE_PATH,'results26/multivariate_analysis/data','y_state.npy')
+    INPUT_DATA_subject = os.path.join(BASE_PATH,'results26/multivariate_analysis/data','subject.npy')   
+
+    INPUT_DATA_IMA_X = os.path.join(BASE_PATH,'results26/multivariate_analysis/data','T_IMA.npy')
+    INPUT_DATA_IMA_y = os.path.join(BASE_PATH,'results26/multivariate_analysis/data','y_IMA.npy')
+    INPUT_MASK_PATH = os.path.join(BASE_PATH,'results26',"multivariate_analysis","MNI152_T1_3mm_brain_mask.nii.gz")
     INPUT_CSV = os.path.join(BASE_PATH,"population26oct.txt")
 
     pop = pd.read_csv(INPUT_CSV,delimiter=' ')
@@ -248,7 +258,7 @@ if __name__ == "__main__":
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
        
-    print(list(cv.keys()))  
+    print cv.keys()  
 
   
 
@@ -257,9 +267,11 @@ if __name__ == "__main__":
     
     
     user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2016_classif_hallu_fmri_bis", "svm_doubleCV.py")
+        "git", "scripts", "2016_classif_hallu_fmri_bis", "svm_doubleCV_with_IMA.py")
     
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y), subject = INPUT_DATA_subject,
+    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+                  data_IMA=dict(X_IMA=INPUT_DATA_IMA_X, y_IMA=INPUT_DATA_IMA_y),
+                  subject = INPUT_DATA_subject,
                   params=C_range, resample=cv,
                   structure=INPUT_MASK_PATH,
                   map_output="model_selectionCV", 

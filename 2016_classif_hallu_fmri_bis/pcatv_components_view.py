@@ -62,7 +62,7 @@ for param in config["params"]:
     components = np.zeros((number_features, N_COMP))
     fold=0
     key = '_'.join([str(p)for p in param])
-    print "process", key
+    print("process", key)
 
     components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=fold,key=key)
     projections_filename = INPUT_PROJECTIONS_FILE_FORMAT.format(fold=fold,key=key) 

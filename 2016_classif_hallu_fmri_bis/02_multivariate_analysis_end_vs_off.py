@@ -18,7 +18,6 @@ from sklearn.feature_selection import SelectPercentile, f_classif
 from mulm import MUOLS
 import random
 import brainomics
-import matplotlib.pyplot as plt
 
 # Read pop csv
 
@@ -45,12 +44,9 @@ T = []
 betas = []
 y_state = []
 subject = []
-age = []
-sex = []
+
 for i in range(number_subjects):
     subject_data_path = pop.data_path.ix[i]
-    current_age = (pop.age[i])
-    current_sex = (pop.sex[i])
     X = nibabel.load(subject_data_path).get_data()    
     X = X[:,:,:,60:]
     Xr = np.zeros((X.shape[3],img_shape[0] * img_shape[1] * img_shape[2]))
@@ -63,21 +59,21 @@ for i in range(number_subjects):
     #detrending   
     X=nilearn.signal.clean(X,detrend=True,standardize=True,confounds=None,low_pass=None, high_pass=None, t_r=0.01925)
     
-    subject_labels = np.load(pop.state_path.ix[i])
+    subject_labels = np.load(pop.state_path.ix[i],encoding='latin1')
      
     #Use labelisation infos
-    labels_periods = np.zeros(sum(subject_labels=='TRANS')+sum(subject_labels=='OFF'))
-    labels_on_trans = np.zeros(sum(subject_labels=='TRANS')+sum(subject_labels=='OFF')) 
+    labels_periods = np.zeros(sum(subject_labels=='END')+sum(subject_labels=='OFF'))
+    labels_on_trans = np.zeros(sum(subject_labels=='END')+sum(subject_labels=='OFF')) 
     index = 0    
     period_number=1
     state_of_interest_bool = np.zeros(X.shape[0])
     for j in range(840):
-        if subject_labels[j] =='TRANS':
+        if subject_labels[j] =='END':
             state_of_interest_bool[j] = True
             labels_periods[index] = period_number
             labels_on_trans[index] = 1
             index= index +1
-            if subject_labels[j+1] != 'TRANS':
+            if subject_labels[j+1] != 'END':
                 y_state.append(1)
                 subject.append(i)
                 period_number= period_number +1
@@ -96,7 +92,7 @@ for i in range(number_subjects):
     X=X[state_of_interest_bool==1,:]
        
     #Create Design Matrix with ramps
-    design_mat = np.zeros((sum(subject_labels=='TRANS') + sum(subject_labels=='OFF'), period_number - 1))
+    design_mat = np.zeros((sum(subject_labels=='END') + sum(subject_labels=='OFF'), period_number - 1))
     for k in range(1,period_number):
         design_mat[labels_periods == k,k-1]= np.arange(1,sum(labels_periods==k)+1)
      
@@ -110,14 +106,10 @@ for i in range(number_subjects):
     #Univariate statistics    
     muols = MUOLS(Y=X,X=design_mat)
     muols.fit()
-    betas_value = muols.coef
-    err_ss = muols.err_ss
     tvals, pvals, dfs = muols.t_test(contrasts,pval=True, two_tailed=True)
     for m in range (0,period_number-1):
-            age.append(current_age)
-            sex.append(current_sex)
             T.append(tvals[m])
-            betas.append(betas_value[m])
+            betas.append(tvals[m])
             block_index = block_index+1
             print(block_index)
 
@@ -127,29 +119,20 @@ T = np.array(T)
 betas = np.array(betas)
 y_state = np.array(y_state)
 subject = np.array(subject)
-age = np.array(age)
-sex = np.array(sex)
-
 ##################################
 
-#Add covariaates
-T = np.vstack([age,sex, T.T]).T
+T = np.nan_to_num(T)
 
-from sklearn.preprocessing import Imputer
-imp = Imputer(missing_values='NaN', strategy='mean', axis=0)
-imp.fit(T)
-T = imp.transform(T)
-#impute missing values with mean   
-   
+
  #Store variables
 ##############################################################################
-#np.save(os.path.join(BASE_PATH,'results26','multivariate_analysis','data','T.npy'),T)
-#np.save(os.path.join(BASE_PATH,'results26','multivariate_analysis','data','betas.npy'),betas)
-#np.save(os.path.join(BASE_PATH,'results26','multivariate_analysis','data','y_state.npy'),y_state)
-#np.save(os.path.join(BASE_PATH,'results26','multivariate_analysis','data','subject.npy'),subject)
-#
+np.save(os.path.join(BASE_PATH,'results_nov','multivariate_analysis','data','T_end_vs_off.npy'),T)
+np.save(os.path.join(BASE_PATH,'results_nov','multivariate_analysis','data','betas_end_vs_off.npy'),betas)
+np.save(os.path.join(BASE_PATH,'results_nov','multivariate_analysis','data','y_state_end_vs_off.npy'),y_state)
+np.save(os.path.join(BASE_PATH,'results_nov','multivariate_analysis','data','subject_end_vs_off.npy'),subject)
 
-np.save(os.path.join('/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/data','T.npy'),T)
-np.save(os.path.join('/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/data','betas.npy'),betas)
-np.save(os.path.join('/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/data','y_state.npy'),y_state)
-np.save(os.path.join('/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/data','subject.npy'),subject)
+
+#np.save(os.path.join(BASE_PATH,'results','multivariate_analysis','without_subject19','data_without_subject19','T.npy'),T)
+#np.save(os.path.join(BASE_PATH,'results','multivariate_analysis','without_subject19','data_without_subject19','betas.npy'),betas)
+#np.save(os.path.join(BASE_PATH,'results','multivariate_analysis','without_subject19','data_without_subject19','y_state.npy'),y_state)
+#np.save(os.path.join(BASE_PATH,'results','multivariate_analysis','without_subject19','data_without_subject19','subject.npy'),subject)

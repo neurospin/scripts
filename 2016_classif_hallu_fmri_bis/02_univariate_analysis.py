@@ -118,7 +118,7 @@ for i in range(number_subjects):
     muols.fit()
     tvals, pvals, dfs = muols.t_test(contrast,pval=True, two_tailed=True)
     T[i,:]=tvals
-    print i
+    print(i)
 
 
   
@@ -205,7 +205,7 @@ tvals, pvals, dfs = muols.t_test(contrast,pval=True, two_tailed=True)
         
 max_t = list()
 
-for i in xrange(nperms): 
+for i in range(nperms): 
         r=np.zeros((number_subjects-1,1))
         r[:,0]=np.random.choice((-1,1),number_subjects-1)
         Tp=r*abs(T)
@@ -218,12 +218,12 @@ for i in xrange(nperms):
             tvals_perm = np.abs(tvals_perm)
         max_t.append(np.nanmax(tvals_perm, axis=1))
         del muols
-        print i
+        print(i)
             
 max_t = np.array(max_t)
 tvals_ = np.abs(tvals) if two_tailed else tvals
 pvalues = np.array([np.array([np.sum(max_t[:, con] >= t) for t in tvals_[con, :]])\
-                / float(nperms) for con in xrange(contrast.shape[0])])
+                / float(nperms) for con in range(contrast.shape[0])])
 
 pvalues = np.nan_to_num(pvalues)
 #############################################################################
