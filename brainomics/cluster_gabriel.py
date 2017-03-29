@@ -44,9 +44,9 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     if wd_cluster is None:
         wd_cluster = os.path.join("/neurospin", "tmp", user,
                                   os.path.basename(wd))
-    print "# Make sure parent dir of wd_cluster exists"
+    print ("# Make sure parent dir of wd_cluster exists")
     cmd = 'ssh %s@gabriel.intra.cea.fr "mkdir %s"' % (user, os.path.dirname(wd_cluster))
-    print cmd
+    print (cmd)
     os.system(cmd)
     # preserve:
     # recursive, link, time, group, owner, Devices (scpecial), update, verbose, compress
@@ -55,13 +55,13 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
     sync_push_filename = os.path.join(wd, "sync_push.sh")
     with open(sync_push_filename, 'wb') as f:
         f.write(push_str)
-    os.chmod(sync_push_filename, 0777)
+    os.chmod(sync_push_filename,0o777)
     pull_str = 'rsync -rltgoDuvz %s@gabriel.intra.cea.fr:%s %s/' % (
         user, wd_cluster, os.path.dirname(wd))
     sync_pull_filename = os.path.join(wd, "sync_pull.sh")
     with open(sync_pull_filename, 'wb') as f:
         f.write(pull_str)
-    os.chmod(sync_pull_filename, 0777)
+    os.chmod(sync_pull_filename, 0o777)
     return sync_push_filename, sync_pull_filename, wd_cluster
 
 
@@ -176,4 +176,4 @@ def write_job_file(job_filename, job_name, cmd, queue, job_limits=None):
         f.write("""#PBS -q %s\n""" % queue)
         f.write("\n")
         f.write("%s\n" % cmd)
-    os.chmod(job_filename, 0777)
+    os.chmod(job_filename, 0o777)
