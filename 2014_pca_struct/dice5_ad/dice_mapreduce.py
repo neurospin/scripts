@@ -67,8 +67,8 @@ OUTPUT_DIR_FORMAT = os.path.join(OUTPUT_BASE_DIR,
 N_COMP = 10
 
 ##
-#TRAIN_RANGE = range(dice5_data.N_SAMPLES/2)
-#TEST_RANGE = range(dice5_data.N_SAMPLES/2, dice5_data.N_SAMPLES)
+#TRAIN_RANGE = range(int(dice5_data.N_SAMPLES/2))
+#TEST_RANGE = range(int(dice5_data.N_SAMPLES/2), dice5_data.N_SAMPLES)
 
 
 
@@ -157,9 +157,7 @@ def mapper(key, output_collector):
         ll1, ll2, ltv = compute_coefs_from_ratios(global_pen,
                                                   tv_ratio,
                                                   l1_ratio)
-        # This should not happen
-        if ll1 > GLOBAL.l1_max:
-            raise ValueError
+
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
@@ -293,7 +291,7 @@ def mapper(key, output_collector):
 
 def reducer(key, values):
     output_collectors = values
-    print output_collectors[0]
+    print (output_collectors[0])
     global N_COMP
     import mapreduce as GLOBAL
     components=np.zeros((10000,3))
@@ -316,7 +314,7 @@ def reducer(key, values):
     tv = values["tv"]
     times = values["time"]
          
-    print key
+
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
@@ -337,35 +335,35 @@ def mse(imageA, imageB):
     
 
 #Solve non_identifiability of components 
-def identify_comp(comp):
-    if np.abs(np.corrcoef(comp[:,0,0],comp[:,0,i])[0,1]) <  np.abs(np.corrcoef(comp[:,0,0],comp[:,1,i])[0,1]):
-        print "components inverted" 
-        print i
-        temp_comp1 = np.copy(comp[:,1,i])
-        comp[:,1,i] = comp[:,0,i]
-        comp[:,0,i] = temp_comp1
-        
-    if np.abs(np.corrcoef(comp[:,1,0],comp[:,1,i])[0,1]) <  np.abs(np.corrcoef(comp[:,1,0],comp[:,2,i])[0,1]):
-        print "components inverted" 
-        print i
-        temp_comp2 = np.copy(comp[:,2,i])
-        comp[:,2,i] = comp[:,1,i]
-        comp[:,1,i] = temp_comp2
-    return comp
+#def identify_comp(comp):
+#    if np.abs(np.corrcoef(comp[:,0,0],comp[:,0,i])[0,1]) <  np.abs(np.corrcoef(comp[:,0,0],comp[:,1,i])[0,1]):
+#        print "components inverted" 
+#        print i
+#        temp_comp1 = np.copy(comp[:,1,i])
+#        comp[:,1,i] = comp[:,0,i]
+#        comp[:,0,i] = temp_comp1
+#        
+#    if np.abs(np.corrcoef(comp[:,1,0],comp[:,1,i])[0,1]) <  np.abs(np.corrcoef(comp[:,1,0],comp[:,2,i])[0,1]):
+#        print "components inverted" 
+#        print i
+#        temp_comp2 = np.copy(comp[:,2,i])
+#        comp[:,2,i] = comp[:,1,i]
+#        comp[:,1,i] = temp_comp2
+#    return comp
 
-def run_test(wd, config):
-    print "In run_test"
-    import mapreduce
-    os.chdir(wd)
-    params = config['params'][-1]
-    key = '_'.join([str(p) for p in params])
-    load_globals(config)
-    OUTPUT = os.path.join('test', key)
-    oc = mapreduce.OutputCollector(OUTPUT)
-    X = np.load(config['data']['X'])
-    mapreduce.DATA_RESAMPLED = {}
-    mapreduce.DATA_RESAMPLED["X"] = [X, X]
-    mapper(params, oc)
+#def run_test(wd, config):
+#    print "In run_test"
+#    import mapreduce
+#    os.chdir(wd)
+#    params = config['params'][-1]
+#    key = '_'.join([str(p) for p in params])
+#    load_globals(config)
+#    OUTPUT = os.path.join('test', key)
+#    oc = mapreduce.OutputCollector(OUTPUT)
+#    X = np.load(config['data']['X'])
+#    mapreduce.DATA_RESAMPLED = {}
+#    mapreduce.DATA_RESAMPLED["X"] = [X, X]
+#    mapper(params, oc)
 
 #################
 # Actual script #
@@ -415,7 +413,7 @@ if __name__ == '__main__':
                      if ll2>1e-6:
                          if ltv>1e-17:
                              correct_params.append(params)   
-        print correct_params
+       
         # Local output directory for this dataset
         output_dir = os.path.join(OUTPUT_BASE_DIR,
                                   OUTPUT_DIR_FORMAT.format(s=dice5_data.SHAPE,

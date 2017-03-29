@@ -154,10 +154,10 @@ T_IMA_diff=T_IMA-Tdiff
 
 #Use betas in the classifier
 
-bdiff=np.mean(b_IMA,axis=0)-np.mean(b[y==0],axis=0)
-b_IMA_diff=b_IMA-bdiff
-T_IMA_diff=b_IMA_diff
-T=b
+#bdiff=np.mean(b_IMA,axis=0)-np.mean(b[y==0],axis=0)
+#b_IMA_diff=b_IMA-bdiff
+#T_IMA_diff=b_IMA_diff
+#T=b
 
 
 n=0
@@ -165,7 +165,7 @@ list_predict=list()
 list_true=list()
 coef=np.zeros((23,63966))
 #coef=np.zeros((24,8028))
-clf = svm.LinearSVC(C=10e-6,fit_intercept=True,class_weight='auto')
+clf = svm.LinearSVC(C=10e-4,fit_intercept=True,class_weight='auto')
 
 for i in range(1,24):
     test_bool=(subject==i)
@@ -174,8 +174,8 @@ for i in range(1,24):
     ytest=y[test_bool]
     Xtrain=np.vstack((T_IMA_diff,T[train_bool,:]))
     ytrain=np.hstack((y_IMA,y[train_bool]))
-    Xtrain=T[train_bool,:]
-    ytrain=y[train_bool]
+#    Xtrain=T[train_bool,:]
+#    ytrain=y[train_bool]
     list_true.append(ytest.ravel())
     scaler = preprocessing.StandardScaler().fit(Xtrain)
     Xtrain = scaler.transform(Xtrain)
@@ -210,8 +210,42 @@ arr[mask_bool] = mean_coef
 out_im = nibabel.Nifti1Image(arr, affine=babel_mask.get_affine())
 out_im.to_filename(os.path.join(BASE_PATH,"toward_on","svm_with_HC","beta_mean.nii"))
 
-    
+
 ############################################################################
+def dice_bar(thresh_comp):
+    """Given an array of thresholded component of size n_voxels x n_folds,
+    compute the average DICE coefficient.
+    """
+    n_voxels, n_folds = thresh_comp.shape
+    # Paire-wise DICE coefficient (there is the same number than
+    # pair-wise correlations)
+    n_corr = n_folds * (n_folds - 1) / 2
+    thresh_comp_n0 = thresh_comp != 0
+    # Index of lines (folds) to use
+    ij = [[i, j] for i in xrange(n_folds) for j in xrange(i + 1, n_folds)]
+    num =([2 * (np.sum(thresh_comp_n0[:,idx[0]] & thresh_comp_n0[:,idx[1]]))
+    for idx in ij])
+
+    denom = [(np.sum(thresh_comp_n0[:,idx[0]]) + \
+              np.sum(thresh_comp_n0[:,idx[1]]))
+             for idx in ij]
+    dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
+    print dices
+    return dices.mean()
+    
+   
+from brainomics import array_utils   
+T=np.load(os.path.join(BASE_PATH,'toward_on','svm_with_HC','betas_24.npy'))
+#T=np.load(os.path.join(BASE_PATH,'toward_on','Logistic_L1_L2_TV_with_HC','betas_mean.npy'))
+
+T_thresh = np.zeros(T.shape)
+for i in range(0,23):
+    T_thresh[i,:], t = array_utils.arr_threshold_from_norm2_ratio(T[i,:] )
+############################################################################
+dice=dice_bar(T_thresh.T)
+
+
+
 #Test with permutations the significance of a classification score
 # The p-value is then given by the percentage of runs for which the score
 #obtained is greater than the classification score obtained in the first place
@@ -289,3 +323,29 @@ plt.xlabel('Specificity')
 plt.hist(sen, 10, label='Permutation scores')
 plt.plot(2 * [0.54],plt.ylim(),'--g', linewidth=3)
 plt.xlabel('Sensitivity')
+
+
+
+
+
+#Classification
+###############################################################################
+
+import csv
+
+
+error = np.zeros((165))
+for i in range(165):
+    if t[i]==p[i]:
+        error[i]=0
+        
+    else:
+        error[i]=1  
+        
+    
+a=np.array((subject,t,p,error))
+a=a.T
+   
+
+df = pd.DataFrame(a,columns=['subject', 'true', 'prediction','error'])
+df.to_csv('/neurospin/brainomics/2016_classif_hallu_fmri/toward_on/Logistic_L1_L2_TV_with_HC/0.1_0.1_0.1_classification_file.csv')

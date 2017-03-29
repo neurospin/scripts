@@ -80,7 +80,7 @@ params=np.array(('struct_pca', '0.1', '1e-06', '0.1'))
 components  =np.zeros((63966, 10))
 fold=0
 key = '_'.join([str(param)for param in params])
-print "process", key
+print("process", key)
 name=params[0]
 
 components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=fold,key=key)

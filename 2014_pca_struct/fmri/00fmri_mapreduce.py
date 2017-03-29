@@ -11,20 +11,15 @@ import os
 import json
 import time
 import shutil
-from itertools import product
 from collections import OrderedDict
 import numpy as np
-import scipy
-import pandas as pd
 import sklearn.decomposition
-from sklearn.cross_validation import StratifiedKFold
-import nibabel
 import parsimony.functions.nesterov.tv
 import pca_tv
 import metrics
-from brainomics import array_utils
-import brainomics.cluster_gabriel as clust_utils
 import nibabel as nib
+from sklearn.model_selection import StratifiedKFold
+import array_utils
 ################
 # Input & output #
 ##################
@@ -44,27 +39,7 @@ OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/fmri/fmri_5folds_hallu_only"
 # Note that value at index 1 will be the name of the task on the cluster
 CONFIGS = [[5, "fmri_5folds", "config_5folds.json", True]]
 N_COMP = 3
-## Global penalty
-#GLOBAL_PENALTIES = np.array([0.01,0.1,1])
-## Relative penalties
-#TVRATIO = np.array([0.5, 0.33,0.1])
-#L1RATIO = np.array([0.5,1e-2])
 
-#PCA_PARAMS = [('pca', 0.0, 0.0, 0.0)]
-#
-#STRUCT_PCA_PARAMS = list(product(['struct_pca'],
-#                                 GLOBAL_PENALTIES,
-#                                 TVRATIO,
-#                                 L1RATIO))                            
-#                                 
-#                                 
-#SPARSE_PCA = [('sparse_pca', 0.1, 1e-6, 0.01),('sparse_pca', 0.1,  1e-6, 0.5),('sparse_pca',  0.01, 1e-6, 0.01),('sparse_pca', 0.01, 1e-6, 0.5),('sparse_pca', 1, 1e-6, 0.01),('sparse_pca', 1, 1e-6, 0.5)]
-#PARAMS = PCA_PARAMS + STRUCT_PCA_PARAMS + SPARSE_PCA
-
-#PARAMS= [('struct_pca', 0.1, 0.1, 0.1),('struct_pca', 0.1, 0.1, 0.5),\
-#('struct_pca', 0.1, 0.1, 0.8),('struct_pca', 0.1, 0.5, 0.1),\
-#('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.1, 0.5, 0.8),\
-#('struct_pca', 0.1, 0.8, 0.1),('struct_pca', 0.1, 0.8, 0.5),('struct_pca', 0.1, 0.8, 0.8)]
 
 PARAMS= [('struct_pca', 1, 0.1, 0.1),('struct_pca', 1, 0.1, 0.5),\
 ('struct_pca', 1, 0.1, 0.8),('struct_pca', 1, 0.5, 0.1),\
@@ -80,8 +55,6 @@ PARAMS= [('struct_pca', 1, 0.1, 0.1),('struct_pca', 1, 0.1, 0.5),\
 
 def load_globals(config):
     import mapreduce as GLOBAL
-    im_shape = config["im_shape"]
-    #Atv = parsimony.functions.nesterov.tv.A_from_shape(im_shape)
     nib_mask = nib.load(INPUT_MASK)
     Atv = parsimony.functions.nesterov.tv.A_from_mask(nib_mask.get_data())
     GLOBAL.Atv = Atv
@@ -108,11 +81,6 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         # Force the key
         global_pen = tv_ratio = l1_ratio = 0
-#    if model_name == 'sparse_pca':
-#        # Force the key
-#        ltv = 1e-6
-#        ll1 = l1_ratio * global_pen
-#        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
      
     if model_name == 'sparse_pca':   
         
@@ -135,15 +103,7 @@ def mapper(key, output_collector):
     # Fit model
     if model_name == 'pca':
         model = sklearn.decomposition.PCA(n_components=N_COMP)
-#    if model_name == 'sparse_pca':
-#       model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
-#                                    l1=ll1, l2=ll2, ltv=ltv,
-#                                    Atv=Atv,
-#                                    criterion="frobenius",
-#                                    eps=1e-6,
-#                                    max_iter=100,
-#                                    inner_max_iter=int(1e4),
-#                                    output=False)
+
         
     if model_name == 'sparse_pca':
         model = sklearn.decomposition.SparsePCA(n_components=N_COMP,alpha = ll1)                                  
@@ -168,7 +128,7 @@ def mapper(key, output_collector):
     # Save the projectors
     if (model_name == 'pca') or (model_name == 'sparse_pca'):
         V = model.components_.T
-        print V.shape
+        print((V.shape))
     if model_name == 'struct_pca' :
         V = model.V
 
@@ -196,7 +156,7 @@ def mapper(key, output_collector):
     # Compute Frobenius norm between original and recontructed datasets
     frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
-    print frobenius_test 
+    print(frobenius_test) 
 
 
     # Compute explained variance ratio
@@ -269,15 +229,15 @@ def reducer(key, values):
     #Solve non-identifiability problem  (baseline = first fold)
     for i in range(1,5):
         if np.abs(np.corrcoef(components[:,0,0],components[:,0,i])[0,1]) <  np.abs(np.corrcoef(components[:,0,0],components[:,1,i])[0,1]):
-            print "components inverted" 
-            print i
+            print("components inverted") 
+            print(i)
             temp_comp1 = np.copy(components[:,1,i])
             components[:,1,i] = components[:,0,i]
             components[:,0,i] = temp_comp1
             
         if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
-            print "components inverted" 
-            print i
+            print("components inverted") 
+            print(i)
             temp_comp2 = np.copy(components[:,2,i])
             components[:,2,i] = components[:,1,i]
             components[:,1,i] = temp_comp2    
@@ -319,15 +279,15 @@ def reducer(key, values):
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
         dice_bars[k],dices[:,k] = metrics.dice_bar(thresh_comp) 
        
-    print dices.mean(axis=1) 
+    print(dices.mean(axis=1)) 
     dices_mean_path = os.path.join(OUTPUT_DIR,'fmri_5folds/results','dices_mean_%s.npy' %key[0])
     if key[0] == 'struct_pca' and key[2]==1e-6:
         dices_mean_path = os.path.join(OUTPUT_DIR,'fmri_5folds/results','dices_mean_%s.npy' %'enet_pca')
         
-    print dices_mean_path    
+    print(dices_mean_path)    
     np.save(dices_mean_path,dices.mean(axis=1) )
 
-    print key
+    print(key)
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
@@ -358,7 +318,7 @@ def reducer(key, values):
 
 
 def run_test(wd, config):
-    print "In run_test"
+    print("In run_test")
     import mapreduce
     os.chdir(wd)
     params = config['params'][-1]
@@ -403,30 +363,6 @@ def create_config(y, n_folds, output_dir, filename,
                   reduce_output="results.csv")
     config_full_filename = os.path.join(full_output_dir, filename)
     json.dump(config, open(config_full_filename, "w"))
-
-#    # Create files to synchronize with the cluster
-#    sync_push_filename, sync_pull_filename, CLUSTER_WD = \
-#    clust_utils.gabriel_make_sync_data_files(full_output_dir)
-
-    # Create job files
-    # As the dataset is big we don't use standard files
-#    limits = OrderedDict()
-#    limits['host'] = OrderedDict()
-#    limits['host']['nodes'] = 10
-#    limits['host']['ppn'] = 6
-#    limits['mem'] = "25gb"
-#    limits['walltime'] = "96:00:00"
-#    queue = "Cati_long"
-#    cluster_cmd = "mapreduce.py -m {dir}/{file} --ncore {ppn}".format(
-#                            dir=CLUSTER_WD,
-#                            file=filename,
-#                            ppn=limits['host']['ppn'])
-#    job_file_name = os.path.join(full_output_dir, "job_" + queue +".pbs")
-#    clust_utils.write_job_file(job_file_name,
-#                               job_name=output_dir,
-#                               cmd=cluster_cmd,
-#                               queue=queue,
-#                               job_limits=limits)
     return config
 
 #################

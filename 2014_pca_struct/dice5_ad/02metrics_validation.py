@@ -29,7 +29,7 @@ import scipy.stats
 
 
 
-BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5_ad_validation/oldies"
+BASE_DIR = "/neurospin/brainomics/2014_pca_struct/dice5_ad_validation/"
 
 #Load components of all 50 datasets 
 ##############################################################################
@@ -43,7 +43,7 @@ components_tv= np.zeros((10000,3, 50))
 
 for i in range(50):
        
-    INPUT_RESULTS_DIR= os.path.join(BASE_DIR,"results_0.1_1e-6_5folds/data_100_100_%r") % (i) 
+    INPUT_RESULTS_DIR= os.path.join(BASE_DIR,"results_0.1_1e-6/data_100_100_%r") % (i) 
     INPUT_DATA_DIR= os.path.join(BASE_DIR,"data_0.1/data_100_100_%r") % (i) 
     INPUT_RESULTS_FILE = os.path.join(INPUT_RESULTS_DIR, "results.csv")
     INPUT_BETA_FILE = os.path.join(INPUT_DATA_DIR, "beta3d.npy") 
@@ -85,13 +85,13 @@ for i in range(50):
     comp = np.load(comp_path)
     components_tv[:,:,i]=comp['arr_0']
 
-    print i
+    print (i)
 
 
-print MSE_results
-print MSE_results[:,:].mean(axis=0)
-print MSE_results[:,:].std(axis=0)
-print frob[:,:].mean(axis=0)
+print (MSE_results)
+print (MSE_results[:,:].mean(axis=0))
+print (MSE_results[:,:].std(axis=0))
+print (frob[:,:].mean(axis=0))
 
 # Boxplot of MSE scores across methods
 ###############################################################################

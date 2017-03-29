@@ -87,7 +87,7 @@ list_predict=list()
 list_true=list()
 coef=np.zeros((24,63966))
 #coef=np.zeros((24,8028))
-clf = svm.LinearSVC(C=10e-8,fit_intercept=False,class_weight='auto')
+clf = svm.LinearSVC(C=10e-7,fit_intercept=False,class_weight='auto')
 
 for i in range(1,24):
     test_bool=(subject==i)
@@ -106,6 +106,16 @@ for i in range(1,24):
     list_predict.append(pred)
     print n 
     n=n+1 
+
+t=np.concatenate(list_true)
+p=np.concatenate(list_predict)
+recall_scores = recall_score(t,p,pos_label=None, average=None,labels=[0,1])
+acc=metrics.accuracy_score(t,p)
+pre=recall_scores[0]
+rec=recall_scores[1]
+print acc
+print pre
+print rec
     
 #############################################################################
 #Save weights and std of SVM coef

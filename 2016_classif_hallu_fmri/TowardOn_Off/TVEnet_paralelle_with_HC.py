@@ -86,29 +86,34 @@ y_all=np.hstack((y_IMA,y))
 #############################################################################    
 #parameter grid 
 #tv_range = np.hstack([np.arange(0, 1., .1), [0.05, 0.01, 0.005, 0.001,]])
-tv_range = np.hstack([np.arange(0, 1., .1)])
-ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],[.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
-l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-l1l2tv.append(np.array([[0., 0., 1.]]))
-l1l2tv = np.concatenate(l1l2tv)
-params = [params.tolist() for params in l1l2tv]
+#tv_range = np.hstack([np.arange(0, 1., .1)])
+#ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.9, .1, 1],[.1, .9, 1], [.01, .99, 1], [.001, .999, 1]])
+#l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+#l1l2tv.append(np.array([[0., 0., 1.]]))
+#l1l2tv = np.concatenate(l1l2tv)
+#params = [params.tolist() for params in l1l2tv]
+
+params= [[0.1,0.5,0.5]]
+
 #############################################################################    
 
 #File to store classification scores
-f=open(os.path.join(BASE_PATH,'toward_on','Logistic_L1_L2_TV_with_HC','parameters_scoresBetas.csv'),'wb')
+f=open(os.path.join(BASE_PATH,'toward_on','Logistic_L1_L2_TV_with_HC','parameters_scores_april2.csv'),'wb')
 c=csv.writer(f,delimiter=',')
-c.writerow(["alpha","l1","l2","tv","accuracy","recall_0","recall_1","precision_0","precision_1","auc"])
+c.writerow(["alpha","l1","tv","accuracy","recall_0","recall_1","precision_0","precision_1","auc"])
 
 
 # Empirically set the global penalty, based on maximum l1 penaly
-alpha = l1_max_logistic_loss(T_all, y_all)
+#alpha = l1_max_logistic_loss(T_all, y_all)
+
+
 conesta = algorithms.proximal.CONESTA(max_iter=500)
 A= nesterov_tv.linear_operator_from_mask(mask_bool)
 
 # Messages for communication between processes
 FLAG_STOP_PROCESS     = "STOP_WORK"
 FLAG_PROCESS_FINISHED = "PROCESS_HAS_FINISHED"
-nb_processes=55
+nb_processes=1
  # Data structures for parallel processing
 manager = Manager()  # multiprocessing.Manager()
 work_queue, result_queue = manager.Queue(), manager.Queue()
@@ -143,21 +148,25 @@ def parallel_worker(work_queue, result_queue):
 
 
 def fitting(p):
-
-    l1, l2, tv= alpha * float(p[0]), alpha * float(p[1]), alpha * float(p[2])
-    clf= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta)
+    global_pen,l1_ratio, tv_ratio, = p[0],p[1],p[2]
+    
+    ltv = global_pen * tv_ratio
+    ll1 = l1_ratio * global_pen * (1 - tv_ratio)
+    ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+        
+    
+    #l1, l2, tv= alpha * float(p[0]), alpha * float(p[1]), alpha * float(p[2])
+    clf= estimators.LogisticRegressionL1L2TV(ll1,ll2,ltv, A, algorithm=conesta)
     n=0  
     list_predict=list()
     list_true=list()
     list_proba_pred=list()
-    coef=np.zeros((23,sum(mask_bool)))     
+    coef=np.zeros((23,63966))     
     for i in range(1,24):
         test_bool=(subject==i)
         train_bool=(subject!=i)
         Xtest=T[test_bool,:]
         ytest=y[test_bool]
-#        Xtrain=T[train_bool,:]
-#        ytrain=y[train_bool]
         Xtrain=np.vstack((T_IMA_diff,T[train_bool,:]))
         ytrain=np.hstack((y_IMA,y[train_bool]))
         list_true.append(ytest.ravel())
@@ -180,7 +189,7 @@ def fitting(p):
     precision, recall, f, s = precision_recall_fscore_support(true,pred, average=None)
     acc=metrics.accuracy_score(true,pred)
     auc = roc_auc_score(true,pred)
-    current=[alpha,p[0],p[1],p[2],acc,recall[0],recall[1],precision[0],precision[1],auc]
+    current=[global_pen,l1_ratio,tv_ratio,acc,recall[0],recall[1],precision[0],precision[1],auc]
     np.save(os.path.join(BASE_PATH,'toward_on','Logistic_L1_L2_TV_with_HC','betas_subj.npy'),coef)    
     return current
 
@@ -216,7 +225,7 @@ except KeyboardInterrupt:  # To stop if user uses ctrl+c
         worker.terminate()
         worker.join()
 
-
+f.close()
 #############################################################################    
 
 #############################################################################
@@ -276,3 +285,32 @@ plt.ylabel(" Balanced Accuracy")
 plt.xlabel(r'TV ratio: $\lambda_{tv}/(\lambda_1 + \lambda_2 + \lambda_{tv})$')
 plt.grid(True)
 plt.legend()
+
+
+
+
+
+
+
+
+
+
+
+import csv
+
+
+error = np.zeros((165))
+for i in range(165):
+    if true[i]==pred[i]:
+        error[i]=0
+        
+    else:
+        error[i]=1  
+        
+    
+a=np.array((subject,true,pred.reshape(165),error,projections[:,2]))
+a=a.T
+   
+
+df = pd.DataFrame(a,columns=['subject', 'true', 'prediction','error','score_3rd'])
+df.to_csv('/neurospin/brainomics/2016_classif_hallu_fmri/toward_on/Logistic_L1_L2_TV_with_HC/0.1_0.1_0.1_classification_file.csv')

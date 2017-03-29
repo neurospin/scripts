@@ -48,7 +48,7 @@ params=np.array(('struct_pca', '0.1', '0.5', '0.5'))
 components  =np.zeros((63966, 3))
 fold=0
 key = '_'.join([str(param)for param in params])
-print "process", key
+print("process", key)
 name=params[0]
 
 components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=fold,key=key)
@@ -73,19 +73,19 @@ for i in range(1,6):
 
 #frob[0] is PCA-TV and frbo[1] is sparse, frob[2] is Enet
 tval, pval = scipy.stats.ttest_rel(frob[3,:],frob[1,:])
-print ("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval)
+print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
 
 tval, pval = scipy.stats.ttest_rel(frob[3,:],frob[2,:])
-print ("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval)
+print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
 
 ################################################################################
 #Test Frob norm significance with 
 diff_sparse = frob[1,:] - frob[3,:] 
 diff_enet = frob[2,:] - frob[3,:]   
 pval = one_sample_permutation_test(y=diff_sparse,nperms = 1000)
-print ("Frob stats for TV vs sparse: pvalue = %r ") %(pval)
+print(("Frob stats for TV vs sparse: pvalue = %r ") %(pval))
 pval = one_sample_permutation_test(y=diff_enet,nperms = 1000)
-print ("Frob stats for TV vs Enet: pvalue = %r ") %(pval)
+print(("Frob stats for TV vs Enet: pvalue = %r ") %(pval))
 
 
   
@@ -104,9 +104,9 @@ diff_sparse = dices_tv - dices_sparse
 diff_enet = dices_tv - dices_enet
 
 pval = one_sample_permutation_test(y=diff_sparse,nperms = 1000)
-print ("Dice index stats for TV vs sparse: pvalue = %r ") %(pval)
+print(("Dice index stats for TV vs sparse: pvalue = %r ") %(pval))
 pval = one_sample_permutation_test(y=diff_enet,nperms = 1000)
-print ("Dice index stats for TV vs Enet: pvalue = %r ") %(pval)
+print(("Dice index stats for TV vs Enet: pvalue = %r ") %(pval))
 ###############################################################################
 
 
@@ -123,7 +123,7 @@ def one_sample_permutation_test(y,nperms):
     T,p =scipy.stats.ttest_1samp(y,0.0)       
     max_t = list()
     
-    for i in xrange(nperms): 
+    for i in range(nperms): 
             r=np.random.choice((-1,1),y.shape)
             y_p=r*abs(y)
             Tperm,pp =scipy.stats.ttest_1samp(y_p,0.0)    
@@ -144,7 +144,7 @@ def dice_bar(thresh_comp):
     n_corr = n_folds * (n_folds - 1) / 2
     thresh_comp_n0 = thresh_comp != 0
     # Index of lines (folds) to use
-    ij = [[i, j] for i in xrange(n_folds) for j in xrange(i + 1, n_folds)]
+    ij = [[i, j] for i in range(n_folds) for j in range(i + 1, n_folds)]
     num =([2 * (np.sum(thresh_comp_n0[:,idx[0]] & thresh_comp_n0[:,idx[1]]))
     for idx in ij])
 

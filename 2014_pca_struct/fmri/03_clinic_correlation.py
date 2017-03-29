@@ -60,7 +60,7 @@ params=np.array(('struct_pca', '0.1', '0.5', '0.5'))
 components  =np.zeros((63966, 3))
 fold=0
 key = '_'.join([str(param)for param in params])
-print "process", key
+print("process", key)
 name=params[0]
 
 components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=fold,key=key)
@@ -91,7 +91,7 @@ pop = pd.DataFrame(table_patients,columns=["subject","state","PC_0","PC_1","PC_2
 
 import statsmodels.api as sm
 mlm_full = sm.MixedLM.from_formula('state ~ PC_1 + PC_2 + PC_0', data=pop, groups=pop["subject"]).fit()
-print(mlm_full.summary())
+print((mlm_full.summary()))
 #####################################################################
 from sklearn import cluster
 mod = cluster.KMeans(n_clusters=2)

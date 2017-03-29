@@ -172,21 +172,20 @@ y_all=np.hstack((y_IMA,y))
 #SVM & Leave one subject-out - no feature selection - WITH IMA samples 
 #############################################################################
 
+#
+#bdiff=np.mean(b_IMA,axis=0)-np.mean(b[y==0],axis=0)
+#b_IMA_diff=b_IMA-bdiff
+#T_IMA_diff=b_IMA_diff
+#T=b
 
-bdiff=np.mean(b_IMA,axis=0)-np.mean(b[y==0],axis=0)
-b_IMA_diff=b_IMA-bdiff
-T_IMA_diff=b_IMA_diff
-T=b
 
-#Tdiff=T_IMA.mean(axis==0)-T[y==0].mean(axis==0)
-#T_IMA_diff=T_IMA-Tdiff
 
 n=0
 list_predict=list()
 list_true=list()
 coef=np.zeros((23,63966))
 #coef=np.zeros((24,8028))
-clf = svm.LinearSVC(C=10e-7,fit_intercept=True,class_weight='auto')
+clf = svm.LinearSVC(C=10e-8,fit_intercept=True,class_weight='auto')
 
 for i in range(1,24):
     test_bool=(subject==i)
