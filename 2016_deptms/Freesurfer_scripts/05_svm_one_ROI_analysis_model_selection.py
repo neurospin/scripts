@@ -1,6 +1,15 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov  7 15:29:22 2016
+Created on Thu Dec  1 16:36:29 2016
+
+@author: ad247405
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 30 15:57:20 2016
 
 @author: ad247405
 """
@@ -10,23 +19,21 @@ import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-import nibabel
 from sklearn import svm
-from sklearn.metrics import precision_recall_fscore_support
-from sklearn.feature_selection import SelectKBest
-import brainomics.image_atlas
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
+from sklearn.metrics import precision_recall_fscore_support
 import pandas as pd
-from collections import OrderedDict
+import shutil
+
 
 BASE_PATH = '/neurospin/brainomics/2016_deptms'
-WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/svm/svm_model_selection_5folds'
+WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/svm_rois/ROIs/EstimatedTotalIntraCranialVol'
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
-def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
+def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
 
 
@@ -64,8 +71,9 @@ def mapper(key, output_collector):
     mod = svm.LinearSVC(C=c,fit_intercept=False,class_weight= class_weight)
 
     mod.fit(Xtr, ytr.ravel())
+    proba_pred = mod.decision_function(Xte)
     y_pred = mod.predict(Xte)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.coef_,  mask=mask)
+    ret = dict(y_pred=y_pred, y_true=yte,proba_pred=proba_pred, beta=mod.coef_,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -81,12 +89,12 @@ def scores(key, paths, config, ret_y=False):
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
-    #prob_pred = [item["proba_pred"].ravel() for item in values]
+    prob_pred = [item["proba_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
-    #prob_pred = np.concatenate(prob_pred)
+    prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    auc = roc_auc_score(y_true, y_pred) #area under curve score.
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
     betas = np.hstack([item["beta"] for item in values]).T
     #Compute pvalue                  
     success = r * s
@@ -118,8 +126,6 @@ def scores(key, paths, config, ret_y=False):
     scores['param_key'] = key
     return scores
     
-    
-    
 def reducer(key, values):
     import os, glob, pandas as pd
     os.chdir(os.path.dirname(config_filename()))
@@ -145,7 +151,7 @@ def reducer(key, values):
 
     print('## Refit scores')
     print('## ------------')
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if p.count("all") and not p.count("all/all")],3)   
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
     data = [list(byparams_scores[k].values()) for k in byparams_scores]
@@ -156,7 +162,7 @@ def reducer(key, values):
     print('## doublecv scores by outer-cv and by params')
     print('## -----------------------------------------')
     data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.items():
         print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
@@ -173,14 +179,14 @@ def reducer(key, values):
 
     print('## Apply best model on refited')
     print('## ---------------------------')
-    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in svm.iterrows()], config)
+    scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
 
    
     scores_cv = pd.DataFrame([["svm"] + list(scores_svm.values())], columns=["method"] + list(scores_svm.keys()))
    
          
     with pd.ExcelWriter(results_filename()) as writer:
-        scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
+        scores_refit.to_excel(writer, sheet_name='scores_all', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
         scores_argmax_byfold.to_excel(writer, sheet_name='scores_argmax_byfold', index=False)
         scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
@@ -189,61 +195,76 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH = "/neurospin/brainomics/2016_deptms"
-    WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/svm/svm_model_selection_5folds'
-    INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/X.npy'
+    BASE_PATH="/neurospin/brainomics/2016_deptms"
+    INPUT_DATA_STATS = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/freesurfer_stats"
     INPUT_DATA_y = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/mask.npy'
-    INPUT_CSV = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/population.csv'
+    INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/Xrois_thickness.npy'
+    OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/svm_rois/ROIs"
+    INPUT_CSV = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/population.csv"
+
 
     pop = pd.read_csv(INPUT_CSV,delimiter=' ')
     number_subjects = pop.shape[0]
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
+    
+    df = pd.read_csv(os.path.join(INPUT_DATA_STATS,"aseg_volume_all.csv"),sep='\t')
+  
 
+    
+    
+    for roi in df.keys():
+        print ("ROI", roi)
+        WD = os.path.join(OUTPUT,roi)
+        if not os.path.exists(WD):
+            os.makedirs(WD)
+        X = df[roi]
+        X = X.as_matrix()  
+        X = X.reshape(number_subjects,1)
+        np.save(os.path.join(WD, 'X.npy'),X)
+        shutil.copy2(INPUT_DATA_y, os.path.join(WD, 'y.npy'))
+       
+    
     #############################################################################
      ## Create config file
-    y = np.load(INPUT_DATA_y)
-
-    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
-    if cv_outer[0] is not None: # Make sure first fold is None
-        cv_outer.insert(0, None)   
-        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
-        cv_outer[0] = null_resampling
-            
-#     
-    import collections
-    cv = collections.OrderedDict()
-    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
-        if cv_outer_i == 0:
-            cv["refit/refit"] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
-        else:    
-            cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
-    for k in cv:
-        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
-
-       
-    print(list(cv.keys()))  
-
-
-    C_range = [[100],[10],[1],[1e-1],[1e-2],[1e-3],[1e-4],[1e-5],[1e-6],[1e-7],[1e-8],[1e-9]]
-    #assert len(C_range) == 12
+        y = np.load(INPUT_DATA_y)
+    
+        cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+        if cv_outer[0] is not None: # Make sure first fold is None
+            cv_outer.insert(0, None)   
+            null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
+            cv_outer[0] = null_resampling
+                
+    #     
+        import collections
+        cv = collections.OrderedDict()
+        for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
+            if cv_outer_i == 0:
+                cv["all/all"] = [tr_val, te]
+             
+            else:    
+                cv["cv%02d/all" % (cv_outer_i -1)] = [tr_val, te]
+                cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+                for cv_inner_i, (tr, val) in enumerate(cv_inner):
+                    cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
+        for k in cv:
+            cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
+    
+           
+        print(list(cv.keys()))  
     
     
-    user_func_filename = "/home/ad247405/git/scripts/2016_deptms/Freesurfer_scripts/03_svm_model_selection.py"
+        C_range = [[100],[10],[1],[1e-1],[1e-2],[1e-3],[1e-4],[1e-5],[1e-6],[1e-7],[1e-8],[1e-9]]
+        #assert len(C_range) == 12
     
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
-                  params=C_range, resample=cv,
-                  structure=INPUT_MASK_PATH,
-                  map_output="model_selectionCV", 
-                  user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="params",
-                  reduce_output="model_selectionCV.csv")
-    json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+    
+        user_func_filename = "/home/ad247405/git/scripts/2016_deptms/Freesurfer_scripts/05_svm_one_ROI_analysis_model_selection.py"
+        
+        config = dict(data=dict(X=os.path.join(WD, 'X.npy'), y=os.path.join(WD, 'y.npy')),
+                      params=C_range, resample=cv,
+                      map_output="model_selectionCV", 
+                      user_func=user_func_filename,
+                      reduce_input="results/*/*",
+                      reduce_group_by="params",
+                      reduce_output="model_selectionCV.csv")
+        json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))

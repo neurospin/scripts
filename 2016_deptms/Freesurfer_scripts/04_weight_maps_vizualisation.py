@@ -18,6 +18,21 @@ BASE_PATH= "/neurospin/brainomics/2016_deptms/analysis/Freesurfer"
 TEMPLATE_PATH = os.path.join(BASE_PATH, "freesurfer_template")                      
 OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv/model_selection_5folds"
 
+#ICAAR
+###################################################################################
+#svm
+penalty_start = 2
+MASK_PATH = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/mask.npy"
+OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/svm/svm_model_selection_5folds/1e-07" 
+beta = np.load(os.path.join(OUTPUT,"beta.npz"))['arr_0'][0,2:]
+
+
+#enettv
+penalty_start = 2
+MASK_PATH = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/mask.npy"
+OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv/model_selection_5folds/0.1_0.1_0.1_0.8" 
+beta = np.load(os.path.join(OUTPUT,"beta.npz"))['arr_0'][2:]
+beta,_ = array_utils.arr_threshold_from_norm2_ratio(beta,0.99)
 
 
 shutil.copyfile(os.path.join(TEMPLATE_PATH, "lh.pial.gii"), os.path.join(OUTPUT, "lh.pial.gii"))
@@ -63,20 +78,16 @@ assert mask_left__beta.sum() == mask_left__left_mesh.sum()
 assert mask_right__beta.sum() == mask_right__right_mesh.sum()
 
 #############################################################################
-beta = np.load(os.path.join(OUTPUT,"beta.npz"))['arr_0']
-beta,_ = array_utils.arr_threshold_from_norm2_ratio(beta,0.99)
-
-
 
 #Save loading vectors
 #############################################################################
  # left
 tex = np.zeros(mask_left__left_mesh.shape)
 tex[mask_left__left_mesh] = beta[mask_left__beta]
-print "left", np.sum(tex != 0), tex.max(), tex.min()
+print("left", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT,"tex_beta_left.gii"), data=tex)
 # right
 tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = beta[mask_right__beta]
-print "right", np.sum(tex != 0), tex.max(), tex.min()
+print("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_beta_right.gii"), data=tex)

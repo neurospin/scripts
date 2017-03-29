@@ -19,7 +19,7 @@ OUTPUT_CSV = os.path.join(BASE_PATH,"analysis","VBM","population.csv")
 
 
 
-#ICAAR + EUGEI population file
+
 ##############################################################################
 # Read clinic data
 clinic = pd.read_csv(INPUT_CLINIC_FILENAME)

@@ -42,7 +42,7 @@ y = np.zeros((n, 1)) # DX
 images = list()
 for i, index in enumerate(pop.index):
     cur = pop[pop.index== index]
-    print cur
+    print(cur)
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
