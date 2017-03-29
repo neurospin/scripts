@@ -15,22 +15,15 @@ import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.feature_selection import SelectKBest
-from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
-import brainomics.image_atlas
 import parsimony.algorithms as algorithms
-import parsimony.datasets as datasets
-import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
-import parsimony.algorithms as algorithms
-import parsimony.utils as utils
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score, recall_score
+from sklearn.metrics import roc_auc_score
 import pandas as pd
-from collections import OrderedDict
+import array_utils
 
 BASE_PATH='/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR+EUGEI'
 #WD = os.path.join(BASE_PATH,"results/multivariate_analysis","logistic_regression_tv/model_selection")
@@ -66,7 +59,7 @@ def mapper(key, output_collector):
     
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
-    print "l1:%f, l2:%f, tv:%f" % (l1, l2, tv)
+    print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
 
     class_weight="auto" # unbiased
     
@@ -92,7 +85,7 @@ def mapper(key, output_collector):
 
 def scores(key, paths, config):
     import mapreduce
-    print key
+    print(key)
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -105,16 +98,17 @@ def scores(key, paths, config):
     auc = roc_auc_score(y_true, prob_pred) #area under curve score.
     betas = np.hstack([item["beta"] for item in values]).T    
     # threshold betas to compute fleiss_kappa and DICE
-    import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+    
+    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
+    #Compute pvalue                  
     success = r * s
     success = success.astype('int')
-    accuracy = (r[0] * s[0] + r[1] * s[1])
-    accuracy = accuracy.astype('int')
     prob_class1 = np.count_nonzero(y_true) / float(len(y_true))
-    pvalue_recall0 = binom_test(success[0], s[0], 1 - prob_class1)
-    pvalue_recall1 = binom_test(success[1], s[1], prob_class1)
-    pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
+    pvalue_recall0_true_prob = binom_test(success[0], s[0], 1 - prob_class1,alternative = 'greater')
+    pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
+    pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
+    pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
+    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
     scores = OrderedDict()
     try:    
         a, l1, l2 , tv  = [float(par) for par in key.split("_")]
@@ -130,13 +124,13 @@ def scores(key, paths, config):
     scores['recall_mean'] = r.mean()
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
-    scores['accuracy'] = accuracy/ float(len(y_true))
-    scores['pvalue_recall_0'] = pvalue_recall0
-    scores['pvalue_recall_1'] = pvalue_recall1
-    scores['pvalue_accuracy'] = pvalue_accuracy
-    scores['max_pvalue_recall'] = np.maximum(pvalue_recall0, pvalue_recall1)
     scores['recall_mean'] = r.mean()
     scores['auc'] = auc
+    scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
+    scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
+    scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
+    scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
+    scores['pvalue_recall_mean'] = pvalue_recall_mean
     scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
                                     float(np.prod(betas_t.shape))
     scores['param_key'] = key
@@ -167,26 +161,26 @@ def reducer(key, values):
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    print '## Refit scores'
-    print '## ------------'
+    print('## Refit scores')
+    print('## ------------')
     byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
-    print byparams
-    byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+    print(byparams)
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
-    data = [byparams_scores[k].values() for k in byparams_scores]
+    data = [list(byparams_scores[k].values()) for k in byparams_scores]
 
-    columns = byparams_scores[byparams_scores.keys()[0]].keys()
+    columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
     
-    print '## doublecv scores by outer-cv and by params'
-    print '## -----------------------------------------'
+    print('## doublecv scores by outer-cv and by params')
+    print('## -----------------------------------------')
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
-    for fold, paths_fold in bycv.iteritems():
-        print fold
+    for fold, paths_fold in bycv.items():
+        print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
-        byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
-        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+        data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
     rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
@@ -194,16 +188,16 @@ def reducer(key, values):
     scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
     l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
 
-    print '## Model selection'
-    print '## ---------------'
+    print('## Model selection')
+    print('## ---------------')
     l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
     scores_argmax_byfold = l1l2tv
-    print '## Apply best model on refited'
-    print '## ---------------------------'
+    print('## Apply best model on refited')
+    print('## ---------------------------')
     scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
     scores_cv = pd.DataFrame([
-                  ["l1l2tv"] + scores_l1l2tv.values()], columns=["method"] + scores_l1l2tv.keys())
-    print scores_l1l2tv.values()           
+                  ["l1l2tv"] + list(scores_l1l2tv.values())], columns=["method"] + list(scores_l1l2tv.keys()))
+    print(list(scores_l1l2tv.values()))           
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
@@ -254,7 +248,7 @@ if __name__ == "__main__":
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
        
-    print cv.keys()  
+    print(list(cv.keys()))  
 
             
     # Reduced Parameters grid   

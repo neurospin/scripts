@@ -21,9 +21,10 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
 import pandas as pd
 from collections import OrderedDict
+import shutil
 
-BASE_PATH = '/neurospin/brainomics/2016_deptms'
-WD = WD = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/svm/model_selection_5folds' 
+
+WD =  '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/results/svm' 
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
@@ -77,19 +78,18 @@ def mapper(key, output_collector):
 
 def scores(key, paths, config, ret_y=False):
     import mapreduce
-    print(key)
+    print (key)
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]    
+    y_pred = [item["y_pred"].ravel() for item in values]
+    #prob_pred = [item["proba_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
+    #prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, y_pred) #area under curve score.
-    betas = np.hstack([item["beta"] for item in values]).T    
-    # threshold betas to compute fleiss_kappa and DICE
-    import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
+    betas = np.hstack([item["beta"] for item in values]).T
     #Compute pvalue                  
     success = r * s
     success = success.astype('int')
@@ -118,6 +118,8 @@ def scores(key, paths, config, ret_y=False):
     scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) / \
                                     float(np.prod(betas.shape))
     scores['param_key'] = key
+    if ret_y:
+        scores["y_true"], scores["y_pred"] = y_true, y_pred
     return scores
     
     
@@ -190,17 +192,18 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR'
-    WD = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/svm/model_selection_5folds' 
-    INPUT_DATA_X = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy'
-    INPUT_CSV = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/population.csv'
+    WD =  '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/results/svm' 
+    INPUT_DATA_X = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/X.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/y.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/mask.npy'
 
-    pop = pd.read_csv(INPUT_CSV,delimiter=' ')
-    number_subjects = pop.shape[0]
+
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
+    
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
     #############################################################################
      ## Create config file
     y = np.load(INPUT_DATA_y)
@@ -217,9 +220,7 @@ if __name__ == "__main__":
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
             cv["refit/refit"] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
+         
         else:    
             cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
@@ -236,11 +237,11 @@ if __name__ == "__main__":
     #assert len(C_range) == 12
     
     
-    user_func_filename = '/home/ad247405/git/scripts/2016_icaar-eugei/freesurfer_scripts/03_svm_doubleCV_icaar.py'
+    user_func_filename = os.path.abspath(__file__)
     
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y=os.path.basename(INPUT_DATA_y)),
                   params=C_range, resample=cv,
-                  structure=INPUT_MASK_PATH,
+                  structure=os.path.basename(INPUT_MASK_PATH),
                   map_output="model_selectionCV", 
                   user_func=user_func_filename,
                   reduce_input="results/*/*",

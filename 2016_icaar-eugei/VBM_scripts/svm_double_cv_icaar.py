@@ -17,17 +17,13 @@ import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-import nibabel
 from sklearn import svm
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.feature_selection import SelectKBest
-import brainomics.image_atlas
-from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score, recall_score
+from sklearn.metrics import roc_auc_score
 import pandas as pd
-from collections import OrderedDict
+from scipy.stats import binom_test
 
 BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR'
 WD = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR/svm/model_selection'
@@ -57,7 +53,7 @@ def mapper(key, output_collector):
 
     
     c = float(key[0])
-    print "c:%f" % (c)
+    print(("c:%f" % (c)))
 
     class_weight="auto" # unbiased
     
@@ -70,8 +66,9 @@ def mapper(key, output_collector):
     mod = svm.LinearSVC(C=c,fit_intercept=False,class_weight= class_weight)
 
     mod.fit(Xtr, ytr.ravel())
+    proba_pred = mod.predict_proba(Xte)
     y_pred = mod.predict(Xte)
-    ret = dict(y_pred=y_pred, y_true=yte, beta=mod.coef_,  mask=mask)
+    ret = dict(y_pred=y_pred, y_true=yte,proba_pred=proba_pred, beta=mod.coef_,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -82,12 +79,9 @@ def mapper(key, output_collector):
 
 def scores(key, paths, config, ret_y=False):
     import mapreduce
-    print key
+    print (key)
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
-    #FOLD O is a refit on all samples. DOn't take into account in test.
-    recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
-        item["y_true"].ravel(), item["y_pred"])[1]) for item in values]) / np.sqrt(len(values))
     y_true = [item["y_true"].ravel() for item in values]
     y_pred = [item["y_pred"].ravel() for item in values]
     #prob_pred = [item["proba_pred"].ravel() for item in values]
@@ -96,8 +90,16 @@ def scores(key, paths, config, ret_y=False):
     #prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, y_pred) #area under curve score.
-    n_ite = None
     betas = np.hstack([item["beta"] for item in values]).T
+    #Compute pvalue                  
+    success = r * s
+    success = success.astype('int')
+    prob_class1 = np.count_nonzero(y_true) / float(len(y_true))
+    pvalue_recall0_true_prob = binom_test(success[0], s[0], 1 - prob_class1,alternative = 'greater')
+    pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
+    pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
+    pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
+    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
     scores = OrderedDict()
     try:    
         c = float(key[0])
@@ -109,18 +111,13 @@ def scores(key, paths, config, ret_y=False):
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
     scores["auc"] = auc
-    scores['recall_mean_std'] = recall_mean_std
-    scores['precision_0'] = p[0]
-    scores['precision_1'] = p[1]
-    scores['precision_mean'] = p.mean()
-    scores['f1_0'] = f[0]
-    scores['f1_1'] = f[1]
-    scores['f1_mean'] = f.mean()
-    scores['support_0'] = s[0]
-    scores['support_1'] = s[1]
+    scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
+    scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
+    scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
+    scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
+    scores['pvalue_recall_mean'] = pvalue_recall_mean
     scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) / \
                                     float(np.prod(betas.shape))
-    scores['n_ite'] = n_ite
     scores['param_key'] = key
     if ret_y:
         scores["y_true"], scores["y_pred"] = y_true, y_pred
@@ -150,40 +147,40 @@ def reducer(key, values):
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    print '## Refit scores'
-    print '## ------------'
+    print('## Refit scores')
+    print('## ------------')
     byparams = groupby_paths([p for p in paths if p.count("all") and not p.count("all/all")],3) 
-    byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
-    data = [byparams_scores[k].values() for k in byparams_scores]
+    data = [list(byparams_scores[k].values()) for k in byparams_scores]
 
-    columns = byparams_scores[byparams_scores.keys()[0]].keys()
+    columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
     
-    print '## doublecv scores by outer-cv and by params'
-    print '## -----------------------------------------'
+    print('## doublecv scores by outer-cv and by params')
+    print('## -----------------------------------------')
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
-    for fold, paths_fold in bycv.iteritems():
-        print fold
+    for fold, paths_fold in bycv.items():
+        print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
-        byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
-        data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+        data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
         scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
 
-    print '## Model selection'
-    print '## ---------------'
+    print('## Model selection')
+    print('## ---------------')
     svm = argmaxscore_bygroup(scores_dcv_byparams); svm["method"] = "svm"
     
     scores_argmax_byfold = svm
 
-    print '## Apply best model on refited'
-    print '## ---------------------------'
+    print('## Apply best model on refited')
+    print('## ---------------------------')
     scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
 
    
-    scores_cv = pd.DataFrame([["svm"] + scores_svm.values()], columns=["method"] + scores_svm.keys())
+    scores_cv = pd.DataFrame([["svm"] + list(scores_svm.values())], columns=["method"] + list(scores_svm.keys()))
    
          
     with pd.ExcelWriter(results_filename()) as writer:
@@ -235,7 +232,7 @@ if __name__ == "__main__":
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
        
-    print (cv.keys()) 
+    print((list(cv.keys()))) 
             
 
 

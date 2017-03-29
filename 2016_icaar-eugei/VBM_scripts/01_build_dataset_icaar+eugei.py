@@ -26,14 +26,13 @@ OUTPUT_ICAAR_EUGEIZ:
 
 import os
 import numpy as np
-import glob
 import pandas as pd
 import nibabel
 import brainomics.image_atlas
-import shutil
 import mulm
-import sklearn
-
+from mulm import MUOLS
+import nilearn
+from nilearn import plotting
 #import proj_classif_config
 GENDER_MAP = {'F': 0, 'H': 1}
 
@@ -55,7 +54,7 @@ y = np.zeros((n, 1)) # DX
 images = list()
 for i, index in enumerate(pop.index):
     cur = pop[pop.index== index]
-    print cur
+    print (cur)
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
@@ -143,7 +142,6 @@ DesignMat[:, 1] = 1  # intercept
 DesignMat[:, 2] = Z[:, 1]  # age
 DesignMat[:, 3] = Z[:, 2]  # sex
 
-from mulm import MUOLS
 muols = MUOLS(Y=Y,X=DesignMat)
 muols.fit() 
 tvals, pvals, dfs = muols.t_test(contrasts=[1, 0, 0, 0], pval=True)
@@ -160,3 +158,40 @@ out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis", "log10pval_stat_conversion_NoConversion.nii.gz"))
 
 
+
+nperms = 1000
+tvals_perm, pvals_perm, _ = muols.t_test_maxT(contrasts=np.array([[1, 0, 0, 0]]),nperms=nperms,two_tailed=True)
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals_perm[0]
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis","t_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = pvals_perm[0]
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis","pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+
+arr = np.zeros(mask_arr.shape); arr[mask_arr] = -np.log10(pvals_perm[0])
+out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+out_im.to_filename(os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis","log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+
+
+
+#Plot univariate analysis map
+filename = os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis","t_stat_conversion_NoConversion.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic map")
+
+filename = os.path.join(OUTPUT_ICAAR_EUGEI, "univariate_analysis","pval_stat_conversion_NoConversion.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
+
+filename = os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis", "log10pval_stat_conversion_NoConversion.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold=2,title = "log10(pvalue) - uncorrected")
+
+filename = os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis","t_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic map")
+
+filename = os.path.join(OUTPUT_ICAAR_EUGEI, "univariate_analysis","pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
+
+filename = os.path.join(OUTPUT_ICAAR_EUGEI,"univariate_analysis", "log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold=2,title = "log10(pvalue) - corrected for multiple comparisons")
+
+#################################################################################

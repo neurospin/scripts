@@ -28,21 +28,22 @@ from nilearn import plotting
 from mulm import MUOLS
 
 #import proj_classif_config
-GENDER_MAP = {'F': 0, 'H': 1}
 
-BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei'
-INPUT_CSV_ICAAR = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR/population.csv'
 
-OUTPUT_ICAAR = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR'
+BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei'
+INPUT_CSV = os.path.join(BASE_PATH,"VBM","ICAAR+EUGEI","population.csv")
+OUTPUT_UNIVARIATE = os.path.join(BASE_PATH,"VBM","ICAAR+EUGEI","results","univariate")
+
+OUTPUT_DATA = os.path.join(BASE_PATH,"VBM","ICAAR+EUGEI","data")
 
 # Read pop csv
-pop = pd.read_csv(INPUT_CSV_ICAAR)
-pop['sex.num'] = pop["sex"].map(GENDER_MAP)
+pop = pd.read_csv(INPUT_CSV)
+
 #############################################################################
 # Read images
 n = len(pop)
-assert n == 55
-Z = np.zeros((n, 3)) # Intercept + Age + Gender
+assert n == 75
+Z = np.zeros((n, 4)) # Intercept + Age + Gender +site
 Z[:, 0] = 1 # Intercept
 y = np.zeros((n, 1)) # DX
 images = list()
@@ -52,7 +53,7 @@ for i, index in enumerate(pop.index):
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
-    Z[i, 1:] = np.asarray(cur[["age", "sex.num"]]).ravel()
+    Z[i, 1:] = np.asarray(cur[["age", "sex.num","site"]]).ravel()
     y[i, 0] = cur["group_outcom.num"]
 
 shape = babel_image.get_data().shape
@@ -65,34 +66,34 @@ shape = babel_image.get_data().shape
 Xtot = np.vstack(images)
 mask = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
 mask = mask.reshape(shape)
-assert mask.sum() == 417220
+assert mask.sum() == 333776
 
 #############################################################################
 # Compute atlas mask
 babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(
     ref=imagefile_name.as_matrix()[0],
-    output=os.path.join(OUTPUT_ICAAR, "mask.nii"))
+    output=os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
 
 mask_atlas = babel_mask_atlas.get_data()
 assert np.sum(mask_atlas != 0) == 617728
 mask_atlas[np.logical_not(mask)] = 0  # apply implicit mask
 # smooth
 mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
-assert np.sum(mask_atlas != 0) ==368120
+assert np.sum(mask_atlas != 0) == 290896
 out_im = nibabel.Nifti1Image(mask_atlas,
                              affine=babel_image.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR, "mask.nii"))
-im = nibabel.load(os.path.join(OUTPUT_ICAAR, "mask.nii"))
+out_im.to_filename(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
+im = nibabel.load(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
 assert np.all(mask_atlas == im.get_data())
 
 #############################################################################
 # Compute mask with atlas but binarized (not group tv)
 mask_bool = mask_atlas != 0
-mask_bool.sum() == 364690
+mask_bool.sum() == 301440
 out_im = nibabel.Nifti1Image(mask_bool.astype("int16"),
                              affine=babel_image.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR, "mask.nii"))
-babel_mask = nibabel.load(os.path.join(OUTPUT_ICAAR, "mask.nii"))
+out_im.to_filename(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
+babel_mask = nibabel.load(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
 assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 
@@ -104,11 +105,12 @@ X = Xtot[:, mask_bool.ravel()]
 #imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
 #Z = imput.fit_transform(Z)
 X = np.hstack([Z, X])
-assert X.shape == (55, 368123)
+assert X.shape == (75, 290900)
 
 #Remove nan lines 
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
+assert X.shape == (59, 290900)
 
 
 X -= X.mean(axis=0)
@@ -116,19 +118,21 @@ X /= X.std(axis=0)
 X[:, 0] = 1.
 n, p = X.shape
 X = np.nan_to_num(X)
-np.save(os.path.join(OUTPUT_ICAAR, "X.npy"), X)
-np.save(os.path.join(OUTPUT_ICAAR, "y.npy"), y)
+np.save(os.path.join(OUTPUT_DATA, "X.npy"), X)
+np.save(os.path.join(OUTPUT_DATA, "y.npy"), y)
 
 ###############################################################################
 #############################################################################
 # MULM
-mask_ima = nibabel.load(os.path.join(OUTPUT_ICAAR, "mask.nii"))
+mask_ima = nibabel.load(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
 mask_arr = mask_ima.get_data() != 0
-X = np.load(os.path.join(OUTPUT_ICAAR, "X.npy"))
-y = np.load(os.path.join(OUTPUT_ICAAR, "y.npy"))
-Z = X[:, :3]
-Y = X[: , 3:]
+X = np.load(os.path.join(OUTPUT_DATA, "X.npy"))
+y = np.load(os.path.join(OUTPUT_DATA, "y.npy"))
+Z = X[:, :4]
+Y = X[: , 4:]
 assert np.sum(mask_arr) == Y.shape[1]
+
+
 
 
 
@@ -137,57 +141,59 @@ DesignMat[:, 0] = (y.ravel() - y.ravel().mean())  # y
 DesignMat[:, 1] = 1  # intercept
 DesignMat[:, 2] = Z[:, 1]  # age
 DesignMat[:, 3] = Z[:, 2]  # sex
+DesignMat[:, 4] = Z[:, 3]  # site
+
 
 
 muols = MUOLS(Y=Y,X=DesignMat)
 muols.fit() 
-tvals, pvals, dfs = muols.t_test(contrasts=[1, 0, 0, 0], pval=True)
+tvals, pvals, dfs = muols.t_test(contrasts=[1, 0, 0, 0,0], pval=True)
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals[0]
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR,"univariate_analysis","t_stat_conversion_NoConversion.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE,"t_stat_conversion_NoConversion.nii.gz"))
 
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = pvals[0]
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR, "univariate_analysis","pval_stat_conversion_NoConversion.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE, "pval_stat_conversion_NoConversion.nii.gz"))
 
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = -np.log10(pvals[0])
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR,"univariate_analysis", "log10pval_stat_conversion_NoConversion.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE, "log10pval_stat_conversion_NoConversion.nii.gz"))
 
 
 nperms = 1000
-tvals_perm, pvals_perm, _ = muols.t_test_maxT(contrasts=np.array([[1, 0, 0, 0]]),nperms=nperms,two_tailed=True)
+tvals_perm, pvals_perm, _ = muols.t_test_maxT(contrasts=np.array([[1, 0, 0, 0,0]]),nperms=nperms,two_tailed=True)
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals_perm[0]
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR,"univariate_analysis","t_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE,"t_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
 
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = pvals_perm[0]
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR,"univariate_analysis","pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE,"pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
 
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = -np.log10(pvals_perm[0])
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-out_im.to_filename(os.path.join(OUTPUT_ICAAR,"univariate_analysis","log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
+out_im.to_filename(os.path.join(OUTPUT_UNIVARIATE,"log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
 
 
 
 #Plot univariate analysis map
-filename = os.path.join(OUTPUT_ICAAR,"univariate_analysis","t_stat_conversion_NoConversion.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE,"t_stat_conversion_NoConversion.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic map")
 
-filename = os.path.join(OUTPUT_ICAAR, "univariate_analysis","pval_stat_conversion_NoConversion.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE,"pval_stat_conversion_NoConversion.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
 
-filename = os.path.join(OUTPUT_ICAAR,"univariate_analysis", "log10pval_stat_conversion_NoConversion.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE, "log10pval_stat_conversion_NoConversion.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold=2,title = "log10(pvalue) - uncorrected")
 
-filename = os.path.join(OUTPUT_ICAAR,"univariate_analysis","t_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE,"t_stat_conversion_NoConversion_correction_Tmax.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic map")
 
-filename = os.path.join(OUTPUT_ICAAR, "univariate_analysis","pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE,"pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
 
-filename = os.path.join(OUTPUT_ICAAR,"univariate_analysis", "log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
+filename = os.path.join(OUTPUT_UNIVARIATE,"log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz")
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold=2,title = "log10(pvalue) - corrected for multiple comparisons")
 
 #################################################################################

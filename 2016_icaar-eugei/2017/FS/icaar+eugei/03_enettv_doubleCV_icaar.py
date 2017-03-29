@@ -1,30 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Nov 16 17:20:21 2016
+Created on Wed Nov 16 17:12:08 2016
 
 @author: ad247405
 """
-
-
+import pandas as pd
 import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
-from sklearn import svm
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
+from parsimony.estimators import LogisticRegressionL1L2TV
+import parsimony.functions.nesterov.tv as tv_helper
 import brainomics.image_atlas
+import parsimony.algorithms as algorithms
+import parsimony.datasets as datasets
+import parsimony.functions.nesterov.tv as nesterov_tv
+import parsimony.estimators as estimators
+import parsimony.algorithms as algorithms
+import parsimony.utils as utils
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
-import pandas as pd
 from collections import OrderedDict
+import shutil
 
-BASE_PATH = '/neurospin/brainomics/2016_deptms'
-WD = WD = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/svm/model_selection_5folds' 
-
+WD = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/results/enettv_icaar_eugei_FS'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
@@ -33,7 +37,10 @@ def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    
+    STRUCTURE = np.load(config["structure"])
+    A = tv_helper.A_from_mask(STRUCTURE)
+    GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
+
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
@@ -48,10 +55,12 @@ def mapper(key, output_collector):
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
-
     
-    c = float(key[0])
-    print("c:%f" % (c))
+    penalty_start = 2
+    
+    alpha = float(key[0])
+    l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
+    print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
 
     class_weight="auto" # unbiased
     
@@ -60,22 +69,22 @@ def mapper(key, output_collector):
     scaler = preprocessing.StandardScaler().fit(Xtr)
     Xtr = scaler.transform(Xtr)
     Xte=scaler.transform(Xte)    
+    A = GLOBAL.A
     
-    mod = svm.LinearSVC(C=c,fit_intercept=False,class_weight= class_weight)
-
+    conesta = algorithms.proximal.CONESTA(max_iter=500)
+    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
-    ret = dict(y_pred=y_pred, y_true=yte,beta=mod.coef_,  mask=mask)   
-    
+    proba_pred = mod.predict_probability(Xte)
+    ret = dict(y_pred=y_pred, y_true=yte, proba_pred=proba_pred, beta=mod.beta,  mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
         return ret
 
 
-       
 
-def scores(key, paths, config, ret_y=False):
+def scores(key, paths, config):
     import mapreduce
     print(key)
     values = [mapreduce.OutputCollector(p) for p in paths]
@@ -84,8 +93,10 @@ def scores(key, paths, config, ret_y=False):
     y_pred = [item["y_pred"].ravel() for item in values]    
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
+    prob_pred = [item["proba_pred"].ravel() for item in values]
+    prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
-    auc = roc_auc_score(y_true, y_pred) #area under curve score.
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
     betas = np.hstack([item["beta"] for item in values]).T    
     # threshold betas to compute fleiss_kappa and DICE
     import array_utils
@@ -101,9 +112,14 @@ def scores(key, paths, config, ret_y=False):
     pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
     scores = OrderedDict()
     try:    
-        c = float(key[0])
-        
-        scores['c'] = c
+        a, l1, l2 , tv  = [float(par) for par in key.split("_")]
+        scores['a'] = a
+        scores['l1'] = l1
+        scores['l2'] = l2
+        scores['tv'] = tv
+        left = float(1 - tv)
+        if left == 0: left = 1.
+        scores['l1_ratio'] = float(l1) / left
     except:
         pass
     scores['recall_0'] = r[0]
@@ -115,7 +131,7 @@ def scores(key, paths, config, ret_y=False):
     scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
     scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
     scores['pvalue_recall_mean'] = pvalue_recall_mean
-    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas)) / \
+    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
                                     float(np.prod(betas.shape))
     scores['param_key'] = key
     return scores
@@ -146,7 +162,7 @@ def reducer(key, values):
 
     print('## Refit scores')
     print('## ------------')
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if p.count("refit") and not p.count("refit/refit")],3) 
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
     data = [list(byparams_scores[k].values()) for k in byparams_scores]
@@ -157,7 +173,7 @@ def reducer(key, values):
     print('## doublecv scores by outer-cv and by params')
     print('## -----------------------------------------')
     data = list()
-    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.items():
         print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
@@ -181,7 +197,7 @@ def reducer(key, values):
    
          
     with pd.ExcelWriter(results_filename()) as writer:
-        scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
+        scores_refit.to_excel(writer, sheet_name='scores_all', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
         scores_argmax_byfold.to_excel(writer, sheet_name='scores_argmax_byfold', index=False)
         scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
@@ -190,19 +206,21 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR'
-    WD = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/svm/model_selection_5folds' 
-    INPUT_DATA_X = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy'
-    INPUT_CSV = '/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/population.csv'
+    WD = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/results/enettv_icaar_eugei_FS'
+    INPUT_DATA_X = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/X.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/y.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/Freesurfer/ICAAR+EUGEI/data/mask.npy'
 
-    pop = pd.read_csv(INPUT_CSV,delimiter=' ')
-    number_subjects = pop.shape[0]
+
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
+    
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
+
     #############################################################################
-     ## Create config file
+    ## Create config file
     y = np.load(INPUT_DATA_y)
 
     cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
@@ -217,9 +235,7 @@ if __name__ == "__main__":
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
             cv["refit/refit"] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
+            
         else:    
             cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
@@ -231,19 +247,35 @@ if __name__ == "__main__":
        
     print(list(cv.keys()))  
 
+    # Reduced Parameters grid   
+    tv_range = tv_ratios = [0.0,.1,0.2,0.3, 0.4,0.5,.6,0.7, .8,0.9,1.0]
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .90, 1],[0.9,0.1,1], [0.2,0.8,1],[0.3,0.7,1]])
+    alphas = [.1,.01,1.0]
 
-    C_range = [[100],[10],[1],[1e-1],[1e-2],[1e-3],[1e-4],[1e-5],[1e-6],[1e-7],[1e-8],[1e-9]]
-    #assert len(C_range) == 12
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+          
+    params = [np.round(params,2).tolist() for params in alphal1l2tv]
+     
+              
+            
+    user_func_filename = os.path.abspath(__file__)
     
-    
-    user_func_filename = '/home/ad247405/git/scripts/2016_icaar-eugei/freesurfer_scripts/03_svm_doubleCV_icaar.py'
-    
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
-                  params=C_range, resample=cv,
-                  structure=INPUT_MASK_PATH,
+    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y=os.path.basename(INPUT_DATA_y)),
+                  params=params, resample=cv,
+                  structure=os.path.basename(INPUT_MASK_PATH),
                   map_output="model_selectionCV", 
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="params",
                   reduce_output="model_selectionCV.csv")
     json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+    
+    
+      # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(WD)
+    cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")

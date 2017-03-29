@@ -11,6 +11,10 @@ import numpy as np
 import pandas as pd
 import nibabel as nb
 import shutil
+import mulm
+from mulm import MUOLS
+import brainomics
+from brainomics import create_texture
 
 BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei'
 INPUT_FS = '/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_assembled_data_fsaverage'
@@ -51,7 +55,7 @@ for i, ID in enumerate(pop['image']):
     surfaces.append(surf)
     y[i, 0] = cur["group_outcom.num"]
     Z[i, :] = np.asarray(cur[["age", "sex.num"]]).ravel()
-    print i
+    print(i)
 
 
 Xtot = np.vstack(surfaces)
@@ -88,3 +92,79 @@ fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i surface 
 fh.close()
 
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+
+
+#############################################################################
+# MULM
+mask_arr = np.load(os.path.join(OUTPUT, "mask.npy"))
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
+Z = X[:, :2]
+Y = X[: , 2:]
+assert np.sum(mask_arr) == Y.shape[1]
+
+
+
+DesignMat = np.zeros((Z.shape[0], Z.shape[1]+1)) # y, intercept, age, sex
+DesignMat[:, 0] = (y.ravel() - y.ravel().mean())  # y
+DesignMat[:, 1] = Z[:, 0]  # age
+DesignMat[:, 2] = Z[:, 1]  # sex
+
+muols = MUOLS(Y=Y,X=DesignMat)
+muols.fit() 
+tvals, pvals, dfs = muols.t_test(contrasts=[1, 0, 0], pval=True)
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","pvals","pvals.npz"),pvals[0])
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","tvals","tvals.npz"),tvals[0])
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","log10pvals","log10pvals.npz"),-np.log10(pvals[0]))
+
+
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/pvals",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/pvals/pvals.npz",
+                                   penalty_start = 2,
+                                   threshold = False)
+                                   
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/tvals",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/tvals/tvals.npz",
+                                   penalty_start = 2,
+                                   threshold = False)                                   
+
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/log10pvals",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/log10pvals/log10pvals.npz",
+                                   penalty_start = 2,
+                                   threshold = False)  
+
+
+nperms = 1000
+tvals_perm, pvals_perm, _ = muols.t_test_maxT(contrasts=np.array([[1, 0, 0]]),nperms=nperms,two_tailed=True)
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","pvals_corr","pvals_corrected_perm.npz"),pvals_perm[0])
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","tvals_corr","tvals_corrected_perm.npz"),tvals_perm[0])
+np.savez(os.path.join(BASE_PATH,"results","Freesurfer","ICAAR","univariate_analysis","log10pvals_corr","log10pvals_corrected_perm.npz"),-np.log10(pvals_perm[0]))
+
+
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/pvals_corr",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/pvals_corr/pvals_corrected_perm.npz",
+                                   penalty_start = 2,
+                                   threshold = False)
+                                   
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/tvals_corr",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/tvals_corr/tvals_corrected_perm.npz",
+                                   penalty_start = 2,
+                                   threshold = False)                                   
+
+create_texture.create_texture_file(OUTPUT="/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/log10pvals_corr",
+                                   TEMPLATE_PATH ="/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_template",
+                                   MASK_PATH = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/data/mask.npy",
+                                   beta_path = "/neurospin/brainomics/2016_icaar-eugei/results/Freesurfer/ICAAR/univariate_analysis/log10pvals_corr/log10pvals_corrected_perm.npz",
+                                   penalty_start = 2,
+                                   threshold = False)  

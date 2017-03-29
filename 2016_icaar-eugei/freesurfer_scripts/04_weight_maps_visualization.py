@@ -106,10 +106,10 @@ assert mask_right__beta.sum() == mask_right__right_mesh.sum()
  # left
 tex = np.zeros(mask_left__left_mesh.shape)
 tex[mask_left__left_mesh] = beta[mask_left__beta]
-print "left", np.sum(tex != 0), tex.max(), tex.min()
+print("left", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT,"tex_beta_left.gii"), data=tex)
 # right
 tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = beta[mask_right__beta]
-print "right", np.sum(tex != 0), tex.max(), tex.min()
+print("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_beta_right.gii"), data=tex)
