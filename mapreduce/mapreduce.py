@@ -259,7 +259,7 @@ class OutputCollector:
                 value[k].to_filename(filename)
             else:
                 if self.force_pickle:
-                    of = open(os.path.join(self.output_dir, k + ".pkl"), "w")
+                    of = open(os.path.join(self.output_dir, k + ".pkl"), "wb")
                     pickle.dump(value[k], of)
                     of.close()
                 else:
