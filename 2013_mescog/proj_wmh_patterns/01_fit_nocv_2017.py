@@ -76,6 +76,7 @@ X = np.load(INPUT_DATASET)
 
 assert X.shape == (301, 1064455)
 assert mask_arr.sum() == X.shape[1]
+assert np.allclose(X.mean(axis=0), 0)
 
 #
 pop = pd.read_csv(INPUT_POPULATION_FILE)
@@ -83,10 +84,10 @@ pop = pd.read_csv(INPUT_POPULATION_FILE)
 # Fit model
 N_COMP = 5
 
-A = parsimony.functions.nesterov.tv.linear_operator_from_mask(mask_arr)
 
 # #############################################################################
-# Fit
+# Fit PCAEnetTV
+A = parsimony.functions.nesterov.tv.linear_operator_from_mask(mask_arr)
 
 # Parameters settings 1
 
@@ -106,8 +107,8 @@ if False:
 alpha, l1_ratio, l2_ratio, tv_ratio = 0.01, 1/3, 1/3, 1/3
 ll1, ll2, ltv = alpha * l1_ratio, alpha * l2_ratio, alpha * tv_ratio
 
-key = "struct_pca_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
-
+key_pca_enettv = "pca_enettv_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
+key = pca_enettv
 OUTPUT_DIR.format(key=key)
 
 if not(os.path.exists(OUTPUT_DIR.format(key=key))):
@@ -149,11 +150,15 @@ Time requested = n_components * 36.6 * inner_max_iter * 0.5
 
 """
 # Save results
-np.savez_compressed(os.path.join(OUTPUT_DIR.format(key=key), "pca_enettv.npz"),
-                    U=model.U, d=model.d, V=model.V)
+#model.U, model.d, model.V = m["U"], m["d"], m["V"]
+PC, d = model.transform(X)
 
-m = np.load(os.path.join(OUTPUT_DIR.format(key=key), "pca_enettv.npz"))
-U, d, V = m["U"], m["d"], m["V"]
+np.savez_compressed(os.path.join(OUTPUT_DIR.format(key=key), "model.npz"),
+                    U=model.U, d=model.d, V=model.V, PC=PC)
+
+
+m = np.load(os.path.join(OUTPUT_DIR.format(key=key), "model.npz"))
+U, d, V, PC = m["U"], m["d"], m["V"], m["PC"]
 
 fh = open(os.path.join(OUTPUT_DIR.format(key=key), "pca_enettv_info.txt"), "w")
 fh.write("Time:" + str(_time) + "\n")
@@ -166,43 +171,76 @@ fh.write("sd(|U|):" + str(np.abs(U).std(axis=0)) + "\n")
 fh.close()
 
 assert U.shape == (301, 5)
+assert PC.shape == (301, 5)
 assert V.shape == (1064455, 5)
 assert d.shape == (5,)
 
-# ############################################################################# 
+# #############################################################################
+# Fit Regular PCA
+key_pca = "pca"
+key = key_pca
+
+OUTPUT_DIR.format(key=key)
+
+if not(os.path.exists(OUTPUT_DIR.format(key=key))):
+    os.makedirs(OUTPUT_DIR.format(key=key))
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=N_COMP)
+pca.fit(X)
+print(pca.explained_variance_ratio_)
+# [ 0.20200558  0.03278055  0.0199719   0.01520858  0.01312169]
+assert pca.components_.shape == (5, 1064455)
+PC = pca.transform(X)
+np.savez_compressed(os.path.join(OUTPUT_DIR.format(key=key), "model.npz"),
+                    U=pca.transform(X), V=pca.components_.T, PC=PC)
+
+# #############################################################################
 # Plot map
-m = np.load(os.path.join(OUTPUT_DIR.format(key=key), "pca_enettv.npz"))
-U, d, V = m["U"], m["d"], m["V"]
-assert U.shape == (301, 5)
-assert V.shape == (1064455, 5)
-assert d.shape == (5,)
-np.abs(V).mean(axis=0)
 
-PCs = pd.DataFrame(U, columns=['PC%i' % i for i in range(U.shape[1])])
-clinic_pc = pd.concat([pop, PCs], axis=1)
-clinic_pc.to_csv(os.path.join(OUTPUT_DIR.format(key=key), "clinic_pc.csv"))
+keys = [key_pca_enettv, key_pca]
 
-pdf = PdfPages(os.path.join(OUTPUT_DIR.format(key=key), "maps.pdf"))
+for key in keys:
+    #key = key_pca_enettv
+    #key = key_pca
 
-for pc in range(V.shape[1]):
-    #pc = 1
-    arr = np.zeros(mask_arr.shape)
-    arr[mask_arr] = V[:, pc].ravel()
-    out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
-    filename = os.path.join(OUTPUT_DIR.format(key=key), "pca_enettv_V%i.nii.gz" % pc)
-    out_im.to_filename(filename)
-    nilearn.plotting.plot_glass_brain(filename, colorbar=True, plot_abs=False, title="PC%i"%pc)
-    pdf.savefig(); plt.close()
-    plotting.plot_stat_map(filename, display_mode='z', cut_coords=7, title="PC%i"%pc)
-    pdf.savefig(); plt.close()
-    plotting.plot_stat_map(filename, display_mode='y', cut_coords=7, title="PC%i"%pc)
-    pdf.savefig(); plt.close()
-    plotting.plot_stat_map(filename, display_mode='x', cut_coords=6, title="PC%i"%pc)
-    pdf.savefig(); plt.close()
+    m = np.load(os.path.join(OUTPUT_DIR.format(key=key), "model.npz"))
+    U, V, PC = m["U"], m["V"], m["PC"]
+    assert U.shape == (301, 5)
+    assert V.shape == (1064455, 5)
+    assert PC.shape == (301, 5)
 
-pdf.close()
+    # multiply second PC by -1 to stick with original article
+    V[:, 1] *= -1
+    PC[:, 1] *= -1
 
-# ############################################################################# 
+    np.abs(V).mean(axis=0)
+
+    PCs = pd.DataFrame(U, columns=['PC%i' % (i+1) for i in range(U.shape[1])])
+    clinic_pc = pd.concat([pop, PCs], axis=1)
+    clinic_pc.to_csv(os.path.join(OUTPUT_DIR.format(key=key), "clinic_pc.csv"))
+
+    pdf = PdfPages(os.path.join(OUTPUT_DIR.format(key=key), "maps.pdf"))
+
+    for pc in range(V.shape[1]):
+        #pc = 1
+        arr = np.zeros(mask_arr.shape)
+        arr[mask_arr] = V[:, pc].ravel()
+        out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
+        filename = os.path.join(OUTPUT_DIR.format(key=key), "V%i.nii.gz" % (pc+1))
+        out_im.to_filename(filename)
+        nilearn.plotting.plot_glass_brain(filename, colorbar=True, plot_abs=False, title="PC%i"% (pc+1))
+        pdf.savefig(); plt.close()
+        plotting.plot_stat_map(filename, display_mode='z', cut_coords=7, title="PC%i" % (pc+1))
+        pdf.savefig(); plt.close()
+        plotting.plot_stat_map(filename, display_mode='y', cut_coords=7, title="PC%i" % (pc+1))
+        pdf.savefig(); plt.close()
+        plotting.plot_stat_map(filename, display_mode='x', cut_coords=6, title="PC%i"% (pc+1))
+        pdf.savefig(); plt.close()
+
+    pdf.close()
+
+# #############################################################################
 # Plot map
 #                                      #threshold = t,
 #                                      vmax=abs(vmax), vmin =-abs(vmax))

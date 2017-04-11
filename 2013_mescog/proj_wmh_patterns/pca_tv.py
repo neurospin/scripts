@@ -459,7 +459,7 @@ class PCA_L1_L2_TV(BaseEstimator):
 
     mu : Non-negative float. The regularisation constant for the smoothing.
 
-    output : Boolean. Whether or not to return extra output information.
+    verbose : Boolean. Whether or not to return extra output information.
 
     start_vector: start value for the algorithm. The default value is
                     start_vectors.RandomStartVector()
@@ -474,7 +474,7 @@ class PCA_L1_L2_TV(BaseEstimator):
                  inner_eps=consts.TOLERANCE,
                  inner_max_iter=10000,
                  tau=0.2,
-                 output=False,
+                 verbose=False,
                  start_vector=start_vectors.RandomStartVector(),
                  raise_if_l1_too_large=True):
 
@@ -512,7 +512,7 @@ class PCA_L1_L2_TV(BaseEstimator):
         self.tau = tau
 
         self.raise_if_l1_too_large = raise_if_l1_too_large
-        self.output = output
+        self.verbose = verbose
         # Call parent init
         # We don't initialize the algorithm here
         super(PCA_L1_L2_TV, self).__init__(algorithm=None)
@@ -527,7 +527,7 @@ class PCA_L1_L2_TV(BaseEstimator):
                 "max_iter": self.max_iter,
                 "inner_eps": self.inner_eps,
                 "inner_max_iter": self.inner_max_iter, "tau": self.tau,
-                "start_vector": self.start_vector, "output": self.output}
+                "start_vector": self.start_vector, "verbose": self.verbose}
 
     @classmethod
     def l1_max(cls, X):
@@ -586,7 +586,7 @@ class PCA_L1_L2_TV(BaseEstimator):
         self.converged = []
 
         for j in range(self.n_components):
-            if self.output:
+            if self.verbose:
                 print('Component', j)
             _converged = False
             _stopped = False
@@ -601,7 +601,7 @@ class PCA_L1_L2_TV(BaseEstimator):
             # Objective function for fixed u problem
             _v_func = []
             while (not _converged) and (not _stopped):
-                if self.output:
+                if self.verbose:
                     print('Iteration', k)
                 # Save previous iteration results
                 k = k + 1
@@ -631,7 +631,7 @@ class PCA_L1_L2_TV(BaseEstimator):
                 info = algorithm.info_get()
                 _info.append(info)
                 _v_func.append(function.f(v_new))
-                if self.output:
+                if self.verbose:
                     print("Inner FISTA iterations:", algorithm.num_iter)
                     print("Inner calls to FISTA:", info[Info.num_iter])
 
@@ -782,7 +782,7 @@ if __name__ == '__main__':
                          l2=1.0,
                          ltv=6e-8, Atv=Atv,
                          n_components=2,
-                         output=True)
+                         verbose=True)
     e_con.fit(X)
 
     # Transform data
