@@ -326,7 +326,7 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
-    BASE_PATH = '/neurospin/brainomics/2016_deptms'
+
     WD = '/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds'    
     INPUT_DATA_X = '/neurospin/brainomics/2016_pca_struct/adni/data/X.npy'
     INPUT_DATA_y = '/neurospin/brainomics/2016_pca_struct/adni/data/y.npy'
