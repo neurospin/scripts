@@ -78,7 +78,10 @@ for d in destfiles:
     if not os.path.exists(d):
         os.makedirs(d)
 
-print infiles, destfiles, maskfiles, pvefiles
+print "infiles (", len(infiles), ") [", infiles[0], ",...,", infiles[-1]
+print "destfiles (", len(destfiles), ") [", destfiles[0], ",...,", destfiles[-1]
+print "maskfiles (", len(maskfiles), ") [", maskfiles[0], ",...,", maskfiles[-1]
+print "pvefiles (", len(pvefiles), ") [", pvefiles[0], ",...,", pvefiles[-1]
 
 
 if args.process:
