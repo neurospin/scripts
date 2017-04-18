@@ -9,31 +9,130 @@ import traceback
 import csv
 import json
 import six
+import re
+import nibabel as ni
+import numpy as np
 
 import matplotlib.pyplot as plt
 from radiomics.featureextractor import RadiomicsFeaturesExtractor
+
+def get_tissue_meta(roi):
+    """ Return a dict read from a jsonfile up in the tree that harbor the
+        given roi filename
+
+    Parameters
+    ----------
+    roi: nifti image (mandatory)
+        A nifti image in which contains the sampling ROI.
+
+    Returns
+    -------
+    retval: dict
+        Read from the 'tissuetype.json' found on the filesystem.
+
+    """
+    fn = roi.get_filename()
+    while fn is not '/':
+        fn = os.path.dirname(fn)
+        expected_name = os.path.join(fn, 'tissuetype.json')
+        if os.path.exists(expected_name):
+            with open(expected_name) as fp:
+                retval = json.load(fp)
+                return retval
+
+    raise Exception('Cannot find a tissuetype.json for metadata completion!')
+
+
+def label_to_shortname(label, roi):
+    """ Return a string by looking up label from the tissuetype.json
+        inferred by the get_tissue_roi macro
+    """
+    dtissue = get_tissue_meta(roi)
+    for t in dtissue:
+        if dtissue[t]['Index'] == label:
+             return t
+
+    raise Exception('Cannot find a tissue {0} from {1}'.format(label, roi.get_filename()))
+
+
+HABITAT = ['edema', 'enhancement', 'both']
+
+
+def get_mask_from_lesion(lesion, tag, outdir='.'):
+    """ Return a dict read from a jsonfile up in the tree that harbor the
+        given roi filename
+
+    Parameters
+    ----------
+    lesion: lesion filename (mandatory)
+        A path to the nifti image in which contains the  ROIs.
+    tag: a string in HABITAT
+
+    Returns
+    -------
+    fmask: Pathname
+        Pathname to the desired 3D mask
+    fjson: Pathname
+        Pathname to the desired json file
+    """
+    #interpret lesion name and lesion group
+    lesion_name = re.search(r"lesion-[0-9][0-9]?", lesion)
+    lesion_nb = re.search(r"[0-9]+", lesion_name.group(0))
+    subject = os.path.basename(lesion).split('_')[0]
+    if not subject.isdigit():
+        raise Exception('{}: wrong filename format')
+    prefix_outfile = os.path.join(outdir,
+                                  '{0}_enh-gado_T1w_bfc_WS_rad-'.format(subject))
+
+    # load the file
+    vois = ni.load(lesion)
+    cumul = np.zeros(vois.get_shape()[:-1], dtype='int16')
+    imgs = ni.four_to_three(vois)
+    for t, img3d in enumerate(imgs):
+        # get the labels contained in the image should be 0 and [1 or 2 or 3]
+        labels = np.unique(img3d.get_data())
+        #exactly two labels mandatory
+        if labels.shape[0] != 2:
+            raise Exception('Cannot find a tissue from tissuetype.json.')
+        label = max(labels)
+        sname = label_to_shortname(label, vois)
+        if not sname in HABITAT:
+            continue
+        if tag == 'both':
+            cumul += img3d.get_data()
+        elif tag == sname:  # should be edema or enhancement 
+            cumul = img3d.get_data()
+
+    # cumul should contain either edema, enhabcement or both
+    fmask = prefix_outfile + 'ttype-{0}{1}.nii.gz'.format(tag, lesion_nb.group(0))
+    fout = prefix_outfile + 'ttype-{0}{1}.json'.format(tag, lesion_nb.group(0))
+    bin_img3d = np.asarray((cumul > 0) * 1, dtype='uint16')
+    ni.save(ni.Nifti1Image(bin_img3d, affine=vois.get_affine()), fmask)
+
+    #
+    return fmask, fout
 
 
 doc = """
 source /volatile/frouin/pyrad/bin/activate
 python $HOME/gits/scripts/2017_rr/metastasis/getGCLM.py \
    --param $HOME/gits/scripts/2017_rr/metastasis/minimal.yaml \
-   --out /tmp/187962757123_glcm.json \
+   --out /tmp/GLCM \
    --format json \
-   /neurospin/radiomics/studies/metastasis/base/187962757123/model03/187962757123_enh-gado_T1w_bfc_WS.nii.gz \
-   $HOME/gits/scripts/2017_rr/metastasis/187962757123_enh-gado_T1w_bfc_WS_rad-ttype-lesion-1.nii.gz
+   --habitat both \
+   /neurospin/radiomics/studies/metastasis/base/187962757123/model04/187962757123_enh-gado_T1w_bfc_WS.nii.gz \
+   /neurospin/radiomics/studies/metastasis/base/187962757123/model10/187962757123_model10_mask_lesion-1.nii.gz
 """
 
 parser = argparse.ArgumentParser()
 parser.add_argument('image', metavar='Image',
                     help='Features are extracted from the Region Of Interest '
                          '(ROI) in the image')
-parser.add_argument('mask', metavar='Mask',
-                    help='Mask identifying the ROI in the Image')
+parser.add_argument('lesion', metavar='Mask',
+                    help='Mask identifying the ROIs in the Image')
 
-parser.add_argument('--out', '-o', metavar='FILE', nargs='?',
-                    type=argparse.FileType('w'), default=sys.stdout,
-                    help='File to append output to')
+parser.add_argument('--out', '-o', metavar='DIR', required=True,
+                    help='Directory for output file results')
 parser.add_argument('--format', '-f', choices=['txt', 'csv', 'json'],
                     default='txt',
                     help='Format for the output. Default is "txt": one feature'
@@ -47,6 +146,8 @@ parser.add_argument('--param', '-p', metavar='FILE', nargs=1, type=str,
 parser.add_argument('--label', '-l', metavar='N', nargs=1, default=None,
                     type=int, help='Value of label in mask to use for feature '
                                    'extraction')
+parser.add_argument('--habitat', '-a', choices=HABITAT,
+                    default='both', help='Habitat to study')
 parser.add_argument('--logging-level', metavar='LEVEL',
                     choices=['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR',
                              'CRITICAL'],
@@ -142,7 +243,7 @@ def main():
 
     global outdir  # Make outdir visible to the computeFeatures method
     # Save PNG snapshots in the same directory as the output features
-    outdir = os.path.dirname(args.out.name)
+    outdir = args.out
 
     # Initialize Logging
     logLevel = eval('logging.' + args.logging_level)
@@ -158,6 +259,11 @@ def main():
         "%(levelname)s:%(name)s: %(message)s"))
     logger.addHandler(handler)
 
+    #Create temporary masks and get their pathname
+    fn_mask, fnout = get_mask_from_lesion(args.lesion, args.habitat, outdir)
+    fpout = open(fnout, 'w')
+#    print fn_mask, fn_jsonout, args.image
+
     # Initialize extractor
     try:
         if args.param is not None:
@@ -167,30 +273,31 @@ def main():
         logging.info('Extracting features with kwarg settings: '
                      '%s\n\tImage:%s\n\tMask:%s',
                      str(extractor.kwargs), os.path.abspath(args.image),
-                     os.path.abspath(args.mask))
+                     os.path.abspath(fn_mask))
         featureVector = collections.OrderedDict()
         featureVector['image'] = os.path.basename(args.image)
-        featureVector['mask'] = os.path.basename(args.mask)
+        featureVector['mask'] = os.path.basename(fn_mask)
 
-        featureVector.update(extractor.execute(args.image, args.mask,
+        featureVector.update(extractor.execute(args.image, fn_mask,
                                                args.label))
 
         if args.format == 'csv':
-            writer = csv.writer(args.out, lineterminator='\n')
+            writer = csv.writer(fpout, lineterminator='\n')
             writer.writerow(featureVector.keys())
             writer.writerow(featureVector.values())
         elif args.format == 'json':
-            json.dump(featureVector, args.out, indent=4)
-            args.out.write('\n')
+            json.dump(featureVector, fpout, indent=4)
+            fpout.write('\n')
         else:
             for k, v in featureVector.iteritems():
-                args.out.write('%s: %s\n' % (k, v))
+                fpout.write('%s: %s\n' % (k, v))
     except Exception:
         logging.error('FEATURE EXTRACTION FAILED:\n%s', traceback.format_exc())
 
-    args.out.close()
+    fpout.close()
     args.log_file.close()
 
-
-if __name__ == "__main__":
-    main()
+#
+#if __name__ == "__main__":
+#
+main()
