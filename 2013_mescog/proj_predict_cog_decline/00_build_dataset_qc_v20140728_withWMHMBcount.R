@@ -96,6 +96,7 @@ id = sapply(strsplit(DB$ID, "_"), function(x)as.integer(x[[2]]))
 DB$SITE=NA
 DB$SITE[id < 2000] = "FR"
 DB$SITE[id >= 2000] = "GE"
+write.csv(DB, paste(OUTPUT_PATH, ".csv", sep=""), row.names=FALSE)
 
 
 ################################################################################################

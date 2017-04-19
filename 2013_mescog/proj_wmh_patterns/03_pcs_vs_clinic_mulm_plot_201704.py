@@ -22,16 +22,36 @@ from patsy import dmatrices
 
 INPUT_MESCOG_DIR = "/neurospin/mescog/"
 
-alpha, l1_ratio, l2_ratio, tv_ratio = 0.01, 1/3, 1/3, 1/3
-ll1, ll2, ltv = alpha * l1_ratio, alpha * l2_ratio, alpha * tv_ratio
-key_pca_enettv = "pca_enettv_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
-key_pca = "pca"
+if False:  # Parameters settings 3
+    alpha, l1_ratio, l2_ratio, tv_ratio = 0.01, 1/3, 1/3, 1/3
+    ll1, ll2, ltv = alpha * l1_ratio, alpha * l2_ratio, alpha * tv_ratio
+    key_pca_enettv = "pca_enettv_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
 
+if False:  # Parameters settings 3
+    #  1/3, 1/3 1/3 such that ll1 < l1max
+    alpha, l1_ratio, l2_ratio, tv_ratio = 1., 0.1 * 0.025937425654559931, 1/3, 1/3
+    ll1, ll2, ltv = alpha * l1_ratio, alpha * l2_ratio, alpha * tv_ratio
+    key_pca_enettv_01l1max = "pca_enettv_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
+    key_pca_enettv = key_pca_enettv_01l1max
+
+ll1, ll2, ltv = 0.1 * 0.025937425654559931, 1/3, 0.01 * 1/3
+key_pca_enettv = "pca_enettv_%.3f_%.3f_%.3f" % (ll1, ll2, ltv)
+
+ll1, ll2, ltv =  0.1 * 0.025937425654559931, 1/3, 0.01 * 1/3
+key_pca_enettv = "pca_enettv_%.3f_%.3f_%.3f_inner_max_iter100" % (ll1, ll2, ltv)
+
+ll1, ll2, ltv = 0.01 * 0.025937425654559931, 1/3, 0.01 * 1/3
+key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
+
+ll1, ll2, ltv = 0.1 * 0.025937425654559931, 1, 0.1
+key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
+
+key_pca = "pca"    
 key = key_pca_enettv
 
 #key = key_pca
 
-INPUT_DIR = os.path.join(INPUT_MESCOG_DIR, "proj_wmh_patterns", key)
+INPUT_DIR = os.path.join(INPUT_MESCOG_DIR, "proj_wmh_patterns", "PCs", key)
 INPUT_FILE = os.path.join(INPUT_DIR, "clinic_pc.csv")
 OUTPUT_FILE = os.path.join(INPUT_DIR, "stats.xlsx")
 
@@ -145,7 +165,7 @@ summary_pc["pval_fdr"] = multipletests(summary_pc.pvalue,  method='fdr_bh')[1]
 summary_pc.target = summary_pc.target.replace({'TMTB_TIME':'TMTB', "MDRS_TOTAL":"MDRS", "MRS": "mRS"})
 summary_pc["PC"] = summary_pc.contrast.replace({'PC0':0, 'PC1':1, 'PC2':2, 'PC3':3, 'PC4':4, 'PC5':5})
 summary_pc = summary_pc.drop("contrast", axis=1)
-summary_pc = summary_pc.ix[:, ["target", "PC", "tvalue", "pvalue", "pval_fdr"]]
+summary_pc = summary_pc.ix[:, ["target", "PC", "tvalue", "pvalue", "pval_fdr", "formula"]]
 
 
 with pd.ExcelWriter(OUTPUT_FILE) as writer:
