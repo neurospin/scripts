@@ -81,7 +81,7 @@ PARAM_FILE = '/neurospin/radiomics/studies/metastasis/base/all_feat_1.yaml'
 p_dict = {}
 for s in subjects:
     p_dict[s]={}
-    p_dict[s]['image'] = os.path.join(args.basedir, s, 'model4',
+    p_dict[s]['image'] = os.path.join(args.basedir, s, 'model04',
                                     '{}_enh-gado_T1w_bfc_WS.nii.gz'.format(s))
     # get the putative lesion files
     p_dict[s]['lesions'] = glob(os.path.join(args.basedir, s, 'model10',
@@ -110,14 +110,25 @@ if args.process:
                        'scripts', '2017_rr', 'metastasis',
                        'm50_radiomic_feat_extraction.py')
 
-    status, exitcodes = hopla(cmd,
-                              '--param', PARAM_FILE,
-                              '--format', 'json',
-                              '--habitat', 'edema',
-                              '--out', destdirs,
-                              '--image', imafiles,
-                              '--segment', maskfiles,
-                              hopla_iterative_kwargs=["i", "s", "-o"],
-                              hopla_cpus=args.cpu,
+#    status, exitcodes = hopla(cmd,
+#                              '--param', PARAM_FILE,
+#                              '--format', 'json',
+#                              '--habitat', 'edema',
+#                              '--out', destdirs,
+#                              '--image', imafiles,
+#                              '--segment', maskfiles,
+#                              hopla_iterative_kwargs=["i", "s", "-o"],
+#                              hopla_cpu=args.cpus,
+#                              hopla_logfile=logfile,
+#                              hopla_verbose=args.verbose)
+status, exitcodes = hopla(cmd,
+                              p=PARAM_FILE,
+                              f='json',
+                              a='edema',
+                              o=destdirs,
+                              i=imafiles,
+                              s=maskfiles,
+                              hopla_iterative_kwargs=["i", "s", "o"],
+                              hopla_cpus=args.cpus,
                               hopla_logfile=logfile,
                               hopla_verbose=args.verbose)
