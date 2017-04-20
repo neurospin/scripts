@@ -116,7 +116,7 @@ def get_mask_from_lesion(lesion, tag, outdir='.'):
 
 doc = """
 source /volatile/frouin/pyrad/bin/activate
-python $HOME/gits/scripts/2017_rr/metastasis/getGCLM.py \
+python $HOME/gits/scripts/2017_rr/metastasis/m50_radiomic_feat_extraction.py \
    --param $HOME/gits/scripts/2017_rr/metastasis/minimal.yaml \
    --out /tmp/GLCM \
    --format json \
@@ -126,10 +126,10 @@ python $HOME/gits/scripts/2017_rr/metastasis/getGCLM.py \
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('image', metavar='Image',
+parser.add_argument('--image', '-i', metavar='Image',
                     help='Features are extracted from the Region Of Interest '
                          '(ROI) in the image')
-parser.add_argument('lesion', metavar='Mask',
+parser.add_argument('--segment', '-s', metavar='Mask',
                     help='Mask identifying the ROIs in the Image')
 
 parser.add_argument('--out', '-o', metavar='DIR', required=True,
@@ -315,7 +315,7 @@ def main():
     logger.addHandler(handler)
 
     #Create temporary masks and get their pathname
-    fn_mask, fnout = get_mask_from_lesion(args.lesion, args.habitat, outdir)
+    fn_mask, fnout = get_mask_from_lesion(args.segment, args.habitat, outdir)
     fn_prefix = os.path.basename(fnout).split('.')[0]
     fpout = open(fnout, 'w')
 #    print fn_mask, fn_jsonout, args.image
