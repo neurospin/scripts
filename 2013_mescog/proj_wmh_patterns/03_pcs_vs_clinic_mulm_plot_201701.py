@@ -18,7 +18,9 @@ from mulm.dataframe.mulm_dataframe import MULM
 from statsmodels.sandbox.stats.multicomp import multipletests
 from patsy import dmatrices
 
-BASE_DIR = "/home/ed203246/data/mescog/wmh_patterns"
+#BASE_DIR = "/home/ed203246/data/mescog/wmh_patterns"
+BASE_DIR = "/media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns_laptop-data-mescog/proj_wmh_patterns_laptop-data-mescog"
+
 INPUT_BASE_PC = INPUT_BASE_CLINIC = BASE_DIR
 
 INPUT_PC = os.path.join(INPUT_BASE_PC, "summary", "components.csv")

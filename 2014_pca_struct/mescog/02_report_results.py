@@ -40,7 +40,7 @@ INPUT_RESULTS_FILE = os.path.join(INPUT_BASE_DIR, "results.csv")
 
 INPUT_MASK = os.path.join(INPUT_BASE_DIR,
                           "mask_bin.nii")
-
+# INPUT_MASK = '/neurospin/mescog/proj_wmh_patterns_2014/wmh_bin_mask.nii'
 
 INPUT_MESCOG_DIR = "/neurospin/mescog/proj_wmh_patterns"
 
@@ -191,26 +191,44 @@ pop = pd.read_csv(INPUT_POPULATION_FILE)
 #TMTB_TIME  -0.858704  0.682066   1.000000   -0.898043
 #MDRS_TOTAL  0.866949 -0.698889  -0.898043    1.000000
 
+## Explained variance
+# X.shape
+#Out[6]: (301, 1064455)
+
+np.sum(nib.load('/neurospin/mescog/proj_wmh_patterns_2014/wmh_bin_mask.nii').get_data() != 0)
+
+#mask_arr.sum()
+#memmap(1064455)
+#V.shape
+#Out[23]: (1089949, 3)
+
+U, V = projections, components
+
+np.sum((X - np.dot(U, V.T)) ** 2)
+np.sum((X - X.mean(axis=0)) ** 2)
+
+##
+
 # Load components and store them as nifti images
-j, (params, name) = 0, COND[0]
+j, (params, name) = 7, COND[7]
 for j, (params, name) in enumerate(COND):
     #j, (params, name) = 0, COND[0]
     key = '_'.join([str(param) for param in params])
-    print "process", key
+    print("process", key)
     components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
                                                    key=key)
     projections_filename = INPUT_PROJECTIONS_FILE_FORMAT.format(fold=EXAMPLE_FOLD,
-                                                   key=key)             
+                                                   key=key)
     components = np.load(components_filename)['arr_0']
     projections = np.load(projections_filename)['arr_0']
     assert projections.shape[1] == components.shape[1]
     # eventually flip Projection and Loading such that they positivetly
     # correlate with clinical severity
-    for i in xrange(projections.shape[1]):
+    for i in range(projections.shape[1]):
         R = np.corrcoef(pop.TMTB_TIME, projections[:, i])[0, 1]
         sign = np.sign(R)
         #sign = np.sign(np.dot(pop.TMTB_TIME, projections[:, i]))
-        print name, i, R, sign#, np.corrcoef(pop.TMTB_TIME, projections[:, i])
+        print(name, i, R, sign)#, np.corrcoef(pop.TMTB_TIME, projections[:, i])
         projections[:, i] = sign * projections[:, i]
         components[:, i] = sign * components[:, i]
     # QC recompute projection from loading
@@ -223,7 +241,7 @@ for j, (params, name) in enumerate(COND):
         U = pca.transform(X)
     else:
         U, d = transform(V=components, X=X, n_components=components.shape[1], in_place=False)
-    print "np.max(np.abs(projections - U))", np.max(np.abs(projections - U))
+    print("np.max(np.abs(projections - U))", np.max(np.abs(projections - U)))
     assert np.allclose(projections, U)
     # projections_plus the 3 components + the sum
     components_plus = np.zeros((components.shape[0], components.shape[1]+1))
@@ -250,7 +268,7 @@ for j, (params, name) in enumerate(COND):
     figname = OUTPUT_COMPONENTS_FILE_FORMAT.format(name=name.replace(' ', '_'))
     nib.save(im, os.path.join(OUTPUT_DIR, figname))
     # projection to csv
-    for i in xrange(projections_plus.shape[1]):
+    for i in range(projections_plus.shape[1]):
         if ((i+1) < projections_plus.shape[1]):
             pc_name = 'pc{i}__{name}'.format(name=name, i=i+1)
         else:

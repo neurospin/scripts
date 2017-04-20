@@ -632,7 +632,7 @@ class PCA_L1_L2_TV(BaseEstimator):
                 _info.append(info)
                 _v_func.append(function.f(v_new))
                 if self.verbose:
-                    print("Inner FISTA iterations:", algorithm.num_iter)
+                    #print("Inner FISTA iterations:", algorithm.num_iter)
                     print("Inner calls to FISTA:", info[Info.num_iter])
 
                 if self.criterion == "frobenius":
@@ -682,22 +682,24 @@ class PCA_L1_L2_TV(BaseEstimator):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, n_components=None):
         """ Return the approximated matrix for a given matrix.
         We have to recompute U and d because the argument may not have the same
         number of lines.
         The argument must have the same number of columns than the datset used
         to fit the estimator.
         """
+        if n_components is None:
+            n_components = self.n_components
         Xk = check_arrays(X)
         n, p = Xk.shape
         if p != self.V.shape[0]:
             raise ValueError("The argument must have the same number of "
                              "columns than the datset used to fit the "
                              "estimator.")
-        Ut, dt = self.transform(Xk)
+        Ut, dt = self.transform(Xk, n_components=n_components)
         Xt = np.zeros(Xk.shape)
-        for k in range(self.n_components):
+        for k in range(n_components):
             vk = self.V[:, k].reshape(-1, 1)
             uk = Ut[:, k].reshape(-1, 1)
             Xt += self.compute_rank1_approx(dt[k], uk, vk)
@@ -706,7 +708,7 @@ class PCA_L1_L2_TV(BaseEstimator):
     def score(self, X):
         pass
 
-    def transform(self, X, in_place=False):
+    def transform(self, X, n_components=None, in_place=False):
         """ Project a (new) dataset onto the components.
         Return the projected data and the associated d.
         We have to recompute U and d because the argument may not have the same
@@ -714,17 +716,20 @@ class PCA_L1_L2_TV(BaseEstimator):
         The argument must have the same number of columns than the datset used
         to fit the estimator.
         """
+        if n_components is None:
+            n_components = self.n_components
         Xk = check_arrays(X)
         if not in_place:
             Xk = Xk.copy()
+            
         n, p = Xk.shape
         if p != self.V.shape[0]:
             raise ValueError("The argument must have the same number of "
                              "columns than the datset used to fit the "
                              "estimator.")
-        U = np.zeros((n, self.n_components))
-        d = np.zeros((self.n_components, ))
-        for k in range(self.n_components):
+        U = np.zeros((n, n_components))
+        d = np.zeros((n_components, ))
+        for k in range(n_components):
             # Project on component j
             vk = self.V[:, k].reshape(-1, 1)
             uk = np.dot(X, vk)
