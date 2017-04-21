@@ -46,7 +46,10 @@ key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 ll1, ll2, ltv = 0.1 * 0.025937425654559931, 1, 0.1
 key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 
-key_pca = "pca"    
+ll1, ll2, ltv = 0.05 * 0.025937425654559931, 1, 0.001
+key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
+
+key_pca = "pca"
 key = key_pca_enettv
 
 #key = key_pca
