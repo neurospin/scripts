@@ -19,7 +19,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
-import brainomics.image_atlas
+#import brainomics.image_atlas
 import parsimony.algorithms as algorithms
 import parsimony.datasets as datasets
 import parsimony.functions.nesterov.tv as nesterov_tv
@@ -73,7 +73,7 @@ def mapper(key, output_collector):
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
 
     penalty_start = 3
-
+    print(key)
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
     print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
@@ -86,9 +86,11 @@ def mapper(key, output_collector):
     Xtr = scaler.transform(Xtr)
     Xte=scaler.transform(Xte)
     A = GLOBAL.A
-
-    conesta = algorithms.proximal.CONESTA(max_iter=500)
-    mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+    # TV
+    # conesta = algorithms.proximal.CONESTA(max_iter=500)
+    # mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+    # GN
+    mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, class_weight=class_weight, penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
@@ -320,3 +322,33 @@ if __name__ == "__main__":
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")
+
+"""
+DEBUG
+
+cd WD
+config = json.load(open("config_dCV.json"))
+penalty_start = 3
+
+resample(config, resample_nb='refit/refit')
+key = (0.1, 0.9, 0.1, 0.0)
+
+# plot weigth map
+import nilearn
+from nilearn import plotting
+
+beta_filename = os.path.join("model_selectionCV/refit/refit/0.1_0.1_0.9_0.0/beta.npz")
+output_filename = "/tmp/img.nii.gz"
+
+mask_img = nibabel.load(os.path.join(INPUT_MASK_PATH))
+beta = np.load(beta_filename)['arr_0']
+beta_img = np.zeros(mask_img.get_data().shape)
+beta_img[mask_img.get_data() !=0] = beta[penalty_start:, :].ravel()
+
+out_im = nibabel.Nifti1Image(beta_img,
+                             affine=mask_img.get_affine())
+out_im.to_filename(output_filename)
+nilearn.plotting.plot_glass_brain(output_filename, colorbar=True, plot_abs=False)
+
+
+"""
