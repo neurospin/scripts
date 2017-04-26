@@ -1,5 +1,5 @@
 import numpy as  np
-from nibabel.gifti import read, write, GiftiDataArray, GiftiImage
+from nibabel import gifti
 #import nipy.algorithms.graph.graph as fg
 
 
@@ -54,7 +54,7 @@ def mesh_arrays(mesh, nibabel=True):
     fixme: use intent !
     """
     if isinstance(mesh, str):
-        mesh_ = read(mesh)
+        mesh_ = gifti.read(mesh)
     else:
         mesh_ = mesh
     cor = mesh_.getArraysFromIntent("NIFTI_INTENT_POINTSET")[0].data
@@ -67,15 +67,15 @@ def mesh_from_arrays(coord, triangles, path=None):
 
     fixme:  intent should be set !
     """
-    carray = GiftiDataArray().from_array(coord.astype(np.float32),
+    carray = gifti.GiftiDataArray().from_array(coord.astype(np.float32),
         "NIFTI_INTENT_POINTSET",
         encoding='B64BIN')
         #endian="LittleEndian")
-    tarray = GiftiDataArray().from_array(triangles.astype(np.int32),
+    tarray = gifti.GiftiDataArray().from_array(triangles.astype(np.int32),
         "NIFTI_INTENT_TRIANGLE",
         encoding='B64BIN')
         #endian="LittleEndian")
-    img = GiftiImage(darrays=[carray, tarray])
+    img = gifti.GiftiImage(darrays=[carray, tarray])
     if path is not None:
         try:
             from soma import aims
@@ -85,7 +85,7 @@ def mesh_from_arrays(coord, triangles, path=None):
             aims.write(mesh, path)
         except:
             print("soma writing failed")
-            write(img, path)
+            gifti.write(img, path)
     return img
 
 #def mesh_from_arrays(coord, triangles, path=None):
@@ -93,12 +93,12 @@ def mesh_from_arrays(coord, triangles, path=None):
 #
 #    fixme:  intent should be set !
 #    """
-#    carray = GiftiDataArray().from_array(coord.astype(np.float32),
+#    carray = gifti.GiftiDataArray().from_array(coord.astype(np.float32),
 #                                         "NIFTI_INTENT_POINTSET")
-#    tarray = GiftiDataArray().from_array(triangles, "NIFTI_INTENT_TRIANGLE")
-#    img = GiftiImage(darrays=[carray, tarray])
+#    tarray = gifti.GiftiDataArray().from_array(triangles, "NIFTI_INTENT_TRIANGLE")
+#    img = gifti.GiftiImage(darrays=[carray, tarray])
 #    if path is not None:
-#        write(img, path)
+#        gifti.write(img, path)
 #    return img
 
 def load_texture(path):
@@ -114,20 +114,20 @@ Returns
 data array of shape (nnode) or (nnode, len(path))
 the corresponding data
 """
-    from nibabel.gifti import read
+    #from nibabel.gifti import read
 
     # use alternative libraries than nibabel if necessary
     if hasattr(path, '__iter__'):
         tex_data = []
         for f in path:
-            ftex = read(f).getArraysFromIntent('NIFTI_INTENT_TIME_SERIES')
+            ftex = gifti.read(f).getArraysFromIntent('NIFTI_INTENT_TIME_SERIES')
             tex = np.array([f.data for f in ftex])
             tex_data.append(tex)
         tex_data = np.array(tex_data)
         if len(tex_data.shape) > 2:
             tex_data = np.squeeze(tex_data)
     else:
-        tex_ = read(path)
+        tex_ = gifti.read(path)
         tex_data = np.array([darray.data for darray in tex_.darrays])
     return tex_data
 
@@ -151,9 +151,9 @@ the corresponding data
 #    from nibabel.gifti import write, GiftiDataArray, GiftiImage
 #    if verbose:
 #        print 'Warning: assuming a float32 gifti file'
-#    darray = GiftiDataArray().from_array(data.astype(np.float32), intent)
-#    img = GiftiImage(darrays=[darray])
-#    write(img, path)
+#    darray = gifti.GiftiDataArray().from_array(data.astype(np.float32), intent)
+#    img = gifti.GiftiImage(darrays=[darray])
+#    gifti.write(img, path)
 
 def save_texture(filename, data):
     from soma import aims
@@ -330,7 +330,7 @@ def isomap_patch(mesh, mask, show=False):
     # Read the data
     coord, tri = mesh_arrays(mesh)
     if isinstance(mask, basestring):
-        mask = read(mask).darrays[0].data > 0
+        mask = gifti.read(mask).darrays[0].data > 0
     else:
         mask = mask.astype(np.bool)
     coord, tri = coord[mask], tri[mask[tri].all(1)]
@@ -376,7 +376,7 @@ def isomap_patch(mesh, mask, show=False):
 #
 #   G = mesh_to_graph(mesh)
 #   if mask is not None:
-#       mask = read(mask).darrays[0].data > 0
+#       mask = gifti.read(mask).darrays[0].data > 0
 #       G = G.subgraph(mask)
 #   add_edges = np.vstack((np.arange(G.V), np.arange(G.V))).T
 #   edges = np.vstack((G.edges, add_edges))
@@ -394,7 +394,7 @@ def isomap_patch(mesh, mask, show=False):
 #       import tio as tio
 #       data = tio.Texture("").read(input_texture).data
 #   else:
-#       data = read(input_texture).darrays[0].data
+#       data = gifti.read(input_texture).darrays[0].data
 #   if mask is not None:
 #       data = data[mask]
 #   dtype = data.dtype
@@ -414,9 +414,9 @@ def isomap_patch(mesh, mask, show=False):
 #           if mask is not None:
 #               wdata = mask.astype(np.float)
 #               wdata[mask > 0] = data
-#           darray = GiftiDataArray().from_array(wdata.astype(np.float32),
+#           darray = gifti.GiftiDataArray().from_array(wdata.astype(np.float32),
 #                                                intent)
-#           img = GiftiImage(darrays=[darray])
+#           img = gifti.GiftiImage(darrays=[darray])
 #           write(img, output_texture)
 #   return data
 
@@ -443,7 +443,7 @@ def compute_normal_vertex(mesh, mask=None):
     if mask is None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
     else:
-        mask = read(mask).darrays[0].data.astype(np.bool)
+        mask = gifti.read(mask).darrays[0].data.astype(np.bool)
 
     # compute the normal for each triangle
     norms = np.zeros((mask.size, 3))
@@ -490,13 +490,13 @@ def texture_gradient(mesh, texture, mask=None):
     if mask is None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
     else:
-        mask = read(mask).darrays[0].data.astype(np.bool)
+        mask = gifti.read(mask).darrays[0].data.astype(np.bool)
 
     # compute the neighborhood system
     neighb = mesh_to_graph(mesh).to_coo_matrix().tolil().rows
 
     # read the texture
-    y = read(texture).darrays[0].data
+    y = gifti.read(texture).darrays[0].data
 
     # compute the gradient
     gradient = []

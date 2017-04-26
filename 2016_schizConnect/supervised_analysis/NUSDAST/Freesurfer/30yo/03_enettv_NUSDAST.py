@@ -43,7 +43,6 @@ def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     STRUCTURE = np.load(config["structure"])
-    #A = tv_helper.A_from_mask(STRUCTURE)
     A = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
     GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
 
@@ -244,15 +243,12 @@ if __name__ == "__main__":
         null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
         cv_outer[0] = null_resampling
 
-#
     import collections
     cv = collections.OrderedDict()
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
             cv["refit/refit"] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
         else:
             cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
@@ -286,6 +282,7 @@ if __name__ == "__main__":
     params = [np.round(params,2).tolist() for params in alphal1l2tv]
 
 
+    print("NB run=", len(params) * len(cv))
     #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
     user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
 
@@ -321,26 +318,4 @@ penalty_start = 3
 
 resample(config, resample_nb='refit/refit')
 key = (0.1, 0.9, 0.1, 0.0)
-
-# plot weigth map
-import nilearn
-from nilearn import plotting
-
-stat_map_val = np.load(os.path.join(WD, "model_selectionCV/refit/refit/0.1_1.0_0.0_0.0/beta.npz"))['arr_0'][penalty_start:, :]
-surf_mesh = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/lrh.pial.gii"
-mask = np.load("mask.npy")
-stat_map = np.zeros(mask.shape)
-stat_map[mask] = stat_map_val
-
-xyz, tri = mesh_utils.mesh_arrays(surf_mesh)
-
-nilearn.plotting.plot_surf_stat_map(surf_mesh, stat_map)
-
-output_filename = "/tmp/img.nii.gz"
-
-mask_img = nibabel.load(os.path.join(INPUT_MASK_PATH))
-beta = np.load(beta_filename)['arr_0']
-
-
-
 """
