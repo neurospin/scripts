@@ -17,35 +17,43 @@ from sklearn.metrics import precision_recall_fscore_support
 # from parsimony.estimators import LogisticRegressionL1L2TV
 # import parsimony.functions.nesterov.tv as tv_helper
 # import brainomics.image_atlas
-# import parsimony.algorithms as algorithms
-import parsimony.datasets as datasets
+# import parsimony.datasets as datasets
 import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
-import parsimony.utils as utils
+# import parsimony.utils as utils
 from parsimony.utils.linalgs import LinearOperatorNesterov
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
-from collections import OrderedDict
+# from collections import OrderedDict
 import pandas as pd
 import shutil
 
 BASE_PATH= '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer'
-WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yo'
+WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enetgn/enetgn_NUDAST_30yo'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
 
-
 def load_globals(config):
+    import scipy.sparse as sparse
+    import functools
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    # STRUCTURE = np.load(config["structure"])
-    A = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
-    # GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
-    GLOBAL.A = A
+    #STRUCTURE = np.load(config["structure"])
+    # Linear operator
+    Atv = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
+    Agn = sparse.vstack(Atv)
+    Agn.singular_values = Atv.get_singular_values()
+    def get_singular_values(self, nb=None):
+        return self.singular_values[nb] if nb is not None else self.singular_values
+    Agn.get_singular_values = functools.partial(get_singular_values, Agn)
+    assert Agn.get_singular_values(0) == 8.9993981400538203
+    #GLOBAL.A, GLOBAL.STRUCTURE, = Agn, STRUCTURE
+    GLOBAL.A  = Agn
+
 
 
 def resample(config, resample_nb):
@@ -65,8 +73,8 @@ def mapper(key, output_collector):
     penalty_start = 3
 
     alpha = float(key[0])
-    l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
-    print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
+    l1, l2, gn = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
+    print("l1:%f, l2:%f, gn:%f" % (l1, l2, gn))
 
     class_weight="auto" # unbiased
 
@@ -77,8 +85,8 @@ def mapper(key, output_collector):
     Xte=scaler.transform(Xte)
     A = GLOBAL.A
 
-    conesta = algorithms.proximal.CONESTA(max_iter=500)
-    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+    fista = algorithms.proximal.FISTA(max_iter=500)
+    mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,gn, A, algorithm=fista, class_weight=class_weight,penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
@@ -118,12 +126,12 @@ def scores(key, paths, config):
     pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
     scores = OrderedDict()
     try:
-        a, l1, l2 , tv  = [float(par) for par in key.split("_")]
+        a, l1, l2 , gn  = [float(par) for par in key.split("_")]
         scores['a'] = a
         scores['l1'] = l1
         scores['l2'] = l2
-        scores['tv'] = tv
-        left = float(1 - tv)
+        scores['gn'] = gn
+        left = float(1 - gn)
         if left == 0: left = 1.
         scores['l1_ratio'] = float(l1) / left
     except:
@@ -196,19 +204,19 @@ def reducer(key, values):
     rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
     np.sum(rm)
     scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
-    l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
+    l1l2gn = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.gn != 0)]
 
 
     print('## Model selection')
     print('## ---------------')
-    l1l2tv = argmaxscore_bygroup(l1l2tv); l1l2tv["method"] = "l1l2tv"
-    scores_argmax_byfold = l1l2tv
+    l1l2gn = argmaxscore_bygroup(l1l2gn); l1l2gn["method"] = "l1l2gn"
+    scores_argmax_byfold = l1l2gn
     print('## Apply best model on refited')
     print('## ---------------------------')
-    scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
+    scores_l1l2gn = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2gn.iterrows()], config)
     scores_cv = pd.DataFrame([
-                  ["l1l2tv"] + list(scores_l1l2tv.values())], columns=["method"] + list(scores_l1l2tv.keys()))
-    print(list(scores_l1l2tv.values()))
+                  ["l1l2gn"] + list(scores_l1l2gn.values())], columns=["method"] + list(scores_l1l2gn.keys()))
+    print(list(scores_l1l2gn.values()))
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='cv_by_param', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='cv_cv_byparam', index=False)
@@ -217,7 +225,7 @@ def reducer(key, values):
 ##############################################################################
 
 if __name__ == "__main__":
-    WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yo'
+    WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enetgn/enetgn_NUDAST_30yo'
     INPUT_DATA_X = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/X.npy'
     INPUT_DATA_y = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/y.npy'
     INPUT_MASK_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/mask.npy'
@@ -230,6 +238,7 @@ if __name__ == "__main__":
     NFOLDS_INNER = 5
 
     os.makedirs(WD, exist_ok=True)
+
     shutil.copy(INPUT_DATA_X, WD)
     shutil.copy(INPUT_DATA_y, WD)
     shutil.copy(INPUT_MASK_PATH, WD)
@@ -257,34 +266,33 @@ if __name__ == "__main__":
     for k in cv:
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
-
     print(list(cv.keys()))
 
 #    # Full Parameters grid
-#    tv_range = tv_ratios = [.2, .4, .6, .8]
+#    gn_range = gn_ratios = [.2, .4, .6, .8]
 #    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],[.9, .1, 1], [.1, .9, 1],[.3,.7,1],[.7,.3,1]])
 #    alphas = [0.01,.1,0.5]
 
      # Reduced Parameters grid
-#    tv_range = tv_ratios = [0.0,.2, .4, .6, .8,1.0]
+#    gn_range = gn_ratios = [0.0,.2, .4, .6, .8,1.0]
 #    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],[.9, .1, 1], [.1, .9, 1]])
 #    alphas = [.1]
 
     #grid of ols paper
-    tv_range = tv_ratios = [0.0,.1,0.2,0.3, 0.4,0.5,.6,0.7, .8,0.9,1.0]
+    gn_range = gn_ratios = [0.0,.1,0.2,0.3, 0.4,0.5,.6,0.7, .8,0.9,1.0]
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .90, 1],[0.9,0.1,1], [0.2,0.8,1],[0.3,0.7,1]])
     alphas = [.1,.01,1.0]
 
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    l1l2gn =[np.array([[float(1-gn), float(1-gn), gn]]) * ratios for gn in gn_range]
+    l1l2gn = np.concatenate(l1l2gn)
+    alphal1l2gn = np.concatenate([np.c_[np.array([[alpha]]*l1l2gn.shape[0]), l1l2gn] for alpha in alphas])
 
-    params = [np.round(params,2).tolist() for params in alphal1l2tv]
+    params = [np.round(params,2).tolist() for params in alphal1l2gn]
 
 
     print("NB run=", len(params) * len(cv))
-    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
-    user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
+    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enetgn_NUSDAST.py"
+    user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enetgn_NUSDAST.py"
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,

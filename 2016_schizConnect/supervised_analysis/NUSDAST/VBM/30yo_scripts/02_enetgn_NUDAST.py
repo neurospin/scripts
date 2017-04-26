@@ -6,23 +6,18 @@ Created on Wed Feb 22 09:36:25 2017
 @author: ad247405
 """
 
-
-
 import os
 import json
 import numpy as np
-import scipy.sparse as sparse
-import functools
 from sklearn.cross_validation import StratifiedKFold
 import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.feature_selection import SelectKBest
-from parsimony.estimators import LogisticRegressionL1L2TV
+# from sklearn.feature_selection import SelectKBest
+# from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
-#import brainomics.image_atlas
-import parsimony.algorithms as algorithms
-import parsimony.datasets as datasets
-import parsimony.functions.nesterov.tv as nesterov_tv
+# import brainomics.image_atlas
+# import parsimony.datasets as datasets
+# import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
 import parsimony.utils as utils
@@ -44,6 +39,8 @@ def results_filename(): return os.path.join(WD,"results_dCV_reduced_grid.xlsx")
 
 
 def load_globals(config):
+    import scipy.sparse as sparse
+    import functools
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     STRUCTURE = nibabel.load(config["structure"])
@@ -90,7 +87,7 @@ def mapper(key, output_collector):
     # conesta = algorithms.proximal.CONESTA(max_iter=500)
     # mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
     # GN
-    mod= estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, class_weight=class_weight, penalty_start=penalty_start)
+    mod = estimators.LogisticRegressionL1L2GraphNet(l1,l2,tv, A, class_weight=class_weight, penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
@@ -266,9 +263,6 @@ if __name__ == "__main__":
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         if cv_outer_i == 0:
             cv["refit/refit"] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            # for cv_inner_i, (tr, val) in enumerate(cv_inner):
-            #    cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
         else:
             cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
