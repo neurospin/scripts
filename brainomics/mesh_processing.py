@@ -47,19 +47,19 @@ def spherical_to_cartesian(spherical):
 
 
 def mesh_arrays(mesh, nibabel=True):
-   """ Returns the arrays associated with a mesh
-   if len(output)==2, the arrays are coordiantes and triangle lists
-   if len(output)==3, the arrays are  coordiantes, triangle lists
-       and outer normal
-   fixme: use intent !
-   """
-   if isinstance(mesh, basestring):
-       mesh_ = read(mesh)
-   else:
-       mesh_ = mesh
-   cor = mesh_.getArraysFromIntent("NIFTI_INTENT_POINTSET")[0].data
-   tri = mesh_.getArraysFromIntent("NIFTI_INTENT_TRIANGLE")[0].data
-   return cor, tri
+    """ Returns the arrays associated with a mesh
+    if len(output)==2, the arrays are coordiantes and triangle lists
+    if len(output)==3, the arrays are  coordiantes, triangle lists
+    and outer normal
+    fixme: use intent !
+    """
+    if isinstance(mesh, str):
+        mesh_ = read(mesh)
+    else:
+        mesh_ = mesh
+    cor = mesh_.getArraysFromIntent("NIFTI_INTENT_POINTSET")[0].data
+    tri = mesh_.getArraysFromIntent("NIFTI_INTENT_TRIANGLE")[0].data
+    return cor, tri
 
 
 def mesh_from_arrays(coord, triangles, path=None):
@@ -84,7 +84,7 @@ def mesh_from_arrays(coord, triangles, path=None):
             mesh.polygon().assign([aims.AimsVector_U32_3(x)for x in triangles])
             aims.write(mesh, path)
         except:
-            print "soma writing failed"
+            print("soma writing failed")
             write(img, path)
     return img
 
@@ -162,7 +162,6 @@ def save_texture(filename, data):
     aims.write(tex, filename)
 
 
-
 def spherical_coordinates(mesh):
     """ Return the spherical coordinates of the nodes of a certain mesh
     """
@@ -212,6 +211,7 @@ def poly_to_graph(nnodes, poly, coord=None):
 
     return G
 
+
 def cut_mesh(mesh_path, vertex_mask, output_path=None):
     """
     create a reduced medh by keeping only the vertices inside vertex mask
@@ -232,6 +232,7 @@ def cut_mesh(mesh_path, vertex_mask, output_path=None):
     reduced_triangles = mapping[np.array(reduced_triangles)]
 
     return mesh_from_arrays(reduced_coord, reduced_triangles, output_path)
+
 
 def node_area(mesh):
     """
@@ -274,17 +275,18 @@ def mesh_area(mesh):
         marea += area(a, b)
     return marea / 2
 
+
 def mesh_integrate(mesh, tex, coord=None):
     """
     Compute the integral of the texture on the mesh
     - coord is an additional set of coordinates to define the vertex position
     by default, mesh.vertex() is used
      """
-    if coord == None:
+    if coord is None:
         vertices = np.array(mesh.vertex())
     else:
         vertices = coord
-    poly  = mesh.polygon()
+    poly = mesh.polygon()
     integral = 0
     coord = np.zeros((3, 3))
     E = poly.size()
@@ -340,7 +342,7 @@ def isomap_patch(mesh, mask, show=False):
     # try to make the sign invariant and repect the orientations
     xy *= np.sign((xy ** 3).sum(0))
     a, b, c = tri[0]
-    xy[:, 1] *= np.sign(np.linalg.det(np.vstack((xy[b] - xy[a], xy[c] -xy[a]))))
+    xy[:, 1] *= np.sign(np.linalg.det(np.vstack((xy[b] - xy[a], xy[c] - xy[a]))))
 
     if show:
         import matplotlib.pyplot as plt
@@ -438,7 +440,7 @@ def compute_normal_vertex(mesh, mask=None):
     """
     # get coordinates and triangles
     coord, triangles = mesh_arrays(mesh)
-    if mask == None:
+    if mask is None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
     else:
         mask = read(mask).darrays[0].data.astype(np.bool)
@@ -485,7 +487,7 @@ def texture_gradient(mesh, texture, mask=None):
     """
     # get coordinates and triangles
     coord, triangles = mesh_arrays(mesh)
-    if mask == None:
+    if mask is None:
         mask = np.ones(coord.shape[0]).astype(np.bool)
     else:
         mask = read(mask).darrays[0].data.astype(np.bool)
@@ -500,7 +502,7 @@ def texture_gradient(mesh, texture, mask=None):
     gradient = []
     for i in np.where(mask)[0]:
         yi = y[neighb[i]]
-        yi[mask[neighb[i]] == False] = y[i]
+        yi[mask[neighb[i]] is False] = y[i]
         grad = np.linalg.lstsq(coord[neighb[i]], yi)[0]
         gradient.append(grad)
     return np.array(gradient)
@@ -539,6 +541,7 @@ def remesh(input_path, src, target, output_path=None):
     output_mesh = mesh_from_arrays(output_coord, ref_triangles, output_path)
     return output_mesh
 
+
 def remesh_step1(src, target):
     """Computation of mesh resampling parameters
 
@@ -557,6 +560,7 @@ def remesh_step1(src, target):
     svertex, _ = mesh_arrays(target)
     uvertex, ufaces = mesh_arrays(src)
     return _remesh(uvertex, ufaces, svertex)
+
 
 def _remesh(uvertex, ufaces, svertex):
     """Computation of mesh resampling parameters - low level function
@@ -583,7 +587,7 @@ def _remesh(uvertex, ufaces, svertex):
     # roughly same center and same bounding box
     if (not np.allclose(svertex.mean(0), uvertex.mean(0), atol=1e-2)) or \
            (not np.allclose(svertex.max(0), uvertex.max(0), atol=1e-2)):
-        print "\n WARNING : different mean or max(0) \n"
+        print("\n WARNING : different mean or max(0) \n")
     polycenters = uvertex[ufaces].mean(1)
     maxs = np.sum((uvertex[ufaces] - polycenters[:, np.newaxis]) ** 2, 2).max(1)
 
@@ -608,7 +612,7 @@ def _remesh(uvertex, ufaces, svertex):
     a, bc = triangle[0], triangle[1:] # setup some views
     for i, p in enumerate(polycenters):
         if i % 30000 == 0:
-            print i, "/", len(polycenters)
+            print(i, "/", len(polycenters))
         # find closest points of p : first a rough filter, then an exact filter
         binxyz = [np.searchsorted(grid_xyz[x], p[x]) for x in (0, 1, 2)]
         W = d[0][binxyz[0]].intersection(d[1][binxyz[1]]).intersection(

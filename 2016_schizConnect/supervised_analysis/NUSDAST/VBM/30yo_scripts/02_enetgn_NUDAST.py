@@ -25,8 +25,8 @@ import parsimony.datasets as datasets
 import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
-from parsimony.utils.linalgs import LinearOperatorNesterov
 import parsimony.utils as utils
+from parsimony.utils.linalgs import LinearOperatorNesterov
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
