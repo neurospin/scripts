@@ -48,9 +48,11 @@ key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 
 ll1, ll2, ltv = 0.05 * 0.025937425654559931, 1, 0.001
 key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
+CHOICE = key_pca_enettv
+
 
 key_pca = "pca"
-key = key_pca_enettv
+key = CHOICE
 
 #key = key_pca
 
@@ -166,18 +168,17 @@ summary_pc = stats_clinbl_tvenet_allcovars.copy()
 summary_pc = summary_pc[summary_pc.contrast.str.match("PC")]
 summary_pc["pval_fdr"] = multipletests(summary_pc.pvalue,  method='fdr_bh')[1]
 summary_pc.target = summary_pc.target.replace({'TMTB_TIME':'TMTB', "MDRS_TOTAL":"MDRS", "MRS": "mRS"})
-summary_pc["PC"] = summary_pc.contrast.replace({'PC0':0, 'PC1':1, 'PC2':2, 'PC3':3, 'PC4':4, 'PC5':5})
+summary_pc["PC"] = summary_pc.contrast.replace({'PC0':0, 'PC1':1, 'PC2':2, 'PC3':3, 'PC4':4, 'PC5':5, 'PC6':6, 'PC7':7, 'PC8':8, 'PC9':9, 'PC10':10})
 summary_pc = summary_pc.drop("contrast", axis=1)
 summary_pc = summary_pc.ix[:, ["target", "PC", "tvalue", "pvalue", "pval_fdr", "formula"]]
 
 
 with pd.ExcelWriter(OUTPUT_FILE) as writer:
-    summary_pc.to_excel(writer, sheet_name='summary PC', index=False)
-    summary_qc.to_excel(writer, sheet_name='summary QC', index=False)
-    stats_clin_nopcs_allcovars.to_excel(writer, sheet_name='clin_nopcs_allcovars', index=False)
-#    stats_clin_allpcs_allcovars.to_excel(writer, sheet_name='clin_allpcs_allcovars', index=False)
-    stats_clinbl_tvenet_allcovars.to_excel(writer, sheet_name='clinbl_tvenet_allcovars', index=False)
-    stats_ni_tvenet_democovars.to_excel(writer, sheet_name='stats_ni_tvenet_democovars', index=False)
+    summary_pc.to_excel(writer, sheet_name='PC vs clinic', index=False)
+    #summary_qc.to_excel(writer, sheet_name='summary QC', index=False)
+    #stats_clin_nopcs_allcovars.to_excel(writer, sheet_name='clin_nopcs_allcovars', index=False)
+    #stats_clinbl_tvenet_allcovars.to_excel(writer, sheet_name='clinbl_tvenet_allcovars', index=False)
+    #stats_ni_tvenet_democovars.to_excel(writer, sheet_name='stats_ni_tvenet_democovars', index=False)
     data.to_excel(writer, sheet_name='data', index=False)
 
     #stats_all.to_excel(writer, sheet_name='all_simple+covars', index=False)
