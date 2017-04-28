@@ -1,3 +1,5 @@
+from __future__ import print_function  # compat with python 2.7
+
 import numpy as  np
 from nibabel import gifti
 #import nipy.algorithms.graph.graph as fg
