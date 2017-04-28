@@ -102,13 +102,13 @@ for s in p_dict:
 #print imafiles, destdirs, maskfiles
 
 if args.process:
-    logfile = "{}/log/RadFeaExtlog.txt".format(args.destdir)
+    logfile = "{}/log/RadFeaExtlog_enh.txt".format(args.destdir)
     if not os.path.isdir(os.path.dirname(logfile)):
         os.makedirs(os.path.dirname(logfile))
     #
-    cmd = os.path.join(os.getenv('HOME'), 'gits',
-                       'scripts', '2017_rr', 'metastasis',
-                       'm50_radiomic_feat_extraction.py')
+#    cmd = os.path.join(os.getenv('HOME'), 'gits',
+ #                      'scripts', '2017_rr', 'metastasis',
+  #                     'm50_radiomic_feat_extraction.py')
 
 #    status, exitcodes = hopla(cmd,
 #                              '--param', PARAM_FILE,
@@ -121,14 +121,17 @@ if args.process:
 #                              hopla_cpu=args.cpus,
 #                              hopla_logfile=logfile,
 #                              hopla_verbose=args.verbose)
-status, exitcodes = hopla(cmd,
-                              p=PARAM_FILE,
-                              f='json',
-                              a='edema',
-                              o=destdirs,
-                              i=imafiles,
-                              s=maskfiles,
-                              hopla_iterative_kwargs=["i", "s", "o"],
-                              hopla_cpus=args.cpus,
-                              hopla_logfile=logfile,
-                              hopla_verbose=args.verbose)
+    status, exitcodes = hopla(
+                      os.path.join(os.getenv('HOME'), 'gits',
+                                 'scripts', '2017_rr', 'metastasis',
+                                 'm50_radiomic_feat_extraction.py'),
+                      p=PARAM_FILE,
+                      f='json',
+                      a='all',
+                      o=destdirs,
+                      i=imafiles,
+                      s=maskfiles,
+                      hopla_iterative_kwargs=["i", "s", "o"],
+                      hopla_cpus=args.cpus,
+                      hopla_logfile=logfile,
+                      hopla_verbose=args.verbose)
