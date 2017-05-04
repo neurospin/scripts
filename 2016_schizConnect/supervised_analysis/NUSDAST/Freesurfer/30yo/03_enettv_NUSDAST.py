@@ -28,13 +28,11 @@ from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
-from collections import OrderedDict
 import pandas as pd
 import shutil
 from brainomics import array_utils
 import mapreduce
 
-BASE_PATH= '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer'
 WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yoFS'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
@@ -47,9 +45,7 @@ NFOLDS_INNER = 5
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    # STRUCTURE = np.load(config["structure"])
     A = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
-    # GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
     GLOBAL.A = A
 
 
@@ -92,7 +88,6 @@ def mapper(key, output_collector):
         output_collector.collect(key, ret)
     else:
         return ret
-
 
 
 def scores(key, paths, config):
@@ -156,10 +151,10 @@ def reducer(key, values):
     param_config_set = set([mapreduce.dir_from_param_list(p) for p in config['params']])
     assert len(paths) / len(param_config_set) == len(config['resample']), "Nb run per param is not the one excpected"
     paths.sort()
-    #Reduced grid
-#    paths = [p for p in paths if not p.count("0.01_")]
-    #paths = [p for p in paths if not p.count("1.0_")]
-    #paths = [p for p in paths if not p.count("0.01_")]
+    # Reduced grid
+    # paths = [p for p in paths if not p.count("0.01_")]
+    # paths = [p for p in paths if not p.count("1.0_")]
+    # paths = [p for p in paths if not p.count("0.01_")]
     # paths = [p for p in paths if not p.count("_0.0")]
     print(len(paths))
 
@@ -200,8 +195,8 @@ def reducer(key, values):
         data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
-    #rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
-    #np.sum(rm)
+    # rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
+    # np.sum(rm)
     #scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
     l1l2tv = scores_dcv_byparams[(scores_dcv_byparams.l1 != 0) & (scores_dcv_byparams.tv != 0)]
 
@@ -222,7 +217,6 @@ def reducer(key, values):
         scores_argmax_byfold.to_excel(writer, sheet_name='cv_argmax', index=False)
         scores_cv.to_excel(writer, sheet_name='dcv', index=False)
 
-# reducer(None, None)
 
 ##############################################################################
 
@@ -265,7 +259,6 @@ def init():
     for k in cv:
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
-
     print(list(cv.keys()))
 
     #grid of ols paper
@@ -273,8 +266,8 @@ def init():
     # reduced grid
     # tv_range = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
     # tv_range = [0.0, 0.2, 0.8, 1.0]
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .90, 1], [0.9, 0.1, 1]])
-    alphas = [.1,.01, 1.0]
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .9, 1], [0.9, 0.1, 1]])
+    alphas = [.1, .01, 1.0]
 
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv = np.concatenate(l1l2tv)
@@ -311,14 +304,4 @@ def init():
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
-
-"""
-pwd
-cd /neurospin/tmp/ed203246/enettv_NUDAST_30yoFS
-cd /neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yoFS
-
-find model_selectionCV/ -name beta.npz|wc
-
-
-"""
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")
