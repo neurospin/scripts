@@ -30,9 +30,13 @@ from collections import OrderedDict
 import pandas as pd
 import shutil
 from brainomics import array_utils
+import mapreduce
 
 BASE_PATH= '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM'
 WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enetgn/enetgn_NUDAST_30yo'
+NFOLDS_OUTER = 5
+NFOLDS_INNER = 5
+
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_reduced_grid.xlsx")
 #############################################################################
@@ -100,6 +104,8 @@ def mapper(key, output_collector):
 def scores(key, paths, config):
     import mapreduce
     print (key)
+    assert len(paths) == NFOLDS_INNER or len(paths) == NFOLDS_OUTER, "Failed for key %s" % key
+
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -155,11 +161,13 @@ def reducer(key, values):
     os.chdir(os.path.dirname(config_filename()))
     config = json.load(open(config_filename()))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    param_config_set = set([mapreduce.dir_from_param_list(p) for p in config['params']])
+    assert len(paths) / len(param_config_set) == len(config['resample']), "Nb run per param is not the one excpected"
     paths.sort()
     #Reduced grid
-    paths = [p for p in paths  if p[-3:] != "0.0"]
-    paths = [p for p in paths  if p[-3:] != "0.1"]
-    paths = [p for p in paths  if p[-3:] != "0.2"]
+    #paths = [p for p in paths  if p[-3:] != "0.0"]
+    #paths = [p for p in paths  if p[-3:] != "0.1"]
+    #paths = [p for p in paths  if p[-3:] != "0.2"]
 #    paths = [p for p in paths  if p[-7:-4] != "0.0"]
 
 
@@ -226,10 +234,12 @@ def reducer(key, values):
         scores_dcv_byparams.to_excel(writer, sheet_name='cv_cv_byparam', index=False)
         scores_argmax_byfold.to_excel(writer, sheet_name='cv_argmax', index=False)
         scores_cv.to_excel(writer, sheet_name='dcv', index=False)
+
+# reducer(None, None)
+
 ##############################################################################
 
 if __name__ == "__main__":
-    WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enetgn/enetgn_NUDAST_30yo'
     INPUT_DATA_X = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_30yo/X.npy'
     INPUT_DATA_y = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_30yo/y.npy'
     INPUT_MASK_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_30yo/mask.nii'
@@ -239,8 +249,6 @@ if __name__ == "__main__":
     os.makedirs(WD, exist_ok=True)
     pop = pd.read_csv(INPUT_CSV,delimiter=' ')
     number_subjects = pop.shape[0]
-    NFOLDS_OUTER = 5
-    NFOLDS_INNER = 5
 
     shutil.copy(INPUT_DATA_X, WD)
     shutil.copy(INPUT_DATA_y, WD)
@@ -318,6 +326,12 @@ if __name__ == "__main__":
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")
 
 """
+pwd
+/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enetgn/enetgn_NUDAST_30yo
+find model_selectionCV/ -name beta.npz|wc
+   6603    6603  393041
+
+
 DEBUG
 
 cd WD

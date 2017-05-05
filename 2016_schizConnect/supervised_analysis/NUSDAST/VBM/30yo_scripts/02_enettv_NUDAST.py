@@ -4,6 +4,9 @@
 Created on Wed Feb 22 09:36:25 2017
 
 @author: ad247405
+
+gabriel
+cd /mnt/neurospin/sel-poivre/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enettv/enettv_NUDAST_30yoVBM
 """
 
 
