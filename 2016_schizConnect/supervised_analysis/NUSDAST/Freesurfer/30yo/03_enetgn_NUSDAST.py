@@ -6,7 +6,6 @@ Created on Thu Feb  9 17:11:02 2017
 @author: ad247405
 """
 
-
 import os
 import json
 import numpy as np
@@ -18,16 +17,16 @@ from sklearn.metrics import precision_recall_fscore_support
 # import parsimony.functions.nesterov.tv as tv_helper
 # import brainomics.image_atlas
 # import parsimony.algorithms as algorithms
-import parsimony.datasets as datasets
-import parsimony.functions.nesterov.tv as nesterov_tv
+# import parsimony.datasets as datasets
+# import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
-import parsimony.utils as utils
+# import parsimony.utils as utils
 from parsimony.utils.linalgs import LinearOperatorNesterov
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score, recall_score
+from sklearn.metrics import roc_auc_score
 import pandas as pd
 import shutil
 from brainomics import array_utils
@@ -35,15 +34,16 @@ import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
 WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enetgn/enetgn_NUDAST_30yo'
+WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
+
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
 penalty_start = 3
 
+
 #############################################################################
-
-
 def load_globals(config):
     import scipy.sparse as sparse
     import functools
@@ -98,7 +98,7 @@ def mapper(key, output_collector):
         return ret
 
 
-def scores(key, paths, config):
+def scores(key, paths, config, as_dataframe=False):
     import mapreduce
     print(key)
     assert len(paths) == NFOLDS_INNER or len(paths) == NFOLDS_OUTER, "Failed for key %s" % key
@@ -164,6 +164,7 @@ def scores(key, paths, config):
         dice_bar = fleiss_kappa_stat = 0
 
     scores = OrderedDict()
+    scores['key'] = key
     try:
         a, l1, l2 , gn  = [float(par) for par in key.split("_")]
         scores['a'] = a
@@ -190,10 +191,11 @@ def scores(key, paths, config):
     scores['beta_fleiss_kappa'] = fleiss_kappa_stat
     scores['beta_dice_bar'] = dice_bar
 
-    scores['param_key'] = key
-
     scores['beta_dice'] = str(dices)
     scores['beta_r'] = str(R)
+
+    if as_dataframe:
+        scores = pd.DataFrame([list(scores.values())], columns=list(scores.keys()))
 
     return scores
 
@@ -217,7 +219,7 @@ def reducer(key, values):
             groups[p.split("/")[pos]].append(p)
         return groups
 
-    def argmaxscore_bygroup(data, groupby='fold', param_key="param_key", score="recall_mean"):
+    def argmaxscore_bygroup(data, groupby='fold', param_key="key", score="recall_mean"):
         arg_max_byfold = list()
         for fold, data_fold in data.groupby(groupby):
             assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
@@ -246,7 +248,10 @@ def reducer(key, values):
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
     assert np.all(np.array([g.shape[0] for d, g in scores_dcv_byparams.groupby('fold')]) == 213)
 
-    # 3 different setings
+    # Different settings
+
+    l1l2gn_all = scores_dcv_byparams
+
     l1l2gn_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
@@ -254,7 +259,19 @@ def reducer(key, values):
     assert np.all(np.array([g.shape[0] for d, g in l1l2gn_reduced.groupby('fold')]) == 8)
     assert l1l2gn_reduced.shape[0] == 40
 
-    l1l2gn_all = scores_dcv_byparams
+    l1l2gn_ridge_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1)) &
+        (close(scores_dcv_byparams.gn, 0.2) | close(scores_dcv_byparams.gn, 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2gn_ridge_reduced.groupby('fold')]) == 4)
+    assert l1l2gn_ridge_reduced.shape[0] == 20
+
+    l1l2gn_lasso_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.gn, 0.2) | close(scores_dcv_byparams.gn, 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2gn_lasso_reduced.groupby('fold')]) == 4)
+    assert l1l2gn_lasso_reduced.shape[0] == 20
 
     l1l2_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
@@ -263,31 +280,84 @@ def reducer(key, values):
     assert np.all(np.array([g.shape[0] for d, g in l1l2_reduced.groupby('fold')]) == 4)
     assert l1l2_reduced.shape[0] == 20
 
+    l1l2_ridge_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1)) &
+        (close(scores_dcv_byparams.gn, 0))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2_ridge_reduced.groupby('fold')]) == 2)
+    assert l1l2_ridge_reduced.shape[0] == 10
+
+    l1l2_lasso_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.gn, 0))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2_lasso_reduced.groupby('fold')]) == 2)
+    assert l1l2_lasso_reduced.shape[0] == 10
+
+
     print('## Model selection')
     print('## ---------------')
+    l1l2gn_all = argmaxscore_bygroup(l1l2gn_all); l1l2gn_all["method"] = "l1l2gn_all"
+
     l1l2gn_reduced = argmaxscore_bygroup(l1l2gn_reduced); l1l2gn_reduced["method"] = "l1l2gn_reduced"
 
-    l1l2gn_all = argmaxscore_bygroup(l1l2gn_all); l1l2gn_all["method"] = "l1l2gn_all"
+    l1l2gn_ridge_reduced = argmaxscore_bygroup(l1l2gn_ridge_reduced); l1l2gn_reduced["method"] = "l1l2gn_ridge_reduced"
+
+    l1l2gn_lasso_reduced = argmaxscore_bygroup(l1l2gn_lasso_reduced); l1l2gn_reduced["method"] = "l1l2gn_lasso_reduced"
 
     l1l2_reduced = argmaxscore_bygroup(l1l2_reduced); l1l2_reduced["method"] = "l1l2_reduced"
 
-    scores_argmax_byfold = pd.concat([l1l2gn_reduced, l1l2gn_all, l1l2_reduced])
+    l1l2_ridge_reduced = argmaxscore_bygroup(l1l2_ridge_reduced); l1l2_ridge_reduced["method"] = "l1l2_ridge_reduced"
+
+    l1l2_lasso_reduced = argmaxscore_bygroup(l1l2_lasso_reduced); l1l2_reduced["method"] = "l1l2_lasso_reduced"
+
+    scores_argmax_byfold = pd.concat([l1l2gn_all,
+                                      l1l2gn_reduced, l1l2_reduced,
+                                      l1l2gn_ridge_reduced, l1l2_ridge_reduced,
+                                      l1l2gn_lasso_reduced, l1l2_lasso_reduced])
 
     print('## Apply best model on refited')
     print('## ---------------------------')
-    scores_l1l2gn_reduced = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2gn_reduced.iterrows()], config)
-    scores_l1l2gn_reduced = pd.DataFrame([
-                  ["l1l2gn_reduced"] + list(scores_l1l2gn_reduced.values())], columns=["method"] + list(scores_l1l2gn_reduced.keys()))
+    l1l2gn_all = scores("l1l2gn_all",
+                               [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                   for index, row in l1l2gn_all.iterrows()],
+                                config, as_dataframe=True)
 
-    scores_l1l2gn_all = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2gn_all.iterrows()], config)
-    scores_l1l2gn_all = pd.DataFrame([
-                  ["l1l2gn_all"] + list(scores_l1l2gn_all.values())], columns=["method"] + list(scores_l1l2gn_all.keys()))
+    l1l2gn_reduced = scores("l1l2gn_reduced",
+                            [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                for index, row in l1l2gn_reduced.iterrows()],
+                             config, as_dataframe=True)
 
-    scores_l1l2_reduced = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_reduced.iterrows()], config)
-    scores_l1l2_reduced = pd.DataFrame([
-                  ["l1l2_reduced"] + list(scores_l1l2_reduced.values())], columns=["method"] + list(scores_l1l2_reduced.keys()))
+    l1l2gn_ridge_reduced = scores("l1l2gn_ridge_reduced",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2gn_ridge_reduced.iterrows()],
+                                    config, as_dataframe=True)
 
-    scores_cv = pd.concat([scores_l1l2gn_reduced, scores_l1l2gn_all, scores_l1l2_reduced])
+    l1l2gn_lasso_reduced = scores("l1l2gn_lasso_reduced",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2gn_lasso_reduced.iterrows()],
+                                    config, as_dataframe=True)
+
+    l1l2_reduced = scores("l1l2_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    l1l2_ridge_reduced = scores("l1l2_ridge_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_ridge_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    l1l2_lasso_reduced = scores("l1l2_lasso_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_lasso_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    scores_cv = pd.concat([l1l2gn_all,
+                           l1l2gn_reduced, l1l2_reduced,
+                           l1l2gn_ridge_reduced, l1l2_ridge_reduced,
+                           l1l2gn_lasso_reduced, l1l2_lasso_reduced,
+                           ])
 
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='cv_by_param', index=False)
@@ -304,9 +374,6 @@ def init():
     INPUT_MASK_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/mask.npy'
     INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/Atv.npz'
     # INPUT_CSV = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/population_30yo.csv'
-
-    # pop = pd.read_csv(INPUT_CSV, delimiter=' ')
-    # number_subjects = pop.shape[0]
 
     os.makedirs(WD, exist_ok=True)
     shutil.copy(INPUT_DATA_X, WD)
@@ -354,7 +421,6 @@ def init():
 
     params = [np.round(params,2).tolist() for params in alphal1l2gn]
     print("NB run=", len(params) * len(cv))
-    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enetgn_NUSDAST.py"
     user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enetgn_NUSDAST.py"
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
@@ -371,7 +437,43 @@ def init():
 
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD)
+    sync_push_filename, sync_pull_filename, _ = \
+        clust_utils.gabriel_make_sync_data_files(WD, wd_cluster=WD_CLUSTER)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")
+
+"""
+pwd
+/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enetgn/enetgn_NUDAST_30yo
+find model_selectionCV/ -name beta.npz|wc
+   6603    6603  393041
+
+
+DEBUG
+
+cd WD
+config = json.load(open("config_dCV.json"))
+penalty_start = 3
+
+resample(config, resample_nb='refit/refit')
+key = (0.1, 0.9, 0.1, 0.0)
+
+# plot weigth map
+import nilearn
+from nilearn import plotting
+
+beta_filename = os.path.join("model_selectionCV/refit/refit/0.1_0.1_0.9_0.0/beta.npz")
+output_filename = "/tmp/img.nii.gz"
+
+mask_img = nibabel.load(os.path.join(INPUT_MASK_PATH))
+beta = np.load(beta_filename)['arr_0']
+beta_img = np.zeros(mask_img.get_data().shape)
+beta_img[mask_img.get_data() !=0] = beta[penalty_start:, :].ravel()
+
+out_im = nibabel.Nifti1Image(beta_img,
+                             affine=mask_img.get_affine())
+out_im.to_filename(output_filename)
+nilearn.plotting.plot_glass_brain(output_filename, colorbar=True, plot_abs=False)
+
+
+"""

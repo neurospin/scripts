@@ -66,7 +66,7 @@ def gabriel_make_sync_data_files(wd, wd_cluster=None, user=None):
 
 
 def gabriel_make_qsub_job_files(output_dirname, cmd, suffix="",
-                                nodes=1, mem=None, walltime=None):
+                                nodes=1, mem=None, walltime="250:00:00"):
     """Build standard PBS files:
      - one for Cati_LowPrio with 12 process per node
      - one for Cati_Long with 12 process per node
@@ -96,10 +96,7 @@ def gabriel_make_qsub_job_files(output_dirname, cmd, suffix="",
     limits['host']['nodes'] = nodes
     if mem is not None:
         limits['mem'] = mem
-    if walltime is None:
-        limits['walltime'] = "48:00:00"
-    else:
-        limits['walltime'] = walltime
+    limits['walltime'] = walltime
 
     queue = "Cati_LowPrio"
     limits['host']['ppn'] = 12
