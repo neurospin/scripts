@@ -33,7 +33,7 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 
 
 BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM'
-INPUT_CSV= os.path.join(BASE_PATH,"population_30yo.csv")
+INPUT_CSV= os.path.join(BASE_PATH,"population_30yo_may.csv")
 OUTPUT = os.path.join(BASE_PATH,"data/data_30yo")
 
 
