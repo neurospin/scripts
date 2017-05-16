@@ -22,9 +22,9 @@ GROUP_MAP = {'N': 0, 'Y': 1}
 
 BASE_PATH = '/neurospin/brainomics/2016_deptms'
 INPUT_CLINIC_FILENAME =  '/neurospin/brainomics/2016_deptms/deptms_info.csv'
-INPUT_FS = "/neurospin/brainomics/2016_deptms/results/Freesurfer/freesurfer_assembled_data_fsaverage"
+INPUT_FS = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/freesurfer_assembled_data_fsaverage"
 
-OUTPUT_CSV = os.path.join(BASE_PATH,"results","Freesurfer","population.csv")
+OUTPUT_CSV = os.path.join(BASE_PATH,"analysis","Freesurfer","population.csv")
 
 if not os.path.exists(os.path.dirname(OUTPUT_CSV)):
         os.makedirs(os.path.dirname(OUTPUT_CSV))
