@@ -1,29 +1,34 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb  1 16:00:53 2016
+Created on Thu Apr  6 15:48:41 2017
 
 @author: ad247405
-
-Run standard PCA, sparse PCA , Enet PCA and PCA-TV on fmri dataset. 
 """
+
 
 import os
 import json
 from collections import OrderedDict
 import numpy as np
 import sklearn.decomposition
+import pca_struct
 import pca_tv
 import metrics 
 import sklearn
 import array_utils
 import parsimony.functions.nesterov.tv as tv_helper
 from sklearn.cross_validation import StratifiedKFold
-import shutil
+import shutil 
+import nibabel 
+import scipy.sparse as sparse
+import parsimony.functions.nesterov.tv as nesterov_tv
 
 
 
-BASE_PATH= '/neurospin/brainomics/2016_pca_struct/adni'
-WD = '/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds'
+WD = '/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_controls_only_5x5'
+NFOLDS_OUTER = 5
+NFOLDS_INNER = 5
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
@@ -35,10 +40,11 @@ def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = np.load(config["structure"])
-    A = tv_helper.A_from_mask(STRUCTURE)
+    STRUCTURE = nibabel.load(config["structure"])
+    A = tv_helper.linear_operator_from_mask(STRUCTURE.get_data())
     N_COMP = config["N_COMP"]
     GLOBAL.A, GLOBAL.STRUCTURE,GLOBAL.N_COMP = A, STRUCTURE,N_COMP
+
 
 
 
@@ -46,33 +52,41 @@ def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
     resample = config["resample"][resample_nb]
-    GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+    if resample is not None:
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k][idx, ...] for idx in resample]
+                            for k in GLOBAL.DATA}
+    else:  # resample is None train == test
+        GLOBAL.DATA_RESAMPLED = {k: [GLOBAL.DATA[k] for idx in [0, 1]]
                             for k in GLOBAL.DATA}
 
 
 def mapper(key, output_collector):
     import mapreduce as GLOBAL  # access to global variables:
-    model_name, global_pen, tv_ratio, l1_ratio = key
+    model_name, global_pen, struct_ratio, l1_ratio = key
     if model_name == 'pca':
-        # Force the key
-        global_pen = tv_ratio = l1_ratio = 0
+        global_pen =  struct_ratio = l1_ratio = 0
      
-    if model_name == 'sparse_pca':   
-        
-        global_pen = tv_ratio = 0
+    if model_name == 'sparse_pca':           
+        global_pen =  struct_ratio = 0
         ll1=l1_ratio 
 
     if model_name == 'struct_pca':
-        ltv = global_pen * tv_ratio
-        ll1 = l1_ratio * global_pen * (1 - tv_ratio)
-        ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
+        ltv = global_pen *  struct_ratio
+        ll1 = l1_ratio * global_pen * (1 -  struct_ratio)
+        ll2 = (1 - l1_ratio) * global_pen * (1 -  struct_ratio)
         assert(np.allclose(ll1 + ll2 + ltv, global_pen))
+        
+    if model_name == 'graphNet_pca':   
+        lgn = global_pen *  struct_ratio
+        ll1 = l1_ratio * global_pen * (1 -  struct_ratio)
+        ll2 = (1 - l1_ratio) * global_pen * (1 -  struct_ratio)
+        assert(np.allclose(ll1 + ll2 + lgn, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
     n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
     # A matrices
-    Atv = GLOBAL.A
+    A = GLOBAL.A
     N_COMP = GLOBAL.N_COMP
 
     # Fit model
@@ -85,19 +99,28 @@ def mapper(key, output_collector):
     if model_name == 'struct_pca':
         model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
                                     l1=ll1, l2=ll2, ltv=ltv,
-                                    Atv=Atv,
+                                    Atv=A,
                                     criterion="frobenius",
                                     eps=1e-6,
                                     max_iter=100,
-                                    inner_max_iter=int(1e4),
+                                    inner_max_iter=int(1e3),
                                     output=False)
+    if model_name == 'graphNet_pca':  
+        A = sparse.vstack(A)
+        model = pca_struct.PCAGraphNet(n_components=N_COMP,
+                                    l1=ll1, l2=ll2, lgn=lgn,
+                                    Agn=A,
+                                    criterion="frobenius",
+                                    eps=1e-6,
+                                    max_iter=500,
+                                    output=False)    
     model.fit(X_train)
     
     
     # Save the projectors
     if (model_name == 'pca') or (model_name == 'sparse_pca'):
         V = model.components_.T
-    if model_name == 'struct_pca' :
+    if (model_name == 'struct_pca') or (model_name == 'graphNet_pca'):
         V = model.V
 
     # Project train & test data
@@ -105,7 +128,7 @@ def mapper(key, output_collector):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
         
-    if (model_name == 'struct_pca'):
+    if (model_name == 'struct_pca') or (model_name == 'graphNet_pca'):
         X_train_transform, _ = model.transform(X_train)
         X_test_transform, _ = model.transform(X_test)
 
@@ -117,7 +140,7 @@ def mapper(key, output_collector):
         X_train_predict = np.dot(X_train_transform, V.T)
         X_test_predict = np.dot(X_test_transform, V.T)
         
-    if (model_name == 'struct_pca') :
+    if (model_name == 'struct_pca') or (model_name == 'graphNet_pca'):
         X_train_predict = model.predict(X_train)
         X_test_predict = model.predict(X_test)
 
@@ -126,27 +149,17 @@ def mapper(key, output_collector):
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
     print(frobenius_test) 
 
-
-    # Compute explained variance ratio
-    evr_train = metrics.adjusted_explained_variance(X_train_transform)
-    evr_train /= np.var(X_train, axis=0).sum()
-    evr_test = metrics.adjusted_explained_variance(X_test_transform)
-    evr_test /= np.var(X_test, axis=0).sum()
-
-    # Remove predicted values (they are huge)
     del X_train_predict, X_test_predict
 
     ret = dict(frobenius_train=frobenius_train,
                frobenius_test=frobenius_test,
                components=V,
                X_train_transform=X_train_transform,
-               X_test_transform=X_test_transform,
-               evr_train=evr_train,
-               evr_test=evr_test)
+               X_test_transform=X_test_transform)
 
     output_collector.collect(key, ret)
-    
-    
+
+
 def scores(key, paths, config):
     import mapreduce
     values = [mapreduce.OutputCollector(p) for p in paths]
@@ -162,12 +175,13 @@ def scores(key, paths, config):
         if key.split("_")[0] == "pca":
             model = "pca"    
         if key.split("_")[0] == "sparse":
-            model = "sparse"    
-    print(key)        
-    #print (values)
+            model = "sparse"              
+        if key.split("_")[0] == "graphNet":
+            model = "graphNet"    
+
+
     frobenius_train = np.vstack([item["frobenius_train"] for item in values])
     frobenius_test = np.vstack([item["frobenius_test"] for item in values])
-    
     comp = np.stack([item["components"] for item in values])
     
     
@@ -182,21 +196,26 @@ def scores(key, paths, config):
         for j in range(comp.shape[2]):
             comp_t[i,:,j] = array_utils.arr_threshold_from_norm2_ratio(comp[i, :,j], .99)[0] 
             comp_t_non_zero[i,j] = float(np.count_nonzero(comp_t[i,:,j]))/float(comp.shape[1])
-    prop_non_zero_mean = np.mean(comp_t_non_zero[:,1:4])#do not count first comp
+    prop_non_zero_mean = np.mean(comp_t_non_zero[:,1:])#do not count first comp
                          
-##                                 
-   #print(prop_non_zero_mean)
-    
+#                                 
+    print(prop_non_zero_mean)
+    print(key)
     scores = OrderedDict((
         ('param_key',key),
         ('model', model),
-        ('frobenius_train', mean_frobenius_train),
         ('frobenius_test', mean_frobenius_test),
-        ('frob_fold0',float(frobenius_test[0])),
-        ('frob_fold1',float(frobenius_test[1])),
-        ('frob_fold2',float(frobenius_test[2])),
-        ('frob_fold3',float(frobenius_test[3])),
-        ('frob_fold4',float(frobenius_test[4])),
+        ('frob_test_fold0',float(frobenius_test[0])),
+        ('frob_test_fold1',float(frobenius_test[1])),
+        ('frob_test_fold2',float(frobenius_test[2])),
+        ('frob_test_fold3',float(frobenius_test[3])),
+        ('frob_test_fold4',float(frobenius_test[4])),
+        ('frobenius_train', mean_frobenius_train),
+        ('frob_train_fold0',float(frobenius_train[0])),
+        ('frob_train_fold1',float(frobenius_train[1])),
+        ('frob_train_fold2',float(frobenius_train[2])),
+        ('frob_train_fold3',float(frobenius_train[3])),
+        ('frob_train_fold4',float(frobenius_train[4])),
         ('prop_non_zeros_mean',prop_non_zero_mean))) 
     return scores
     
@@ -208,31 +227,7 @@ def reducer(key, values):
     results_file_path = os.path.join(dir_path,"results_dCV_5folds.xlsx")
     config = json.load(open(config_path))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
-#    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.5")]
-    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.8")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.1_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.5_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.5_0.5")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.1_0.5")]
-    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_0.1")]
-    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_5.0")]
-#    paths = [p for p in paths if not p.count("struct_pca_0.1_0.1_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.5")]
-
-#             
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.1")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.01")] 
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.5")] 
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.0001_0.8")] 
-             
-    paths = [p for p in paths if not p.count("struct_pca_0.1_0.5_0.8")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.5_0.8")]
-    paths = [p for p in paths if not p.count("struct_pca_0.1_0.1_0.8")]
-    paths = [p for p in paths if not p.count("struct_pca_0.01_0.1_0.8")]
-#
-#      
-
-   
+    
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
 
@@ -270,9 +265,16 @@ def reducer(key, values):
         data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
         scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
-    rm = (scores_dcv_byparams.prop_non_zeros_mean > 0.5)
+    #exclude when less than 1% of voxels are zero ---> too sparse
+    rm = (scores_dcv_byparams.prop_non_zeros_mean <0.01)
     np.sum(rm)
-    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]    
+    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
+                                              
+    #exclude when less than 1% of voxels are zero ---> too sparse
+    rm = (scores_dcv_byparams.prop_non_zeros_mean >0.50)
+    np.sum(rm)
+    scores_dcv_byparams = scores_dcv_byparams[np.logical_not(rm)]
+                                              
     print('## Model selection')
     print('## ---------------')
     folds_enettv = argmaxscore_bygroup(scores_dcv_byparams[scores_dcv_byparams["model"] == "enettv"])
@@ -305,7 +307,33 @@ def reducer(key, values):
         scores_cv_enet.to_excel(writer, sheet_name = 'scores_cv_enet', index=False)
         scores_cv_sparse.to_excel(writer, sheet_name = 'scores_cv_sparse', index=False)
 
+def dice_bar(thresh_comp):
+    """Given an array of thresholded component of size n_voxels x n_folds,
+    compute the average DICE coefficient.
+    """
+    n_voxels, n_folds = thresh_comp.shape
+    # Paire-wise DICE coefficient (there is the same number than
+    # pair-wise correlations)
+    n_corr = int(n_folds * (n_folds - 1) / 2)
+    thresh_comp_n0 = thresh_comp != 0
+    # Index of lines (folds) to use
+    ij = [[i, j] for i in range(n_folds) for j in range(i + 1, n_folds)]
+    num =([2 * (np.sum(thresh_comp_n0[:,idx[0]] & thresh_comp_n0[:,idx[1]]))
+    for idx in ij])
 
+    denom = [(np.sum(thresh_comp_n0[:,idx[0]]) + \
+              np.sum(thresh_comp_n0[:,idx[1]]))
+             for idx in ij]
+    dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
+    return dices.mean(), dices
+
+def return_dices_pair(comp):
+    m, dices_0 = dice_bar(comp[:,0,:])
+    m, dices_1 = dice_bar(comp[:,1,:])
+    m, dices_2 = dice_bar(comp[:,2,:])
+    dices_mean = (dices_0 + dices_1 + dices_2) / 3    
+    return dices_mean
+    
 def run_test(wd, config):
     print("In run_test")
     import mapreduce
@@ -326,41 +354,44 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
-
-    WD = '/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds'    
-    INPUT_DATA_X = '/neurospin/brainomics/2016_pca_struct/adni/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_pca_struct/adni/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_pca_struct/adni/data/mask.npy'
+    WD = '/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_controls_only_5x5'    
+    INPUT_DATA_X = '/neurospin/brainomics/2016_pca_struct/fmri/data/T_controls.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_pca_struct/fmri/data/y_controls.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_pca_struct/fmri/data/mask.nii.gz'
 
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
-    N_COMP = 10
+    NCOMP = 10
+    number_features = np.load(INPUT_DATA_X).shape[1]
 
     #############################################################################
     ## Create config file
     ###########################
     #create DOUbleCV resampling pipeline
-    y = np.load(INPUT_DATA_y)
-    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
-    if cv_outer[0] is not None: # Make sure first fold is None
-        cv_outer.insert(0, None)   
-        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
-        cv_outer[0] = null_resampling
-                
-    import collections
-    cv = collections.OrderedDict()
-    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
-        if cv_outer_i == 0:
-            cv["all/all"] = [tr_val, te]
-        else:    
-            cv["cv%02d/all" % (cv_outer_i -1)] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
-    for k in cv:
-        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
-      
-    print((list(cv.keys())))  
+#    y = np.load(INPUT_DATA_y)
+#    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+#    if cv_outer[0] is not None: # Make sure first fold is None
+#        cv_outer.insert(0, None)   
+#        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
+#        cv_outer[0] = null_resampling
+#                
+#    import collections
+#    cv = collections.OrderedDict()
+#    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
+#        if cv_outer_i == 0:
+#            cv["all/all"] = [tr_val, te]
+#        else:    
+#            cv["cv%02d/all" % (cv_outer_i -1)] = [tr_val, te]
+#            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+#            for cv_inner_i, (tr, val) in enumerate(cv_inner):
+#                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
+#    for k in cv:
+#        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
+#      
+#    print((list(cv.keys())))  
+    
+    resample_index= list()
+    resample_index.insert(0, None) 
     ###########################
     #Grid of parameters to explore
     ###########################
@@ -369,21 +400,24 @@ if __name__ == "__main__":
              ("struct_pca", 0.1, 1e-06, 0.1), ("struct_pca", 0.1, 1e-06, 0.5),("struct_pca", 0.1, 1e-06, 0.8),\
              ("struct_pca", 0.01, 1e-04, 0.01),("struct_pca", 0.01, 1e-04, 0.1), ("struct_pca", 0.01, 1e-04, 0.5),\
              ("struct_pca", 0.01, 1e-04, 0.8),('struct_pca', 0.1, 0.1, 0.1),('struct_pca', 0.1, 0.1, 0.5),\
-             ('struct_pca', 0.1, 0.1, 0.8),('struct_pca', 0.1, 0.5, 0.1),('struct_pca', 0.1, 0.5, 0.5),\
-             ('struct_pca', 0.1, 0.5, 0.8),('struct_pca', 0.01, 0.1, 0.1),('struct_pca', 0.01, 0.1, 0.5),\
-             ('struct_pca', 0.01, 0.1, 0.8),('struct_pca', 0.01, 0.5, 0.1),('struct_pca', 0.01, 0.5, 0.5),('struct_pca', 0.01, 0.5, 0.8)]
+             ('struct_pca', 0.1, 0.5, 0.1),('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.01, 0.1, 0.1),\
+             ('struct_pca', 0.01, 0.1, 0.5),('struct_pca', 0.01, 0.5, 0.1),('struct_pca', 0.01, 0.5, 0.5),\
+             ('graphNet_pca', 0.1, 0.1, 0.1),('graphNet_pca', 0.1, 0.1, 0.5),('graphNet_pca', 0.1, 0.5, 0.1),\
+             ('graphNet_pca', 0.1, 0.5, 0.5),('graphNet_pca', 0.01, 0.1, 0.1),('graphNet_pca', 0.01, 0.1, 0.5),\
+             ('graphNet_pca', 0.01, 0.5, 0.1),('graphNet_pca', 0.01, 0.5, 0.5)]
     
 
+    
+    user_func_filename = os.path.abspath(__file__)
+    
     shutil.copy(INPUT_DATA_X, WD)
-
-    shutil.copy(INPUT_MASK_PATH, WD)       
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
     
-    user_func_filename = "/home/ad247405/git/scripts/2016_pca_struct/adni/03_adni_mapreduce.py"
-    
-    config = dict(data=dict(X="X.npy", y="y.npy"),
-                  params=params, resample=cv,
-                  structure="mask.npy",
-                  N_COMP = N_COMP,
+    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y = os.path.basename(INPUT_DATA_y)),
+                  params=params, resample=resample_index,
+                  structure = "mask.nii.gz",
+                  N_COMP = NCOMP,
                   map_output="model_selectionCV", 
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
@@ -393,17 +427,18 @@ if __name__ == "__main__":
     
     
     
-        #################################################################
+    
+    #################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
         clust_utils.gabriel_make_sync_data_files(WD)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime="1000:00:00")
-#        ################################################################
-#        # Sync to cluster
-    print ("Sync data to gabriel.intra.cea.fr: ")
-    os.system(sync_push_filename)
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
+        ################################################################
+        # Sync to cluster
+#    print ("Sync data to gabriel.intra.cea.fr: ")
+#    os.system(sync_push_filename)
 
     """######################################################################
     print "# Start by running Locally with 2 cores, to check that everything is OK)"
@@ -423,4 +458,3 @@ if __name__ == "__main__":
     #########################################################################
     print "# Reduce"
     print "mapreduce.py --reduce %s/config.json" % WD"""
-

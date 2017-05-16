@@ -26,69 +26,80 @@ INPUT_MASK_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/mask.npy"
 INPUT_RESULTS_FILE=os.path.join(INPUT_BASE_DIR,"results_dCV_5folds.xlsx")                          
 INPUT_CONFIG_FILE = os.path.join(INPUT_BASE_DIR,"config_dCV.json")
 
-##############
-# Parameters #
-##############
+INPUT_DIR_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni/model_selectionCV"
+INPUT_RESULTS_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni/results_dCV_5folds.xlsx"
 
 N_COMP = 10
 N_OUTER_FOLDS = 5
+
 number_features = int(np.load(INPUT_MASK_PATH).sum())
-# Load scores_cv and best params
-####################################################################
 scores_cv_sparse = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 7)
 scores_cv_enet = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 6)
 scores_cv_enettv = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 5)
+scores_cv_graphNet = pd.read_excel(INPUT_RESULTS_GRAPHNET,sheetname = 3)
+
+
 
 best_sparse_param = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 4)["param_key"]
 best_enet_param = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 3)["param_key"]
 best_enettv_param= pd.read_excel(INPUT_RESULTS_FILE,sheetname = 2)["param_key"]
+best_graphNet_param = pd.read_excel(INPUT_RESULTS_GRAPHNET,sheetname = 2)["param_key"]
 
-#####################################################################
-
-frobenius_norm=np.zeros((3,N_OUTER_FOLDS))
+frobenius_norm=np.zeros((4,N_OUTER_FOLDS))
 for i in range(0,5):
     frobenius_norm[0,i]= scores_cv_sparse["frob_fold%s" %(i)][0]
     frobenius_norm[1,i]= scores_cv_enet["frob_fold%s" %(i)][0]
     frobenius_norm[2,i]= scores_cv_enettv["frob_fold%s" %(i)][0]
+    frobenius_norm[3,i]= scores_cv_graphNet["frob_test_fold%s" %(i)][0]
+
 
 print (frobenius_norm.mean(axis=1))
-
 
 #Test Frobenius norm significance
 tval, pval = scipy.stats.ttest_rel(frobenius_norm[0,:],frobenius_norm[2,:])
 print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
-
+#Test Frobenius norm significance
 tval, pval = scipy.stats.ttest_rel(frobenius_norm[1,:],frobenius_norm[2,:])
-print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
+print(("Frobenius stats for TV vs Enet: T = %r , pvalue = %r ") %(tval, pval))
 
-################################################################################
+
+tval, pval = scipy.stats.ttest_rel(frobenius_norm[3,:],frobenius_norm[2,:])
+print(("Frobenius stats for TV vs graphNet: T = %r , pvalue = %r ") %(tval, pval))
+
+
 
 components_sparse = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 components_enet = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 components_tv = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
+components_gn = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 for i in range(5):
     components_sparse[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_sparse_param[i],"components.npz"))['arr_0']
     components_enet[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enet_param[i],"components.npz"))['arr_0']
     components_tv[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enettv_param[i],"components.npz"))['arr_0']
-
+    components_gn[:,:,i] = np.load(os.path.join(INPUT_DIR_GRAPHNET,"cv0%s/all" %(i),best_graphNet_param[i],"components.npz"))['arr_0']
+    
 for i in range(10):
     for j in range(5):
         components_sparse[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_sparse[:,i,j], .99)
         components_enet[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_enet[:,i,j], .99)
         components_tv[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_tv[:,i,j], .99)
+        components_gn[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_tv[:,i,j], .99)
 
+        
 components_tv = identify_comp(components_tv)
 components_sparse = identify_comp(components_sparse)
 components_enet = identify_comp(components_enet)
-  
+components_gn = identify_comp(components_gn)
 
 
 
-    
+
 dice_sparse = list()
 all_pairwise_dice_sparse = list()
 dice_enet = list()
 all_pairwise_dice_enet = list()
+dice_gn = list() 
+all_pairwise_dice_gn = list()
 dice_enettv = list() 
 all_pairwise_dice_enettv = list()
 for i in range(N_COMP):
@@ -96,16 +107,21 @@ for i in range(N_COMP):
     all_pairwise_dice_sparse.append(dice_bar(components_sparse[:,i,:])[1])
     dice_enet.append(dice_bar(components_enet[:,i,:])[0])
     all_pairwise_dice_enet.append(dice_bar(components_enet[:,i,:])[1])
+    dice_gn.append(dice_bar(components_gn[:,i,:])[0])
+    all_pairwise_dice_gn.append(dice_bar(components_gn[:,i,:])[1])
     dice_enettv.append(dice_bar(components_tv[:,i,:])[0])
     all_pairwise_dice_enettv.append(dice_bar(components_tv[:,i,:])[1])
 print (np.mean(dice_sparse)) 
-print (np.mean(dice_enet))                           
-print (np.mean(dice_enettv))                           
-                           
+print (np.mean(dice_enet))  
+print (np.mean(dice_gn))                         
+print (np.mean(dice_enettv))
+
 sparse_plot= plt.plot(np.arange(1,11),dice_sparse,'b-o',markersize=3,label = "Sparse PCA")
-enet_plot= plt.plot(np.arange(1,11),dice_enet,'g-^',markersize=3,label = "ElasticNet")
+enet_plot= plt.plot(np.arange(1,11),dice_enet,'g-^',markersize=3,label = "ElasticNet PCA")
+gn_plot= plt.plot(np.arange(1,11),dice_gn,'y-s',markersize=3,label = "GraphNet PCA")
 tv_plot= plt.plot(np.arange(1,11),dice_enettv,'r-s',markersize=3,label = "PCA-TV")
-                            
+    
+
 #############################################################################  
 
   

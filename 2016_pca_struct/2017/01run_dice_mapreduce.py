@@ -18,13 +18,11 @@ for set in range(0,50):
     input_dir = INPUT_RESULTS_DIR_FORMAT.format(set=set)
     print (input_dir)
     os.chdir(input_dir)   
-    #map_cmd=" mapreduce.py --map config_alpha_dCV.json --ncore=6"
-    #os.system(map_cmd)
-    print ("set: ", set)
-    reduce_cmd = " mapreduce.py --reduce config_dCV.json --ncore=1"  
-    os.system(reduce_cmd)
-#    
+    map_cmd=" mapreduce.py --map config_dCV.json --ncore=5"
+    os.system(map_cmd)
+#    print ("set: ", set)
+#    reduce_cmd = " mapreduce.py --reduce config_dCV.json --ncore=1"  
+#    os.system(reduce_cmd)
     
-
-
+    
 

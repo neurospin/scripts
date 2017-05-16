@@ -29,35 +29,52 @@ for k in range(10):
 
 
 #reconstruction with Sparse PCA
-components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_1/results/all/all/sparse_pca_0.0_0.0_1.0/components.npz")
-
-comp=components['arr_0']
-components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_3/results/all/all/sparse_pca_0.0_0.0_1.0/components.npz")
+components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_3/\
+results/all/all/sparse_pca_0.0_0.0_1.0/components.npz")
 components=components['arr_0']
 for k in range(10):
     fig=plots.map2d(components[:,k].reshape(100,100))
-    fig=plots.map2d(comp[:,k].reshape(100,100))
-  
+   
   
 
 
 #reconstruction with ElasticNet PCA
-components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_1/results/all/all/struct_pca_0.01_0.0001_0.5/components.npz")
-comp=components['arr_0']
-components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_3/results/all/all/struct_pca_0.01_0.0001_0.5/components.npz")
+components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/\
+data_100_100_3/results/all/all/struct_pca_0.01_0.0001_0.5/components.npz")
 components=components['arr_0']
 for k in range(10):
     fig=plots.map2d(components[:,k].reshape(100,100))
-    fig=plots.map2d(comp[:,k].reshape(100,100))
-  
+   
 
 #Reconstruction with PCA-TV
-components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_3/results/all/all/struct_pca_0.01_0.5_0.5/components.npz")
+components = np.load("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/\
+data_100_100_3/results/all/all/struct_pca_0.01_0.5_0.5/components.npz")
 components=components['arr_0']
 for k in range(10):
     fig=plots.map2d(components[:,k].reshape(100,100))
 
 
+    
+#Reconstruction with PCA-GraphNet
+components = np.load("/neurospin/brainomics/2016_pca_struct/dice/2017/results/\
+data_100_100_3/results/all/all/graphNet_pca_0.01_0.5_0.5/components.npz")
+components=components['arr_0']
+for k in range(10):
+    fig=plots.map2d(components[:,k].reshape(100,100))
+    
+    
+
+    
+#Reconstruction with Jenatton scriopt
+components = np.load("/neurospin/brainomics/2016_pca_struct/dice/2017/results_Jenatton/data_100_100_3/\
+results/all/all/Jenatton_1.862645149230957e-09/V.npy")
+for k in range(10):
+    fig=plots.map2d(components[:,k].reshape(100,100))
+    
+    
+
+
+    
 ##Ground truth
 INPUT_RESULTS_DIR= os.path.join("/neurospin/brainomics/2016_pca_struct/dice/results_10comp/data_100_100_3")
 #Load masks of Betas star
