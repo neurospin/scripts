@@ -20,7 +20,7 @@ from hopla.converter import hopla
 doc = """
 python hopla_m04_ws_std.py \
 -b /neurospin/radiomics/studies/metastasis/base \
--d /tmp/WSres \
+-d /model05 \
 -p
 """
 
@@ -65,6 +65,10 @@ infiles = [os.path.join(args.basedir, '{}'.format(i),
                         'model02',
                         '{}_enh-gado_T1w_bfc.nii.gz'.format(i))
            for i in subjects]
+infiles2 = [os.path.join(args.basedir, '{}'.format(i),
+                        'model01',
+                        '{}_rAxT2.nii.gz'.format(i))
+           for i in subjects]
 pvefiles = [os.path.join(args.basedir, '{}'.format(i),
                          'model03',
                          '{}_enh-gado_T1w_bfc_betmask_pve_2.nii.gz'.format(i))
@@ -72,13 +76,14 @@ pvefiles = [os.path.join(args.basedir, '{}'.format(i),
 maskfiles = [os.path.join(os.path.dirname(i.replace('model02', 'model03')),
                           'native_hatbox.nii.gz')
              for i in infiles]
-destfiles = [os.path.join(rootdir, '{}'.format(i), 'model04')
+destfiles = [os.path.join(args.basedir, '{}'.format(i), args.destdir)
              for i in subjects]
 for d in destfiles:
     if not os.path.exists(d):
         os.makedirs(d)
 
 print "infiles (", len(infiles), ") [", infiles[0], ",...,", infiles[-1]
+print "infiles2 (", len(infiles), ") [", infiles2[0], ",...,", infiles2[-1]
 print "destfiles (", len(destfiles), ") [", destfiles[0], ",...,", destfiles[-1]
 print "maskfiles (", len(maskfiles), ") [", maskfiles[0], ",...,", maskfiles[-1]
 print "pvefiles (", len(pvefiles), ") [", pvefiles[0], ",...,", pvefiles[-1]
@@ -94,11 +99,13 @@ if args.process:
                        'm04_ws_std.py')
 
     status, exitcodes = hopla(cmd,
-                              i=infiles,
+                              #i1=infiles,
+                              i2=infiles2,
+                              t="FLAIR",
                               d=destfiles,
                               m=maskfiles,
                               p=pvefiles,
-                              hopla_iterative_kwargs=["i", "d", "m", "p"],
+                              hopla_iterative_kwargs=["i2", "d", "m", "p"],
                               hopla_cpus=3,
                               hopla_logfile=logfile,
                               hopla_verbose=args.verbose)

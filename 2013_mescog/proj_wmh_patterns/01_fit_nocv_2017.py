@@ -4,19 +4,9 @@
 Created on Mon Mar 27 11:23:25 2017
 
 @author: ed203246
-rsync -avuhn /neurospin/mescog/proj_wmh_patterns/struct_pca_0.003_0.003_0.003 /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
-rsync -avuhn --delete /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/pca_enettv_0.003_0.003_0.003 /neurospin/mescog/proj_wmh_patterns/
-rsync -avuhn --delete /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/pca /neurospin/mescog/proj_wmh_patterns/
-
-rsync -avuhn --delete /neurospin/mescog/proj_wmh_patterns/pca_enettv_0.003_0.003_0.003 /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
-
-fslview /neurospin/mescog/proj_wmh_patterns/oldies/pca_enettv_0.003_0.003_0.003/*.nii.gz /neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds/summary/tvl1l2.nii
-fslview /neurospin/mescog/proj_wmh_patterns/oldies/pca_enettv_0.003_0.333_0.333/*.nii.gz /neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds/summary/tvl1l2.nii
-
-cd git/scripts/2013_mescog/proj_wmh_patterns/
 
 
-sync -avuhn /neurospin/mescog/proj_wmh_patterns/PCs /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
+rsync -avuhn --delete /neurospin/mescog/proj_wmh_patterns/PCs /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
 """
 import sys
 import os
@@ -158,6 +148,7 @@ key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 # Parameters settings 9: take 5 reduce a little bit tv, increase a little l1: GOOD BINGO !!!
 ll1, ll2, ltv = 0.05 * 0.025937425654559931, 1, 0.001
 key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
+CHOICE = key_pca_enettv
 # pending: for 10 PCs
 #Corr with old PC[0.99999222883809447, 0.9994293857297728, -0.99247826586372279]
 #Explained variance:[ 0.19876024  0.22844359  0.24310107  0.25474415  0.26392774]
@@ -167,6 +158,7 @@ key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 ll1, ll2, ltv = 0.05 * 0.025937425654559931, 1, 0.003
 key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
 
+## key_pca_enettv = CHOICE
 key = key_pca_enettv
 print(OUTPUT_DIR.format(key=key))
 
@@ -211,10 +203,10 @@ fh.write("mean(|U|):" + str(np.abs(U).mean(axis=0)) + "\n")
 fh.write("sd(|U|):" + str(np.abs(U).std(axis=0)) + "\n")
 fh.close()
 
-assert U.shape == (301, 5)
-assert PC.shape == (301, 5)
-assert V.shape == (1064455, 5)
-assert d.shape == (5,)
+assert U.shape == (301, N_COMP)
+assert PC.shape == (301, N_COMP)
+assert V.shape == (1064455, N_COMP)
+assert d.shape == (N_COMP,)
 
 # #############################################################################
 # Fit Regular PCA
@@ -261,9 +253,9 @@ for key in keys:
     print(key)
     m = np.load(os.path.join(OUTPUT_DIR.format(key=key), "model.npz"))
     U, V, PC = m["U"], m["V"], m["PC"]
-    assert U.shape == (301, 5)
-    assert V.shape == (1064455, 5)
-    assert PC.shape == (301, 5)
+    assert U.shape == (301, N_COMP)
+    assert V.shape == (1064455, N_COMP)
+    assert PC.shape == (301, N_COMP)
 
     # multiply second PC by -1 to stick with original article
     #V[:, 1] *= -1
@@ -283,7 +275,7 @@ for key in keys:
     print("# Correlation with old coponents #################################")
 
     mrg = pd.merge(clinic_pc, olddata, left_on = 'Subject ID', right_on='Subject ID')
-    assert mrg.shape == (301, 36)
+    assert mrg.shape[0] == 301
     cors = [np.corrcoef(mrg['PC%i'%i], mrg['pc%i__tvl1l2' % i])[0, 1] for i in range(1, 4)]
 
     # Change sign to align with old results
@@ -401,7 +393,7 @@ r2_bycomp / r2
 # array([ 1.        ,  0.12940328,  0.06546174,  0.0474165 ,  0.03537419])
 
 
-r2 = np.array([ 0.19876024,  0.22844359,  0.24310107,  0.25474415,  0.26392774])
+r2 = np.array([ 0.19878513,  0.22846844,  0.24232428,  0.25432934,  0.2625482,   0.27135235,  0.2763483,  0.28049931,  0.28540894,  0.28823914])
 r2_bycomp = np.array([r2[0]] + [r2[i] - r2[i-1] for i in range(1 ,len(r2))])
-% array([ 0.19876024,  0.02968335,  0.01465748,  0.01164308,  0.00918359])
+array([ 0.19878513,  0.02968331,  0.01385584,  0.01200506,  0.00821886, 0.00880415,  0.00499595,  0.00415101,  0.00490963,  0.0028302 ])
 """

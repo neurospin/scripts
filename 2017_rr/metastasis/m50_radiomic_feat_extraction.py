@@ -56,7 +56,7 @@ def label_to_shortname(label, roi):
     raise Exception('Cannot find a tissue {0} from {1}'.format(label, roi.get_filename()))
 
 
-HABITAT = ['edema', 'enhancement', 'both']
+HABITAT = ['edema', 'enhancement', 'necrosis', 'both', 'all']
 
 
 def get_mask_from_lesion(lesion, tag, outdir='.'):
@@ -97,17 +97,22 @@ def get_mask_from_lesion(lesion, tag, outdir='.'):
             raise Exception('Cannot find a tissue from tissuetype.json.')
         label = max(labels)
         sname = label_to_shortname(label, vois)
-        if not sname in HABITAT:
-            continue
-        if tag == 'both':
-            cumul += img3d.get_data()
-        elif tag == sname:  # should be edema or enhancement 
-            cumul = img3d.get_data()
+        if (sname == 'edema' or sname == 'enhancement'):
+            if (tag == 'both' or tag == 'all'):
+                cumul += img3d.get_data()
+            elif tag == sname:  # should be edema or enhancement 
+                cumul = img3d.get_data()
+        elif sname == 'necrosis':
+            if tag == 'all':
+                cumul += img3d.get_data()
 
     # cumul should contain either edema, enhabcement or both
     fmask = prefix_outfile + 'ttype-{0}{1}.nii.gz'.format(tag, lesion_nb.group(0))
     fout = prefix_outfile + 'ttype-{0}{1}.json'.format(tag, lesion_nb.group(0))
     bin_img3d = np.asarray((cumul > 0) * 1, dtype='uint16')
+    print(lesion)    
+    print(tag)
+    print(np.unique(bin_img3d))
     ni.save(ni.Nifti1Image(bin_img3d, affine=vois.get_affine()), fmask)
 
     #

@@ -123,16 +123,15 @@ np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 ###############################################################################
-X = np.load(os.path.join(OUTPUT, "X.npy"))
-y = np.load(os.path.join(OUTPUT, "y.npy"))
-
-#############################################################################
 # precompute linearoperator
+
+# X = np.load(os.path.join(OUTPUT, "X.npy"))
+# y = np.load(os.path.join(OUTPUT, "y.npy"))
+
 mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
 
 Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
 Atv.save(os.path.join(OUTPUT, "Atv.npz"))
 Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
 assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
-assert np.allclose(Atv_.get_singular_values(0), 11.909767068828225)
-
+assert np.allclose(Atv_.get_singular_values(0), 11.909770107366217)

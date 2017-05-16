@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb  9 17:11:02 2017
+Created on Fri May 12 15:49:58 CEST 2017
 
-@author: ad247405
+@author: edouard.duchesnay@cea.fr
 """
 
 
 import os
 import json
 import numpy as np
-from sklearn.cross_validation import StratifiedKFold
+# from sklearn.cross_validation import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 # import nibabel
 from sklearn.metrics import precision_recall_fscore_support
 # from sklearn.feature_selection import SelectKBest
@@ -34,110 +35,214 @@ from brainomics import array_utils
 import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yoFS'
+WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_all"
 WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
-penalty_start = 3
+penalty_start = 2
 
 
 ##############################################################################
 def init():
-    INPUT_DATA_X = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/mask.npy'
-    INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/Atv.npz'
+    INPUT_DATA_X = '/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs/X.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs/y.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs/mask.npy'
+    INPUT_MESH_PATH = '/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs/lrh.pial.gii'
+
+    #INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/Atv.npz'
     # INPUT_CSV = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/population_30yo.csv'
 
     os.makedirs(WD, exist_ok=True)
     shutil.copy(INPUT_DATA_X, WD)
     shutil.copy(INPUT_DATA_y, WD)
     shutil.copy(INPUT_MASK_PATH, WD)
-    shutil.copy(INPUT_LINEAR_OPE_PATH, WD)
+    shutil.copy(INPUT_MESH_PATH, WD)
+
+    #shutil.copy(INPUT_LINEAR_OPE_PATH, WD)
 
     ## Create config file
-    y = np.load(INPUT_DATA_y)
-    X = np.load(INPUT_DATA_X)
+    X = np.load(os.path.join(WD, "X.npy"))
+    y = np.load(os.path.join(WD, "y.npy"))
 
-    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
-    if cv_outer[0] is not None: # Make sure first fold is None
-        cv_outer.insert(0, None)
-        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
-        cv_outer[0] = null_resampling
+    import brainomics.mesh_processing as mesh_utils
+    cor, tri = mesh_utils.mesh_arrays(os.path.join(WD, "lrh.pial.gii"))
+    mask = np.load(os.path.join(WD, 'mask.npy'))
 
+    if False:
+        import parsimony.functions.nesterov.tv as nesterov_tv
+        from parsimony.utils.linalgs import LinearOperatorNesterov
+        Atv = nesterov_tv.linear_operator_from_mesh(cor, tri, mask, calc_lambda_max=True)
+        Atv.save(os.path.join(WD, "Atv.npz"))
+        Atv_ = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
+        assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+        assert np.allclose(Atv_.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
+        assert np.all([a.shape == (317089, 317089) for a in Atv])
+
+    #  ########################################################################
+    #  Setting 1: 5cv + large range of parameters: cv_largerange
+    #  with sub-sample training set with size 50, 100
+    cv_outer = [[tr, te] for tr, te in StratifiedKFold(y.ravel(),
+                n_folds=NFOLDS_OUTER, random_state=42)]
     import collections
     cv = collections.OrderedDict()
+
+    cv["refit/refit"] = [np.arange(len(y)), np.arange(len(y))]
+
+    sub_sizes = [50, 100]
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
-        if cv_outer_i == 0:
-            cv["refit/refit"] = [tr_val, te]
-        else:
-            cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
-    for k in cv:
-        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
+        # Simple CV
+        cv["cv%02d/refit" % (cv_outer_i)] = [tr_val, te]
+
+        # Nested CV
+        # cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+        # for cv_inner_i, (tr, val) in enumerate(cv_inner):
+        #     cv["cv%02d/cvnested%02d" % ((cv_outer_i), cv_inner_i)] = [tr_val[tr], tr_val[val]]
+
+        # Sub-sample training set with size 50, 100
+        # => cv*_sub[50|100]/refit
+        grps = np.unique(y[tr_val]).astype(int)
+        ytr = y.copy()
+        ytr[te] = np.nan
+        g_idx = [np.where(ytr == g)[0] for g in grps]
+        assert np.all([np.all(ytr[g_idx[g]] == g) for g in grps])
+
+        g_size = np.array([len(g) for g in g_idx])
+        g_prop = g_size / g_size.sum()
+
+        for sub_size in sub_sizes:
+            # sub_size = sub_sizes[0]
+            sub_g_size = np.round(g_prop * sub_size).astype(int)
+            g_sub_idx = [np.random.choice(g_idx[g], sub_g_size[g], replace=False) for g in grps]
+            assert np.all([np.all(y[g_sub_idx[g]] == g) for g in grps])
+            tr_val_sub = np.concatenate(g_sub_idx)
+            assert len(tr_val_sub) == sub_size
+            assert np.all([idx in tr_val for idx in tr_val_sub])
+            assert np.all(np.logical_not([idx in te for idx in tr_val_sub]))
+            cv["cv%02d_sub%i/refit" % (cv_outer_i, sub_size)] = [tr_val_sub, te]
+
+    cv = {k:[cv[k][0].tolist(), cv[k][1].tolist()] for k in cv}
+
+    # Nested CV
+    # assert len(cv_largerange) == NFOLDS_OUTER * NFOLDS_INNER + NFOLDS_OUTER + 1
+
+    # Simple CV
+    # assert len(cv) == NFOLDS_OUTER + 1
+
+    # Simple CV + sub-sample training set with size 50, 100:
+    assert len(cv) == NFOLDS_OUTER * (1 + len(sub_sizes)) + 1
 
     print(list(cv.keys()))
 
-    #grid of ols paper
-    tv_range = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    # reduced grid
-    # tv_range = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    # tv_range = [0.0, 0.2, 0.8, 1.0]
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .9, 1], [0.9, 0.1, 1]])
-    alphas = [.1, .01, 1.0]
+    # Large grid of parameters
+    alphas = [.01, 0.1, 1.0]
+    tv_ratio = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    l1l2_ratio = [0, 0.1, 0.5, 0.9, 1.0]
+    algos = ["enettv", "enetgn"]
+    import itertools
+    params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
+    assert len(params_enet_tvgn) == 300
 
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-    # remove duplicates
-    alphal1l2tv = pd.DataFrame(alphal1l2tv)
-    alphal1l2tv = alphal1l2tv[~alphal1l2tv.duplicated()]
-    alphal1l2tv.shape == (153, 4)
-    # Remove too large l1 leading to a null soulution
-    scaler = preprocessing.StandardScaler().fit(X)
-    Xs = scaler.transform(X)
-    l1max = utils.penalties.l1_max_logistic_loss(Xs[:, penalty_start:], y, mean=True, class_weight="auto")
-    #  0.23497620775450481
-    alphal1l2tv = alphal1l2tv[alphal1l2tv[0] * alphal1l2tv[1] <= l1max]
-    params = [np.round(row, 5).tolist() for row in alphal1l2tv.values.tolist()]
-    assert pd.DataFrame(params).duplicated().sum() == 0
-    assert len(params) == 136
-    print("NB run=", len(params) * len(cv))
-    # 4743 => 4216
-    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
-    user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
+    params_enet = [list(param) for param in itertools.product(["enet"], alphas, l1l2_ratio, [0])]
+    assert len(params_enet) == 15
+
+    params = params_enet_tvgn + params_enet
+    assert len(params) == 315
+    # Simple CV
+    # assert len(params) * len(cv) == 1890
+
+    # Simple CV + sub-sample training set with size 50, 100:
+    assert len(params) * len(cv) == 5040
+
+    user_func_filename = "/home/ed203246/git/scripts/2013_adni/MCIc-CTL-FS/03_predict_cs.py"
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
                   structure="mask.npy",
                   structure_linear_operator_tv="Atv.npz",
-                  map_output="model_selectionCV",
-                  user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="params",
-                  reduce_output="model_selectionCV.csv")
-    json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+                  map_output="5cv",
+                  user_func=user_func_filename)
+    json.dump(config, open(os.path.join(WD, "config_cv_largerange.json"), "w"))
 
 
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, _ = \
-        clust_utils.gabriel_make_sync_data_files(WD, wd_cluster=WD_CLUSTER)
-    cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00")
+    cmd = "mapreduce.py --map  %s/config_cv_largerange.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00",
+                                            suffix="_cv_largerange",
+                                            freecores=2)
 
+    #  ########################################################################
+    #  Setting 2: dcv + reduced range of parameters: dcv_reducedrange
+    cv_outer = [[tr, te] for tr, te in StratifiedKFold(y.ravel(),
+                n_folds=NFOLDS_OUTER, random_state=42)]
+    import collections
+    cv = collections.OrderedDict()
+    cv["refit/refit"] = [np.arange(len(y)), np.arange(len(y))]
+
+    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
+        cv["cv%02d/refit" % (cv_outer_i)] = [tr_val, te]
+        cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+        for cv_inner_i, (tr, val) in enumerate(cv_inner):
+            cv["cv%02d/cvnested%02d" % ((cv_outer_i), cv_inner_i)] = [tr_val[tr], tr_val[val]]
+
+    cv = {k:[cv[k][0].tolist(), cv[k][1].tolist()] for k in cv}
+    #assert len(cv) == NFOLDS_OUTER + 1
+    assert len(cv) == NFOLDS_OUTER * NFOLDS_INNER + NFOLDS_OUTER + 1
+    print(list(cv.keys()))
+
+    # Large grid of ols paper
+    alphas = [.01, 0.1]
+    tv_ratio = [0.2, 0.8]
+    l1l2_ratio = [0.1, 0.9]
+    algos = ["enettv", "enetgn"]
+    import itertools
+    params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
+    assert len(params_enet_tvgn) == 16
+
+    params_enet = [list(param) for param in itertools.product(["enet"], alphas, l1l2_ratio, [0])]
+    assert len(params_enet) == 4
+
+    params = params_enet_tvgn + params_enet
+    assert len(params) == 20
+    assert len(params) * len(cv) == 620
+
+    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
+    user_func_filename = "/home/ed203246/git/scripts/2013_adni/MCIc-CTL-FS/03_predict_cs.py"
+
+    config = dict(data=dict(X="X.npy", y="y.npy"),
+                  params=params, resample=cv,
+                  structure="mask.npy",
+                  structure_linear_operator_tv="Atv.npz",
+                  map_output="5cv",
+                  user_func=user_func_filename)
+    json.dump(config, open(os.path.join(WD, "config_dcv_reducedrange.json"), "w"))
+
+
+    # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    cmd = "mapreduce.py --map  %s/config_dcv_reducedrange.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00",
+                                            suffix="_dcv_reducedrange",
+                                            freecores=2)
 
 #############################################################################
 def load_globals(config):
+    import scipy.sparse as sparse
+    import functools
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    A = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
-    GLOBAL.A = A
+    Atv = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
+    Agn = sparse.vstack(Atv)
+    Agn.singular_values = Atv.get_singular_values()
+    def get_singular_values(self, nb=None):
+        return self.singular_values[nb] if nb is not None else self.singular_values
+    Agn.get_singular_values = functools.partial(get_singular_values, Agn)
+    assert np.allclose(Agn.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
+
+    GLOBAL.Atv, GLOBAL.Agn = Atv, Agn
 
 
 def resample(config, resample_nb):
@@ -154,25 +259,45 @@ def mapper(key, output_collector):
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
 
-    alpha = float(key[0])
-    l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
-    print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
+    #key = 'enettv_0.01_0.1_0.2'.split("_")
+    algo, alpha, l1l2ratio, tvratio = key[0], float(key[1]), float(key[2]), float(key[3])
 
-    class_weight="auto" # unbiased
+    tv = alpha * tvratio
+    l1 = alpha * float(1-tv) * l1l2ratio
+    l2 = alpha * float(1-tv) * (1- l1l2ratio)
 
-    mask = np.ones(Xtr.shape[0], dtype=bool)
+    print(key, algo, alpha, l1, l2, tv)
+    #alpha = float(key[0])
+    #l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
+    #print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
 
-    scaler = preprocessing.StandardScaler().fit(Xtr)
-    Xtr = scaler.transform(Xtr)
-    Xte=scaler.transform(Xte)
-    A = GLOBAL.A
+    class_weight = "auto" # unbiased
 
-    conesta = algorithms.proximal.CONESTA(max_iter=10000)
-    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+    # mask = np.ones(Xtr.shape[0], dtype=bool)
+
+    #scaler = preprocessing.StandardScaler().fit(Xtr)
+    #Xtr = scaler.transform(Xtr)
+    #Xte = scaler.transform(Xte)
+    if algo == 'enettv':
+        conesta = algorithms.proximal.CONESTA(max_iter=10000)
+        mod = estimators.LogisticRegressionL1L2TV(l1, l2, tv,  GLOBAL.Atv,
+            algorithm=conesta, class_weight=class_weight, penalty_start=penalty_start)
+    elif algo == 'enetgn':
+        fista = algorithms.proximal.FISTA(max_iter=500)
+        mod = estimators.LogisticRegressionL1L2GraphNet(l1, l2, tv, GLOBAL.Agn,
+            algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+    elif algo == 'enet':
+        fista = algorithms.proximal.FISTA(max_iter=500)
+        mod = estimators.ElasticNetLogisticRegression(l1l2ratio, alpha,
+            algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+    else:
+        raise Exception('Algo%s not handled' %algo)
+
     mod.fit(Xtr, ytr.ravel())
+
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
-    ret = dict(y_pred=y_pred, y_true=yte, proba_pred=proba_pred, beta=mod.beta,  mask=mask)
+    ret = dict(y_pred=y_pred, y_true=yte, proba_pred=proba_pred, beta=mod.beta)#, mask=mask)
     if output_collector:
         output_collector.collect(key, ret)
     else:
@@ -251,9 +376,9 @@ def scores(key, paths, config, as_dataframe=False):
     try:
         a, l1, l2 , tv  = [float(par) for par in key.split("_")]
         scores['a'] = a
-        scores['l1'] = l1
-        scores['l2'] = l2
-        scores['tv'] = tv
+        #scores['l1'] = l1
+        #scores['l2'] = l2
+        #scores['tv'] = tv
         left = float(1 - tv)
         if left == 0: left = 1.
         scores['l1_ratio'] = float(l1) / left

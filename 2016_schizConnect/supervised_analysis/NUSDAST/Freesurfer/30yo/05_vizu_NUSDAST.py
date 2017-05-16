@@ -14,9 +14,9 @@ from brainomics import array_utils
 import brainomics.mesh_processing as mesh_utils
 import shutil
 
-BASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo"    
+BASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo"
 MASK_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/mask.npy"
-TEMPLATE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/freesurfer_template"               
+TEMPLATE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/freesurfer_template"
 OUTPUT = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/weight_map"
 
 
@@ -26,13 +26,13 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT,
 
 cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
 cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
-assert cor_l.shape[0] == cor_r.shape[0] 
+assert cor_l.shape[0] == cor_r.shape[0]
 
 
 cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lrh.pial.gii"))
 mask__mesh = np.load(MASK_PATH)
 assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
-assert mask__mesh.shape[0], mask__mesh.sum() 
+assert mask__mesh.shape[0], mask__mesh.sum()
 
 # Find the mapping from components in masked mesh to left_mesh and right_mesh
 # concat was initialy: cor = np.vstack([cor_l, cor_r])
@@ -52,7 +52,7 @@ a[mask_left__mesh] = 1
 a[mask_right__mesh] = 2
 mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
 mask_right__beta = a[mask__mesh] == 2
-assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
 assert mask_left__mesh.sum() == mask_left__beta.sum()
 assert mask_right__mesh.sum() == mask_right__beta.sum()
 
@@ -60,7 +60,7 @@ assert mask_right__mesh.sum() == mask_right__beta.sum()
 assert mask_left__beta.sum() == mask_left__left_mesh.sum()
 assert mask_right__beta.sum() == mask_right__right_mesh.sum()
 
-   
+
 #############################################################################
 #Enet weight map
 enet_weight_map = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/\
@@ -81,12 +81,12 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = enet_t[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, param+"_weight_map_right.gii"), data=tex)
-   
 
-#######################################################################################vBASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/Freesurfer/results"    
-BASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo"    
+
+#######################################################################################vBASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/Freesurfer/results"
+BASE_PATH= "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo"
 MASK_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/mask.npy"
-TEMPLATE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/freesurfer_template"               
+TEMPLATE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/freesurfer_template"
 OUTPUT = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/svm/weight_map"
 
 
@@ -98,13 +98,13 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT,
 
 cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
 cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
-assert cor_l.shape[0] == cor_r.shape[0] 
+assert cor_l.shape[0] == cor_r.shape[0]
 
 
 cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lrh.pial.gii"))
 mask__mesh = np.load(MASK_PATH)
 assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
-assert mask__mesh.shape[0], mask__mesh.sum() 
+assert mask__mesh.shape[0], mask__mesh.sum()
 
 # Find the mapping from components in masked mesh to left_mesh and right_mesh
 # concat was initialy: cor = np.vstack([cor_l, cor_r])
@@ -124,7 +124,7 @@ a[mask_left__mesh] = 1
 a[mask_right__mesh] = 2
 mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
 mask_right__beta = a[mask__mesh] == 2
-assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
 assert mask_left__mesh.sum() == mask_left__beta.sum()
 assert mask_right__mesh.sum() == mask_right__beta.sum()
 
@@ -153,6 +153,54 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = svm_t[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT_SVM, param+"_weight_map_right.gii"), data=tex)
-   
 
 
+
+#####################################################################
+# Vizualization of mesh with nilearn **beta version**
+#####################################################################
+# plot weigth map
+import numpy as np
+import os
+import matplotlib.pylab as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import nilearn
+from nilearn import plotting
+import brainomics.mesh_processing as mesh_utils
+
+# params
+WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/results_30yo/enettv/enettv_NUDAST_30yo'
+TEMPLATE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/freesurfer_template"
+penalty_start = 3
+param = "0.01_0.02_0.18_0.8"
+output_figure_filename = "/tmp/beta_mesh.pdf"
+stat_map_filename = os.path.join(WD, "model_selectionCV/refit/refit/%s/beta.npz" % param)
+mask_filename = os.path.join(WD, "mask.npy")
+surf_mesh_l_filename = os.path.join(TEMPLATE_PATH, "lh.pial.gii")
+surf_mesh_r_filename = os.path.join(TEMPLATE_PATH, "rh.pial.gii")
+
+# load
+stat_map_val = np.load(stat_map_filename)['arr_0'][penalty_start:, :]
+cor_l, tri_l = mesh_utils.mesh_arrays(surf_mesh_l_filename)
+cor_r, tri_r = mesh_utils.mesh_arrays(surf_mesh_r_filename)
+mask = np.load(mask_filename)
+stat_map = np.zeros(mask.shape)
+stat_map[mask] = stat_map_val.ravel()
+
+assert stat_map.shape[0] == cor_l.shape[0] + cor_r.shape[0]
+stat_map_l = stat_map[:cor_l.shape[0]]
+stat_map_r = stat_map[cor_l.shape[0]:]
+
+# plot pdf
+pdf = PdfPages(output_figure_filename)
+
+nilearn.plotting.plot_surf_stat_map([cor_l, tri_l], stat_map_l, hemi='left', view='lateral')
+pdf.savefig(); plt.close()
+nilearn.plotting.plot_surf_stat_map([cor_l, tri_l], stat_map_l, hemi='left', view='medial')
+pdf.savefig(); plt.close()
+nilearn.plotting.plot_surf_stat_map([cor_r, tri_r], stat_map_r, hemi='right', view='lateral')
+pdf.savefig(); plt.close()
+nilearn.plotting.plot_surf_stat_map([cor_r, tri_r], stat_map_r, hemi='right', view='medial')
+pdf.savefig(); plt.close()
+
+pdf.close()
