@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Feb  1 16:00:53 2016
-
 @author: ad247405
-
 Run standard PCA, sparse PCA , Enet PCA and PCA-TV on fmri dataset. 
 """
 

@@ -27,9 +27,9 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
 from collections import OrderedDict
 import pandas as pd
+import shutil
 
-BASE_PATH= '/neurospin/brainomics/2016_deptms'
-WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/enettv/model_selection_5folds'
+WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/enettv_10000ite'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
@@ -61,7 +61,7 @@ def mapper(key, output_collector):
 
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
-    print "l1:%f, l2:%f, tv:%f" % (l1, l2, tv)
+    print ("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
 
     class_weight="auto" # unbiased
 
@@ -72,7 +72,8 @@ def mapper(key, output_collector):
     Xte=scaler.transform(Xte)
     A = GLOBAL.A
 
-    conesta = algorithms.proximal.CONESTA(max_iter=500)
+    #conesta = algorithms.proximal.CONESTA(max_iter=500)
+    conesta = algorithms.proximal.CONESTA(max_iter=10000)
     mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
@@ -87,7 +88,6 @@ def mapper(key, output_collector):
 
 def scores(key, paths, config):
     import mapreduce
-    print key
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -101,7 +101,7 @@ def scores(key, paths, config):
     betas = np.hstack([item["beta"] for item in values]).T
     # threshold betas to compute fleiss_kappa and DICE
     import array_utils
-    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
+    betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
     success = r * s
     success = success.astype('int')
     accuracy = (r[0] * s[0] + r[1] * s[1])
@@ -161,8 +161,8 @@ def reducer(key, values):
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
 
-    print '## Refit scores'
-    print '## ------------'
+    print ('## Refit scores')
+    print ('## ------------')
     byparams = groupby_paths([p for p in paths if p.count("all/all")],3)
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
 
@@ -171,26 +171,26 @@ def reducer(key, values):
     columns = byparams_scores[byparams_scores.keys()[0]].keys()
     scores_refit = pd.DataFrame(data, columns=columns)
 
-    print '## doublecv scores by outer-cv and by params'
-    print '## -----------------------------------------'
+    print ('## doublecv scores by outer-cv and by params')
+    print ('## -----------------------------------------')
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested")],1)
     for fold, paths_fold in bycv.iteritems():
-        print fold
+        print (fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
         byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
         data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
         scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
 
 
-    print '## Model selection'
-    print '## ---------------'
+    print ('## Model selection')
+    print ('## ---------------')
     svm = argmaxscore_bygroup(scores_dcv_byparams); svm["method"] = "svm"
 
     scores_argmax_byfold = svm
 
-    print '## Apply best model on refited'
-    print '## ---------------------------'
+    print ('## Apply best model on refited')
+    print ('## ---------------------------')
     scores_svm = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in svm.iterrows()], config)
 
 
@@ -206,8 +206,7 @@ def reducer(key, values):
 ##############################################################################
 
 if __name__ == "__main__":
-    BASE_PATH = '/neurospin/brainomics/2016_deptms'
-    WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/enettv/model_selection_5folds'
+    WD = '/neurospin/brainomics/2016_deptms/analysis/VBM/results/enettv_10000ite'
     INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/X.npy'
     INPUT_DATA_y = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/y.npy'
     INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/VBM/data/mask.nii'
@@ -218,6 +217,9 @@ if __name__ == "__main__":
     NFOLDS_OUTER = 5
     NFOLDS_INNER = 5
 
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
@@ -243,22 +245,13 @@ if __name__ == "__main__":
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
 
-    print cv.keys()
+    print (cv.keys())
 
 #    # Full Parameters grid
-    tv_range = tv_ratios = [.2, .4, .6, .8]
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],[.9, .1, 1], [.1, .9, 1],[.3,.7,1],[.7,.3,1]])
-    alphas = [0.01,.1,0.5]
+    tv_range = tv_ratios = [0.0,.1,0.2,0.3, 0.4,0.5,.6,0.7, .8,0.9,1.0]
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .90, 1],[0.9,0.1,1], [0.2,0.8,1],[0.3,0.7,1]])
+    alphas = [.1,.01,1.0]
 
-     # Reduced Parameters grid
-    tv_range = tv_ratios = [.2, .4, .6, .8]
-    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],[.9, .1, 1], [.1, .9, 1]])
-    alphas = [.1]
-
-     # Reduced 2 Parameters grid
-    tv_range = tv_ratios = [.2, .8]
-    ratios = np.array([[.5, .5, 1],[.9, .1, 1], [.1, .9, 1]])
-    alphas = [.1]
 
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv = np.concatenate(l1l2tv)
@@ -267,16 +260,21 @@ if __name__ == "__main__":
     params = [params.tolist() for params in alphal1l2tv]
 
 
-    user_func_filename = "/home/ad247405/git/scripts/2016_deptms/VBM_scripts/03_enettv_model_selection.py"
-    user_func_filename = "/home/ed203246/git/scripts/2016_deptms/VBM_scripts/03_enettv_model_selection.py"
+    user_func_filename = os.path.abspath(__file__)
 
-    config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
+    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y=os.path.basename(INPUT_DATA_y)),
                   params=params, resample=cv,
-                  structure=INPUT_MASK_PATH,
+                  structure=os.path.basename(INPUT_MASK_PATH),
                   map_output="model_selectionCV",
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="params",
                   reduce_output="model_selectionCV.csv")
-    #json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
-    json.dump(config, open(os.path.join(WD, "config_dCV_reduced2.json"), "w"))
+    json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+
+          # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(WD)
+    cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "1000:00:00")

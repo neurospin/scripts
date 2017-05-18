@@ -4,19 +4,9 @@
 Created on Mon Mar 27 11:23:25 2017
 
 @author: ed203246
-rsync -avuhn /neurospin/mescog/proj_wmh_patterns/struct_pca_0.003_0.003_0.003 /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
-rsync -avuhn --delete /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/pca_enettv_0.003_0.003_0.003 /neurospin/mescog/proj_wmh_patterns/
-rsync -avuhn --delete /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/pca /neurospin/mescog/proj_wmh_patterns/
-
-rsync -avuhn --delete /neurospin/mescog/proj_wmh_patterns/pca_enettv_0.003_0.003_0.003 /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
-
-fslview /neurospin/mescog/proj_wmh_patterns/oldies/pca_enettv_0.003_0.003_0.003/*.nii.gz /neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds/summary/tvl1l2.nii
-fslview /neurospin/mescog/proj_wmh_patterns/oldies/pca_enettv_0.003_0.333_0.333/*.nii.gz /neurospin/brainomics/2014_pca_struct/mescog/mescog_5folds/summary/tvl1l2.nii
-
-cd git/scripts/2013_mescog/proj_wmh_patterns/
 
 
-sync -avuhn /neurospin/mescog/proj_wmh_patterns/PCs /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
+rsync -avuhn --delete /neurospin/mescog/proj_wmh_patterns/PCs /media/ed203246/usbed/neurospin/mescog/proj_wmh_patterns/
 """
 import sys
 import os

@@ -18,7 +18,7 @@ import sklearn
 import array_utils
 import parsimony.functions.nesterov.tv as tv_helper
 from sklearn.cross_validation import StratifiedKFold
-
+import shutil
 
 
 
@@ -374,7 +374,9 @@ if __name__ == "__main__":
              ('struct_pca', 0.01, 0.1, 0.8),('struct_pca', 0.01, 0.5, 0.1),('struct_pca', 0.01, 0.5, 0.5),('struct_pca', 0.01, 0.5, 0.8)]
     
 
-            
+    shutil.copy(INPUT_DATA_X, WD)
+
+    shutil.copy(INPUT_MASK_PATH, WD)       
     
     user_func_filename = "/home/ad247405/git/scripts/2016_pca_struct/adni/03_adni_mapreduce.py"
     

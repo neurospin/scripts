@@ -20,8 +20,8 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
 import pandas as pd
 from collections import OrderedDict
-  
-import nilearn  
+
+import nilearn
 from nilearn import plotting
 from nilearn import image
 import array_utils
@@ -31,14 +31,20 @@ BASE_PATH="/neurospin/brainomics/2016_icaar-eugei"
 ##################################################################################
 
 #ICAAR
-babel_mask  = nibabel.load('/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR/mask.nii')
+babel_mask  = nibabel.load('/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/\
+VBM/ICAAR/results/whole_brain/enettv/vbm_enettv_icaar_whole_brain_10000ite/mask_whole_brain.nii')
 mask_bool = babel_mask.get_data()
 mask_bool= np.array(mask_bool !=0)
 number_features = mask_bool.sum()
 ##################################################################################
 #
 #Enet-TV
-WD = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR/enettv/model_selection/0.1_0.4_0.4_0.2'
+WD = '//neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/VBM/ICAAR/results/\
+whole_brain/enettv/vbm_enettv_icaar_whole_brain_10000ite/model_selectionCV/refit/refit/1.0_0.08_0.72_0.2'
+
+WD = '//neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei/VBM/ICAAR/results/\
+whole_brain/enettv/vbm_enettv_icaar_whole_brain_500ite/model_selectionCV/refit/refit/1.0_0.15_0.35_0.5'
+
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][3:]
 
 arr = np.zeros(mask_bool.shape);
@@ -50,9 +56,10 @@ out_im.to_filename(filename)
 beta = nibabel.load(filename).get_data()
 beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
 #play with parameter vmax and vmin
-nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,vmax =0.005,vmin = -0.005)
- 
- 
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+#,vmax =0.005,vmin = -0.005)
+
+
  #svm f
 WD = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR/svm/model_selection/1e-06'
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][0,3:]
@@ -67,7 +74,7 @@ beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
 #play with parameter vmax and vmin
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
 
- 
+
   ##################################################################################
 #ICAAR+EUGEI
 babel_mask  = nibabel.load('/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR+EUGEI/mask.nii')
@@ -89,8 +96,8 @@ beta = nibabel.load(filename).get_data()
 beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
 #play with parameter vmax and vmin
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,vmax =0.001,vmin = -0.001)
- 
- 
+
+
  #svm f
 WD = '/neurospin/brainomics/2016_icaar-eugei/results/VBM/ICAAR+EUGEI/svm/model_selection/1e-05'
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][0,3:]

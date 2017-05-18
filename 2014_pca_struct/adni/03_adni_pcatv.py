@@ -34,9 +34,9 @@ import brainomics.cluster_gabriel as clust_utils
 # Input & output #
 ##################
 
-INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs"    
+INPUT_BASE_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_3comp_patients_only"    
 TEMPLATE_PATH = os.path.join(INPUT_BASE_DIR, "freesurfer_template")                      
-OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_3comp_patients_only"
+OUTPUT_DIR = "/neurospin/brainomics/2014_pca_struct/adni/fs_patients_additional_params"
 
 
 #############################################################################
@@ -69,10 +69,15 @@ N_COMP = 3
 
 #PARAMS= [["struct_pca", 0.1, 0.5, 0.1],["struct_pca", 0.1,1e-06, 0.1],["sparse_pca", 0.0, 0.0,1.0],["pca",0.0,0.0,0.0]]
 
-PARAMS= [('struct_pca', 0.1, 0.1, 0.1),('struct_pca', 0.1, 0.1, 0.5),\
-('struct_pca', 0.1, 0.1, 0.8),('struct_pca', 0.1, 0.5, 0.1),\
-('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.1, 0.5, 0.8),\
-('struct_pca', 0.1, 0.8, 0.1),('struct_pca', 0.1, 0.8, 0.5),('struct_pca', 0.1, 0.8, 0.8)]
+PARAMS= [["struct_pca", 0.1, 0.5, 0.5],["struct_pca", 0.01, 0.1, 0.1],\
+         ["struct_pca", 0.01, 0.1, 0.5],["struct_pca", 0.01, 0.1, 0.8],\
+         ["struct_pca", 0.01, 0.5, 0.1],["struct_pca", 0.01, 0.8, 0.1],\
+         ["struct_pca", 0.01, 0.5, 0.5],["struct_pca", 0.01, 0.8, 0.5],\
+         ["struct_pca", 0.01, 0.5, 0.8],["struct_pca", 0.01, 0.8, 0.8],\
+         ["struct_pca", 1.0, 0.1, 0.1],["struct_pca",  1.0, 0.1, 0.5],\
+         ["struct_pca",  1.0, 0.1, 0.8],["struct_pca",  1.01, 0.5, 0.1],\
+         ["struct_pca",  1.0, 0.8, 0.1],["struct_pca",  1.0, 0.5, 0.5],\
+         ["struct_pca",  1.0, 0.8, 0.5],["struct_pca",  1.0, 0.5, 0.8],["struct_pca",  1.0, 0.8, 0.8]]
 
 
 
@@ -84,13 +89,19 @@ PARAMS= [('struct_pca', 0.1, 0.1, 0.1),('struct_pca', 0.1, 0.1, 0.5),\
 
 
 def load_globals(config):
-    import mapreduce as GLOBAL
+    import mapreduce as GLOBAL  # access to global variables
+    GLOBAL.DATA = GLOBAL.load_data(config["data"])
+    STRUCTURE = np.load(config["structure"])
+    A = tv_helper.A_from_mask(STRUCTURE)
+    N_COMP = config["N_COMP"]
+    GLOBAL.A, GLOBAL.STRUCTURE,GLOBAL.N_COMP = A, STRUCTURE,N_COMP
+    
+
     mesh_coord, mesh_triangles = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"))
     mask = np.load(os.path.join(INPUT_BASE_DIR, "mask.npy"))
     import parsimony.functions.nesterov.tv as tv_helper
     Atv = tv_helper.linear_operator_from_mesh(mesh_coord, mesh_triangles, mask=mask)
     GLOBAL.Atv = Atv
-    GLOBAL.N_FOLDS = config['n_folds']
     GLOBAL.FULL_RESAMPLE = config['full_resample']
 
 
@@ -132,7 +143,7 @@ def mapper(key, output_collector):
         assert(np.allclose(ll1 + ll2 + ltv, global_pen))
 
     X_train = GLOBAL.DATA_RESAMPLED["X"][0]
-    print X_train.shape
+    print (X_train.shape)
     n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1]
 
@@ -201,7 +212,7 @@ def mapper(key, output_collector):
     # Compute Frobenius norm between original and recontructed datasets
     frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
-    print frobenius_test 
+    print (frobenius_test )
 
 
     # Compute explained variance ratio
@@ -280,8 +291,8 @@ def reducer(key, values):
      #Solve non-identifiability problem  (baseline = first fold)
     for i in range(1,5):
             if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
-                print "components inverted" 
-                print i
+                print( "components inverted" )
+                print (i)
                 temp_comp2 = np.copy(components[:,2,i])
                 components[:,2,i] = components[:,1,i]
                 components[:,1,i] = temp_comp2  
@@ -338,14 +349,14 @@ def reducer(key, values):
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
         dice_bars[k],dices[:,k] = metrics.dice_bar(thresh_comp) 
     
-    print dices.mean(axis=1) 
+    print (dices.mean(axis=1) )
     dices_mean_path = os.path.join(OUTPUT_DIR,'adni_5folds','results','dices_mean_%s.npy' %key[0])
     if key[0] == 'struct_pca' and key[2]==1e-06:
         dices_mean_path = os.path.join(OUTPUT_DIR,'adni_5folds','results','dices_mean_%s.npy' %'enet')
          
     np.save(dices_mean_path,dices.mean(axis=1) )
     
-    print key
+    print( key)
     scores = OrderedDict((
         ('model', key[0]),
         ('global_pen', key[1]),
@@ -380,7 +391,7 @@ def reducer(key, values):
 
 
 def run_test(wd, config):
-    print "In run_test"
+    print ("In run_test")
     import mapreduce
     os.chdir(wd)
     params = config['params'][-1]
@@ -409,10 +420,12 @@ def create_config(y, n_folds, output_dir, filename,
 
     # Copy the learning data & mask
     INPUT_DATASET = os.path.join(INPUT_BASE_DIR,'X_hallu_only.npy')
-    shutil.copy2(INPUT_DATASET, full_output_dir)
+    #shutil.copy2(INPUT_DATASET, full_output_dir)
 
     # Create config file
     user_func_filename = os.path.abspath(__file__)
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)    
 
     config = dict(data=dict(X=os.path.basename(INPUT_DATASET)),
                   params=PARAMS,
@@ -425,6 +438,8 @@ def create_config(y, n_folds, output_dir, filename,
                   reduce_output="results.csv")
     config_full_filename = os.path.join(full_output_dir, filename)
     json.dump(config, open(config_full_filename, "w"))
+    
+
 
 
     return config
@@ -442,6 +457,17 @@ if __name__ == "__main__":
     y= y[y==1]
     # Create config files
     config_5folds = create_config(y, *(CONFIGS[0]))
+    
+        
+     # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
+        clust_utils.gabriel_make_sync_data_files(OUTPUT_DIR)
+    cmd = "mapreduce.py --map  %s/config_5folds.json" % os.path.join(WD_CLUSTER,"adni_5folds")
+    clust_utils.gabriel_make_qsub_job_files(OUTPUT_DIR, cmd,walltime="1000:00:00")
+#        ################################################################
+#        # Sync to cluster
+
 
     DEBUG = False
     if DEBUG:

@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from parsimony.datasets.regression import dice5
 import pca_tv
 import dice5_data
-from parsimony.utils import plot_map2d
+from parsimony.utils import plots
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.algorithms.utils import AlgorithmSnapshot
 import time
@@ -80,7 +80,8 @@ np.save(full_filename, beta3d)
 l1_max = pca_tv.PCA_L1_L2_TV.l1_max(X_std)
 full_filename = os.path.join(output_dir, OUTPUT_L1MASK_FILE)
 with open(full_filename, "w") as f:
-    print >> f, l1_max
+    print (>> f)
+    print (l1_max)
 
 ###############################################################################
 

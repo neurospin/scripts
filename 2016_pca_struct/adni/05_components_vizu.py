@@ -15,7 +15,9 @@ from brainomics import array_utils
 import brainomics.mesh_processing as mesh_utils
 import shutil
 
-BASE_PATH= "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"    
+
+BASE_PATH= "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"  
+BASE_PATH_GN= "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite"   
 TEMPLATE_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/freesurfer_template"               
 BASE_OUTPUT = "/neurospin/brainomics/2016_pca_struct/adni/components_extracted"
 
@@ -75,8 +77,11 @@ OUTPUT = os.path.join(BASE_OUTPUT,params)
 params = "struct_pca_0.1_0.5_0.5"
 OUTPUT = os.path.join(BASE_OUTPUT,params)
 
+params = "graphNet_pca_0.01_0.5_0.5"
+OUTPUT = os.path.join(BASE_OUTPUT,params)
 
-INPUT_COMPONENTS_FILE_FORMAT = os.path.join(BASE_PATH,"model_selectionCV",'all','all',params,'components.npz')
+
+INPUT_COMPONENTS_FILE_FORMAT = os.path.join(BASE_PATH_GN,"model_selectionCV",'all','all',params,'components.npz')
 components = np.zeros((79440, 3))
 components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(params=params)
 components = np.load(components_filename)['arr_0']

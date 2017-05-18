@@ -14,13 +14,10 @@ import shutil
 
 
 BASE_PATH = '/neurospin/brainomics/2016_deptms'
-
-INPUT_FS = "/neurospin/brainomics/2016_deptms/results/Freesurfer/freesurfer_assembled_data_fsaverage"
-
-TEMPLATE_PATH = "/neurospin/brainomics/2016_deptms/results/Freesurfer/freesurfer_template"
-
-INPUT_CSV = "/neurospin/brainomics/2016_deptms/results/Freesurfer/population.csv"
-OUTPUT = "/neurospin/brainomics/2016_deptms/results/Freesurfer/data"
+INPUT_FS = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/freesurfer_assembled_data_fsaverage/"
+TEMPLATE_PATH = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/freesurfer_template/"
+INPUT_CSV = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/population.csv"
+OUTPUT = "/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data"
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
@@ -40,13 +37,12 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT
 # Read images
 n = len(pop)
 assert n == 34
-Z = np.zeros((n, 2)) #Age,sex 
+Z = np.zeros((n, 2)) #Age,sex
 y = np.zeros((n, 1)) # DX
 surfaces = list()
 
 for i, ID in enumerate(pop['subject']):
     cur = pop[pop["subject"] == ID]
-ics
     mri_path_lh = cur["mri_path_lh"].values[0]
     mri_path_rh = cur["mri_path_rh"].values[0]
     left = nb.load(mri_path_lh).get_data().ravel()
@@ -55,7 +51,7 @@ ics
     surfaces.append(surf)
     y[i, 0] = cur["Response.num"]
     Z[i, :] = np.asarray(cur[["Age", "Sex"]]).ravel()
-    print i
+    print (i)
 
 
 Xtot = np.vstack(surfaces)
@@ -74,32 +70,11 @@ assert X.shape == (34, 314783)
 
 #############################################################################
 # Some basic stat before centering/scaling
-means = np.mean(X, axis=0)
-stds = np.std(X, axis=0)
-mins = np.min(X, axis=0)
-maxs = np.max(X, axis=0)
-print "Means:", means.min(), means.max(), means.mean()
-print "Std:",  stds.min(), stds.max(), stds.mean()
-print "Mins:", mins.min(), mins.max(), mins.mean()
-print "Maxs:", maxs.min(), maxs.max(), maxs.mean(), (maxs == 0).sum()
-
-
-
-arr = np.zeros(mask.shape); arr[mask] = means
-mesh_utils.save_texture(filename=os.path.join(OUTPUT, "mean.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
-arr = np.zeros(mask.shape); arr[mask] = stds
-mesh_utils.save_texture(filename=os.path.join(OUTPUT, "std.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
-arr = np.zeros(mask.shape); arr[mask] = maxs
-mesh_utils.save_texture(filename=os.path.join(OUTPUT, "max.gii"), data=arr)#, intent='NIFTI_INTENT_NONE')
-
-
-#############################################################################
-
 X = np.hstack([Z, X])
 assert X.shape == (34, 314785)
 
 
-# Center/scale 
+# Center/scale
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
 n, p = X.shape
@@ -114,6 +89,15 @@ np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 
 ##############################################################################
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+Atv = nesterov_tv.linear_operator_from_mesh(cor, tri, mask, calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+assert np.allclose(Atv_.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
+
 
 
 

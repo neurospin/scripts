@@ -1,3 +1,5 @@
+from __future__ import print_function  # compat with python 2.7
+
 import numpy as  np
 from nibabel import gifti
 #import nipy.algorithms.graph.graph as fg
@@ -156,10 +158,19 @@ the corresponding data
 #    gifti.write(img, path)
 
 def save_texture(filename, data):
-    from soma import aims
-    tex = aims.TimeTexture('FLOAT')
-    tex[0].assign(data)
-    aims.write(tex, filename)
+    try:
+        from nibabel import gifti
+        import codecs
+        darray = gifti.GiftiDataArray(data)
+        gii = gifti.GiftiImage(darrays=[darray])
+        f = codecs.open(filename, 'wb')#, encoding='utf-8')
+        f.write(gii.to_xml(enc='utf-8'))
+        f.close()
+    except:
+        from soma import aims
+        tex = aims.TimeTexture('FLOAT')
+        tex[0].assign(data)
+        aims.write(tex, filename)
 
 
 def spherical_coordinates(mesh):

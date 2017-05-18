@@ -30,7 +30,7 @@ clinic = clinic[clinic.study=="NUSDAST"]
 # Read subjects with image
 subjects = list()
 date = list()
-paths = glob.glob(os.path.join(INPUT_DATA,"WUSTL/*/*/mwc1average_T1.nii"))
+paths = glob.glob(os.path.join(INPUT_DATA,"WUSTL/*/*/site_template_mwc1average_T1.nii"))
 for i in range(len(paths)):
     subjects.append(os.path.split(os.path.split(os.path.split(paths[i])[0])[0])[1])
     date.append(os.path.split(os.path.split(paths[i])[0])[1])
@@ -39,7 +39,7 @@ for i in range(len(paths)):
 input_subjects_vbm = pd.DataFrame(subjects, columns=["subjectid"])
 input_subjects_vbm["path_VBM"] = paths
 input_subjects_vbm["date"] = date
-assert input_subjects_vbm.shape == (391, 3)                        
+assert input_subjects_vbm.shape == (391, 3)
 
 
 
@@ -48,13 +48,13 @@ input_subjects_vbm["sex"] = "NaN"
 input_subjects_vbm["dx"] = "NaN"
 input_subjects_vbm["site"] = "NaN"
 for s in input_subjects_vbm.subjectid:
-     age =  clinic.loc[clinic.subjectid == s,"age"].values[0]   
+     age =  clinic.loc[clinic.subjectid == s,"age"].values[0]
      input_subjects_vbm.loc[input_subjects_vbm.subjectid == s,"age"] = int(age)
-     
-     sex = clinic.loc[clinic.subjectid == s,"sex"].values[0]   
+
+     sex = clinic.loc[clinic.subjectid == s,"sex"].values[0]
      input_subjects_vbm.loc[input_subjects_vbm.subjectid == s,"sex"] = sex
-     
-     dx =clinic.loc[clinic.subjectid == s,"dx"].values[0]   
+
+     dx =clinic.loc[clinic.subjectid == s,"dx"].values[0]
      input_subjects_vbm.loc[input_subjects_vbm.subjectid == s,"dx"] = dx
 
      site = clinic.loc[clinic.subjectid == s,"imaging_protocol_site"].values[0]
@@ -85,11 +85,11 @@ for s in pop.subjectid.unique() :
         for i in range(len(index)):
             to_delete_vol_index.append(index[i])
 
-          
+
 pop.drop(pop.index[[to_delete_vol_index]],inplace=True)
 
-assert pop.shape[0] == len(pop.subjectid.unique())  
-  
+assert pop.shape[0] == len(pop.subjectid.unique())
+
 pop = pop[pop.age<30]
 
 

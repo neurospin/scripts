@@ -70,13 +70,13 @@ assert X.shape == (123,317102)
 
 X = np.hstack([Z, X])
 assert X.shape == (123, 317105)
-#Remove nan lines 
+#Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
 assert X.shape == (123, 317105)
 
 
-# Center/scale 
+# Center/scale
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
 n, p = X.shape
@@ -88,3 +88,15 @@ fh.write('Centered and scaled data. Shape = (%i, %i): Age + Gender + %i surface 
 fh.close()
 
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+##############################################################################
+#############################################################################
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+Atv = nesterov_tv.linear_operator_from_mesh(cor, tri, mask, calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+assert np.allclose(Atv_.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
+assert np.all([a.shape == (299731, 299731) for a in Atv])

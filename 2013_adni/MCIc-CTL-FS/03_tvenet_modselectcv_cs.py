@@ -46,17 +46,21 @@ from sklearn.feature_selection import SelectKBest
 from parsimony.estimators import LogisticRegressionL1L2TV
 import parsimony.functions.nesterov.tv as tv_helper
 from brainomics import array_utils
+from scipy.stats import binom_test
+
+import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
 NFOLDS_INNER, NFOLDS_OUTER  = 5, 5
+penalty_start = 2
 
 WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_modselectcv"
-def config_filenane(): return os.path.join(WD, "config_modselectcv.json")
+def config_filename(): return os.path.join(WD, "config_modselectcv.json")
 def results_filenane(): return os.path.join(WD, "MCIc-CTL-FS_cs_modselectcv.xlsx")
 
 # for comparision we need the results with spatially smoothed data
 WD_s = "/neurospin/brainomics/2013_adni/MCIc-CTL-FS_cs_s_modselectcv"
-def config_filenane_s(): return os.path.join(WD_s, "config_modselectcv.json")
+def config_filename_s(): return os.path.join(WD_s, "config_modselectcv.json")
 def results_filenane_s(): return os.path.join(WD_s, "MCIc-CTL-FS_cs_s_modselectcv.xlsx")
 
 def init():
@@ -94,13 +98,13 @@ def init():
         for k in cv:
             cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
-    print cv.keys()
+    print(cv.keys())
     # Some QC
     N = float(len(y)); p0 = np.sum(y==0) / N; p1 = np.sum(y==1) / N;
     for k in cv:
         tr, val = cv[k]
         tr, val = np.array(tr), np.array(val)
-        print k, "\t: tr+val=", len(tr) + len(val)
+        print(k, "\t: tr+val=", len(tr) + len(val))
         assert not set(tr).intersection(val)
         assert abs(np.sum(y[tr]==0)/float(len(y[tr])) - p0) < 0.01
         assert abs(np.sum(y[tr]==1)/float(len(y[tr])) - p1) < 0.01
@@ -135,14 +139,14 @@ def init():
         "git", "scripts", "2013_adni", "MCIc-CTL-FS",
         "03_tvenet_modselectcv_cs.py")
     #print __file__, os.path.abspath(__file__)
-    print "user_func", user_func_filename
+    print("user_func", user_func_filename)
     #import sys
     #sys.exit(0)
     # Use relative path from config.json
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y),
                   params=params, resample=cv,
                   structure=STRUCTURE,
-                  penalty_start = 2,
+                  penalty_start = penalty_start,
                   map_output="modselectcv",
                   user_func=user_func_filename,
                   #reduce_input="rndperm/*/*",
@@ -159,27 +163,27 @@ def init():
     clust_utils.gabriel_make_qsub_job_files(WD, cmd)
     #############################################################################
     # Sync to cluster
-    print "Sync data to gabriel.intra.cea.fr: "
+    print("Sync data to gabriel.intra.cea.fr: ")
     os.system(sync_push_filename)
     #############################################################################
-    print "# Start by running Locally with 2 cores, to check that everything os OK)"
-    print "Interrupt after a while CTL-C"
-    print "mapreduce.py --map %s/config_modselectcv.json --ncore 2" % WD
+    print("# Start by running Locally with 2 cores, to check that everything os OK)")
+    print("Interrupt after a while CTL-C")
+    print("mapreduce.py --map %s/config_modselectcv.json --ncore 2" % WD)
     #os.system("mapreduce.py --mode map --config %s/config.json" % WD)
-    print "# 1) Log on gabriel:"
-    print 'ssh -t gabriel.intra.cea.fr'
-    print "# 2) Run one Job to test"
-    print "qsub -I"
-    print "cd %s" % WD_CLUSTER
-    print "./job_Global_long.pbs"
-    print "# 3) Run on cluster"
-    print "qsub job_Global_long.pbs"
-    print "# 4) Log out and pull Pull"
-    print "exit"
-    print sync_pull_filename
+    print("# 1) Log on gabriel:")
+    print('ssh -t gabriel.intra.cea.fr')
+    print("# 2) Run one Job to test")
+    print("qsub -I")
+    print("cd %s" % WD_CLUSTER)
+    print("./job_Global_long.pbs")
+    print("# 3) Run on cluster")
+    print("qsub job_Global_long.pbs")
+    print("# 4) Log out and pull Pull")
+    print("exit")
+    print(sync_pull_filename)
     #############################################################################
-    print "# Reduce"
-    print "mapreduce.py --reduce %s/config_modselectcv.json" % WD
+    print("# Reduce")
+    print("mapreduce.py --reduce %s/config_modselectcv.json" % WD)
 
 
 def load_globals(config):
@@ -217,15 +221,14 @@ def mapper(key, output_collector):
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
-    print key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape
+    print(key, "Data shape:", Xtr.shape, Xte.shape, ytr.shape, yte.shape)
     # STRUCTURE = GLOBAL.STRUCTURE
     #alpha, ratio_l1, ratio_l2, ratio_tv, k = key
     #key = np.array(key)
-    penalty_start = GLOBAL.CONFIG["penalty_start"]
     class_weight="auto" # unbiased
     alpha = float(key[0])
     l1, l2, tv, k = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3]), key[4]
-    print "l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k)
+    print("l1:%f, l2:%f, tv:%f, k:%i" % (l1, l2, tv, k))
     if k != -1:
         k = int(k)
         aov = SelectKBest(k=k)
@@ -251,10 +254,338 @@ def mapper(key, output_collector):
         output_collector.collect(key, ret)
     else:
         return ret
+###############################################################################
+## 2017
+###############################################################################
+def scores(key, paths, config, as_dataframe=False):
+    import mapreduce
+    print(key)
+    if (len(paths) != NFOLDS_INNER) or (len(paths) != NFOLDS_OUTER):
+        print("Failed for key %s" % key)
+        return None
+    values = [mapreduce.OutputCollector(p) for p in paths]
+    values = [item.load() for item in values]
+    y_true = [item["y_true"].ravel() for item in values]
+    y_pred = [item["y_pred"].ravel() for item in values]
+    y_true = np.concatenate(y_true)
+    y_pred = np.concatenate(y_pred)
+    prob_pred = [item["proba_pred"].ravel() for item in values]
+    prob_pred = np.concatenate(prob_pred)
 
-def scores(key, paths, config, ret_y=False):
+    # Prediction performances
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
+    auc = roc_auc_score(y_true, prob_pred) #area under curve score.
+
+    # P-values
+    success = r * s
+    success = success.astype('int')
+    prob_class1 = np.count_nonzero(y_true) / float(len(y_true))
+    pvalue_recall0_true_prob = binom_test(success[0], s[0], 1 - prob_class1,alternative = 'greater')
+    pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
+    pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
+    pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
+    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
+
+
+    # Beta's measures of similarity
+    betas = np.hstack([item["beta"][penalty_start:, :] for item in values]).T
+
+    # Correlation
+    R = np.corrcoef(betas)
+    #print R
+    R = R[np.triu_indices_from(R, 1)]
+    # Fisher z-transformation / average
+    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+    # bracktransform
+    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+
+    # threshold betas to compute fleiss_kappa and DICE
+    try:
+        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
+        #print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+        #print(np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+        #                   rtol=0, atol=1e-02))
+
+        # Compute fleiss kappa statistics
+        beta_signed = np.sign(betas_t)
+        table = np.zeros((beta_signed.shape[1], 3))
+        table[:, 0] = np.sum(beta_signed == 0, 0)
+        table[:, 1] = np.sum(beta_signed == 1, 0)
+        table[:, 2] = np.sum(beta_signed == -1, 0)
+        fleiss_kappa_stat = fleiss_kappa(table)
+
+        # Paire-wise Dice coeficient
+        ij = [[i, j] for i in range(betas.shape[0]) for j in range(i+1, betas.shape[0])]
+        dices = list()
+        for idx in ij:
+            A, B = beta_signed[idx[0], :], beta_signed[idx[1], :]
+            dices.append(float(np.sum((A == B)[(A != 0) & (B != 0)])) / (np.sum(A != 0) + np.sum(B != 0)))
+        dice_bar = np.mean(dices)
+    except:
+        dice_bar = fleiss_kappa_stat = 0
+
+    scores = OrderedDict()
+    scores['key'] = key
+    try:
+        a, l1, l2 , tv, k  = [float(par) for par in key.split("_")]
+        print(a, l1, l2 , tv)
+        scores['a'] = a
+        scores['l1'] = l1
+        scores['l2'] = l2
+        scores['tv'] = tv
+        left = float(1 - tv)
+        if left == 0: left = 1.
+        scores['l1_ratio'] = float(l1) / left
+    except:
+        pass
+    scores['recall_0'] = r[0]
+    scores['recall_1'] = r[1]
+    scores['recall_mean'] = r.mean()
+    scores["auc"] = auc
+    scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
+    scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
+    scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
+    scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
+    scores['pvalue_recall_mean'] = pvalue_recall_mean
+    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
+                                    float(np.prod(betas.shape))
+    scores['beta_r_bar'] = r_bar
+    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+    scores['beta_dice_bar'] = dice_bar
+
+    scores['beta_dice'] = str(dices)
+    scores['beta_r'] = str(R)
+
+    if as_dataframe:
+        scores = pd.DataFrame([list(scores.values())], columns=list(scores.keys()))
+
+    return scores
+
+
+def reducer(key, values):
+    import os, glob, pandas as pd
+    os.chdir(os.path.dirname(config_filename()))
+    config = json.load(open(config_filename()))
+    paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    param_config_set = set([mapreduce.dir_from_param_list(p) for p in config['params']])
+    assert len(paths) / len(param_config_set) == len(config['resample']), "Nb run per param is not the one excpected"
+    paths.sort()
+    assert len(paths) == 1080
+
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+
+    def groupby_paths(paths, pos):
+        groups = {g:[] for g in set([p.split("/")[pos] for p in paths])}
+        for p in paths:
+            groups[p.split("/")[pos]].append(p)
+        return groups
+
+    def argmaxscore_bygroup(data, groupby='fold', param_key="key", score="recall_mean"):
+        arg_max_byfold = list()
+        for fold, data_fold in data.groupby(groupby):
+            assert len(data_fold) == len(set(data_fold[param_key]))  # ensure all  param are diff
+            arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][param_key], data_fold[score].max()])
+        return pd.DataFrame(arg_max_byfold, columns=[groupby, param_key, score])
+
+    print('## Refit scores: cv*/refit/*')
+    print('## -------------------------')
+    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3)
+    # k="1.0_0.7_0.0_0.3"; v=byparams[key]
+    byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+    byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
+
+    data = [list(byparams_scores[k].values()) for k in byparams_scores]
+    columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
+    scores_refit = pd.DataFrame(data, columns=columns)
+
+    print('## doublecv scores by outer-cv and by params: cv*/cvnested*/*')
+    print('## -----------------------------------------')
+    data = list()
+    bycv = groupby_paths([p for p in paths if p.count("cvnested") and not p.count("refit/cvnested")  ], 1)
+    for fold, paths_fold in bycv.items():
+        print(fold)
+        byparams = groupby_paths([p for p in paths_fold], 3)
+        byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+        byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
+        data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
+    scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
+    assert np.all(np.array([g.shape[0] for d, g in scores_dcv_byparams.groupby('fold')]) == 136)
+
+    # Different settings
+
+    l1l2tv_all = scores_dcv_byparams
+
+    l1l2tv_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_reduced.groupby('fold')]) == 8)
+    assert l1l2tv_reduced.shape[0] == 40
+
+    l1l2tv_ridge_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1)) &
+        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_ridge_reduced.groupby('fold')]) == 4)
+    assert l1l2tv_ridge_reduced.shape[0] == 20
+
+    l1l2tv_lasso_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_lasso_reduced.groupby('fold')]) == 4)
+    assert l1l2tv_lasso_reduced.shape[0] == 20
+
+    l1l2_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.tv, 0))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2_reduced.groupby('fold')]) == 4)
+    assert l1l2_reduced.shape[0] == 20
+
+    l1l2_ridge_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.1)) &
+        (close(scores_dcv_byparams.tv, 0))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2_ridge_reduced.groupby('fold')]) == 2)
+    assert l1l2_ridge_reduced.shape[0] == 10
+
+    l1l2_lasso_reduced = scores_dcv_byparams[
+        (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
+        (close(scores_dcv_byparams.l1_ratio, 0.9)) &
+        (close(scores_dcv_byparams.tv, 0))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2_lasso_reduced.groupby('fold')]) == 2)
+    assert l1l2_lasso_reduced.shape[0] == 10
+
+    print('## Model selection')
+    print('## ---------------')
+    l1l2tv_all = argmaxscore_bygroup(l1l2tv_all); l1l2tv_all["method"] = "l1l2tv_all"
+
+    l1l2tv_reduced = argmaxscore_bygroup(l1l2tv_reduced); l1l2tv_reduced["method"] = "l1l2tv_reduced"
+
+    l1l2tv_ridge_reduced = argmaxscore_bygroup(l1l2tv_ridge_reduced); l1l2tv_ridge_reduced["method"] = "l1l2tv_ridge_reduced"
+
+    l1l2tv_lasso_reduced = argmaxscore_bygroup(l1l2tv_lasso_reduced); l1l2tv_lasso_reduced["method"] = "l1l2tv_lasso_reduced"
+
+    l1l2_reduced = argmaxscore_bygroup(l1l2_reduced); l1l2_reduced["method"] = "l1l2_reduced"
+
+    l1l2_ridge_reduced = argmaxscore_bygroup(l1l2_ridge_reduced); l1l2_ridge_reduced["method"] = "l1l2_ridge_reduced"
+
+    l1l2_lasso_reduced = argmaxscore_bygroup(l1l2_lasso_reduced); l1l2_lasso_reduced["method"] = "l1l2_lasso_reduced"
+
+    scores_argmax_byfold = pd.concat([l1l2tv_all,
+                                      l1l2tv_reduced, l1l2_reduced,
+                                      l1l2tv_ridge_reduced, l1l2_ridge_reduced,
+                                      l1l2tv_lasso_reduced, l1l2_lasso_reduced])
+
+    print('## Apply best model on refited')
+    print('## ---------------------------')
+    l1l2tv_all = scores("l1l2tv_all",
+                               [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                   for index, row in l1l2tv_all.iterrows()],
+                                config, as_dataframe=True)
+
+    l1l2tv_reduced = scores("l1l2tv_reduced",
+                            [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                for index, row in l1l2tv_reduced.iterrows()],
+                             config, as_dataframe=True)
+
+    l1l2tv_ridge_reduced = scores("l1l2tv_ridge_reduced",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2tv_ridge_reduced.iterrows()],
+                                    config, as_dataframe=True)
+
+    l1l2tv_lasso_reduced = scores("l1l2tv_lasso_reduced",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2tv_lasso_reduced.iterrows()],
+                                    config, as_dataframe=True)
+
+    l1l2_reduced = scores("l1l2_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    l1l2_ridge_reduced = scores("l1l2_ridge_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_ridge_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    l1l2_lasso_reduced = scores("l1l2_lasso_reduced",
+                                 [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                     for index, row in l1l2_lasso_reduced.iterrows()],
+                                 config, as_dataframe=True)
+
+    scores_cv = pd.concat([l1l2tv_all,
+                           l1l2tv_reduced, l1l2_reduced,
+                           l1l2tv_ridge_reduced, l1l2_ridge_reduced,
+                           l1l2tv_lasso_reduced, l1l2_lasso_reduced,
+                           ])
+
+    with pd.ExcelWriter(results_filename()) as writer:
+        scores_refit.to_excel(writer, sheet_name='cv_by_param', index=False)
+        scores_dcv_byparams.to_excel(writer, sheet_name='cv_cv_byparam', index=False)
+        scores_argmax_byfold.to_excel(writer, sheet_name='cv_argmax', index=False)
+        scores_cv.to_excel(writer, sheet_name='dcv', index=False)
+
+
+###############################################################################
+def plot_scores():
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    import seaborn as sns
+
+    input_filename = results_filename()
+    outut_filename = input_filename.replace(".xlsx", "_scores-by-tv.pdf")
+
+    # scores
+    y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa', 'beta_dice_bar']
+    x_col = 'tv'
+
+    # colors
+    #sns.palplot(sns.color_palette("Paired"))
+    pal = sns.color_palette("Paired")
+    colors = {(0.01, 0.1):pal[0],
+             (0.1, 0.1):pal[1],
+             (0.01, 0.9):pal[4],
+             (0.1, 0.9):pal[5]}
+
+    data = pd.read_excel(input_filename, sheetname='cv_by_param')
+    # avoid poor rounding
+    data.l1_ratio = np.asarray(data.l1_ratio).round(3); assert len(data.l1_ratio.unique()) == 5
+    data.tv = np.asarray(data.tv).round(5); assert len(data.tv.unique()) == 11
+    data.a = np.asarray(data.a).round(5); assert len(data.a.unique()) == 3
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+    data = data[close(data.l1_ratio, .1) | close(data.l1_ratio, .9)]
+    data = data[close(data.a, .01) | close(data.a, .1)]
+    data.sort_values(by=x_col, ascending=True, inplace=True)
+
+    pdf = PdfPages(outut_filename)
+
+    for y_col in y_cols:
+        #y_col = y_cols[0]
+        fig=plt.figure()
+        for (l1, a), d in data.groupby(["l1_ratio", "a"]):
+            print((a, l1))
+            plt.plot(d.tv, d[y_col], color=colors[(a,l1)], label="a:%.2f, l1/l2:%.1f" % (a, l1))
+        plt.xlabel(x_col)
+        plt.ylabel(y_col)
+        plt.suptitle(y_col)
+        plt.legend()
+        pdf.savefig(fig); plt.clf()
+    pdf.close()
+
+
+###############################################################################
+## 2015
+###############################################################################
+
+def scores_2015(key, paths, config, ret_y=False):
     import glob, mapreduce
-    print key
+    print(key)
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     recall_mean_std = np.std([np.mean(precision_recall_fscore_support(
@@ -284,8 +615,8 @@ def scores(key, paths, config, ret_y=False):
     try:
         betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in xrange(betas.shape[0])])
         #print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
-        print np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
-                           rtol=0, atol=1e-02)
+        print(np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+                           rtol=0, atol=1e-02))
 
         # Compute fleiss kappa statistics
         beta_signed = np.sign(betas_t)
@@ -346,10 +677,10 @@ def scores(key, paths, config, ret_y=False):
         scores["y_true"], scores["y_pred"], scores["prob_pred"] = y_true, y_pred, prob_pred
     return scores
 
-def reducer():
+def reducer_2015():
     import os, glob, pandas as pd
-    os.chdir(os.path.dirname(config_filenane()))
-    config = json.load(open(config_filenane()))
+    os.chdir(os.path.dirname(config_filename()))
+    config = json.load(open(config_filename()))
     paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
     #paths = [p for p in paths if not p.count("0.8_-1")]
 
@@ -369,8 +700,8 @@ def reducer():
             arg_max_byfold.append([fold, data_fold.ix[data_fold[score].argmax()][arg], data_fold[score].max()])
         return pd.DataFrame(arg_max_byfold, columns=[groupby, arg, score])
 
-    print '## Refit scores'
-    print '## ------------'
+    print('## Refit scores')
+    print('## ------------')
     byparams = groupby_paths([p for p in paths if p.count("refit")], 3)
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
     data = [byparams_scores[k].values() for k in byparams_scores]
@@ -378,12 +709,12 @@ def reducer():
     columns = byparams_scores[byparams_scores.keys()[0]].keys()
     scores_refit = pd.DataFrame(data, columns=columns)
 
-    print '## doublecv scores by outer-cv and by params'
-    print '## -----------------------------------------'
+    print('## doublecv scores by outer-cv and by params')
+    print('## -----------------------------------------')
     data = list()
     bycv = groupby_paths([p for p in paths if p.count("cvnested")], 1)
     for fold, paths_fold in bycv.iteritems():
-        print fold
+        print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
         byparams_scores = {k:scores(k, v, config) for k, v in byparams.iteritems()}
         data += [[fold] + byparams_scores[k].values() for k in byparams_scores]
@@ -409,8 +740,8 @@ def reducer():
     l1l2_sl1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.1) & (scores_dcv_byparams.tv == 0)]
     l1l2tv_sl1 = scores_dcv_byparams[close(scores_dcv_byparams.l1_ratio, 0.1) & (scores_dcv_byparams.tv != 0)]
 
-    print '## Model selection'
-    print '## ---------------'
+    print('## Model selection')
+    print('## ---------------')
     l2 = argmaxscore_bygroup(l2); l2["method"] = "l2"
     l2tv = argmaxscore_bygroup(l2tv); l2tv["method"] = "l2tv"
     l1l2 = argmaxscore_bygroup(l1l2); l1l2["method"] = "l1l2"
@@ -423,8 +754,8 @@ def reducer():
 
     scores_argmax_byfold = pd.concat([l2, l2tv, l1l2, l1l2tv, l1l2_ll1, l1l2tv_ll1, l1l2_sl1, l1l2tv_sl1])
 
-    print '## Apply best model on refited'
-    print '## ---------------------------'
+    print('## Apply best model on refited')
+    print('## ---------------------------')
     scores_l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2.iterrows()], config)
     scores_l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l2tv.iterrows()], config)
     scores_l1l2 = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2.iterrows()], config)
@@ -454,12 +785,12 @@ def reducer():
         scores_cv.to_excel(writer, sheet_name='scores_cv', index=False)
 
 ###############################################################################
-def compare_models():
+def compare_models_2015():
     import os, glob, pandas as pd
     from brainomics.stats import mcnemar_test_classification
-    os.chdir(os.path.dirname(config_filenane()))
+    os.chdir(os.path.dirname(config_filename()))
     scores_argmax_byfold = pd.read_excel(results_filenane(), sheetname='scores_argmax_byfold')
-    config = json.load(open(config_filenane()))
+    config = json.load(open(config_filename()))
 
     ## Comparison: tv vs notv on non-smoothed data
     ## --------------------------------------------
@@ -504,12 +835,12 @@ def compare_models():
     # mean correlaction
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
     ll1_beta_r_mean = np.mean(scores1 - scores2)
     ll1_beta_r_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
-    
+
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
     sl1_beta_r_mean = np.mean(scores1 - scores2)
     sl1_beta_r_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
@@ -519,12 +850,12 @@ def compare_models():
     # mean dice
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
     ll1_beta_dice_mean = np.mean(scores1 - scores2)
     ll1_beta_dice_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
     sl1_beta_dice_mean = np.mean(scores1 - scores2)
     sl1_beta_dice_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
@@ -534,7 +865,7 @@ def compare_models():
     ## Comparison: tv vs notv on smoothed data
     ## ---------------------------------------
     scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
-    config_s = json.load(open(config_filenane_s()))
+    config_s = json.load(open(config_filename_s()))
     l1l2_sl1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_sl1"]
     scores_l1l2_sl1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_sl1_s.iterrows()],
            config=config_s, ret_y=True)
@@ -542,7 +873,7 @@ def compare_models():
     l1l2tv_sl1_s_pval = mcnemar_test_classification(y_true=scores_l1l2tv_sl1["y_true"], y_pred1=scores_l1l2tv_sl1["y_pred"], y_pred2=scores_l1l2_sl1_s["y_pred"], cont_table=False)
     #
     scores_argmax_byfold_s = pd.read_excel(results_filenane_s(), sheetname='scores_argmax_byfold')
-    config_s = json.load(open(config_filenane_s()))
+    config_s = json.load(open(config_filename_s()))
     l1l2_ll1_s = scores_argmax_byfold[scores_argmax_byfold_s.method == "l1l2_ll1"]
     scores_l1l2_ll1_s = scores("nestedcv", paths=[os.path.join(WD_s, config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2_ll1_s.iterrows()],
            config=config_s, ret_y=True)
@@ -569,12 +900,12 @@ def compare_models():
     # mean correlaction
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
     ll1_beta_r_mean_s = np.mean(scores1 - scores2)
     ll1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_r'].replace('[', '').replace(']', '').split(" ") if len(s)])
     sl1_beta_r_mean_s = np.mean(scores1 - scores2)
     sl1_beta_r_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
@@ -584,12 +915,12 @@ def compare_models():
     # mean dice
     from brainomics.stats import sign_permutation_pval
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_ll1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_ll1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
     ll1_beta_dice_mean_s = np.mean(scores1 - scores2)
     ll1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
     scores1 = np.array([float(s.strip()) for s in scores_l1l2tv_sl1['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
-    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])        
+    scores2 = np.array([float(s.strip()) for s in scores_l1l2_sl1_s['beta_dice'].replace('[', '').replace(']', '').split(",") if len(s)])
     sl1_beta_dice_mean_s = np.mean(scores1 - scores2)
     sl1_beta_dice_s_pval = sign_permutation_pval(scores1 - scores2, nperms=10000, stat="mean")
 
@@ -608,11 +939,11 @@ def compare_models():
 
 ###############################################################################
 ## vizu weight maps
-def vizu_weight_maps():
+def vizu_weight_maps_2015():
     import glob, shutil
     import brainomics.mesh_processing as mesh_utils
 
-    config = json.load(open(config_filenane()))
+    config = json.load(open(config_filename()))
     INPUT_BASE = os.path.join(os.path.dirname(WD), "MCIc-CTL-FS_cs", "5cv", "0")
     OUTPUT = os.path.join(WD, "weights_map_mesh")
     if not os.path.exists(OUTPUT):
@@ -621,16 +952,16 @@ def vizu_weight_maps():
     TEMPLATE_PATH = os.path.join(WD, "..", "freesurfer_template")
     shutil.copyfile(os.path.join(TEMPLATE_PATH, "lh.pial.gii"), os.path.join(OUTPUT, "lh.pial.gii"))
     shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT, "rh.pial.gii"))
-    
+
     cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
     cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
     assert cor_l.shape[0] == cor_r.shape[0] == 163842
-    
+
     cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(WD, config["structure"]["mesh"]))
     mask__mesh = np.load(os.path.join(WD, config["structure"]["mask"]))
     assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
     assert mask__mesh.shape[0], mask__mesh.sum() == (327684, 317089)
-    
+
     # Find the mapping from beta in masked mesh to left_mesh and right_mesh
     # concat was initialy: cor = np.vstack([cor_l, cor_r])
     mask_left__mesh = np.arange(mask__mesh.shape[0])  < mask__mesh.shape[0] / 2
@@ -638,21 +969,21 @@ def vizu_weight_maps():
     mask_right__mesh = np.arange(mask__mesh.shape[0]) >= mask__mesh.shape[0] / 2
     mask_right__mesh[np.logical_not(mask__mesh)] = False
     assert mask__mesh.sum() ==  (mask_left__mesh.sum() + mask_right__mesh.sum())
-    
+
     # the mask of the left/right emisphere within the left/right mesh
     mask_left__left_mesh = mask_left__mesh[:cor_l.shape[0]]
     mask_right__right_mesh = mask_right__mesh[cor_l.shape[0]:]
-    
+
     # compute mask from beta (in masked mesh) to left/right
     a = np.zeros(mask__mesh.shape, int)
     a[mask_left__mesh] = 1
     a[mask_right__mesh] = 2
     mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
     mask_right__beta = a[mask__mesh] == 2
-    assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+    assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
     assert mask_left__mesh.sum() == mask_left__beta.sum()
     assert mask_right__mesh.sum() == mask_right__beta.sum()
-    
+
     # Check mapping from beta left part to left_mesh
     assert mask_left__beta.sum() == mask_left__left_mesh.sum()
     assert mask_right__beta.sum() == mask_right__right_mesh.sum()
@@ -678,21 +1009,21 @@ def vizu_weight_maps():
         # left
         tex = np.zeros(mask_left__left_mesh.shape)
         tex[mask_left__left_mesh] = Betas[0, mask_left__beta]
-        print mod, "left", np.sum(tex != 0), tex.max(), tex.min()
+        print(mod, "left", np.sum(tex != 0), tex.max(), tex.min())
         mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_left_all.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
         tex[mask_left__left_mesh] = np.sum(Betas[1:, mask_left__beta] != 0, axis=0) / float(NFOLDS_OUTER)
         mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_left_count5cv.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
         # right
         tex = np.zeros(mask_right__right_mesh.shape)
         tex[mask_right__right_mesh] = Betas[0, mask_right__beta]
-        print mod, "right", np.sum(tex != 0), tex.max(), tex.min()
+        print(mod, "right", np.sum(tex != 0), tex.max(), tex.min())
         mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_right_all.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
         tex[mask_right__right_mesh] = np.sum(Betas[1:, mask_right__beta] != 0, axis=0) / float(NFOLDS_OUTER)
         mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_%s_right_count5cv.gii" % mod), data=tex)#, intent='NIFTI_INTENT_TTEST')
-        
+
         count_bothhemi = np.sum(Betas[1:, :] != 0, axis=0) / float(NFOLDS_OUTER)
         supports5cv_union = count_bothhemi != 0
-        print mod, supports5cv_union.sum(), np.mean(count_bothhemi[supports5cv_union]), np.median(count_bothhemi[supports5cv_union])
+        print(mod, supports5cv_union.sum(), np.mean(count_bothhemi[supports5cv_union]), np.median(count_bothhemi[supports5cv_union]))
 
 """
 l1l2tv_sl1 left 26062 0.000890264392951 -0.000987486259691
@@ -742,7 +1073,7 @@ done
 
 
 ###############################################################################
-def plot_perf():
+def plot_perf_2015():
     import os
     import numpy as np
     import pandas as pd
@@ -796,14 +1127,14 @@ def plot_perf():
                        splitby_col='a', color_map=color_map)
     pdf = PdfPages(outut_filename)
     for fig in figures:
-        print fig, figures[fig]
+        print(fig, figures[fig])
         pdf.savefig(figures[fig]); plt.clf()
     pdf.close()
 
-def build_summary():
+def build_summary_2015():
     import pandas as pd
-    os.chdir(os.path.dirname(config_filenane()))
-    config = json.load(open(config_filenane()))
+    os.chdir(os.path.dirname(config_filename()))
+    config = json.load(open(config_filename()))
     from collections import OrderedDict
     models = OrderedDict()
     models["l2"]     = (0.010,	0.000, 1.000, 0.000)
@@ -858,7 +1189,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-i', '--init', action='store_true', default=False,
                         help="Init config file & sync to cluster")
- 
+
     parser.add_argument('-r', '--reduce', action='store_true', default=False,
                         help="Reduce, ie.: compute scores")
 

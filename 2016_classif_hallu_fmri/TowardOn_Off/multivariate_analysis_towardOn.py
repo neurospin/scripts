@@ -35,22 +35,22 @@ periods = pd.read_csv(os.path.join(BASE_PATH,"toward_on", "nperiods.csv"))
 
 #############################################################################
 #Mask on resampled Images (We use intecept between Harvard/Oxford cort/sub mask and MNI152linT1 mask)
-ref=os.path.join(BASE_PATH,"atlases","MNI152lin_T1_3mm_brain_mask.nii.gz")
-babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(ref=ref
-,output=(os.path.join(BASE_PATH,"results","mask.nii.gz")),smooth_size=None,dilation_size=None)
-a=babel_mask_atlas.get_data()
-babel_mask=nibabel.load(ref)
-b=babel_mask.get_data()
-b[a==0]=0
-mask_bool=b!=0
+#ref=os.path.join(BASE_PATH,"atlases","MNI152lin_T1_3mm_brain_mask.nii.gz")
+#babel_mask_atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(ref=ref
+#,output=(os.path.join(BASE_PATH,"results","mask.nii.gz")),smooth_size=None,dilation_size=None)
+#a=babel_mask_atlas.get_data()
+#babel_mask=nibabel.load(ref)
+#b=babel_mask.get_data()
+#b[a==0]=0
+#mask_bool=b!=0
 
 
 
 #Compute Tstats image for each block 
 #############################################################################
 
-T=np.zeros((175,63966))
-betas=np.zeros((175,63966))
+T=np.zeros((175,259200))#((175,63966))
+betas=np.zeros((175,259200))
 y=np.zeros((175))
 subject=np.zeros((175))  
 s=0
@@ -72,11 +72,13 @@ for i in range(1,31):
             pathlist.append(imagefile_name)
             babel_image = nibabel.load(imagefile_name)
             #babel_image=nilearn.image.smooth_img(imgs=babel_image, fwhm=6)
-            babel_image=nilearn.image.resample_img(babel_image, target_affine=babel_image.get_affine()*2, target_shape=[ x /2 for x in babel_image.shape], interpolation='continuous', copy=True, order='F')
+            babel_image = nilearn.image.resample_img(babel_image, target_affine=babel_image.get_affine()*2,\
+                                                   target_shape=[60,72,60],\
+                                                     interpolation='continuous', copy=True, order='F')
             images.append(babel_image.get_data().ravel())
             
         X = np.vstack(images)
-        X = X[:, mask_bool.ravel()] 
+        #X = X[:, mask_bool.ravel()] 
         X=nilearn.signal.clean(X,detrend=True,standardize=True,confounds=None,low_pass=None, high_pass=None, t_r=1)
        
     #keep only off and on scan for further analysis
@@ -142,21 +144,38 @@ for i in range(1,31):
             T[t,:]=tvals[m]
             betas[t,:]=muols.coef[m,:]
             t=t+1
-            print t
+            print (t)
+        print(i)    
 
 
+            
+            
+np.save(os.path.join("/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_Jenatton/data",'T.npy'),T)
+np.save(os.path.join("/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_Jenatton/data",'betas.npy'),betas)
+np.save(os.path.join("/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_Jenatton/data",'y.npy'),y)
+np.save(os.path.join("/neurospin/brainomics/2016_pca_struct/fmri/2017_fmri_Jenatton/data",'subject.npy'),subject)
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
  #Store variables
 #############################################################################
-np.save(os.path.join(BASE_PATH,'toward_on','svm','T.npy'),T)
-np.save(os.path.join(BASE_PATH,'toward_on','svm','betas.npy'),betas)
-np.save(os.path.join(BASE_PATH,'toward_on','svm','y.npy'),y)
-np.save(os.path.join(BASE_PATH,'toward_on','svm','subject.npy'),subject)
-
- #Retreive variables
-#############################################################################
-T=np.load(os.path.join(BASE_PATH,'toward_on','svm','T.npy'))
-betas=np.load(os.path.join(BASE_PATH,'toward_on','svm','betas.npy'))
-y=np.load(os.path.join(BASE_PATH,'toward_on','svm','y.npy'))
-subject=np.load(os.path.join(BASE_PATH,'toward_on','svm','subject.npy'))
-
+#np.save(os.path.join(BASE_PATH,'toward_on','svm','T.npy'),T)
+#np.save(os.path.join(BASE_PATH,'toward_on','svm','betas.npy'),betas)
+#np.save(os.path.join(BASE_PATH,'toward_on','svm','y.npy'),y)
+#np.save(os.path.join(BASE_PATH,'toward_on','svm','subject.npy'),subject)
+#
+# #Retreive variables
+##############################################################################
+#T=np.load(os.path.join(BASE_PATH,'toward_on','svm','T.npy'))
+#betas=np.load(os.path.join(BASE_PATH,'toward_on','svm','betas.npy'))
+#y=np.load(os.path.join(BASE_PATH,'toward_on','svm','y.npy'))
+#subject=np.load(os.path.join(BASE_PATH,'toward_on','svm','subject.npy'))
+#
 

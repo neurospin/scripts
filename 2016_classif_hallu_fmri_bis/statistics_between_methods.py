@@ -33,8 +33,8 @@ if p<0.05 and T>0:
     print ("Enet TV reveals significantly higher AUC than SVM")
 if p<0.05 and T<0:
     print ("SVM reveals significantly higher AUC than EnetTV")    
-else:
-    print ("No significantl differences in AUC between EnetTV and SVM")
+#else:
+#    print ("No significantl differences in AUC between EnetTV and SVM")
    
 
 

@@ -35,10 +35,11 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, recall_score
 import pandas as pd
 from collections import OrderedDict
+import shutil
 
 BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
 #WD = os.path.join(BASE_PATH,"results/multivariate_analysis","logistic_regression_tv/model_selection")
-WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/enettv/model_selection'
+WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/2017/results_10000ite'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
@@ -60,28 +61,28 @@ def resample(config, resample_nb):
                             for k in GLOBAL.DATA}
 
 def mapper(key, output_collector):
-    import mapreduce as GLOBAL 
+    import mapreduce as GLOBAL
     Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
 
-    penalty_start = 2
+
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
     print(("l1:%f, l2:%f, tv:%f" % (l1, l2, tv)))
 
     class_weight="auto" # unbiased
-    
+
     mask = np.ones(Xtr.shape[0], dtype=bool)
-   
+
     scaler = preprocessing.StandardScaler().fit(Xtr)
     Xtr = scaler.transform(Xtr)
-    Xte=scaler.transform(Xte)    
+    Xte=scaler.transform(Xte)
     A = GLOBAL.A
-    
-    conesta = algorithms.proximal.CONESTA(max_iter=500)
-    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+
+    conesta = algorithms.proximal.CONESTA(max_iter=10000)
+    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
@@ -99,14 +100,14 @@ def scores(key, paths, config, ret_y=False):
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]    
+    y_pred = [item["y_pred"].ravel() for item in values]
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
     prob_pred = [item["proba_pred"].ravel() for item in values]
     prob_pred = np.concatenate(prob_pred)
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, prob_pred) #area under curve score.
-    betas = np.hstack([item["beta"] for item in values]).T    
+    betas = np.hstack([item["beta"] for item in values]).T
     # threshold betas to compute fleiss_kappa and DICE
     import array_utils
     betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
@@ -119,7 +120,7 @@ def scores(key, paths, config, ret_y=False):
     pvalue_recall1 = binom_test(success[1], s[1], prob_class1)
     pvalue_accuracy = binom_test(accuracy, s[0] + s[1], p=0.5)
     scores = OrderedDict()
-    try:    
+    try:
         a, l1, l2 , tv  = [float(par) for par in key.split("_")]
         scores['a'] = a
         scores['l1'] = l1
@@ -144,8 +145,8 @@ def scores(key, paths, config, ret_y=False):
                                     float(np.prod(betas_t.shape))
     scores['param_key'] = key
     return scores
-    
-    
+
+
 def reducer(key, values):
     import os, glob, pandas as pd
     os.chdir(os.path.dirname(config_filename()))
@@ -171,14 +172,14 @@ def reducer(key, values):
 
     print ('## Refit scores')
     print ('## ------------')
-    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3) 
+    byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3)
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
 
     data = [list(byparams_scores[k].values()) for k in byparams_scores]
 
     columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
-    
+
     print ('## doublecv scores by outer-cv and by params')
     print ('## -----------------------------------------')
     data = list()
@@ -206,7 +207,7 @@ def reducer(key, values):
     scores_l1l2tv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "refit", row["param_key"]) for index, row in l1l2tv.iterrows()], config)
     scores_cv = pd.DataFrame([
                   ["l1l2tv"] + list(scores_l1l2tv.values())], columns=["method"] + list(scores_l1l2tv.keys()))
-    print((list(scores_l1l2tv.values()) ))          
+    print((list(scores_l1l2tv.values()) ))
     with pd.ExcelWriter(results_filename()) as writer:
         scores_refit.to_excel(writer, sheet_name='scores_refit', index=False)
         scores_dcv_byparams.to_excel(writer, sheet_name='scores_dcv_byparams', index=False)
@@ -217,12 +218,11 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
-    WD = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_with_covariates/multivariate_analysis/enettv/model_selection"
-    INPUT_DATA_X = os.path.join(BASE_PATH,'results_with_covariates/multivariate_analysis/data','T.npy')
-    INPUT_DATA_y = os.path.join(BASE_PATH,'results_with_covariates/multivariate_analysis/data','y_state.npy')
-    INPUT_DATA_subject = os.path.join(BASE_PATH,'results_with_covariates/multivariate_analysis/data','subject.npy') 
-    INPUT_MASK_PATH = os.path.join(BASE_PATH,'results_with_covariates',"multivariate_analysis","data","MNI152_T1_3mm_brain_mask.nii.gz")
+    WD = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/2017/results_10000ite"
+    INPUT_DATA_X = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/data/T.npy"
+    INPUT_DATA_y = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/data/y_state.npy"
+    INPUT_DATA_subject = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/data/subject.npy"
+    INPUT_MASK_PATH = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/data/MNI152_T1_3mm_brain_mask.nii.gz"
     INPUT_CSV = os.path.join(BASE_PATH,"population.txt")
 
     pop = pd.read_csv(INPUT_CSV,delimiter=' ')
@@ -230,21 +230,25 @@ if __name__ == "__main__":
     NFOLDS_OUTER = number_subjects
     NFOLDS_INNER = 5
 
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
     #############################################################################
     ## Create config file
     y = np.load(INPUT_DATA_y)
     subject = np.load(INPUT_DATA_subject)
-    
+
+
     #Outer loop
-    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]     
-    cv_outer.insert(0, None)   
+    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+    cv_outer.insert(0, None)
     null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
     cv_outer[0] = null_resampling
 
     for cv_outer_i in range(1,number_subjects+1):
-    
+
         test_bool=(subject==(cv_outer_i-1))
-        train_bool=(subject!=(cv_outer_i-1))       
+        train_bool=(subject!=(cv_outer_i-1))
         cv_outer[cv_outer_i][0] = np.array([i for i, x in enumerate(train_bool) if x])
         cv_outer[cv_outer_i][1] =np.array([i for i, x in enumerate(test_bool) if x])
 
@@ -254,48 +258,45 @@ if __name__ == "__main__":
         if cv_outer_i == 0:
             cv["refit/refit"] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["refit/cvnested%02d" % (cv_inner_i)] = [tr_val[tr], tr_val[val]]
         else:
             cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
             cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
             for cv_inner_i, (tr, val) in enumerate(cv_inner):
                 cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
-        
+
     for k in cv:
         cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
 
-       
-    print((list(cv.keys()))) 
+
+    print((list(cv.keys())))
 
 
-            
-    # Parameters grid   
+
+    # Parameters grid
     tv_range = tv_ratios = [.2, .4, .6, .8]
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1],[.9, .1, 1], [.1, .9, 1],[.3,.7,1],[.7,.3,1]])
-    alphas = [0.01,.1,0.5]
-    
-    
+    alphas = [0.01,.1,1.0]
+
+
     l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
     l1l2tv = np.concatenate(l1l2tv)
     alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-          
+
     params = [params.tolist() for params in alphal1l2tv]
 
-    user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2016_classif_hallu_fmri_bis", "tvenet_doubleCV.py")
-    
+    user_func_filename = os.path.abspath(__file__)
+
     config = dict(data=dict(X="T.npy", y="y_state.npy"), subject = "subject.npy",
                   params=params, resample=cv,
                   structure="MNI152_T1_3mm_brain_mask.nii.gz",
-                  map_output="model_selectionCV", 
+                  map_output="model_selectionCV",
                   user_func=user_func_filename,
                   reduce_input="results/*/*",
                   reduce_group_by="params",
                   reduce_output="model_selectionCV.csv")
     json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
-    
-    
+
+
     #############################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
