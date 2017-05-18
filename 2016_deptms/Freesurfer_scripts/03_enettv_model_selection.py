@@ -11,42 +11,127 @@ import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-import nibabel
+# import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.feature_selection import SelectKBest
-from parsimony.estimators import LogisticRegressionL1L2TV
-import parsimony.functions.nesterov.tv as tv_helper
-import brainomics.image_atlas
-import parsimony.algorithms as algorithms
-import parsimony.datasets as datasets
-import parsimony.functions.nesterov.tv as nesterov_tv
+# from sklearn.feature_selection import SelectKBest
+# from parsimony.estimators import LogisticRegressionL1L2TV
+# import parsimony.functions.nesterov.tv as tv_helper
+# import brainomics.image_atlas
+# import parsimony.algorithms as algorithms
+# import parsimony.datasets as datasets
+# import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
 import parsimony.utils as utils
+from parsimony.utils.linalgs import LinearOperatorNesterov
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score, recall_score
-from collections import OrderedDict
+from sklearn.metrics import roc_auc_score
 import pandas as pd
-from parsimony.utils.linalgs import LinearOperatorNesterov
 import shutil
+from brainomics import array_utils
+import mapreduce
+from statsmodels.stats.inter_rater import fleiss_kappa
 
-WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv_10000ite'
+WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/deptms_FS_enettv_10000ite'
+WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
+
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
 penalty_start = 3
+
+
+##############################################################################
+def init():
+    INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/X.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/y.npy'
+    INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/mask.npy'
+    INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/Atv.npz'
+
+    os.makedirs(WD, exist_ok=True)
+    shutil.copy(INPUT_DATA_X, WD)
+    shutil.copy(INPUT_DATA_y, WD)
+    shutil.copy(INPUT_MASK_PATH, WD)
+    shutil.copy(INPUT_LINEAR_OPE_PATH, WD)
+
+    ## Create config file
+    y = np.load(INPUT_DATA_y)
+    X = np.load(INPUT_DATA_X)
+
+    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
+    if cv_outer[0] is not None: # Make sure first fold is None
+        cv_outer.insert(0, None)
+        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
+        cv_outer[0] = null_resampling
+
+    import collections
+    cv = collections.OrderedDict()
+    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
+        if cv_outer_i == 0:
+            cv["refit/refit"] = [tr_val, te]
+        else:
+            cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
+            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
+            for cv_inner_i, (tr, val) in enumerate(cv_inner):
+                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
+    for k in cv:
+        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
+
+    print(list(cv.keys()))
+
+    tv_range = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .9, 1], [0.9, 0.1, 1]])
+    alphas = [.1, .01, 1.0]
+
+
+    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2tv = np.concatenate(l1l2tv)
+    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    # remove duplicates
+    alphal1l2tv = pd.DataFrame(alphal1l2tv)
+    alphal1l2tv = alphal1l2tv[~alphal1l2tv.duplicated()]
+    alphal1l2tv.shape == (153, 4)
+    # Remove too large l1 leading to a null soulution
+    scaler = preprocessing.StandardScaler().fit(X)
+    Xs = scaler.transform(X)
+    l1max = utils.penalties.l1_max_logistic_loss(Xs[:, penalty_start:], y, mean=True, class_weight="auto")
+    #  0.23497620775450481
+    alphal1l2tv = alphal1l2tv[alphal1l2tv[0] * alphal1l2tv[1] <= l1max]
+    params = [np.round(row, 5).tolist() for row in alphal1l2tv.values.tolist()]
+    assert pd.DataFrame(params).duplicated().sum() == 0
+    assert len(params) == 135
+    print("NB run=", len(params) * len(cv))
+    user_func_filename = "/home/ad247405/git/scripts/2016_deptms/Freesurfer_scripts/03_enettv_model_selection.py"
+
+    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y=os.path.basename(INPUT_DATA_y)),
+                  params=params, resample=cv,
+                  structure=os.path.basename(INPUT_MASK_PATH),
+                  structure_linear_operator_tv="Atv.npz",
+                  map_output="model_selectionCV",
+                  user_func=user_func_filename,
+                  reduce_input="results/*/*",
+                  reduce_group_by="params",
+                  reduce_output="model_selectionCV.csv")
+    json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
+
+
+    # Build utils files: sync (push/pull) and PBS
+    import brainomics.cluster_gabriel as clust_utils
+    sync_push_filename, sync_pull_filename, _ = \
+        clust_utils.gabriel_make_sync_data_files(WD, wd_cluster=WD_CLUSTER)
+    cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
+    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "1000:00:00")
+
+
 #############################################################################
-
-
 def load_globals(config):
     import mapreduce as GLOBAL  # access to global variables
     GLOBAL.DATA = GLOBAL.load_data(config["data"])
-    STRUCTURE = np.load(config["structure"])
     A = LinearOperatorNesterov(filename=config["structure_linear_operator_tv"])
-    GLOBAL.A, GLOBAL.STRUCTURE = A, STRUCTURE
+    GLOBAL.A = A
 
 
 def resample(config, resample_nb):
@@ -63,8 +148,6 @@ def mapper(key, output_collector):
     ytr = GLOBAL.DATA_RESAMPLED["y"][0]
     yte = GLOBAL.DATA_RESAMPLED["y"][1]
 
-    penalty_start = 2
-
     alpha = float(key[0])
     l1, l2, tv = alpha * float(key[1]), alpha * float(key[2]), alpha * float(key[3])
     print("l1:%f, l2:%f, tv:%f" % (l1, l2, tv))
@@ -79,7 +162,6 @@ def mapper(key, output_collector):
     A = GLOBAL.A
 
     conesta = algorithms.proximal.CONESTA(max_iter=10000)
-    #conesta = algorithms.proximal.CONESTA(max_iter=500)
     mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
@@ -95,7 +177,9 @@ def mapper(key, output_collector):
 def scores(key, paths, config, as_dataframe=False):
     import mapreduce
     print(key)
-    assert len(paths) == NFOLDS_INNER or len(paths) == NFOLDS_OUTER, "Failed for key %s" % key
+    if (len(paths) != NFOLDS_INNER) or (len(paths) != NFOLDS_OUTER):
+        print("Failed for key %s" % key)
+        return None
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -358,84 +442,53 @@ def reducer(key, values):
         scores_argmax_byfold.to_excel(writer, sheet_name='cv_argmax', index=False)
         scores_cv.to_excel(writer, sheet_name='dcv', index=False)
 
-##############################################################################
 
-if __name__ == "__main__":
-    WD = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/results/enettv_10000ite'
-    INPUT_DATA_X = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/y.npy'
-    INPUT_MASK_PATH = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/mask.npy'
-    INPUT_CSV = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/population.csv'
-    INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_deptms/analysis/Freesurfer/data/Atv.npz'
+def plot_scores():
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    import seaborn as sns
 
-    pop = pd.read_csv(INPUT_CSV,delimiter=' ')
-    number_subjects = pop.shape[0]
-    NFOLDS_OUTER = 5
-    NFOLDS_INNER = 5
+    input_filename = results_filename()
+    outut_filename = input_filename.replace(".xlsx", "_scores-by-tv.pdf")
 
+    # scores
+    y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa', 'beta_dice_bar']
+    x_col = 'tv'
 
-    os.makedirs(WD, exist_ok=True)
-    shutil.copy(INPUT_DATA_X, WD)
-    shutil.copy(INPUT_DATA_y, WD)
-    shutil.copy(INPUT_MASK_PATH, WD)
-    shutil.copy(INPUT_LINEAR_OPE_PATH, WD)
-    ##########################################
-    #############################################################################
-    ## Create config file
-    y = np.load(INPUT_DATA_y)
+    # colors
+    #sns.palplot(sns.color_palette("Paired"))
+    pal = sns.color_palette("Paired")
+    colors = {(0.01, 0.1):pal[0],
+             (0.1, 0.1):pal[1],
+             (0.01, 0.9):pal[4],
+             (0.1, 0.9):pal[5]}
 
-    cv_outer = [[tr, te] for tr,te in StratifiedKFold(y.ravel(), n_folds=NFOLDS_OUTER, random_state=42)]
-    if cv_outer[0] is not None: # Make sure first fold is None
-        cv_outer.insert(0, None)
-        null_resampling = list(); null_resampling.append(np.arange(0,len(y))),null_resampling.append(np.arange(0,len(y)))
-        cv_outer[0] = null_resampling
+    data = pd.read_excel(input_filename, sheetname='cv_by_param')
+    # avoid poor rounding
+    data.l1_ratio = np.asarray(data.l1_ratio).round(3); assert len(data.l1_ratio.unique()) == 5
+    data.tv = np.asarray(data.tv).round(5); assert len(data.tv.unique()) == 11
+    data.a = np.asarray(data.a).round(5); assert len(data.a.unique()) == 3
+    def close(vec, val, tol=1e-4):
+        return np.abs(vec - val) < tol
+    data = data[close(data.l1_ratio, .1) | close(data.l1_ratio, .9)]
+    data = data[close(data.a, .01) | close(data.a, .1)]
+    data.sort_values(by=x_col, ascending=True, inplace=True)
 
-#
-    import collections
-    cv = collections.OrderedDict()
-    for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
-        if cv_outer_i == 0:
-            cv["refit/refit"] = [tr_val, te]
+    pdf = PdfPages(outut_filename)
 
-        else:
-            cv["cv%02d/refit" % (cv_outer_i -1)] = [tr_val, te]
-            cv_inner = StratifiedKFold(y[tr_val].ravel(), n_folds=NFOLDS_INNER, random_state=42)
-            for cv_inner_i, (tr, val) in enumerate(cv_inner):
-                cv["cv%02d/cvnested%02d" % ((cv_outer_i-1), cv_inner_i)] = [tr_val[tr], tr_val[val]]
-    for k in cv:
-        cv[k] = [cv[k][0].tolist(), cv[k][1].tolist()]
-
-
-    print(list(cv.keys()))
-
-    tv_range = tv_ratios = [0.0,.1,0.2,0.3, 0.4,0.5,.6,0.7, .8,0.9,1.0]
-    ratios = np.array([[.5, .5, 1], [.1, .90, 1],[0.9,0.1,1]])
-    alphas = [.1,.01,1.0]
-
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
-
-    params = [np.round(params,2).tolist() for params in alphal1l2tv]
+    for y_col in y_cols:
+        #y_col = y_cols[0]
+        fig=plt.figure()
+        for (l1, a), d in data.groupby(["l1_ratio", "a"]):
+            print((a, l1))
+            plt.plot(d.tv, d[y_col], color=colors[(a,l1)], label="a:%.2f, l1/l2:%.1f" % (a, l1))
+        plt.xlabel(x_col)
+        plt.ylabel(y_col)
+        plt.suptitle(y_col)
+        plt.legend()
+        pdf.savefig(fig); plt.clf()
+    pdf.close()
 
 
-    user_func_filename = "/home/ad247405/git/scripts/2016_deptms/Freesurfer_scripts/03_enettv_model_selection.py"
-
-    config = dict(data=dict(X=os.path.basename(INPUT_DATA_X), y=os.path.basename(INPUT_DATA_y)),
-                  params=params, resample=cv,
-                  structure=os.path.basename(INPUT_MASK_PATH),
-                  structure_linear_operator_tv="Atv.npz",
-                  map_output="model_selectionCV",
-                  user_func=user_func_filename,
-                  reduce_input="results/*/*",
-                  reduce_group_by="params",
-                  reduce_output="model_selectionCV.csv")
-    json.dump(config, open(os.path.join(WD, "config_dCV.json"), "w"))
-
-
-        # Build utils files: sync (push/pull) and PBS
-    import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD)
-    cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd)
