@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri May 12 15:49:58 CEST 2017
+Created on Wed May 24 09:21:46 CEST 2017
 
 @author: edouard.duchesnay@cea.fr
 """
@@ -26,63 +26,34 @@ from brainomics import array_utils
 import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-WD = "/neurospin/brainomics/2013_adni/MCIc-CTL-VBM_csi_all"
+WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo/enetall_NUSDATS50yoVBM'
+
 WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
-WD_ORIGINAL = "/neurospin/brainomics/2013_adni/MCIc-CTL_csi_modselectcv"
-user_func_filename = "/home/ed203246/git/scripts/2013_adni/MCIc-CTL/03_predict_csi.py"
+DATA_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_50yo'
+WD_ORIGINAL = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo'
+user_func_filename = '/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/VBM/50yo_scripts/03_enetall_NUSDATS50yoVBM.py'
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
-penalty_start = 3
+penalty_start = 2
 
 
 ##############################################################################
 def init():
-    INPUT_DATA_X = os.path.join(WD_ORIGINAL, 'X.npy')
-    INPUT_DATA_y = os.path.join(WD_ORIGINAL, 'y.npy')
-    INPUT_MASK_PATH = os.path.join(WD_ORIGINAL, 'mask.nii')
-    #INPUT_LINEAR_OPE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/data/30yo/Atv.npz'
-    # INPUT_CSV = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/Freesurfer/population_30yo.csv'
-
     os.makedirs(WD, exist_ok=True)
-    shutil.copy(INPUT_DATA_X, WD)
-    shutil.copy(INPUT_DATA_y, WD)
-    shutil.copy(INPUT_MASK_PATH, WD)
+    shutil.copy(os.path.join(DATA_PATH, 'X.npy'), WD)
+    shutil.copy(os.path.join(DATA_PATH, 'y.npy'), WD)
+    shutil.copy(os.path.join(DATA_PATH, 'mask.nii.gz'), WD)
+    shutil.copy(os.path.join(DATA_PATH, "Atv.npz"), WD)
+    shutil.copy(os.path.join(DATA_PATH, 'beta_start.npz'), WD)
 
-    #shutil.copy(INPUT_LINEAR_OPE_PATH, WD)
 
     ## Create config file
-    X = np.load(os.path.join(WD, "X.npy"))
-    y = np.load(os.path.join(WD, "y.npy"))
-
-    if not os.path.exists(os.path.join(WD, "Atv.npz")):
-        import nibabel
-        import parsimony.functions.nesterov.tv as nesterov_tv
-        from parsimony.utils.linalgs import LinearOperatorNesterov
-        img = nibabel.load(os.path.join(WD, "mask.nii"))
-        Atv = nesterov_tv.linear_operator_from_mask(img.get_data(), calc_lambda_max=True)
-        Atv.save(os.path.join(WD, "Atv.npz"))
-        Atv_ = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
-        assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
-        assert np.allclose(Atv_.get_singular_values(0), 11.942045760666732, rtol=1e-03, atol=1e-03)
-        assert np.all([a.shape == (X.shape[1]-penalty_start, X.shape[1]-penalty_start) for a in Atv])
-
-    if not os.path.exists(os.path.join(WD, "beta_start.npz")):
-        betas = dict()
-        import time
-        alphas = [.01, 0.1, 1.0, 10]
-        for alpha in alphas:
-            mod = estimators.RidgeLogisticRegression(l=alpha, class_weight="auto", penalty_start=penalty_start)
-            t_ = time.time()
-            mod.fit(X, y.ravel())
-            print(time.time() - t_) # 11564
-            betas["lambda_%.2f" % alpha] = mod.beta
-
-        np.savez(os.path.join(WD, "beta_start.npz"), **betas)
-        beta_start = np.load(os.path.join(WD, "beta_start.npz"))
-        assert np.all([np.all(beta_start[a] == betas[a]) for a in beta_start.keys()])
+    os.chdir(WD)
+    X = np.load("X.npy")
+    y = np.load("y.npy")
 
     ## Create config file
 
@@ -91,11 +62,14 @@ def init():
     #  with sub-sample training set with size 50, 100
     # 5cv/cv0*[_sub50]/refit/*
 
+    # sub_sizes = [50, 100]
+    sub_sizes = []
+
     cv_outer = [[tr, te] for tr, te in
                 StratifiedKFold(n_splits=NFOLDS_OUTER, random_state=42).split(np.zeros(y.shape[0]), y.ravel())]
 
     # check we got the same CV than previoulsy
-    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "config_modselectcv.json")))["resample"]
+    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "enettv", "enettv_NUDAST_50yoVBM", "config_dCV.json")))["resample"]
     cv_outer_old = [cv_old[k] for k in ['cv%02d/refit' % i for i in  range(NFOLDS_OUTER)]]
     assert np.all([np.all(np.array(cv_outer_old[i][0]) == cv_outer[i][0]) for i in range(NFOLDS_OUTER)])
     assert np.all([np.all(np.array(cv_outer_old[i][1]) == cv_outer[i][1]) for i in range(NFOLDS_OUTER)])
@@ -106,8 +80,6 @@ def init():
 
     cv["refit/refit"] = [np.arange(len(y)), np.arange(len(y))]
 
-    # sub_sizes = [50, 100]
-    sub_sizes = []
     for cv_outer_i, (tr_val, te) in enumerate(cv_outer):
         # Simple CV
         cv["cv%02d/refit" % (cv_outer_i)] = [tr_val, te]
@@ -154,23 +126,23 @@ def init():
 
     # Large grid of parameters
     alphas = [.01, 0.1, 1.0]
+    # alphas = [0.0001, 0.001, 0.01, 0.1, 1.0]
     tv_ratio = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     l1l2_ratio = [0, 0.1, 0.5, 0.9, 1.0]
     algos = ["enettv", "enetgn"]
     params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
-    assert len(params_enet_tvgn) == 300
+    assert len(params_enet_tvgn) == 500
 
     params_enet = [list(param) for param in itertools.product(["enet"], alphas, l1l2_ratio, [0])]
-    assert len(params_enet) == 15
+    assert len(params_enet) == 25
 
     params = params_enet_tvgn + params_enet
-    assert len(params) == 315
+    assert len(params) == 525 #315
     # Simple CV
     # assert len(params) * len(cv) == 1890
 
     # Simple CV + sub-sample training set with size 50, 100:
     assert len(params) * len(cv) == 1890
-
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
@@ -191,13 +163,13 @@ def init():
 
     #  ########################################################################
     #  Setting 2: dcv + reduced range of parameters: dcv_reducedrange
-    # 5cv/cv0*/cvnested0*/*
+    #  5cv/cv0*/cvnested0*/*
 
     cv_outer = [[tr, te] for tr, te in
                 StratifiedKFold(n_splits=NFOLDS_OUTER, random_state=42).split(np.zeros(y.shape[0]), y.ravel())]
 
     # check we got the same CV than previoulsy
-    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "config_modselectcv.json")))["resample"]
+    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "enettv", "enettv_NUDAST_50yoVBM", "config_dCV.json")))["resample"]
     cv_outer_old = [cv_old[k] for k in ['cv%02d/refit' % i for i in  range(NFOLDS_OUTER)]]
     assert np.all([np.all(np.array(cv_outer_old[i][0]) == cv_outer[i][0]) for i in range(NFOLDS_OUTER)])
     assert np.all([np.all(np.array(cv_outer_old[i][1]) == cv_outer[i][1]) for i in range(NFOLDS_OUTER)])
@@ -243,7 +215,6 @@ def init():
                   user_func=user_func_filename)
     json.dump(config, open(os.path.join(WD, "config_dcv_reducedrange.json"), "w"))
 
-
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
     cmd = "mapreduce.py --map  %s/config_dcv_reducedrange.json" % WD_CLUSTER
@@ -281,10 +252,10 @@ def load_globals(config):
     def get_singular_values(self, nb=None):
         return self.singular_values[nb] if nb is not None else self.singular_values
     Agn.get_singular_values = functools.partial(get_singular_values, Agn)
-    assert np.allclose(Agn.get_singular_values(0), 11.942045760666732, rtol=1e-03, atol=1e-03)
+    assert np.allclose(Agn.get_singular_values(0), 11.904427527000694, rtol=1e-03, atol=1e-03)
     GLOBAL.Atv, GLOBAL.Agn = Atv, Agn
 
-    # GLOBAL.BETA_START = np.load(GLOBAL.load_data(config["beta_start"]))
+    GLOBAL.beta_start = np.load(config["beta_start"])
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
@@ -314,29 +285,33 @@ def mapper(key, output_collector):
 
     class_weight = "auto"  # unbiased
 
-    # beta_start = GLOBAL.BETA_START["lambda_%.2f" % alpha]
+    beta_start = GLOBAL.beta_start["lambda_%.4f" % alpha]
+    print(beta_start.shape, Xtr.shape, beta_start.mean())
     # mask = np.ones(Xtr.shape[0], dtype=bool)
 
-    # scaler = preprocessing.StandardScaler().fit(Xtr)
-    # Xtr = scaler.transform(Xtr)
-    # Xte = scaler.transform(Xte)
+    scaler = preprocessing.StandardScaler().fit(Xtr)
+    Xtr = scaler.transform(Xtr)
+    Xte = scaler.transform(Xte)
+
     if algo == 'enettv':
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
         mod = estimators.LogisticRegressionL1L2TV(l1, l2, tv,  GLOBAL.Atv,
             algorithm=conesta, class_weight=class_weight, penalty_start=penalty_start)
+        mod.fit(Xtr, ytr.ravel(), beta=beta_start)
     elif algo == 'enetgn':
-        fista = algorithms.proximal.FISTA(max_iter=500)
+        fista = algorithms.proximal.FISTA(max_iter=5000)
         mod = estimators.LogisticRegressionL1L2GraphNet(l1, l2, tv, GLOBAL.Agn,
             algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+        mod.fit(Xtr, ytr.ravel(), beta=beta_start)
     elif algo == 'enet':
-        fista = algorithms.proximal.FISTA(max_iter=500)
+        fista = algorithms.proximal.FISTA(max_iter=5000)
         mod = estimators.ElasticNetLogisticRegression(l1l2ratio, alpha,
             algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+        mod.fit(Xtr, ytr.ravel())
     else:
         raise Exception('Algo%s not handled' %algo)
 
-    mod.fit(Xtr, ytr.ravel())
-    #mod.fit(Xtr, ytr.ravel(), beta=beta_start)
+    #mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
     ret = dict(y_pred=y_pred, y_true=yte, proba_pred=proba_pred, beta=mod.beta)#, mask=mask)
@@ -515,22 +490,22 @@ def reducer(key=None, values=None):
     config = json.load(open("config_cv_largerange.json"))
     paths_all = glob.glob("5cv/cv0?/refit/*")
     paths_all.sort()
-    # paths_sub50 = glob.glob("5cv/cv0?_sub50/refit/*")
-    # paths_sub50.sort()
-    # paths_sub100 = glob.glob("5cv/cv0?_sub100/refit/*")
-    # paths_sub100.sort()
+    #paths_sub50 = glob.glob("5cv/cv0?_sub50/refit/*")
+    #paths_sub50.sort()
+    #paths_sub100 = glob.glob("5cv/cv0?_sub100/refit/*")
+    #paths_sub100.sort()
 
     #assert len(paths) == 4286
     print('## Refit scores: cv*/refit/*')
     print('## -------------------------')
     scores_refit = scores_groupby_paths(paths=paths_all, param_pos=3, algo_pos_in_params=0, score_func=scores)
-    # scores_refit_sub50 = scores_groupby_paths(paths=paths_sub50, param_pos=3, algo_pos_in_params=0, score_func=scores)
-    # scores_refit_sub100 = scores_groupby_paths(paths=paths_sub100, param_pos=3, algo_pos_in_params=0, score_func=scores)
+    #scores_refit_sub50 = scores_groupby_paths(paths=paths_sub50, param_pos=3, algo_pos_in_params=0, score_func=scores)
+    #scores_refit_sub100 = scores_groupby_paths(paths=paths_sub100, param_pos=3, algo_pos_in_params=0, score_func=scores)
 
     with pd.ExcelWriter(os.path.join(WD, "results_refit_cv_by_param_largerange.xlsx")) as writer:
         scores_refit.to_excel(writer, sheet_name='cv_by_param_all', index=False)
-        # scores_refit_sub100.to_excel(writer, sheet_name='cv_by_param_sub100', index=False)
-        # scores_refit_sub50.to_excel(writer, sheet_name='cv_by_param_sub50', index=False)
+        #scores_refit_sub100.to_excel(writer, sheet_name='cv_by_param_sub100', index=False)
+        #scores_refit_sub50.to_excel(writer, sheet_name='cv_by_param_sub50', index=False)
 
 
     print('## doublecv scores by outer-cv and by params: cv*/cvnested*/*')
@@ -560,8 +535,8 @@ def reducer(key=None, values=None):
             (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
             (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
             (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
-        assert np.all(np.array([g.shape[0] for d, g in l1l2s_reduced.groupby('fold')]) == 8)
-        assert l1l2s_reduced.shape[0] == 40
+        # assert np.all(np.array([g.shape[0] for d, g in l1l2s_reduced.groupby('fold')]) == 8)
+        # assert l1l2s_reduced.shape[0] == 40
         results.append(argmaxscore_bygroup(data=l1l2s_reduced,
             refit_key="%s_dcv-reduced" % algo, config=config, score_func=scores, algo_pos_in_params=0))
 
@@ -570,8 +545,8 @@ def reducer(key=None, values=None):
             (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
             (close(scores_dcv_byparams.l1_ratio, 0.1)) &
             (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
-        assert np.all(np.array([g.shape[0] for d, g in l1l2s_ridge_reduced.groupby('fold')]) == 4)
-        assert l1l2s_ridge_reduced.shape[0] == 20
+        # assert np.all(np.array([g.shape[0] for d, g in l1l2s_ridge_reduced.groupby('fold')]) == 4)
+        # assert l1l2s_ridge_reduced.shape[0] == 20
         results.append(argmaxscore_bygroup(data=l1l2s_ridge_reduced,
             refit_key="%s_dcv-ridge-reduced" % algo, config=config, score_func=scores, algo_pos_in_params=0))
 
@@ -584,8 +559,8 @@ def reducer(key=None, values=None):
             (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
             (close(scores_dcv_byparams.l1_ratio, 0.9)) &
             (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
-        assert np.all(np.array([g.shape[0] for d, g in l1l2s_lasso_reduced.groupby('fold')]) == 4)
-        assert l1l2s_lasso_reduced.shape[0] == 20
+        # assert np.all(np.array([g.shape[0] for d, g in l1l2s_lasso_reduced.groupby('fold')]) == 4)
+        # assert l1l2s_lasso_reduced.shape[0] == 20
         results.append(argmaxscore_bygroup(data=l1l2s_lasso_reduced,
             refit_key="%s_dcv-lasso-reduced" % algo, config=config, score_func=scores, algo_pos_in_params=0))
 
@@ -643,7 +618,7 @@ def plot_scores():
     from matplotlib.backends.backend_pdf import PdfPages
     import seaborn as sns
 
-    input_filename = os.path.join(WD, "results_dCV.xlsx")
+    input_filename = results_filename()
 
     # scores
     y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa', 'beta_dice_bar']
@@ -661,6 +636,7 @@ def plot_scores():
     linestyle = dict(enettv="-", enetgn="--")
 
     for sheetname in sheetnames:
+        # sheetname = sheetnames[0]
         outpout_filename = os.path.join(os.path.dirname(input_filename),
                                       sheetname + "_scores-by-s.pdf")
 
@@ -668,7 +644,7 @@ def plot_scores():
 
         # avoid poor rounding
         data.l1_ratio = np.asarray(data.l1_ratio).round(3);# assert len(data.l1_ratio.unique()) == 5
-        data[x_col] = np.asarray(data[x_col]).round(5); assert len(data[x_col].unique()) == 11
+        data[x_col] = np.asarray(data[x_col]).round(5); # assert len(data[x_col].unique()) == 11
         data.a = np.asarray(data.a).round(5);# assert len(data.a.unique()) == 3
         def close(vec, val, tol=1e-4):
             return np.abs(vec - val) < tol
@@ -712,8 +688,11 @@ def dir_from_param_list(param_list):
 
 
 def param_src_to_dst(param_src, dst_prefix=None, dst_suffix=None):
-    a, l1, l2, tv, k = [float(a) for a in param_src.split("_")]
-    l1_ratio = l1 / (l1+l2)
+    a, l1, l2, tv = [float(a) for a in param_src.split("_")]
+    try:
+        l1_ratio = round(l1 / (l1 + l2), 10)
+    except ZeroDivisionError:
+        l1_ratio = np.nan
     param_list_dst = [a, l1_ratio, tv]
     if dst_prefix is not None:
         param_list_dst = [dst_prefix] + param_list_dst
@@ -750,9 +729,13 @@ def sync(SRC, DST, outer_str, inner_str, dst_prefix, copy=True):
 def do_sync():
     outer_str = ["cv%02d" % i for i in range(5)]
     inner_str = ["cvnested%02d" % i for i in range(5)] + ["refit"]
-    SRC = os.path.join(WD_ORIGINAL, "modselectcv/%s/%s")
+
+    # copy enetgn
+    SRC = os.path.join(WD_ORIGINAL, "enetgn", "enetgn_NUDAST_50yo", "model_selectionCV/%s/%s")
     DST = os.path.join(WD, "5cv/%s/%s")
-    sync(SRC, DST, outer_str, inner_str, dst_prefix="enettv")
+    sync(SRC, DST, outer_str, inner_str, dst_prefix="enetgn")
 
-
+    SRC = os.path.join(WD_ORIGINAL, "enettv", "enettv_NUDAST_50yoVBM", "model_selectionCV/%s/%s")
+    DST = os.path.join(WD, "5cv/%s/%s")
     sync(SRC, DST, outer_str, inner_str, dst_prefix="enettv", copy=False)
+
