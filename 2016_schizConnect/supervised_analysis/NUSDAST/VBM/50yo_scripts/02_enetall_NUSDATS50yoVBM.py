@@ -31,7 +31,7 @@ WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo/
 WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
 DATA_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_50yo'
 WD_ORIGINAL = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo'
-user_func_filename = '/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/VBM/50yo_scripts/03_enetall_NUSDATS50yoVBM.py'
+user_func_filename = '/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/VBM/50yo_scripts/02_enetall_NUSDATS50yoVBM.py'
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
@@ -67,13 +67,6 @@ def init():
 
     cv_outer = [[tr, te] for tr, te in
                 StratifiedKFold(n_splits=NFOLDS_OUTER, random_state=42).split(np.zeros(y.shape[0]), y.ravel())]
-
-    # check we got the same CV than previoulsy
-    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "enettv", "enettv_NUDAST_50yoVBM", "config_dCV.json")))["resample"]
-    cv_outer_old = [cv_old[k] for k in ['cv%02d/refit' % i for i in  range(NFOLDS_OUTER)]]
-    assert np.all([np.all(np.array(cv_outer_old[i][0]) == cv_outer[i][0]) for i in range(NFOLDS_OUTER)])
-    assert np.all([np.all(np.array(cv_outer_old[i][1]) == cv_outer[i][1]) for i in range(NFOLDS_OUTER)])
-    # check END
 
     import collections
     cv = collections.OrderedDict()
@@ -125,28 +118,29 @@ def init():
     print(list(cv.keys()))
 
     # Large grid of parameters
-    alphas = [.01, 0.1, 1.0]
+    alphas = [0.001, 0.01, 0.1, 1.0]
     # alphas = [0.0001, 0.001, 0.01, 0.1, 1.0]
     tv_ratio = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    l1l2_ratio = [0, 0.1, 0.5, 0.9, 1.0]
+    l1l2_ratio = [0.1, 0.5, 0.9]
+    #l1l2_ratio = [0, 0.1, 0.5, 0.9, 1.0]
     algos = ["enettv", "enetgn"]
     params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
-    assert len(params_enet_tvgn) == 500
+    assert len(params_enet_tvgn) == 240
 
     params_enet = [list(param) for param in itertools.product(["enet"], alphas, l1l2_ratio, [0])]
-    assert len(params_enet) == 25
+    assert len(params_enet) == 12
 
     params = params_enet_tvgn + params_enet
-    assert len(params) == 525 #315
+    assert len(params) == 252 #315
     # Simple CV
     # assert len(params) * len(cv) == 1890
 
     # Simple CV + sub-sample training set with size 50, 100:
-    assert len(params) * len(cv) == 1890
+    assert len(params) * len(cv) == 1512
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
-                  structure="mask.npy",
+                  structure="mask.nii.gz",
                   structure_linear_operator_tv="Atv.npz",
                   beta_start="beta_start.npz",
                   map_output="5cv",
@@ -168,13 +162,6 @@ def init():
     cv_outer = [[tr, te] for tr, te in
                 StratifiedKFold(n_splits=NFOLDS_OUTER, random_state=42).split(np.zeros(y.shape[0]), y.ravel())]
 
-    # check we got the same CV than previoulsy
-    cv_old = json.load(open(os.path.join(WD_ORIGINAL, "enettv", "enettv_NUDAST_50yoVBM", "config_dCV.json")))["resample"]
-    cv_outer_old = [cv_old[k] for k in ['cv%02d/refit' % i for i in  range(NFOLDS_OUTER)]]
-    assert np.all([np.all(np.array(cv_outer_old[i][0]) == cv_outer[i][0]) for i in range(NFOLDS_OUTER)])
-    assert np.all([np.all(np.array(cv_outer_old[i][1]) == cv_outer[i][1]) for i in range(NFOLDS_OUTER)])
-    # check END
-
     import collections
     cv = collections.OrderedDict()
     cv["refit/refit"] = [np.arange(len(y)), np.arange(len(y))]
@@ -195,7 +182,6 @@ def init():
     tv_ratio = [0.2, 0.8]
     l1l2_ratio = [0.1, 0.9]
     algos = ["enettv", "enetgn"]
-    import itertools
     params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
     assert len(params_enet_tvgn) == 16
 
@@ -222,21 +208,6 @@ def init():
                                             suffix="_dcv_reducedrange",
                                             freecores=2)
 
-    #  ########################################################################
-    #  Setting 2bis: dcv + reduced range of parameters: dcv_reducedrange graphnet only
-    # 5cv/cv0*/cvnested0*/*
-    config = json.load(open(os.path.join(WD, "config_dcv_reducedrange.json")))
-    config["params"] = [p for p in config["params"] if p[0] != 'enettv']
-
-    assert len(config["params"]) * len(config["resample"]) == 372
-    json.dump(config, open(os.path.join(WD, "config_dcv_reducedrange_gn.json"), "w"))
-
-    # Build utils files: sync (push/pull) and PBS
-    import brainomics.cluster_gabriel as clust_utils
-    cmd = "mapreduce.py --map  %s/config_dcv_reducedrange_gn.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime = "250:00:00",
-                                            suffix="_dcv_reducedrange_gn",
-                                            freecores=2)
 
 #############################################################################
 def load_globals(config):
@@ -255,7 +226,8 @@ def load_globals(config):
     assert np.allclose(Agn.get_singular_values(0), 11.904427527000694, rtol=1e-03, atol=1e-03)
     GLOBAL.Atv, GLOBAL.Agn = Atv, Agn
 
-    GLOBAL.beta_start = np.load(config["beta_start"])
+    npz = np.load(config["beta_start"])
+    GLOBAL.beta_start = {k:npz[k] for k in npz}
 
 def resample(config, resample_nb):
     import mapreduce as GLOBAL  # access to global variables
@@ -265,6 +237,13 @@ def resample(config, resample_nb):
                             for k in GLOBAL.DATA}
 
 def mapper(key, output_collector):
+    """
+    # debug mapper
+    config = json.load(open(os.path.join(WD, "config_cv_largerange.json"), "r"))
+    load_globals(config)
+    resample(config, 'refit/refit')
+    key = ('enettv', 0.01, 0.1, 0.3)
+    """
     import mapreduce as GLOBAL
     Xtr = GLOBAL.DATA_RESAMPLED["X"][0]
     Xte = GLOBAL.DATA_RESAMPLED["X"][1]
@@ -285,6 +264,7 @@ def mapper(key, output_collector):
 
     class_weight = "auto"  # unbiased
 
+    print(GLOBAL.beta_start.keys(), alpha, "lambda_%.4f" % alpha in GLOBAL.beta_start.keys())
     beta_start = GLOBAL.beta_start["lambda_%.4f" % alpha]
     print(beta_start.shape, Xtr.shape, beta_start.mean())
     # mask = np.ones(Xtr.shape[0], dtype=bool)
@@ -436,9 +416,8 @@ def scores(key, paths, config, as_dataframe=False, algo_idx=None):
 
 
 def reducer(key=None, values=None):
-    s = 'tv_ratio'
-    import os, glob, pandas as pd
 
+    import os, glob, pandas as pd
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
 
@@ -486,6 +465,7 @@ def reducer(key=None, values=None):
     # assert len(paths) / len(param_config_set) == len(config['resample']), "Nb run per param is not the one excpected"
 
     # config_cv_largerange
+    s = 'tv_ratio'
     os.chdir(WD)
     config = json.load(open("config_cv_largerange.json"))
     paths_all = glob.glob("5cv/cv0?/refit/*")
@@ -502,8 +482,8 @@ def reducer(key=None, values=None):
     #scores_refit_sub50 = scores_groupby_paths(paths=paths_sub50, param_pos=3, algo_pos_in_params=0, score_func=scores)
     #scores_refit_sub100 = scores_groupby_paths(paths=paths_sub100, param_pos=3, algo_pos_in_params=0, score_func=scores)
 
-    with pd.ExcelWriter(os.path.join(WD, "results_refit_cv_by_param_largerange.xlsx")) as writer:
-        scores_refit.to_excel(writer, sheet_name='cv_by_param_all', index=False)
+    # with pd.ExcelWriter(os.path.join(WD, "results_refit_cv_by_param_largerange.xlsx")) as writer:
+    #     scores_refit.to_excel(writer, sheet_name='cv_by_param_all', index=False)
         #scores_refit_sub100.to_excel(writer, sheet_name='cv_by_param_sub100', index=False)
         #scores_refit_sub50.to_excel(writer, sheet_name='cv_by_param_sub50', index=False)
 
@@ -612,6 +592,7 @@ def reducer(key=None, values=None):
 
 ###############################################################################
 def plot_scores():
+
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -621,18 +602,33 @@ def plot_scores():
     input_filename = results_filename()
 
     # scores
-    y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa', 'beta_dice_bar']
+    y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa',
+              'beta_dice_bar', 'beta_support_prop_select_mean']
     x_col = 'tv_ratio'
     group_by = ["algo", "l1_ratio", "a"]
     sheetnames = ['cv_by_param']
 
-    # colors
-    #sns.palplot(sns.color_palette("Paired"))
-    pal = sns.color_palette("Paired")
-    colors = {(0.01, 0.1):pal[0],
-             (0.01, 0.9):pal[4],
-             (0.1, 0.1):pal[1],
-             (0.1, 0.9):pal[5]}
+    # palette
+    n_colors = 3
+    pal = dict(
+            reds = sns.color_palette("Reds", n_colors=n_colors),
+            blues = sns.color_palette("Blues", n_colors=n_colors),
+            greens = sns.color_palette("Greens", n_colors=n_colors))
+
+    # sns.palplot(pal['reds'])
+    # sns.palplot(pal['blues'])
+    # sns.palplot(pal['greens'])
+    # colors mapping
+    colors = {
+             (0.001, 0.1):pal['blues'][0],
+             (0.001, 0.5):pal['greens'][0],
+             (0.001, 0.9):pal['reds'][0],
+             (0.01, 0.1):pal['blues'][1],
+             (0.01, 0.5):pal['greens'][1],
+             (0.01, 0.9):pal['reds'][1],
+             (0.1, 0.1):pal['blues'][2],
+             (0.1, 0.5):pal['greens'][2],
+             (0.1, 0.9):pal['reds'][2]}
     linestyle = dict(enettv="-", enetgn="--")
 
     for sheetname in sheetnames:
@@ -648,15 +644,16 @@ def plot_scores():
         data.a = np.asarray(data.a).round(5);# assert len(data.a.unique()) == 3
         def close(vec, val, tol=1e-4):
             return np.abs(vec - val) < tol
-        data = data[close(data.l1_ratio, .1) | close(data.l1_ratio, .9)]
-        data = data[close(data.a, .01) | close(data.a, .1)]
-        """
+
+        data = data[close(data.l1_ratio, .1) | close(data.l1_ratio, .5) | close(data.l1_ratio, .9)]
+        data = data[close(data.a, .001) | close(data.a, .01) | close(data.a, .1)]
+
         enettv0 = data[data["algo"] == "enet"].copy()
         enettv0.algo = "enettv"
         enetgn0 = data[data["algo"] == "enet"].copy()
         enetgn0.algo = "enetgn"
         data = pd.concat([data, enettv0, enetgn0])
-        """
+
         data.sort_values(by=x_col, ascending=True, inplace=True)
 
 
@@ -671,7 +668,7 @@ def plot_scores():
                 print((algo, l1_ratio, a))
                 plt.plot(d[x_col], d[y_col], color=colors[(a, l1_ratio)],
                          ls = linestyle[algo],
-                         label="%s, l1/l2:%.1f, a:%.2f" % (algo, l1_ratio, a))
+                         label="%s, l1/l2:%.1f, a:%.3f" % (algo, l1_ratio, a))
             plt.xlabel(x_col)
             plt.ylabel(y_col)
             plt.suptitle(y_col)
