@@ -11,7 +11,7 @@ import json
 import numpy as np
 import itertools
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import recall_score, roc_auc_score, precision_recall_fscore_support
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
 import parsimony.utils as utils
@@ -19,33 +19,44 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 from scipy.stats import binom_test
 from collections import OrderedDict
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score
 import pandas as pd
 import shutil
 from brainomics import array_utils
 import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo/enetall_NUSDATS50yoVBM'
 
+WD = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo/enetall_NUSDATS50yoVBM'
 WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
+
 DATA_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/data_50yo'
 WD_ORIGINAL = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_50yo'
 user_func_filename = '/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/VBM/50yo_scripts/02_enetall_NUSDATS50yoVBM.py'
 
 def config_filename(): return os.path.join(WD,"config_dCV.json")
-def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
+def results_filename(): return os.path.join(WD,os.path.basename(WD) + "_dcv.xlsx")
+
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
 penalty_start = 2
+DATA_TYPE = "mesh"
+# DATA_TYPE = "image"
 
+lambda_max_A = 11.904427527000694
 
 ##############################################################################
 def init():
     os.makedirs(WD, exist_ok=True)
     shutil.copy(os.path.join(DATA_PATH, 'X.npy'), WD)
     shutil.copy(os.path.join(DATA_PATH, 'y.npy'), WD)
-    shutil.copy(os.path.join(DATA_PATH, 'mask.nii.gz'), WD)
+
+    # VBM
+    if DATA_TYPE == "image":
+        shutil.copy(os.path.join(DATA_PATH, 'mask.nii.gz'), WD)
+    elif DATA_TYPE == "mesh":
+        shutil.copy(os.path.join(DATA_PATH, 'mask.npy'), WD)
+        shutil.copy(os.path.join(DATA_PATH, 'lrh.pial.gii'), WD)
+
     shutil.copy(os.path.join(DATA_PATH, "Atv.npz"), WD)
     shutil.copy(os.path.join(DATA_PATH, 'beta_start.npz'), WD)
 
@@ -140,7 +151,6 @@ def init():
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
-                  structure="mask.nii.gz",
                   structure_linear_operator_tv="Atv.npz",
                   beta_start="beta_start.npz",
                   map_output="5cv",
@@ -178,23 +188,24 @@ def init():
     print(list(cv.keys()))
 
     # Reduced grid of parameters
-    alphas = [.01, 0.1]
+    alphas = [0.01, 0.1, 1.0]
     tv_ratio = [0.2, 0.8]
-    l1l2_ratio = [0.1, 0.9]
+    # l1l2_ratio = [0.1, 0.9] # original
+    l1l2_ratio = [0.1]
+
     algos = ["enettv", "enetgn"]
     params_enet_tvgn = [list(param) for param in itertools.product(algos, alphas, l1l2_ratio, tv_ratio)]
-    assert len(params_enet_tvgn) == 16
+    assert len(params_enet_tvgn) == 12
 
     params_enet = [list(param) for param in itertools.product(["enet"], alphas, l1l2_ratio, [0])]
-    assert len(params_enet) == 4
+    assert len(params_enet) == 3
 
     params = params_enet_tvgn + params_enet
-    assert len(params) == 20
-    assert len(params) * len(cv) == 620
+    assert len(params) == 15
+    assert len(params) * len(cv) == 465
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
                   params=params, resample=cv,
-                  structure="mask.npy",
                   structure_linear_operator_tv="Atv.npz",
                   beta_start="beta_start.npz",
                   map_output="5cv",
@@ -208,6 +219,7 @@ def init():
                                             suffix="_dcv_reducedrange",
                                             freecores=2)
 
+# # #
 
 #############################################################################
 def load_globals(config):
@@ -223,7 +235,7 @@ def load_globals(config):
     def get_singular_values(self, nb=None):
         return self.singular_values[nb] if nb is not None else self.singular_values
     Agn.get_singular_values = functools.partial(get_singular_values, Agn)
-    assert np.allclose(Agn.get_singular_values(0), 11.904427527000694, rtol=1e-03, atol=1e-03)
+    assert np.allclose(Agn.get_singular_values(0), lambda_max_A, rtol=1e-03, atol=1e-03)
     GLOBAL.Atv, GLOBAL.Agn = Atv, Agn
 
     npz = np.load(config["beta_start"])
@@ -264,9 +276,7 @@ def mapper(key, output_collector):
 
     class_weight = "auto"  # unbiased
 
-    print(GLOBAL.beta_start.keys(), alpha, "lambda_%.4f" % alpha in GLOBAL.beta_start.keys())
     beta_start = GLOBAL.beta_start["lambda_%.4f" % alpha]
-    print(beta_start.shape, Xtr.shape, beta_start.mean())
     # mask = np.ones(Xtr.shape[0], dtype=bool)
 
     scaler = preprocessing.StandardScaler().fit(Xtr)
@@ -300,7 +310,21 @@ def mapper(key, output_collector):
     else:
         return ret
 
+#############################################################################
+# Reducer
+try:
+    REDUCER_SRC = '/home/ed203246/git/brainomics-team/2017_logistic_nestv/scripts/reduce_plot_vizu.py'
+    exec(open(REDUCER_SRC).read())
+except:
+    pass
 
+def do_reducer():
+    output_filename = results_filename()
+    # reducer(WD=WD, output_filename=output_filename, force_recompute=False)
+    model =  estimators.LogisticRegression()
+    reducer(WD=WD, output_filename=output_filename, force_recompute=True, model=model, rescale=True)
+
+"""
 def scores(key, paths, config, as_dataframe=False, algo_idx=None):
     # print(key, paths)
     # key = 'enettv_0.1_0.5_0.1'
@@ -325,17 +349,22 @@ def scores(key, paths, config, as_dataframe=False, algo_idx=None):
         print(e)
         return None
 
-    y_true = [item["y_true"].ravel() for item in values]
-    y_pred = [item["y_pred"].ravel() for item in values]
-    y_true = np.concatenate(y_true)
-    y_pred = np.concatenate(y_pred)
-    prob_pred = [item["proba_pred"].ravel() for item in values]
-    prob_pred = np.concatenate(prob_pred)
+    y_true_splits = [item["y_true"].ravel() for item in values]
+    y_pred_splits = [item["y_pred"].ravel() for item in values]
+    y_true = np.concatenate(y_true_splits)
+    y_pred = np.concatenate(y_pred_splits)
+    prob_pred_splits = [item["proba_pred"].ravel() for item in values]
+    prob_pred = np.concatenate(prob_pred_splits)
 
     # Prediction performances
     p, r, f, s = precision_recall_fscore_support(y_true, y_pred, average=None)
     auc = roc_auc_score(y_true, prob_pred)
 
+    # balanced accuracy (recall_mean)
+    bacc_splits = [recall_score(y_true_splits[f], y_pred_splits[f], average=None).mean() for f in range(len(y_true_splits))]
+    auc_splits = [roc_auc_score(y_true_splits[f], prob_pred_splits[f]) for f in range(len(y_true_splits))]
+
+    print("bacc all - mean(bacc) %.3f" % (r.mean() - np.mean(bacc_splits)))
     # P-values
     success = r * s
     success = success.astype('int')
@@ -344,7 +373,7 @@ def scores(key, paths, config, as_dataframe=False, algo_idx=None):
     pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
     pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
     pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
-    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
+    pvalue_bacc = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
 
     # Beta's measures of similarity
     betas = np.hstack([item["beta"][penalty_start:, :] for item in values]).T
@@ -392,13 +421,15 @@ def scores(key, paths, config, as_dataframe=False, algo_idx=None):
 
     scores['recall_0'] = r[0]
     scores['recall_1'] = r[1]
-    scores['recall_mean'] = r.mean()
+    scores['bacc'] = r.mean()
+    scores['bacc_se'] = np.std(bacc_splits) / np.sqrt(len(bacc_splits))
     scores["auc"] = auc
+    scores['auc_se'] = np.std(auc_splits) / np.sqrt(len(auc_splits))
     scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
     scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
     scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
     scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
-    scores['pvalue_recall_mean'] = pvalue_recall_mean
+    scores['pvalue_bacc_mean'] = pvalue_bacc
     scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
                                     float(np.prod(betas.shape))
     scores['beta_r_bar'] = r_bar
@@ -429,7 +460,7 @@ def reducer(key=None, values=None):
 
     def scores_groupby_paths(paths, param_pos, algo_pos_in_params, score_func):
         byparams = groupby_paths(paths, param_pos)
-        # key='enettv_1.0_1.0_0.9'; paths=byparams[k]
+        # key='enettv_0.1_0.1_0.2'; paths=byparams[key]; algo_idx=algo_pos_in_params
         byparams_scores = {k:score_func(k, v, config, algo_idx=algo_pos_in_params) for k, v in byparams.items()}
         byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
         data = [list(byparams_scores[k].values()) for k in byparams_scores]
@@ -437,7 +468,7 @@ def reducer(key=None, values=None):
         return pd.DataFrame(data, columns=columns)
 
     def argmaxscore_bygroup(data, groupby='fold', param_key="key",
-                            score="recall_mean",
+                            score="bacc",
                             refit_key=None,  # Do refit ?
                             config=None,   # required for refit
                             score_func=None,   # required for refit
@@ -470,10 +501,10 @@ def reducer(key=None, values=None):
     config = json.load(open("config_cv_largerange.json"))
     paths_all = glob.glob("5cv/cv0?/refit/*")
     paths_all.sort()
-    #paths_sub50 = glob.glob("5cv/cv0?_sub50/refit/*")
-    #paths_sub50.sort()
-    #paths_sub100 = glob.glob("5cv/cv0?_sub100/refit/*")
-    #paths_sub100.sort()
+    # paths_sub50 = glob.glob("5cv/cv0?_sub50/refit/*")
+    # paths_sub50.sort()
+    # paths_sub100 = glob.glob("5cv/cv0?_sub100/refit/*")
+    # paths_sub100.sort()
 
     #assert len(paths) == 4286
     print('## Refit scores: cv*/refit/*')
@@ -591,25 +622,91 @@ def reducer(key=None, values=None):
 
 
 ###############################################################################
-def plot_scores():
-
+def plot_scores(input_filename, sheetnames, x_col, y_cols, group_by, log_scale,
+                colors, linestyle, select, outpout_filename):
+    # %matplotlib
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
     import seaborn as sns
 
+    for sheetname in sheetnames:
+        # sheetname = sheetnames[0]
+        #os.path.join(os.path.dirname(input_filename),
+        #                              sheetname + "_scores-by-s.pdf")
+        data = pd.read_excel(input_filename, sheetname=sheetname)
+
+        # avoid poor rounding
+        for col in group_by:
+            try:
+                data[col] = np.asarray(data[col]).round(5)
+            except:
+                pass
+        data[x_col] = np.asarray(data[x_col]).round(5); # assert len(data[x_col].unique()) == 11
+        def close(vec, val, tol=1e-4):
+            return np.abs(vec - val) < tol
+
+        # select
+        for k in select:
+            mask_or = np.zeros(data.shape[0], dtype=bool)
+            for v in select[k]:
+                mask_or = np.logical_or(mask_or, close(data[k], v))
+            data = data[mask_or]
+
+        # enet => tv or gn == 0
+        enettv0 = data[data["algo"] == "enet"].copy()
+        enettv0.algo = "enettv"
+        enetgn0 = data[data["algo"] == "enet"].copy()
+        enetgn0.algo = "enetgn"
+        data = pd.concat([data, enettv0, enetgn0])
+
+        # rm enet
+        data = data[~(data.algo == 'enet')]
+
+        data.sort_values(by=x_col, ascending=True, inplace=True)
+
+        pdf = PdfPages(outpout_filename)
+        for y_col in y_cols:
+            #y_col = y_cols[0]
+            fig=plt.figure()
+            xoffsset = -0.001 * len([_ for _ in data.groupby(group_by)]) / 2
+            for (algo, l1_ratio, a), d in data.groupby(group_by):
+                print((algo, l1_ratio, a))
+                plt.plot(d[x_col], d[y_col], color=colors[(a, l1_ratio)],
+                         ls = linestyle[algo],
+                         label="%s, l1/l2:%.1f, a:%.3f" % (algo, l1_ratio, a))
+                if y_col in log_scale:
+                    plt.yscale('log')
+                y_col_se = y_col + "_se"
+                if y_col_se in d.columns:
+                    plt.errorbar(d[x_col] + xoffsset, d[y_col], yerr=d[y_col_se], legend=False, fmt=None,
+                     alpha=0.2, ecolor=colors[(a, l1_ratio)], elinewidth=1)
+                    xoffsset += 0.001
+            plt.xlabel(x_col)
+            plt.ylabel(y_col)
+            plt.legend()
+            plt.suptitle(y_col)
+            pdf.savefig(fig); plt.clf()
+        pdf.close()
+
+def do_plot():
+    import seaborn as sns
+
     input_filename = results_filename()
 
     # scores
-    y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa',
-              'beta_dice_bar', 'beta_support_prop_select_mean']
+    y_cols = ['bacc', 'auc', 'beta_r_bar', 'beta_fleiss_kappa',
+              'beta_dice_bar', 'beta_support_prop_select_mean',
+              'prop_non_zeros_mean']
+    log_scale = ['prop_non_zeros_mean']
+
     x_col = 'tv_ratio'
     group_by = ["algo", "l1_ratio", "a"]
     sheetnames = ['cv_by_param']
 
     # palette
-    n_colors = 3
+    n_colors = 4
     pal = dict(
             reds = sns.color_palette("Reds", n_colors=n_colors),
             blues = sns.color_palette("Blues", n_colors=n_colors),
@@ -628,54 +725,33 @@ def plot_scores():
              (0.01, 0.9):pal['reds'][1],
              (0.1, 0.1):pal['blues'][2],
              (0.1, 0.5):pal['greens'][2],
-             (0.1, 0.9):pal['reds'][2]}
+             (0.1, 0.9):pal['reds'][2],
+             (1.0, 0.1):pal['blues'][3],
+             (1.0, 0.5):pal['greens'][3],
+             (1.0, 0.9):pal['reds'][3]}
+
     linestyle = dict(enettv="-", enetgn="--")
 
-    for sheetname in sheetnames:
-        # sheetname = sheetnames[0]
-        outpout_filename = os.path.join(os.path.dirname(input_filename),
-                                      sheetname + "_scores-by-s.pdf")
+    plot_scores(input_filename, sheetnames, x_col, y_cols, group_by,
+                colors, linestyle, log_scale,
+                select = dict(l1_ratio = [0.1, 0.5, 0.9], a=[.001, .01, .1, 1.0]),
+                outpout_filename=os.path.join(WD,
+                                      os.path.basename(WD) +"_"+ sheetnames[0] + "_scores-by-s.pdf"))
 
-        data = pd.read_excel(input_filename, sheetname=sheetname)
+    plot_scores(input_filename, sheetnames,
+                x_col, y_cols, group_by, log_scale,
+                colors, linestyle,
+                select=dict(a=[0.001, 0.01, 0.1, 1.0], l1_ratio=[0.1, 0.9]),
+                outpout_filename=os.path.join(WD,
+                                      os.path.basename(WD) +"_"+ sheetnames[0] + "_scores-by-s_lasso-ridge.pdf"))
 
-        # avoid poor rounding
-        data.l1_ratio = np.asarray(data.l1_ratio).round(3);# assert len(data.l1_ratio.unique()) == 5
-        data[x_col] = np.asarray(data[x_col]).round(5); # assert len(data[x_col].unique()) == 11
-        data.a = np.asarray(data.a).round(5);# assert len(data.a.unique()) == 3
-        def close(vec, val, tol=1e-4):
-            return np.abs(vec - val) < tol
-
-        data = data[close(data.l1_ratio, .1) | close(data.l1_ratio, .5) | close(data.l1_ratio, .9)]
-        data = data[close(data.a, .001) | close(data.a, .01) | close(data.a, .1)]
-
-        enettv0 = data[data["algo"] == "enet"].copy()
-        enettv0.algo = "enettv"
-        enetgn0 = data[data["algo"] == "enet"].copy()
-        enetgn0.algo = "enetgn"
-        data = pd.concat([data, enettv0, enetgn0])
-
-        data.sort_values(by=x_col, ascending=True, inplace=True)
-
-
-        pdf = PdfPages(outpout_filename)
-
-        for y_col in y_cols:
-            #y_col = y_cols[0]
-            fig=plt.figure()
-            for (algo, l1_ratio, a), d in data.groupby(group_by):
-                if algo == 'enet':
-                    continue
-                print((algo, l1_ratio, a))
-                plt.plot(d[x_col], d[y_col], color=colors[(a, l1_ratio)],
-                         ls = linestyle[algo],
-                         label="%s, l1/l2:%.1f, a:%.3f" % (algo, l1_ratio, a))
-            plt.xlabel(x_col)
-            plt.ylabel(y_col)
-            plt.suptitle(y_col)
-            plt.legend()
-            pdf.savefig(fig); plt.clf()
-        pdf.close()
-
+    plot_scores(input_filename, sheetnames,
+                x_col, y_cols, group_by, log_scale,
+                colors, linestyle,
+                select=dict(a=[0.001, 0.01, 0.1, 1.0], l1_ratio=[0.1]),
+                outpout_filename=os.path.join(WD,
+                                      os.path.basename(WD) +"_"+ sheetnames[0] + "_scores-by-s_ridge.pdf"))
+"""
 ###############################################################################
 # copy old results to new organization
 import glob
