@@ -33,8 +33,9 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 
 
 BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM'
-INPUT_CSV= os.path.join(BASE_PATH,"population_30yo_may.csv")
+INPUT_CSV= os.path.join(BASE_PATH,"population_30yo.csv")
 OUTPUT = os.path.join(BASE_PATH,"data/data_30yo")
+penalty_start = 3
 
 
 # Read pop csv
@@ -43,7 +44,7 @@ pop = pd.read_csv(INPUT_CSV)
 # Read images
 n = len(pop)
 assert n == 170
-Z = np.zeros((n, 3)) # Intercept + Age + Gender
+Z = np.zeros((n, penalty_start)) # Intercept + Age + Gender
 Z[:, 0] = 1 # Intercept
 y = np.zeros((n, 1)) # DX
 images = list()
@@ -125,8 +126,8 @@ np.save(os.path.join(OUTPUT, "y.npy"), y)
 ###############################################################################
 # precompute linearoperator
 
-# X = np.load(os.path.join(OUTPUT, "X.npy"))
-# y = np.load(os.path.join(OUTPUT, "y.npy"))
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
 
 mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
 
@@ -135,3 +136,80 @@ Atv.save(os.path.join(OUTPUT, "Atv.npz"))
 Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
 assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv_.get_singular_values(0), 11.909770107366217)
+
+###############################################################################
+# precompute beta start
+import parsimony.estimators as estimators
+from sklearn import preprocessing
+import time
+
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
+
+scaler = preprocessing.StandardScaler().fit(X)
+Xs = scaler.transform(X)
+# Xs[:, 0] = 1 # Let Intercept be null to be compliant with previous study
+
+betas = dict()
+
+"""
+#Reload with alphas = [.01, 0.1, 1.0]
+betas = np.load(os.path.join(OUTPUT, "beta_start.npz"))
+betas = {"lambda_%.4f" %float(k.split("_")[1]):betas[k] for k in betas.keys()}
+[[k, np.sum(betas[k] ** 2)] for k in betas.keys()]
+[[k, betas[k].shape] for k in betas.keys()]
+
+B = np.hstack([betas[k] for k in betas.keys()])
+np.corrcoef(B.T)
+"""
+alphas = [0.0001, 0.001, 0.01, 0.1, 1.0]
+# alphas = [0.0001, 0.001]
+
+for alpha in alphas:
+    mod = estimators.RidgeLogisticRegression(l=alpha, class_weight="auto",
+                                             penalty_start=penalty_start,
+                                             algorithm_params=dict(max_iter=10000))
+    t_ = time.clock()
+    mod.fit(Xs, y.ravel())
+    print(time.clock() - t_, mod.algorithm.num_iter) # 11564
+    betas["lambda_%.4f" % alpha] = mod.beta
+
+#np.savez(os.path.join(OUTPUT, "beta_start_1000ite.npz"), **betas)
+np.savez(os.path.join(OUTPUT, "beta_start.npz"), **betas)
+
+betas.keys()
+
+beta_start = np.load(os.path.join(OUTPUT, "beta_start.npz"))
+assert np.all([np.all(beta_start[a] == betas[a]) for a in beta_start.keys()])
+
+"""
+# Check with 10 000 ite
+mod = estimators.RidgeLogisticRegression(l=0.1, class_weight="auto",
+                                         penalty_start=penalty_start,
+                                         algorithm_params=dict(max_iter=10000))
+t_ = time.time()
+mod.fit(Xs, y.ravel())
+print(time.time() - t_) # 3370
+np.savez(os.path.join(OUTPUT, "beta_start_10kite.npz"), **{"lambda_%.2f" % 0.1:mod.beta})
+beta_start10k = np.load(os.path.join(OUTPUT, "beta_start_10kite.npz"))
+
+
+b1k = beta_start["lambda_%.2f" % 0.1].ravel()
+b10k = beta_start10k["lambda_%.2f" % 0.1].ravel()
+
+import matplotlib.pyplot as plt
+
+np.corrcoef(b1k[penalty_start:], b10k[penalty_start:])
+plt.plot(b1k[penalty_start:], b10k[penalty_start:], "o")
+
+plt.plot(2 * (b1k[penalty_start:] - b10k[penalty_start:]) / ((b1k[penalty_start:] + b10k[penalty_start:]) / 2), "o")
+
+b1k_argmx = np.argmax(np.abs(b1k))
+b10k_argmx = np.argmax(np.abs(b10k))
+
+b1k[b1k_argmx]
+b10k[b10k_argmx]
+
+np.corrcoef(np.dot(X, b1k), np.dot(X, b10k))
+plt.plot(np.dot(X, b1k), np.dot(X, b10k), "o")
+"""
