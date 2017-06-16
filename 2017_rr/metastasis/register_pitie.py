@@ -81,7 +81,7 @@ flirt(in_file=infile,
       ref_file=anat,
       omat=omatfile,
       out=outfile, 
-      cost='mutualinfo',interp='sinc')
+      cost='mutualinfo', interp='sinc', datatype='float')
 
 # QC :  pdf sheet
 bg = nibabel.load(outfile)

@@ -4,24 +4,13 @@
 Created on Wed Feb 22 09:36:25 2017
 
 @author: ad247405
-
-gabriel
-cd /mnt/neurospin/sel-poivre/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results_30yo/enettv/enettv_NUDAST_30yoVBM
 """
 
 import os
 import json
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
-# import nibabel
 from sklearn.metrics import precision_recall_fscore_support
-# from sklearn.feature_selection import SelectKBest
-# from parsimony.estimators import LogisticRegressionL1L2TV
-# import parsimony.functions.nesterov.tv as tv_helper
-# import brainomics.image_atlas
-# import parsimony.algorithms as algorithms
-# import parsimony.datasets as datasets
-# import parsimony.functions.nesterov.tv as nesterov_tv
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
 import parsimony.utils as utils
@@ -44,6 +33,7 @@ def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 NFOLDS_OUTER = 5
 NFOLDS_INNER = 5
 penalty_start = 3
+
 
 ##############################################################################
 def init():
@@ -92,25 +82,24 @@ def init():
     ratios = np.array([[1., 0., 1], [0., 1., 1], [.5, .5, 1], [.1, .9, 1], [0.9, 0.1, 1]])
     alphas = [.1, .01, 1.0]
 
-    l1l2tv =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
-    l1l2tv = np.concatenate(l1l2tv)
-    alphal1l2tv = np.concatenate([np.c_[np.array([[alpha]]*l1l2tv.shape[0]), l1l2tv] for alpha in alphas])
+    l1l2s =[np.array([[float(1-tv), float(1-tv), tv]]) * ratios for tv in tv_range]
+    l1l2s = np.concatenate(l1l2s)
+    alphal1l2s = np.concatenate([np.c_[np.array([[alpha]]*l1l2s.shape[0]), l1l2s] for alpha in alphas])
     # remove duplicates
-    alphal1l2tv = pd.DataFrame(alphal1l2tv)
-    alphal1l2tv = alphal1l2tv[~alphal1l2tv.duplicated()]
-    alphal1l2tv.shape == (153, 4)
+    alphal1l2s = pd.DataFrame(alphal1l2s)
+    alphal1l2s = alphal1l2s[~alphal1l2s.duplicated()]
+    alphal1l2s.shape == (153, 4)
     # Remove too large l1 leading to a null soulution
     scaler = preprocessing.StandardScaler().fit(X)
     Xs = scaler.transform(X)
     l1max = utils.penalties.l1_max_logistic_loss(Xs[:, penalty_start:], y, mean=True, class_weight="auto")
     #  0.23497620775450481
-    alphal1l2tv = alphal1l2tv[alphal1l2tv[0] * alphal1l2tv[1] <= l1max]
-    params = [np.round(row, 5).tolist() for row in alphal1l2tv.values.tolist()]
+    alphal1l2s = alphal1l2s[alphal1l2s[0] * alphal1l2s[1] <= l1max]
+    params = [np.round(row, 5).tolist() for row in alphal1l2s.values.tolist()]
     assert pd.DataFrame(params).duplicated().sum() == 0
     assert len(params) == 131
     print("NB run=", len(params) * len(cv))
     # 4061
-    #user_func_filename = "/home/ad247405/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/Freesurfer/30yo/03_enettv_NUSDAST.py"
     user_func_filename = "/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/NUSDAST/VBM/30yo_scripts/02_enettv_NUDAST.py"
 
     config = dict(data=dict(X="X.npy", y="y.npy"),
@@ -169,7 +158,7 @@ def mapper(key, output_collector):
     A = GLOBAL.A
 
     conesta = algorithms.proximal.CONESTA(max_iter=10000)
-    mod= estimators.LogisticRegressionL1L2TV(l1,l2,tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
+    mod= estimators.LogisticRegressionL1L2TV(l1, l2, tv, A, algorithm=conesta,class_weight=class_weight,penalty_start=penalty_start)
     mod.fit(Xtr, ytr.ravel())
     y_pred = mod.predict(Xte)
     proba_pred = mod.predict_probability(Xte)
@@ -183,7 +172,9 @@ def mapper(key, output_collector):
 def scores(key, paths, config, as_dataframe=False):
     import mapreduce
     print(key)
-    assert len(paths) == NFOLDS_INNER or len(paths) == NFOLDS_OUTER, "Failed for key %s" % key
+    if (len(paths) != NFOLDS_INNER) or (len(paths) != NFOLDS_OUTER):
+        print("Failed for key %s" % key)
+        return None
     values = [mapreduce.OutputCollector(p) for p in paths]
     values = [item.load() for item in values]
     y_true = [item["y_true"].ravel() for item in values]
@@ -282,7 +273,8 @@ def scores(key, paths, config, as_dataframe=False):
     return scores
 
 
-def reducer(key, values):
+def reducer(key=None, values=None):
+    s = 'tv'
     import os, glob, pandas as pd
     os.chdir(os.path.dirname(config_filename()))
     config = json.load(open(config_filename()))
@@ -312,9 +304,9 @@ def reducer(key, values):
     print('## -------------------------')
     byparams = groupby_paths([p for p in paths if not p.count("cvnested") and not p.count("refit/refit") ], 3)
     byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+    byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
 
     data = [list(byparams_scores[k].values()) for k in byparams_scores]
-
     columns = list(byparams_scores[list(byparams_scores.keys())[0]].keys())
     scores_refit = pd.DataFrame(data, columns=columns)
 
@@ -326,65 +318,74 @@ def reducer(key, values):
         print(fold)
         byparams = groupby_paths([p for p in paths_fold], 3)
         byparams_scores = {k:scores(k, v, config) for k, v in byparams.items()}
+        byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
         data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
     assert np.all(np.array([g.shape[0] for d, g in scores_dcv_byparams.groupby('fold')]) == 131)
 
     # Different settings
 
-    l1l2tv_all = scores_dcv_byparams
+    l1l2s_all = scores_dcv_byparams
 
-    l1l2tv_reduced = scores_dcv_byparams[
+    l1l2s_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
-        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
-    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_reduced.groupby('fold')]) == 8)
-    assert l1l2tv_reduced.shape[0] == 40
+        (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2s_reduced.groupby('fold')]) == 8)
+    assert l1l2s_reduced.shape[0] == 40
 
-    l1l2tv_ridge_reduced = scores_dcv_byparams[
+    l1l2s_ridge_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.1)) &
-        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
-    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_ridge_reduced.groupby('fold')]) == 4)
-    assert l1l2tv_ridge_reduced.shape[0] == 20
+        (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2s_ridge_reduced.groupby('fold')]) == 4)
+    assert l1l2s_ridge_reduced.shape[0] == 20
 
-    l1l2tv_lasso_reduced = scores_dcv_byparams[
+    l1l2s_ridge_reduced2 = l1l2s_ridge_reduced[close(l1l2s_ridge_reduced[s], 0.2)] # VBM 0.2
+
+    l1l2s_lasso_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.9)) &
-        (close(scores_dcv_byparams.tv, 0.2) | close(scores_dcv_byparams.tv, 0.8))]
-    assert np.all(np.array([g.shape[0] for d, g in l1l2tv_lasso_reduced.groupby('fold')]) == 4)
-    assert l1l2tv_lasso_reduced.shape[0] == 20
+        (close(scores_dcv_byparams[s], 0.2) | close(scores_dcv_byparams[s], 0.8))]
+    assert np.all(np.array([g.shape[0] for d, g in l1l2s_lasso_reduced.groupby('fold')]) == 4)
+    assert l1l2s_lasso_reduced.shape[0] == 20
+
+    l1l2s_lasso_reduced2 = l1l2s_lasso_reduced[close(l1l2s_lasso_reduced[s], 0.2)] # VBM 0.8
 
     l1l2_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.1) | close(scores_dcv_byparams.l1_ratio, 0.9)) &
-        (close(scores_dcv_byparams.tv, 0))]
+        (close(scores_dcv_byparams[s], 0))]
     assert np.all(np.array([g.shape[0] for d, g in l1l2_reduced.groupby('fold')]) == 4)
     assert l1l2_reduced.shape[0] == 20
 
     l1l2_ridge_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.1)) &
-        (close(scores_dcv_byparams.tv, 0))]
+        (close(scores_dcv_byparams[s], 0))]
     assert np.all(np.array([g.shape[0] for d, g in l1l2_ridge_reduced.groupby('fold')]) == 2)
     assert l1l2_ridge_reduced.shape[0] == 10
 
     l1l2_lasso_reduced = scores_dcv_byparams[
         (close(scores_dcv_byparams.a, 0.01) | close(scores_dcv_byparams.a, 0.1)) &
         (close(scores_dcv_byparams.l1_ratio, 0.9)) &
-        (close(scores_dcv_byparams.tv, 0))]
+        (close(scores_dcv_byparams[s], 0))]
     assert np.all(np.array([g.shape[0] for d, g in l1l2_lasso_reduced.groupby('fold')]) == 2)
     assert l1l2_lasso_reduced.shape[0] == 10
 
     print('## Model selection')
     print('## ---------------')
-    l1l2tv_all = argmaxscore_bygroup(l1l2tv_all); l1l2tv_all["method"] = "l1l2tv_all"
+    l1l2s_all = argmaxscore_bygroup(l1l2s_all); l1l2s_all["method"] = "l1l2s_all"
 
-    l1l2tv_reduced = argmaxscore_bygroup(l1l2tv_reduced); l1l2tv_reduced["method"] = "l1l2tv_reduced"
+    l1l2s_reduced = argmaxscore_bygroup(l1l2s_reduced); l1l2s_reduced["method"] = "l1l2s_reduced"
 
-    l1l2tv_ridge_reduced = argmaxscore_bygroup(l1l2tv_ridge_reduced); l1l2tv_ridge_reduced["method"] = "l1l2tv_ridge_reduced"
+    l1l2s_ridge_reduced = argmaxscore_bygroup(l1l2s_ridge_reduced); l1l2s_ridge_reduced["method"] = "l1l2s_ridge_reduced"
 
-    l1l2tv_lasso_reduced = argmaxscore_bygroup(l1l2tv_lasso_reduced); l1l2tv_lasso_reduced["method"] = "l1l2tv_lasso_reduced"
+    l1l2s_ridge_reduced2 = argmaxscore_bygroup(l1l2s_ridge_reduced2); l1l2s_ridge_reduced2["method"] = "l1l2s_ridge_reduced2"
+
+    l1l2s_lasso_reduced = argmaxscore_bygroup(l1l2s_lasso_reduced); l1l2s_lasso_reduced["method"] = "l1l2s_lasso_reduced"
+
+    l1l2s_lasso_reduced2 = argmaxscore_bygroup(l1l2s_lasso_reduced2); l1l2s_lasso_reduced2["method"] = "l1l2s_lasso_reduced2"
 
     l1l2_reduced = argmaxscore_bygroup(l1l2_reduced); l1l2_reduced["method"] = "l1l2_reduced"
 
@@ -392,31 +393,41 @@ def reducer(key, values):
 
     l1l2_lasso_reduced = argmaxscore_bygroup(l1l2_lasso_reduced); l1l2_lasso_reduced["method"] = "l1l2_lasso_reduced"
 
-    scores_argmax_byfold = pd.concat([l1l2tv_all,
-                                      l1l2tv_reduced, l1l2_reduced,
-                                      l1l2tv_ridge_reduced, l1l2_ridge_reduced,
-                                      l1l2tv_lasso_reduced, l1l2_lasso_reduced])
+    scores_argmax_byfold = pd.concat([l1l2s_all,
+                                      l1l2s_reduced, l1l2_reduced,
+                                      l1l2s_ridge_reduced, l1l2s_ridge_reduced2, l1l2_ridge_reduced,
+                                      l1l2s_lasso_reduced, l1l2s_lasso_reduced2, l1l2_lasso_reduced])
 
     print('## Apply best model on refited')
     print('## ---------------------------')
-    l1l2tv_all = scores("l1l2tv_all",
+    l1l2s_all = scores("l1l2s_all",
                                [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
-                                   for index, row in l1l2tv_all.iterrows()],
+                                   for index, row in l1l2s_all.iterrows()],
                                 config, as_dataframe=True)
 
-    l1l2tv_reduced = scores("l1l2tv_reduced",
+    l1l2s_reduced = scores("l1l2s_reduced",
                             [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
-                                for index, row in l1l2tv_reduced.iterrows()],
+                                for index, row in l1l2s_reduced.iterrows()],
                              config, as_dataframe=True)
 
-    l1l2tv_ridge_reduced = scores("l1l2tv_ridge_reduced",
+    l1l2s_ridge_reduced = scores("l1l2s_ridge_reduced",
                                    [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
-                                       for index, row in l1l2tv_ridge_reduced.iterrows()],
+                                       for index, row in l1l2s_ridge_reduced.iterrows()],
                                     config, as_dataframe=True)
 
-    l1l2tv_lasso_reduced = scores("l1l2tv_lasso_reduced",
+    l1l2s_ridge_reduced2 = scores("l1l2s_ridge_reduced2",
                                    [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
-                                       for index, row in l1l2tv_lasso_reduced.iterrows()],
+                                       for index, row in l1l2s_ridge_reduced2.iterrows()],
+                                    config, as_dataframe=True)
+
+    l1l2s_lasso_reduced = scores("l1l2s_lasso_reduced",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2s_lasso_reduced.iterrows()],
+                                    config, as_dataframe=True)
+
+    l1l2s_lasso_reduced2 = scores("l1l2s_lasso_reduced2",
+                                   [os.path.join(config['map_output'], row["fold"], "refit", row["key"])
+                                       for index, row in l1l2s_lasso_reduced2.iterrows()],
                                     config, as_dataframe=True)
 
     l1l2_reduced = scores("l1l2_reduced",
@@ -434,10 +445,10 @@ def reducer(key, values):
                                      for index, row in l1l2_lasso_reduced.iterrows()],
                                  config, as_dataframe=True)
 
-    scores_cv = pd.concat([l1l2tv_all,
-                           l1l2tv_reduced, l1l2_reduced,
-                           l1l2tv_ridge_reduced, l1l2_ridge_reduced,
-                           l1l2tv_lasso_reduced, l1l2_lasso_reduced,
+    scores_cv = pd.concat([l1l2s_all,
+                           l1l2s_reduced, l1l2_reduced,
+                           l1l2s_ridge_reduced, l1l2s_ridge_reduced2, l1l2_ridge_reduced,
+                           l1l2s_lasso_reduced, l1l2s_lasso_reduced2, l1l2_lasso_reduced,
                            ])
 
     with pd.ExcelWriter(results_filename()) as writer:
@@ -456,7 +467,7 @@ def plot_scores():
     import seaborn as sns
 
     input_filename = results_filename()
-    outut_filename = input_filename.replace(".xlsx", "_scores-by-tv.pdf")
+    outut_filename = input_filename.replace(".xlsx", "_scores-by-s.pdf")
 
     # scores
     y_cols = ['recall_mean', 'auc', 'beta_r_bar', 'beta_fleiss_kappa', 'beta_dice_bar']
@@ -473,7 +484,7 @@ def plot_scores():
     data = pd.read_excel(input_filename, sheetname='cv_by_param')
     # avoid poor rounding
     data.l1_ratio = np.asarray(data.l1_ratio).round(3); assert len(data.l1_ratio.unique()) == 5
-    data.tv = np.asarray(data.tv).round(5); assert len(data.tv.unique()) == 11
+    data[x_col] = np.asarray(data[x_col]).round(5); assert len(data[x_col].unique()) == 11
     data.a = np.asarray(data.a).round(5); assert len(data.a.unique()) == 3
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
@@ -488,12 +499,10 @@ def plot_scores():
         fig=plt.figure()
         for (l1, a), d in data.groupby(["l1_ratio", "a"]):
             print((a, l1))
-            plt.plot(d.tv, d[y_col], color=colors[(a,l1)], label="a:%.2f, l1/l2:%.1f" % (a, l1))
+            plt.plot(d[x_col], d[y_col], color=colors[(a,l1)], label="a:%.2f, l1/l2:%.1f" % (a, l1))
         plt.xlabel(x_col)
         plt.ylabel(y_col)
         plt.suptitle(y_col)
         plt.legend()
         pdf.savefig(fig); plt.clf()
     pdf.close()
-
-

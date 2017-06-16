@@ -11,7 +11,7 @@ from glob import glob
 from nilearn import plotting
 from numpy import unique
 
-WS_code="""
+WS_code = """
 # libraries
 ###########################################################################
 library(WhiteStripe)
@@ -94,8 +94,8 @@ whitestripe <- function(
     mask.img = cal_img(mask.img)
     mask.img = zero_trans(mask.img)
   }
-  
-  
+
+
   return(list(whitestripe.ind = whitestripe.ind, img.mode = img.mode,
               mask.img = mask.img, mu.whitestripe = mu.whitestripe,
               sig.whitestripe = sig.whitestripe, img.mode.q = img.mode.q,
@@ -119,20 +119,15 @@ whitestripe_hybrid <- function (t1, t2, ...){
     mask.img = cal_img(mask.img)
     mask.img = zero_trans(mask.img)
   }
-  return(list(whitestripe.ind = whitestripe.ind, 
-              mask.img = mask.img, 
-              WS.T1.ind = t1.ws$whitestripe.ind, 
-              WS.T2.ind = t2.ws$whitestripe.ind,
-              ret_t1 = t1.ws, 
-              ret_t2 = t2.ws))
+  return(list(whitestripe.ind = whitestripe.ind, mask.img = mask.img, WS.T1.ind = t1.ws$whitestripe.ind, WS.T2.ind = t2.ws$whitestripe.ind))
 }
 
 # Create intersection mask:
 maskIntersect <- function(list, output.file = NULL, prob=1, 
                           reorient=FALSE, returnObject = TRUE, writeToDisk=TRUE, verbose=TRUE){
-  
+
   if (!verbose) pboptions(type="none") 
-  
+
   # Checks:
   if (is.atomic(list)){
     list <- as.list(list)
@@ -140,7 +135,7 @@ maskIntersect <- function(list, output.file = NULL, prob=1,
   if (writeToDisk & is.null(output.file)){
     stop("output.file must be specified if writeToDisk is true.")
   }
-  
+
   n <- length(list)
   inter  <- list[[1]]
   if (class(inter)=="nifti"){
@@ -153,18 +148,18 @@ maskIntersect <- function(list, output.file = NULL, prob=1,
   } else {
     stop("list must be either a list of nifti objects or a list of NIfTI file paths.")
   }
-  
+
   # Creating the intersection map:
   cutoff <- floor(prob * n)
   inter[inter < cutoff]  <- 0 
   inter[inter >= cutoff] <- 1
-  
+
   # Writing to disk:
   if (writeToDisk){
     filename <- gsub(".nii.gz|.nii", "", output.file)
     writeNIfTI(inter, filename)
   }
-  
+
   # Returning object:
   if (returnObject){
     return(inter)
@@ -190,27 +185,30 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
                         WhiteStripe_Type=c("T1", "T2", "FLAIR", "HYBRID"), 
                         writeToDisk=FALSE, returnMatrix=FALSE, verbose=TRUE, 
                         reorient=FALSE){
-  
+
   WhiteStripe_Type <- match.arg(WhiteStripe_Type)
   if (WhiteStripe_Type=="FLAIR") WhiteStripe_Type <- "T2"
   # RAVEL correction procedure:
   if (!verbose) pboptions(type="none") 
-  
+
   if (!is.null(brain.mask)){
     brain.mask <- readNIfTI(brain.mask, reorient=reorient)
-    brain.indices <- brain.mask==1
+    brain.indices <- which(brain.mask == 1 | brain.mask == 500 | brain.mask == 1000)
+    brain.mask[-brain.indices] <- 0
+    print(length(brain.indices))
+    #print(unique(unlist(brain.mask)))
   } else {
     stop("brain.mask must be provided.")
   }
-  
-  
-  
+
+
+
   cat("[normalizeWS] WhiteStripe intensity normalization is applied to each scan. \n")
   # Matrix of voxel intensities:
   if (WhiteStripe_Type == "T1"){
-    
+
     if (is.null(output.files)){
-      output.files <- gsub(".nii.gz|.nii","_WS.nii.gz", input.files)
+      output.files <- gsub(".nii.gz|.nii","_cWS.nii.gz", input.files)
     }
     V <- pblapply(input.files, function(x){
       brain <- readNIfTI(x, reorient=reorient)
@@ -221,10 +219,14 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
       # slices = 80:120
       stripped_brain = brain
       stripped_brain[brain.mask == 0] <- 0
+      
+      brain.mask = brain.mask[brain.mask == 1 | brain.mask == 500]
+      brain.mask[brain.mask != 0] = 1
+      
       indices <- whitestripe(stripped_brain, type=WhiteStripe_Type, breaks=2000, verbose=FALSE, stripped=stripped)
       # ajout
-      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_WSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
-      brain   <- whitestripe_norm(brain, indices$whitestripe.ind)
+      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_cWSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
+      brain   <- whitestripe_norm(brain, brain.mask)
       #    brain <- as.vector(brain[brain.indices])
       list(brain=brain, indices=indices)
     })
@@ -245,11 +247,11 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
         writeNIfTI(myMask, gsub(".nii.gz|.nii", "_voxels", output.files[i]))
       })
     } 
-    
+
   } else if (WhiteStripe_Type == "T2"){
-    
+
     if (is.null(output.files)){
-      output.files <- gsub(".nii.gz|.nii","_WS.nii.gz", input.files2)
+      output.files <- gsub(".nii.gz|.nii","_cWS.nii.gz", input.files2)
     }
     V <- pblapply(input.files2, function(x){
       brain <- readNIfTI(x, reorient=reorient)
@@ -260,10 +262,14 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
       # slices = 80:120
       stripped_brain = brain
       stripped_brain[brain.mask == 0] <- 0
+      
+      brain.mask = brain.mask[brain.mask == 10000 | brain.mask == 500]
+      brain.mask[brain.mask != 0] = 1
+      
       indices <- whitestripe(stripped_brain, type=WhiteStripe_Type, breaks=300, verbose=FALSE, stripped=stripped)
       # ajout
-      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_WSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
-      brain   <- whitestripe_norm(brain, indices$whitestripe.ind)
+      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_cWSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
+      brain   <- whitestripe_norm(brain, brain.mask)
       #    brain <- as.vector(brain[brain.indices])
       list(brain=brain, indices=indices)
     })
@@ -287,15 +293,16 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
   } else if (WhiteStripe_Type == "HYBRID"){
     output.files2 <- NULL
     if (is.null(output.files)){
-      output.files <- gsub(".nii.gz|.nii","_WS_hybrid.nii.gz", input.files)
-      output.files2 <- gsub(".nii.gz|.nii","_WS_hybrid.nii.gz", input.files2)
+      output.files <- gsub(".nii.gz|.nii","_cWS_hybrid.nii.gz", input.files)
+      output.files2 <- gsub(".nii.gz|.nii","_cWS_hybrid.nii.gz", input.files2)
     }
     V <- pblapply(input.files, function(x, y){
       print(x)
       brain_t1 <- readNIfTI(x, reorient=reorient)
       print(unlist(y))
       brain_t2 <- readNIfTI(unlist(y), reorient=reorient)
-      
+      brain_t2 <- brain_t2
+
       # stripped brain
       stripped = TRUE
       # # yes the brain is stripped but we want to reslice (pb of skull when crop doesnot work)
@@ -305,17 +312,26 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
       stripped_brain_t1[brain.mask == 0] <- 0
       stripped_brain_t2 = brain_t2
       stripped_brain_t2[brain.mask == 0] <- 0
+
       
       ### whitestripes hybrid
-      indices <- whitestripe_hybrid(stripped_brain_t1, stripped_brain_t2, verbose=FALSE, stripped=stripped)
+      # indices <- whitestripe_hybrid(stripped_brain_t1, stripped_brain_t2, verbose=FALSE, stripped=stripped)
+      indices <- list()
+      indices[["WS.T1.ind"]] <- which(brain.mask == 1)
+      print(length(indices[["WS.T1.ind"]]))
+      indices[["WS.T2.ind"]] <- which(brain.mask == 1000)
+      print(length(indices[["WS.T2.ind"]]))
+      indices[["whitestripe.ind"]] <- which(brain.mask == 500)
+      print(length(indices[["whitestripe.ind"]]))
       
       # ajout
-      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_WSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
+      #.write_brain(brain.norm=indices$mask.img, output.file = gsub(".nii.gz|.nii","_cWSM.nii.gz",x), brain.mask=brain.mask, reorient=reorient)
       brain_t1 <- whitestripe_norm(brain_t1, indices$whitestripe.ind)
       brain_t2 <- whitestripe_norm(brain_t2, indices$whitestripe.ind)
       #    brain <- as.vector(brain[brain.indices])
       list(brain_t1=brain_t1, brain_t2=brain_t2, indices=indices)
     }, y = input.files2)
+    
     V <- do.call(cbind, V)
     if (writeToDisk){
       if (verbose) cat("[normalizeWS] Writing out the T1/T2 corrected images \n")
@@ -332,29 +348,17 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
         print(paste(length(V[, 1]$indices$WS.T1.ind), " voxels in T1 WS normalization."))
         print(paste(length(V[, 1]$indices$WS.T2.ind), " voxels in T2 WS normalization."))
         print(paste(length(V[, 1]$indices$whitestripe.ind), " voxels in intersection."))
-        
+
         pdf(gsub(".nii.gz|.nii", "_voxels.pdf", output.files[i]))
         orthographic(x=V[, 1]$brain_t1, y=myMask1, col.y=rainbow(3))
         dev.off()
-        
+
         writeNIfTI(myMask1, gsub(".nii.gz|.nii", "_voxels", output.files[i]))
       })
     } 
   }
-  
-  if (returnMatrix){
-      zz = file(paste0("result_", type, ".csv"), "w")
-      if (type == "HYBRID") {
-          cat(paste0("Im\tMu\tSig"), 
-              paste0("T1", "\t",V[,1]$indices$ret_t1$mu.whitestripe, "\t",V[,1]$indices$ret_t1$sig.whitestripe),
-              paste0("T2", "\t",V[,1]$indices$ret_t2$mu.whitestripe, "\t",V[,1]$indices$ret_t2$sig.whitestripe),
-              file=zz, sep='\n')
 
-    } else {
-        cat(paste0("Im\tMu\tSig"), paste0(type, "\t",V[,1]$indices$mu.whitestripe, "\t",V[,1]$indices$sig.whitestripe),
-        file=zz, sep='\n')
-    }
-    close(zz)
+  if (returnMatrix){
     return(V)
   }	
 }
@@ -363,9 +367,14 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
 ###########################################################################
 ###########################################################################
 args <- commandArgs(trailingOnly = TRUE)
+print(length(args))
+for(i in 1:length(args)){
+    print(args[i])
+}
 #args <- c(1:5)
 #type = "HYBRID"
 if (length(args) == 5){
+    print("hybrid...")
   type = as.character(args[3])
   # # Image to standardized T1
   t1 = as.character(args[1])
@@ -374,22 +383,24 @@ if (length(args) == 5){
   t2 = as.character(args[2])
   #t2 = '/neurospin/radiomics/studies/metastasis/base/187962757123/model01/187962757123_rAxT2.nii.gz'
   # # Standardization type T1, FLAIR or HYBRID
-  
+
   # # # binary mask of the brain (GM, WM)
   bmask = as.character(args[4])
   #bmask = '/neurospin/radiomics/studies/metastasis/base/187962757123/model03/native_hatbox.nii.gz'
   pve2 = as.character(args[5])
   #pve2 = '/neurospin/radiomics/studies/metastasis/base/187962757123/model03/187962757123_enh-gado_T1w_bfc_betmask_pve_2.nii.gz'
-  
-} else if (length(args) == 4){
+
+} else if (length(args) == 5){
   type = as.character(args[2])
   if (type == "T1"){
+    print("T1...")    
     #t1 = '/neurospin/radiomics/studies/metastasis/base/187962757123/model02/187962757123_enh-gado_T1w_bfc.nii.gz'
     t1 = as.character(args[1])
   } else if (type == "T2" | type == "FLAIR"){
+      print("T2...")    
     t2 = as.character(args[1])
     #t2 = '/neurospin/radiomics/studies/metastasis/base/187962757123/model01/187962757123_rAxT2.nii.gz'
-    
+
   }    
   # # # binary mask of the brain (GM, WM)
   bmask = as.character(args[3])
@@ -407,28 +418,34 @@ ws2 <- NULL
 mask.wm = readNIfTI(pve2, reorient=reorient)
 mask.gm = readNIfTI(gsub("_pve_2", "_pve_1", pve2), reorient=reorient)
 
+print(type)
+print(t1)
+print(t2)
+print(bmask)
+
+
 if (type == "T1"){
 
     print("Performing T1 WhiteStripe normalization...")    
 
   res = normalizeWS(input.files=list(t1), brain.mask = bmask, WhiteStripe_Type = 'T1', 
                     writeToDisk = TRUE, reorient=reorient, returnMatrix=TRUE)
-  
-  
+
+
   # print densities    
-  ws1 = readNIfTI(gsub(".nii.gz|.nii","_WS.nii.gz", t1), reorient=reorient)
+  ws1 = readNIfTI(gsub(".nii.gz|.nii","_cWS.nii.gz", t1), reorient=reorient)
   ws1.sel = ws1[mask.wm > .9]
   imghist = hist(ws1.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.wm <- density(ws1.sel)
   density.wm$y <- density.wm$y * multiplier[1]
-  
+
   ws1.sel = ws1[mask.gm > .9]
   imghist = hist(ws1.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.gm <- density(ws1.sel)
   density.gm$y <- density.gm$y * multiplier[1]
-  
+
   filename <- gsub(".nii.gz|.nii", ".pdf", t1)
   pdf(filename)
   plot(density.wm, type='l', col="red", xlim=c(min(density.gm$x), max(density.wm$x)),
@@ -436,32 +453,32 @@ if (type == "T1"){
   lines(density.gm, type='l', col="green")
   legend("topleft", legend = c("White matter", "Grey matter"), fill = T, col = c("red", "green"))
   dev.off()
-  
+
   filename <- gsub(".nii.gz|.nii", ".RData", t1)
   save(density.gm, density.wm, file=filename)
-  
+
 } else if (type == "FLAIR" | type == "T2"){
 
     print("Performing T2 WhiteStripe normalization...")    
 
   res = normalizeWS(input.files2=list(t2), brain.mask = bmask, WhiteStripe_Type = 'T2', 
                     writeToDisk = TRUE, reorient=reorient, returnMatrix=TRUE)
-  
+
   # print densities
-  
-  ws2 = readNIfTI(gsub(".nii.gz|.nii","_WS.nii.gz", t2), reorient=reorient)
+
+  ws2 = readNIfTI(gsub(".nii.gz|.nii","_cWS.nii.gz", t2), reorient=reorient)
   ws2.sel = ws2[mask.wm > .9]
   imghist = hist(ws2.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.wm <- density(ws2.sel)
   density.wm$y <- density.wm$y * multiplier[1]
-  
+
   ws2.sel = ws2[mask.gm > .9]
   imghist = hist(ws2.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.gm <- density(ws2.sel)
   density.gm$y <- density.gm$y * multiplier[1]
-  
+
   filename <- gsub(".nii.gz|.nii", ".pdf", t2)
   print(filename)
   pdf(filename)
@@ -470,33 +487,33 @@ if (type == "T1"){
   lines(density.gm, type='l', col="green")
   legend("topleft", legend = c("White matter", "Grey matter"), lty=1, col = c("red", "green"))
   dev.off()
-  
+
   filename <- gsub(".nii.gz|.nii", ".RData", t2)
   print(filename)
   save(density.gm, density.wm, file=filename)
 } else if (type == "HYBRID"){
-  
+
   print("Performing Hybrid WhiteStripe normalization...")    
-  
+
   res = normalizeWS(input.files=list(t1), input.files2=list(t2), brain.mask = bmask, WhiteStripe_Type = 'HYBRID', 
                     writeToDisk = TRUE, reorient=reorient, returnMatrix=TRUE)
-  
+
   # print densities
   print("Printing intensities...")    
   print("T1...")
-  ws1 = readNIfTI(gsub(".nii.gz|.nii","_WS_hybrid.nii.gz", t1), reorient=reorient)
+  ws1 = readNIfTI(gsub(".nii.gz|.nii","_cWS_hybrid.nii.gz", t1), reorient=reorient)
   ws1.sel = ws1[mask.wm > .9]
   imghist = hist(ws1.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.wm <- density(ws1.sel)
   density.wm$y <- density.wm$y * multiplier[1]
-  
+
   ws1.sel = ws1[mask.gm > .9]
   imghist = hist(ws1.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.gm <- density(ws1.sel)
   density.gm$y <- density.gm$y * multiplier[1]
-  
+
   filename <- gsub(".nii.gz|.nii", "_hybrid.pdf", t1)
   pdf(filename)
   plot(density.wm, type='l', col="red", xlim=c(min(density.gm$x), max(density.wm$x)),
@@ -504,18 +521,18 @@ if (type == "T1"){
   lines(density.gm, type='l', col="green")
   legend("topleft", legend = c("White matter", "Grey matter"), lty=1, col = c("red", "green"))
   dev.off()
-  
+
   filename <- gsub(".nii.gz|.nii", "_hybrid.RData", t1)
   save(density.gm, density.wm, file=filename)
-  
+
   print("T2...")
-  ws2 = readNIfTI(gsub(".nii.gz|.nii","_WS_hybrid.nii.gz", t2), reorient=reorient)
+  ws2 = readNIfTI(gsub(".nii.gz|.nii","_cWS_hybrid.nii.gz", t2), reorient=reorient)
   ws2.sel = ws2[mask.wm > .9]
   imghist = hist(ws2.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
   density.wm <- density(ws2.sel)
   density.wm$y <- density.wm$y * multiplier[1]
-  
+
   ws2.sel = ws2[mask.gm > .9]
   imghist = hist(ws2.sel, breaks = 2000, plot = FALSE)
   multiplier <- imghist$counts / imghist$density
@@ -529,7 +546,7 @@ if (type == "T1"){
   lines(density.gm, type='l', col="green")
   legend("topleft", legend = c("White matter", "Grey matter"), lty=1, col = c("red", "green"))
   dev.off()
-  
+
   filename <- gsub(".nii.gz|.nii", "_hybrid.RData", t2)
   save(density.gm, density.wm, file=filename)
 }
@@ -540,13 +557,12 @@ if (type == "T1"){
 # Script documentation
 doc = """
 Command:
-python $HOME/gits/scripts/2017_rr/metastasis/m04_ws_std.py \
+python $HOME/gits/scripts/2017_rr/metastasis/m04_ws_clsd.py \
     -i1 /neurospin/radiomics/studies/metastasis/base/187962757123/model03/187962757123_enh-gado_T1w_bfc.nii.gz \
     -i2 /neurospin/radiomics/studies/metastasis/base/187962757123/model01/187962757123_rAxT2.nii.gz \
     -t HYBRID
-    -m /neurospin/radiomics/studies/metastasis/base/187962757123/model03/native_hatbox.nii.gz \
-    -p /neurospin/radiomics/studies/metastasis/base/187962757123/model03/187962757123_enh-gado_T1w_bfc_betmask_pve_2.nii.gz \
-    -d /neurospin/radiomics/studies/metastasis/base/187962757123/model05
+    -m /neurospin/radiomics/studies/metastasis/base/187962757123/model05/187962757123_enh-gado_T1w_bfc_WS_hybrid_voxels_clsd.nii.gz \
+    -d /neurospin/radiomics/studies/metastasis/base/187962757123/model07
 
 """
 
@@ -561,6 +577,7 @@ def is_dir(dirarg):
         raise argparse.ArgumentError(
             "The dir '{0}' is not empty!".format(dirarg))
     return dirarg
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i1', '--image1', metavar='FILE', required=False,
@@ -577,11 +594,12 @@ parser.add_argument('-d', '--outdir', metavar='PATH', required=True,
                     type=is_dir,
                     help='Output directory to create the file in.')
 
+
 def main():
     args = parser.parse_args()
-    
+
     type_norm = args.type
-    
+
     mask_bin = args.mask
     pve = args.pve
     OutDirPath = args.outdir
@@ -589,6 +607,7 @@ def main():
     # get an tmp dir
     tmpdir = tempfile.mkdtemp()
     prevdir = os.getcwd()
+    print prevdir
     os.chdir(tmpdir)
 
     try:
@@ -618,19 +637,21 @@ def main():
             cmd = ['Rscript', '--vanilla', 'WS_code.R', work_in, work_in2, type_norm, mask_bin, pve]
             print ">>> ", os.getcwd(), " <<<", " ".join(cmd)
             results = subprocess.check_call(cmd)
-                
-        #move
-        flist = glob('*.nii.gz') + glob('*.pdf') + \
-                glob('*RData') + glob('*.csv') + glob('*.R')
+
+        # move
+        flist = glob('*bfc_cWS*.nii.gz') + glob('*T2_cWS*.nii.gz') + glob('*.pdf') + \
+                glob('*RData') + glob('*.R')
         print flist
         for f in flist:
-           shutil.move(f, OutDirPath)
-    
+            shutil.move(f, OutDirPath)
+
     except Exception:
         print 'WS standardization FAILED:\n%s', traceback.format_exc()
 
     # final housekeeping
     os.chdir(prevdir)
-    shutil.rmtree(tmpdir)
+
+
+#    shutil.rmtree(tmpdir)
 
 main()
