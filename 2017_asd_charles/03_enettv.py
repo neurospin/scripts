@@ -278,7 +278,7 @@ def reducer(key, values):
     param_config_set = set([mapreduce.dir_from_param_list(p) for p in config['params']])
     assert len(paths) / len(param_config_set) == len(config['resample']), "Nb run per param is not the one excpected"
     paths.sort()
-    assert len(paths) == 4286
+    assert len(paths) == 3937
 
     def close(vec, val, tol=1e-4):
         return np.abs(vec - val) < tol
@@ -318,7 +318,7 @@ def reducer(key, values):
         byparams_scores = {k: v for k, v in byparams_scores.items() if v is not None}
         data += [[fold] + list(byparams_scores[k].values()) for k in byparams_scores]
     scores_dcv_byparams = pd.DataFrame(data, columns=["fold"] + columns)
-    assert np.all(np.array([g.shape[0] for d, g in scores_dcv_byparams.groupby('fold')]) == 136)
+    assert np.all(np.array([g.shape[0] for d, g in scores_dcv_byparams.groupby('fold')]) == 127)
 
     # Different settings
 

@@ -13,10 +13,10 @@ import numpy as np
 from brainomics import array_utils
 import brainomics.mesh_processing as mesh_utils
 import shutil
-   
-MASK_PATH = "/neurospin/brainomics/2017_asd_charles/Freesurfer/data/mask.npy"
-TEMPLATE_PATH = "/neurospin/brainomics/2017_asd_charles/Freesurfer/preproc/freesurfer_template"               
-OUTPUT = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/enettv/enettv_asd/weight_map"
+
+MASK_PATH = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/enettv_asd_charles_10000ite/mask.npy"
+TEMPLATE_PATH = "/neurospin/brainomics/2017_asd_charles/Freesurfer/preproc/freesurfer_template"
+OUTPUT = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/enettv_asd_charles_10000ite/weight_map"
 
 
 shutil.copyfile(os.path.join(TEMPLATE_PATH, "lh.pial.gii"), os.path.join(OUTPUT, "lh.pial.gii"))
@@ -25,13 +25,13 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT,
 
 cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
 cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
-assert cor_l.shape[0] == cor_r.shape[0] 
+assert cor_l.shape[0] == cor_r.shape[0]
 
 
 cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lrh.pial.gii"))
 mask__mesh = np.load(MASK_PATH)
 assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
-assert mask__mesh.shape[0], mask__mesh.sum() 
+assert mask__mesh.shape[0], mask__mesh.sum()
 
 # Find the mapping from components in masked mesh to left_mesh and right_mesh
 # concat was initialy: cor = np.vstack([cor_l, cor_r])
@@ -51,21 +51,24 @@ a[mask_left__mesh] = 1
 a[mask_right__mesh] = 2
 mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
 mask_right__beta = a[mask__mesh] == 2
-assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
 assert mask_left__mesh.sum() == mask_left__beta.sum()
 assert mask_right__mesh.sum() == mask_right__beta.sum()
 
 # Check mapping from beta left part to left_mesh
 assert mask_left__beta.sum() == mask_left__left_mesh.sum()
 assert mask_right__beta.sum() == mask_right__right_mesh.sum()
-   
+
 #############################################################################
 #Enet weight map
-enet_weight_map = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/enettv/\
-enettv_asd/model_selectionCV/refit/refit/0.01_0.15_0.35_0.5"
+enet_weight_map = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/\
+enettv_asd_charles_10000ite/model_selectionCV/refit/refit/0.01_0.02_0.18_0.8"
+enet_weight_map = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/\
+enettv_asd_charles_10000ite/model_selectionCV/refit/refit/0.1_0.0_0.0_1.0"
 param = os.path.basename(enet_weight_map)
 beta_path = os.path.join(enet_weight_map,"beta.npz")
-enet = np.load(beta_path)['arr_0']
+penalty_start = 5
+enet = np.load(beta_path)['arr_0'][penalty_start:,:]
 
 
 enet_t,t = array_utils.arr_threshold_from_norm2_ratio(enet,0.99)
@@ -79,7 +82,7 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = enet_t[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, param+"_weight_map_right.gii"), data=tex)
-      
+
 
 #######################################################################################
 OUTPUT = "/neurospin/brainomics/2017_asd_charles/Freesurfer/results/svm/svm_asd/weight_map"
@@ -93,13 +96,13 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT,
 
 cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
 cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
-assert cor_l.shape[0] == cor_r.shape[0] 
+assert cor_l.shape[0] == cor_r.shape[0]
 
 
 cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lrh.pial.gii"))
 mask__mesh = np.load(MASK_PATH)
 assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
-assert mask__mesh.shape[0], mask__mesh.sum() 
+assert mask__mesh.shape[0], mask__mesh.sum()
 
 # Find the mapping from components in masked mesh to left_mesh and right_mesh
 # concat was initialy: cor = np.vstack([cor_l, cor_r])
@@ -119,7 +122,7 @@ a[mask_left__mesh] = 1
 a[mask_right__mesh] = 2
 mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
 mask_right__beta = a[mask__mesh] == 2
-assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
 assert mask_left__mesh.sum() == mask_left__beta.sum()
 assert mask_right__mesh.sum() == mask_right__beta.sum()
 
@@ -147,6 +150,6 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = svm_t[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT_SVM, param+"_weight_map_right.gii"), data=tex)
-   
+
 
 
