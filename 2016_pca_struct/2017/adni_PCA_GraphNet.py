@@ -25,7 +25,9 @@ import scipy.sparse as sparse
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
-WD = '/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_10000ite'
+WD = '/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients'
+WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
+
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
@@ -91,7 +93,9 @@ def mapper(key, output_collector):
     # Compute Frobenius norm between original and recontructed datasets
     frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
+    print("frobenius_test")
     print(frobenius_test)
+
 
 
     # Remove predicted values (they are huge)
@@ -254,9 +258,9 @@ def run_test(wd, config):
 #################
 
 if __name__ == "__main__":
-    WD = '/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_10000ite'
-    INPUT_DATA_X = '/neurospin/brainomics/2016_pca_struct/adni/data/X.npy'
-    INPUT_DATA_y = '/neurospin/brainomics/2016_pca_struct/adni/data/y.npy'
+    WD = '/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients'
+    INPUT_DATA_X = '/neurospin/brainomics/2016_pca_struct/adni/data/X_patients.npy'
+    INPUT_DATA_y = '/neurospin/brainomics/2016_pca_struct/adni/data/y_patients.npy'
     INPUT_MASK_PATH = '/neurospin/brainomics/2016_pca_struct/adni/data/mask.npy'
     INPUT_Atv_PATH = '/neurospin/brainomics/2016_pca_struct/adni/data/Atv.npz'
 
@@ -304,7 +308,7 @@ if __name__ == "__main__":
 
     user_func_filename = os.path.abspath(__file__)
 
-    config = dict(data=dict(X="X.npy", y="y.npy"),
+    config = dict(data=dict(X="X_patients.npy", y="y_patients.npy"),
                   params=params, resample=cv,
                   structure="mask.npy",
                   structure_linear_operator_tv="Atv.npz",
@@ -319,10 +323,9 @@ if __name__ == "__main__":
 
 
         #################################################################
-    # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD)
+    sync_push_filename, sync_pull_filename, _ = \
+        clust_utils.gabriel_make_sync_data_files(WD, wd_cluster=WD_CLUSTER)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime="1000:00:00")
 #        ################################################################

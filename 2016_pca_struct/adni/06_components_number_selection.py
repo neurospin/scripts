@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 
-config_filename = '/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/config_dCV.json'
+config_filename = '/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/config_dCV.json'
 config = json.load(open(config_filename))
 
 evr_pca = np.zeros((5,10))
@@ -20,25 +20,25 @@ evr_tv=np.zeros((5,10))
 
 for cv in range(0,5):
     fold = "cv0%r" %(cv)
-    X = np.load("/neurospin/brainomics/2016_pca_struct/adni/data/X.npy")
+    X = np.load("/neurospin/brainomics/2016_pca_struct/adni/data/X_patients.npy")
     fold = fold+'/all'
     test_samples =  config['resample'][fold][1]
 
     X = X[test_samples,:]
-    
-    comp_pca = np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/pca_0.0_0.0_0.0/components.npz')['arr_0']
-    X_transform_pca =np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/pca_0.0_0.0_0.0/X_test_transform.npz')['arr_0']
 
-    comp_sparse = np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/sparse_pca_0.0_0.0_1.0/components.npz')['arr_0']
-    X_transform_sparse =np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/sparse_pca_0.0_0.0_1.0/X_test_transform.npz')['arr_0']
+    comp_pca = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/pca_0.0_0.0_0.0/components.npz')['arr_0']
+    X_transform_pca =np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/pca_0.0_0.0_0.0/X_test_transform.npz')['arr_0']
 
-    comp_enet = np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/struct_pca_0.1_1e-06_0.01/components.npz')['arr_0']
-    X_transform_enet =np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/struct_pca_0.1_1e-06_0.01/X_test_transform.npz')['arr_0']
+    comp_sparse = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/sparse_pca_0.0_0.0_10.0/components.npz')['arr_0']
+    X_transform_sparse =np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/sparse_pca_0.0_0.0_10.0/X_test_transform.npz')['arr_0']
 
-    comp_tv = np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/struct_pca_0.1_0.5_0.1/components.npz')['arr_0']
-    X_transform_tv =np.load('/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds/model_selectionCV/'+fold+'/struct_pca_0.1_0.5_0.1/X_test_transform.npz')['arr_0']
- 
-    
+    comp_enet = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/struct_pca_0.1_1e-06_0.01/components.npz')['arr_0']
+    X_transform_enet =np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/struct_pca_0.1_1e-06_0.01/X_test_transform.npz')['arr_0']
+
+    comp_tv = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/struct_pca_0.1_0.5_0.1/components.npz')['arr_0']
+    X_transform_tv =np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/struct_pca_0.1_0.5_0.1/X_test_transform.npz')['arr_0']
+
+
     pca = np.zeros((1,11))
     sparse = np.zeros((1,11))
     enet = np.zeros((1,11))
@@ -49,17 +49,17 @@ for cv in range(0,5):
             X_predict_sparse = np.dot(X_transform_sparse[:,:j], comp_sparse.T[:j,:])
             X_predict_enet = predict(X,comp_enet[:,:j])
             X_predict_tv = predict(X,comp_tv[:,:j])
-            
+
             f_pca =( 1 - (((np.linalg.norm(X - X_predict_pca, 'fro'))))  / (np.linalg.norm(X, 'fro'))) * 2
             f_sparse =( 1 - (((np.linalg.norm(X - X_predict_sparse, 'fro'))))  / (np.linalg.norm(X, 'fro'))) * 2
             f_enet =( 1 - (((np.linalg.norm(X - X_predict_enet, 'fro'))))  / (np.linalg.norm(X, 'fro'))) * 2
             f_tv =( 1 - (((np.linalg.norm(X - X_predict_tv, 'fro'))))  / (np.linalg.norm(X, 'fro'))) * 2
-    
+
             pca[0,j] = f_pca
             sparse[0,j] = f_sparse
             enet[0,j] = f_enet
             tv[0,j] = f_tv
-    
+
 
     for i in range(1,11):
         evr_pca[cv-1,i-1] = pca[0,i] - pca[0,i-1]
@@ -77,7 +77,7 @@ plt.ylabel("Test Data Explained Variance (%)")
 plt.axis([0,10,0,15])
 plt.legend(loc= 'upper right')
 
-###############################################################################    
+###############################################################################
 
 plt.savefig('/neurospin/brainomics/2016_pca_struct/adni/explained_variance_adni.pdf',format='pdf')
 
@@ -113,7 +113,7 @@ def transform(X,V):
     The argument must have the same number of columns than the datset used
     to fit the estimator.
     """
-    
+
     Xk = check_arrays(X)
     Xk = Xk.copy()
     n, p = Xk.shape
@@ -134,11 +134,11 @@ def transform(X,V):
         # Residualize
         Xk -= dk * np.dot(uk, vk.T)
     return U, d
-    
+
 def compute_d(X, u, v):
     norm_v2 = np.linalg.norm(v)**2
     d = np.dot(u.T, np.dot(X, v)) / norm_v2
-    return d    
+    return d
 
 def compute_rank1_approx(d, u, v):
         """Compute rank 1 approximation given by d, u, v.
@@ -146,4 +146,3 @@ def compute_rank1_approx(d, u, v):
         """
         X_approx = d * np.dot(u, v.T)
         return X_approx
-    

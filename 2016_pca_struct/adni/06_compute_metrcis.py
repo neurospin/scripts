@@ -18,14 +18,17 @@ import array_utils
 ################
 # Input/Output #
 ################
-
 INPUT_BASE_DIR = "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"
+INPUT_NEW_DIR = "/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected"
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,"model_selectionCV")
-INPUT_MASK_PATH = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite/mask.npy"
+INPUT_DIR_CORR = os.path.join(INPUT_NEW_DIR,"model_selectionCV_old")
+INPUT_MASK_PATH = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients/mask.npy"
 INPUT_RESULTS_FILE=os.path.join(INPUT_BASE_DIR,"results_dCV_5folds.xlsx")
+INPUT_RESULTS_NEW_FILE=os.path.join(INPUT_NEW_DIR,"results_dCV_5folds.xlsx")
+
 INPUT_CONFIG_FILE = os.path.join(INPUT_BASE_DIR,"config_dCV.json")
 
-INPUT_DIR_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite"
+INPUT_DIR_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients"
 INPUT_RESULTS_GRAPHNET = os.path.join(INPUT_DIR_GRAPHNET,"results_dCV_5folds.xlsx")
 ##############
 # Parameters #
@@ -36,26 +39,13 @@ N_OUTER_FOLDS = 5
 #number_features = int(nib.load(INPUT_MASK_PATH).get_data().sum())
 # Load scores_cv and best params
 ####################################################################
-scores_cv_sparse = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 7)
-scores_cv_enet = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 6)
-scores_cv_enettv = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 5)
-scores_cv_graphNet = pd.read_excel(INPUT_RESULTS_GRAPHNET,sheetname = 3)
-
-best_sparse_param = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 4)["param_key"]
-best_enet_param = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 3)["param_key"]
-best_enettv_param = pd.read_excel(INPUT_RESULTS_FILE,sheetname = 2)["param_key"]
-best_graphNet_param = pd.read_excel(INPUT_RESULTS_GRAPHNET,sheetname = 2)["param_key"]
-
-#####################################################################
 
 frobenius_norm=np.zeros((4,N_OUTER_FOLDS))
-for i in range(0,5):
-    frobenius_norm[0,i]= scores_cv_sparse["frob_fold%s" %(i)][0]
-    frobenius_norm[1,i]= scores_cv_enet["frob_fold%s" %(i)][0]
-    frobenius_norm[2,i]= scores_cv_enettv["frob_fold%s" %(i)][0]
-    frobenius_norm[3,i]= scores_cv_graphNet["frob_test_fold%s" %(i)][0]
 
-
+frobenius_norm[0,:] = np.load("/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/metrics_2017/frobenius_reconstruction_error_test_sparse.npy")[:,10]
+frobenius_norm[1,:] = np.load("/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/metrics_2017/frobenius_reconstruction_error_test_enet.npy")[:,10]
+frobenius_norm[2,:] = np.load("/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/metrics_2017/frobenius_reconstruction_error_test_tv.npy")[:,10]
+frobenius_norm[3,:] = np.load("/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/metrics_2017/frobenius_reconstruction_error_test_gn.npy")[:,10]
 
 print (frobenius_norm.mean(axis=1))
 
@@ -71,16 +61,19 @@ tval, pval = scipy.stats.ttest_rel(frobenius_norm[3,:],frobenius_norm[2,:])
 print(("Frobenius stats for TV vs graphNet: T = %r , pvalue = %r ") %(tval, pval))
 
 ################################################################################
-
+number_features = 317379
 components_sparse = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 components_enet = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 components_tv = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
 components_gn = np.zeros((number_features,N_COMP,N_OUTER_FOLDS))
-for i in range(5):
-    components_sparse[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_sparse_param[i],"components.npz"))['arr_0']
-    components_enet[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enet_param[i],"components.npz"))['arr_0']
-    components_tv[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enettv_param[i],"components.npz"))['arr_0']
-    components_gn[:,:,i] = np.load(os.path.join(INPUT_DIR_GRAPHNET,"model_selectionCV/cv0%s/all" %(i),best_graphNet_param[i],"components.npz"))['arr_0']
+
+for cv in range(0,5):
+    fold = "cv0%r" %(cv)
+    components_sparse[:,:,cv] = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV/'+fold+'/all/sparse_pca_0.0_0.0_1.0/components.npz')['arr_0']
+    components_enet[:,:,cv] = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/all/struct_pca_0.1_1e-06_0.1/components.npz')['arr_0']
+    components_tv[:,:,cv] = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/'+fold+'/all/struct_pca_0.1_0.5_0.1/components.npz')['arr_0']
+    components_gn[:,:,cv] = np.load('/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients/model_selectionCV/'+fold+'/all/graphNet_pca_0.1_0.5_0.1/components.npz')['arr_0']
+
 
 for i in range(10):
     for j in range(5):

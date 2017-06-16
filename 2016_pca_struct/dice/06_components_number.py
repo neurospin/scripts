@@ -666,3 +666,45 @@ def dice_bar(thresh_comp):
              for idx in ij]
     dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
     return dices.mean(), dices
+
+
+
+##############################################################################################
+plt.figure(1)
+plt.rc('text', usetex=True)
+plt.rcParams["text.usetex"] = False
+plt.rc('font', family='serif')
+plt.subplot(131)
+plt.title("Train Set",fontsize=8)
+sparse_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_train_sparse.mean(axis=0),'b-o',markersize=3,label = "Sparse PCA")
+enet_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_train_enet.mean(axis=0),'g-^',markersize=3,label = "ElasticNet")
+tv_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_train_tv.mean(axis=0),'y-s',markersize=3,label = "SPCA-TV")
+gn_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_train_gn.mean(axis=0),'r-d',markersize=3,label = "PCA-GraphNet")
+plt.xlabel("Number of components",fontsize=8)
+plt.ylabel("Reconstruction Error",fontsize=8)
+
+plt.subplot(132)
+plt.title("Test Set",fontsize=8)
+sparse_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_test_sparse.mean(axis=0),'b-o',markersize=3,label = "Sparse PCA")
+enet_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_test_enet.mean(axis=0),'g-^',markersize=3,label = "ElasticNet PCA")
+gn_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_test_gn.mean(axis=0),'y-s',markersize=3,label =  "GraphNet PCA")
+tv_plot= plt.plot(np.arange(0,11),frobenius_reconstruction_error_test_tv.mean(axis=0),'r-d',markersize=3,label = "SPCA-TV")
+plt.ylabel("Reconstruction Error",fontsize=8)
+plt.xlabel("Number of components",fontsize=8)
+
+plt.subplot(133)
+plt.title("Similarity \n measurements of weight \n maps across the 50 datasets",fontsize=8)
+sparse_plot= plt.plot(np.arange(1,11),dice_sparse,'b-o',markersize=3,label = "Sparse PCA")
+enet_plot= plt.plot(np.arange(1,11),dice_enet,'g-^',markersize=3,label = "ElasticNet PCA")
+gn_plot= plt.plot(np.arange(1,11),dice_gn,'y-s',markersize=3,label = "GraphNet PCA")
+tv_plot= plt.plot(np.arange(1,11),dice_enettv,'r-d',markersize=3,label = "SPCA-TV")
+#plt.bar(np.arange(1,11),dice_enettv,color ='red',width = 0.3)
+#plt.bar(np.arange(1,11)+0.3,dice_enet,color='green',width = 0.3)
+#plt.bar(np.arange(1,11)+0.6,dice_sparse, color='blue',width = 0.3)
+
+plt.xlabel("Number of components",fontsize=8)
+plt.ylabel("Dice index",fontsize=8)
+plt.legend(loc= 'upper right')
+plt.tight_layout()
+plt.legend(bbox_to_anchor=(1.02, -0.15),fancybox=True,ncol=4,fontsize = 8)
+plt.savefig(os.path.join("/neurospin/brainomics/2016_pca_struct/dice/figures_paper/2017","dice_error+dice.pdf"), bbox_inches='tight')

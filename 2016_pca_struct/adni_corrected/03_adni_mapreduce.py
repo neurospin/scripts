@@ -22,8 +22,9 @@ import shutil
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
 
-BASE_PATH= '/neurospin/brainomics/2016_pca_struct/adni'
 WD = '/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected'
+WD_CLUSTER = WD.replace("/neurospin/", "/mnt/neurospin/sel-poivre/")
+
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV_5folds.xlsx")
 #############################################################################
@@ -207,7 +208,8 @@ def reducer(key, values):
     config_path = os.path.join(dir_path,"config_dCV.json")
     results_file_path = os.path.join(dir_path,"results_dCV_5folds.xlsx")
     config = json.load(open(config_path))
-    paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    #paths = glob.glob(os.path.join(config['map_output'], "*", "*", "*"))
+    paths = glob.glob(os.path.join("model_selectionCV_old", "*", "*", "*"))
 #    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.5")]
     paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.8")]
     paths = [p for p in paths if not p.count("struct_pca_0.01_0.1_0.1")]
@@ -229,6 +231,10 @@ def reducer(key, values):
     paths = [p for p in paths if not p.count("struct_pca_0.01_0.5_0.8")]
     paths = [p for p in paths if not p.count("struct_pca_0.1_0.1_0.8")]
     paths = [p for p in paths if not p.count("struct_pca_0.01_0.1_0.8")]
+
+    paths = [p for p in paths if not p.count("struct_pca_0.1_1e-06_0.5")]
+    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_0.1")]
+    paths = [p for p in paths if not p.count("sparse_pca_0.0_0.0_1.0")]
 #
 #
 
@@ -286,9 +292,9 @@ def reducer(key, values):
 
     print('## Apply best model on refited')
     print('## ---------------------------')
-    scores_enettv = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in folds_enettv.iterrows()], config)
-    scores_enet = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in folds_enet.iterrows()], config)
-    scores_sparse = scores("nestedcv", [os.path.join(config['map_output'], row["fold"], "all", row["param_key"]) for index, row in folds_sparse.iterrows()], config)
+    scores_enettv = scores("nestedcv", [os.path.join("model_selectionCV_old", row["fold"], "all", row["param_key"]) for index, row in folds_enettv.iterrows()], config)
+    scores_enet = scores("nestedcv", [os.path.join("model_selectionCV_old", row["fold"], "all", row["param_key"]) for index, row in folds_enet.iterrows()], config)
+    scores_sparse = scores("nestedcv", [os.path.join("model_selectionCV_old", row["fold"], "all", row["param_key"]) for index, row in folds_sparse.iterrows()], config)
 
     scores_cv_enettv = pd.DataFrame([["enettv"] + list(scores_enettv.values())], columns=["method"] + list(scores_enettv.keys()))
     scores_cv_enet = pd.DataFrame([["enet"] + list(scores_enet.values())], columns=["method"] + list(scores_enet.keys()))
@@ -397,8 +403,8 @@ if __name__ == "__main__":
         #################################################################
     # Build utils files: sync (push/pull) and PBS
     import brainomics.cluster_gabriel as clust_utils
-    sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(WD)
+    sync_push_filename, sync_pull_filename, _ = \
+        clust_utils.gabriel_make_sync_data_files(WD, wd_cluster=WD_CLUSTER)
     cmd = "mapreduce.py --map  %s/config_dCV.json" % WD_CLUSTER
     clust_utils.gabriel_make_qsub_job_files(WD, cmd,walltime="1000:00:00")
 #        ################################################################

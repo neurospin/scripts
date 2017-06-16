@@ -16,11 +16,12 @@ import brainomics.mesh_processing as mesh_utils
 import shutil
 
 
-BASE_PATH= "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"  
-BASE_PATH_GN= "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite"   
-TEMPLATE_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/freesurfer_template"               
+BASE_PATH= "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"
+BASE_PATH_GN= "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite"
+TEMPLATE_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/freesurfer_template"
 BASE_OUTPUT = "/neurospin/brainomics/2016_pca_struct/adni/components_extracted"
 
+BASE_OUTPUT = "/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/model_selectionCV_old/all/all"
 
 shutil.copyfile(os.path.join(TEMPLATE_PATH, "lh.pial.gii"), os.path.join(OUTPUT, "lh.pial.gii"))
 shutil.copyfile(os.path.join(TEMPLATE_PATH, "rh.pial.gii"), os.path.join(OUTPUT, "rh.pial.gii"))
@@ -29,15 +30,15 @@ config  = json.load(open(os.path.join(BASE_PATH,"config_dCV.json")))
 
 
 
-cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "lh.pial.gii"))
-cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(OUTPUT, "rh.pial.gii"))
-assert cor_l.shape[0] == cor_r.shape[0] 
+cor_l, tri_l = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "lh.pial.gii"))
+cor_r, tri_r = mesh_utils.mesh_arrays(os.path.join(TEMPLATE_PATH, "rh.pial.gii"))
+assert cor_l.shape[0] == cor_r.shape[0]
 
 
 cor_both, tri_both = mesh_utils.mesh_arrays(os.path.join(BASE_PATH, "lrh.pial.gii"))
 mask__mesh = np.load(os.path.join(BASE_PATH, "mask.npy"))
 assert mask__mesh.shape[0] == cor_both.shape[0] == cor_l.shape[0] * 2 ==  cor_l.shape[0] + cor_r.shape[0]
-assert mask__mesh.shape[0], mask__mesh.sum() 
+assert mask__mesh.shape[0], mask__mesh.sum()
 
 # Find the mapping from components in masked mesh to left_mesh and right_mesh
 # concat was initialy: cor = np.vstack([cor_l, cor_r])
@@ -57,7 +58,7 @@ a[mask_left__mesh] = 1
 a[mask_right__mesh] = 2
 mask_left__beta = a[mask__mesh] == 1  # project mesh to mesh masked
 mask_right__beta = a[mask__mesh] == 2
-assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum() 
+assert (mask_left__beta.sum() + mask_right__beta.sum()) == mask_left__beta.shape[0] == mask_right__beta.shape[0] == mask__mesh.sum()
 assert mask_left__mesh.sum() == mask_left__beta.sum()
 assert mask_right__mesh.sum() == mask_right__beta.sum()
 
@@ -78,10 +79,13 @@ params = "struct_pca_0.1_0.5_0.5"
 OUTPUT = os.path.join(BASE_OUTPUT,params)
 
 params = "graphNet_pca_0.01_0.5_0.5"
-OUTPUT = os.path.join(BASE_OUTPUT,params)
 
 
-INPUT_COMPONENTS_FILE_FORMAT = os.path.join(BASE_PATH_GN,"model_selectionCV",'all','all',params,'components.npz')
+OUTPUT = os.path.join("/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/weight_map",params)
+
+BASE_OUTPUT = "/neurospin/brainomics/2016_pca_struct/adni/2017_adni_corrected/"
+
+INPUT_COMPONENTS_FILE_FORMAT = os.path.join(BASE_OUTPUT,"model_selectionCV_old",'all','all',params,'components.npz')
 components = np.zeros((79440, 3))
 components_filename = INPUT_COMPONENTS_FILE_FORMAT.format(params=params)
 components = np.load(components_filename)['arr_0']
@@ -111,7 +115,7 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = comp0[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_0_right.gii"), data=tex)
-   
+
 tex = np.zeros(mask_left__left_mesh.shape)
 tex[mask_left__left_mesh] = comp1[mask_left__beta]
 print ("left", np.sum(tex != 0), tex.max(), tex.min())
@@ -121,7 +125,7 @@ tex = np.zeros(mask_right__right_mesh.shape)
 tex[mask_right__right_mesh] = comp1[mask_right__beta]
 print ("right", np.sum(tex != 0), tex.max(), tex.min())
 mesh_utils.save_texture(filename=os.path.join(OUTPUT, "tex_1_right.gii"), data=tex)
-  
+
 tex = np.zeros(mask_left__left_mesh.shape)
 tex[mask_left__left_mesh] = comp2[mask_left__beta]
 print ("left", np.sum(tex != 0), tex.max(), tex.min())
