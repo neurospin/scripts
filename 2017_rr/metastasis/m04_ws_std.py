@@ -119,7 +119,12 @@ whitestripe_hybrid <- function (t1, t2, ...){
     mask.img = cal_img(mask.img)
     mask.img = zero_trans(mask.img)
   }
-  return(list(whitestripe.ind = whitestripe.ind, mask.img = mask.img, WS.T1.ind = t1.ws$whitestripe.ind, WS.T2.ind = t2.ws$whitestripe.ind))
+  return(list(whitestripe.ind = whitestripe.ind, 
+              mask.img = mask.img, 
+              WS.T1.ind = t1.ws$whitestripe.ind, 
+              WS.T2.ind = t2.ws$whitestripe.ind,
+              ret_t1 = t1.ws, 
+              ret_t2 = t2.ws))
 }
 
 # Create intersection mask:
@@ -338,6 +343,18 @@ normalizeWS <- function(input.files=NULL, input.files2=NULL, output.files=NULL, 
   }
   
   if (returnMatrix){
+      zz = file(paste0("result_", type, ".csv"), "w")
+      if (type == "HYBRID") {
+          cat(paste0("Im\tMu\tSig"), 
+              paste0("T1", "\t",V[,1]$indices$ret_t1$mu.whitestripe, "\t",V[,1]$indices$ret_t1$sig.whitestripe),
+              paste0("T2", "\t",V[,1]$indices$ret_t2$mu.whitestripe, "\t",V[,1]$indices$ret_t2$sig.whitestripe),
+              file=zz, sep='\n')
+
+    } else {
+        cat(paste0("Im\tMu\tSig"), paste0(type, "\t",V[,1]$indices$mu.whitestripe, "\t",V[,1]$indices$sig.whitestripe),
+        file=zz, sep='\n')
+    }
+    close(zz)
     return(V)
   }	
 }
@@ -603,8 +620,8 @@ def main():
             results = subprocess.check_call(cmd)
                 
         #move
-        flist = glob('*bfc_WS*.nii.gz') + glob('*T2_WS*.nii.gz') + glob('*.pdf') + \
-                glob('*RData') + glob('*.R')
+        flist = glob('*.nii.gz') + glob('*.pdf') + \
+                glob('*RData') + glob('*.csv') + glob('*.R')
         print flist
         for f in flist:
            shutil.move(f, OutDirPath)
@@ -614,6 +631,6 @@ def main():
 
     # final housekeeping
     os.chdir(prevdir)
-#    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir)
 
 main()
