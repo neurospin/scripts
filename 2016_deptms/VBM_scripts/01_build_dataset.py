@@ -51,7 +51,7 @@ for i, index in enumerate(pop.index):
 
 shape = babel_image.get_data().shape
 
-#Imputing of age and sex for missing values 
+#Imputing of age and sex for missing values
 #Use mean imputation, we could have used median for age
 #imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
 #Z = imput.fit_transform(Z)
@@ -107,7 +107,7 @@ X = Xtot[:, mask_bool.ravel()]
 X = np.hstack([Z, X])
 assert X.shape == (34, 274186)
 
-#Remove nan lines 
+#Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
 
@@ -120,5 +120,19 @@ np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 ###############################################################################
-#############################################################################
+# precompute linearoperator
+
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
+
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
+
+Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+assert np.allclose(Atv_.get_singular_values(0), 11.905072894287787)
 
