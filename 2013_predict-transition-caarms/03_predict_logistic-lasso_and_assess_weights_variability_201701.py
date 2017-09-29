@@ -39,13 +39,13 @@ import utils
 
 DATASET = "full"
 #DATASET = "reduced"
- 
+
 ############################################################################
 ## Dataset: CARMS ONLY
 ############################################################################
 Xd, yd = utils.read_Xy(WD=WD)
 Xd = Xd.drop(['PAS2gr', 'CB_EXPO'], 1)
-    
+
 
 # Add intercept
 inter= pd.DataFrame([1.]*Xd.shape[0], columns=["inter"])
@@ -105,18 +105,18 @@ def scores(y_true, y_pred, prob_pred):
     pval_r0 = binom_test(success[0], s[0], 1 - prob_class1)
     pval_r1 = binom_test(success[1], s[1], prob_class1)
     acc = success.sum() / s.sum()
-    pval_acc = binom_test(success.sum(), s.sum(), p=0.5) 
+    pval_acc = binom_test(success.sum(), s.sum(), p=0.5)
     bacc = r.mean()
     pval_bacc = binom_test(np.round(bacc * s.sum()), s.sum(), p=0.5)
     return bacc, pval_bacc, auc, r[0], pval_r0, r[1], pval_r1, acc, pval_acc
-        
+
 SCORE_COLUMNS = ["bacc", "pval_bacc", "auc", "r0", "pval_r0", "r1", "pval_r1", "acc", "pval_acc"]
 
 ############################################################################
 ## Model selection on 10 CV
 ############################################################################
 
-RES = {alpha:{l1_ratio:dict(y_pred=[], y_true=[], prob_pred=[]) for l1_ratio in L1_PROPS} for alpha in ALPHAS}                
+RES = {alpha:{l1_ratio:dict(y_pred=[], y_true=[], prob_pred=[]) for l1_ratio in L1_PROPS} for alpha in ALPHAS}
 for fold, (train, test) in enumerate(utils.CV10):
     print("fold",fold)
     Xtr = X[train, :]
@@ -130,7 +130,7 @@ for fold, (train, test) in enumerate(utils.CV10):
                                                class_weight="auto")
             mod.fit(Xtr, ytr)
             RES[alpha][l1_prop]["y_pred"].append(mod.predict(Xte).ravel())
-            RES[alpha][l1_prop]["prob_pred"].append(mod.predict_probability(Xte).ravel())                
+            RES[alpha][l1_prop]["prob_pred"].append(mod.predict_probability(Xte).ravel())
             RES[alpha][l1_prop]["y_true"].append(yte.ravel())
 
 
@@ -144,7 +144,8 @@ for alpha in ALPHAS:
 
 
 SCORES_CVGRID = pd.DataFrame(scores_l, columns=["alpha", "l1_prop"] + SCORE_COLUMNS)
-SCORES_CVGRID.to_csv(os.path.join(OUTPUT, "enet_param-selection_10cv.csv"), index=False)
+#SCORES_CVGRID.to_csv(os.path.join(OUTPUT, "enet_param-selection_10cv.csv"), index=False)
+SCORES_CVGRID.to_csv(os.path.join(OUTPUT, "enet_param-selection_10cv__20170926.csv"), index=False)
 
 
 ############################################################################
@@ -191,10 +192,10 @@ print(COEFS_CV_SELECTED.round(2))
 # FULL
 
        bacc  pval_bacc       auc      r0   pval_r0        r1   pval_r1  \
-0  0.877841   0.000049  0.835227  0.9375  0.003928  0.818182  0.010009   
+0  0.877841   0.000049  0.835227  0.9375  0.003928  0.818182  0.010009
 
-        acc  pval_acc  
-0  0.888889  0.000049  
+        acc  pval_acc
+0  0.888889  0.000049
 
         count  mean   std   min    5%   10%   50%   90%   95%   max
 inter     10 -0.02  0.20 -0.25 -0.22 -0.18 -0.06  0.09  0.30  0.50
@@ -214,10 +215,10 @@ inter     10 -0.02  0.20 -0.25 -0.22 -0.18 -0.06  0.09  0.30  0.50
 
 # Reduced
        bacc  pval_bacc     auc      r0   pval_r0        r1   pval_r1  \
-0  0.877841   0.000049  0.9375  0.9375  0.003928  0.818182  0.010009   
+0  0.877841   0.000049  0.9375  0.9375  0.003928  0.818182  0.010009
 
-        acc  pval_acc  
-0  0.888889  0.000049  
+        acc  pval_acc
+0  0.888889  0.000049
        count  mean   std   min    5%   10%   50%   90%   95%   max
 inter     10  0.30  0.12  0.06  0.13  0.19  0.30  0.39  0.47  0.54
 @4.3      10 -0.31  0.03 -0.35 -0.35 -0.35 -0.31 -0.28 -0.27 -0.27
@@ -232,7 +233,7 @@ inter     10  0.30  0.12  0.06  0.13  0.19  0.30  0.39  0.47  0.54
 np.random.seed(42)
 
 mod = ElasticNetLogisticRegression(l=L1_PROP, alpha=ALPHA, penalty_start=1,
-                               class_weight="auto")    
+                               class_weight="auto")
 scores_l = list()
 Coefs = list()
 
@@ -331,7 +332,7 @@ scores_pval = np.sum(scores_p >= scores_p[0, :],  axis=0) / float(scores_p.shape
 #
 nzero = coefs_count[0, ] !=0
 COEFS_PERM = pd.DataFrame(dict(var=Xd.columns[nzero],
-        count=coefs_count[0, nzero], count_pval=coefs_count_pval[nzero],   
+        count=coefs_count[0, nzero], count_pval=coefs_count_pval[nzero],
         mean=coefs_mean[0, nzero],    mean_pval=coefs_mean_pval[nzero],
         z=coefs_mean[0, nzero] / coefs_std[0, nzero],
         z_pval=coefs_z_pval[nzero]))
@@ -350,7 +351,7 @@ SCORES_PERM.to_csv(os.path.join(OUTPUT, "enet_permuation%i_10cv_%s-dataset_coefs
 ############################################################################
 
 xls_filename = os.path.join(OUTPUT, "enet10cv_%s.xlsx" % DATASET)
-                            
+
 with pd.ExcelWriter(xls_filename) as writer:
     SCORES_CVGRID.to_excel(writer, sheet_name='Scores CVGRID', index=False)
     SCORES_CV.to_excel(writer, sheet_name='Scores CV-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP) , index=False)
@@ -360,7 +361,76 @@ with pd.ExcelWriter(xls_filename) as writer:
     COEFS_PERM.to_excel(writer, sheet_name='Coef PERM-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP))
     #SCORES_BOOT.to_excel(writer, sheet_name='Scores BOOT-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP), index=False)
     COEFS_BOOT.to_excel(writer, sheet_name='Coef BOOT-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP))
-    
+
+
+################################
+## Plot coefs
+################################
+{'1.1': 'Unusual thought content',
+ '1.2': 'non-bizarre ideas',
+ '1.3': 'perceptual abnormalities',
+ '1.4': 'Disorganized speech',
+ '2.1': 'Subjective cognitive change',
+ '2.2': 'Observed cognitive change',
+ '3.1': 'Subjective emotional disturbance',
+ '3.2': 'Observed blunter affect',
+ '3.3': 'Observed inappropriate affect',
+ '4.1': 'Alogia',
+ '4.2': 'Avolition/apathy',
+ '4.3': 'Anhedonia',
+ '5.1': 'Social isolation',
+ '5.2': 'Impaired role function',
+ '5.3': 'Disorganizing/odd/stigmatising behaviour',
+ '5.4': 'Aggression/dangerous behaviour',
+ '6.1': 'Subjective complaints of impaired motor functioning',
+ '6.2': 'Informant reported or observed changes in motor functioning',
+ '6.3': 'Subjective complaints of impaired bodily sensation',
+ '6.4': 'Subjective complaints of impaired autonomic functioning',
+ '7.1': 'Mania',
+ '7.2': 'Depression',
+ '7.3': 'Suicidality and self harm',
+ '7.4': 'Mood swings/lability',
+ '7.5': 'Anxiety',
+ '7.6': 'Obsessive compulsive symptoms',
+ '7.7': 'Dissociative symptoms',
+ '7.8': 'Impaired tolerance to normal stress'}
+
+items = pd.read_excel("/home/ed203246/documents/publications/2016/CAARMS_enet/caarm_items_mapping.xlsx")#, 0)
+
+mapping = {str(row[1][0]):row[1][2] for row in items.iterrows()}
+
+data = pd.read_excel(xls_filename, sheetname='Coef BOOT-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP))
+data.index
+data.columns
+#Index(['count', 'mean', 'std', 'min', '1%', '5%', '10%', '50%', '90%', '95%',
+#       '99%', 'max'],
+#      dtype='object')
+
+data = data[1:]
+predictors = [s.replace('@', '') for s in data.index]
+predictors = [mapping[p] for p in predictors]
+
+coef = data['mean']
+plt.clf()
+#fig = plt.figure(figsize=(10, 15))
+x_ = np.arange(len(coef))
+#fig = plt.figure(figsize=(int(coef.shape[0]/3), 10))
+
+plt.barh(x_, coef, facecolor='#9999ff',
+        fc = 'lightgrey', lw=1,
+        edgecolor='black', align='center',
+        xerr = data['std'], ecolor='black',
+        label='Coefs Mean(Boot)')
+
+plt.axvline(0, ls='-', lw=1, color="black")
+#plt.tick_params(axis='x', labelsize=8)
+plt.yticks(x_, predictors)#, rotation=90)
+plt.ylim(0-0.5, np.max(x_)-0.5)
+
+plt.grid()
+#plt.legend(loc='best')
+#plt.title("Coefficients")
+
 """
 RESULTS
 
@@ -371,10 +441,10 @@ Full dataset
 
 10CV
 ----
-Precisions:  [ 0.88235294  0.9       ] 0.891176470588 
-Recalls:     [ 0.9375      0.81818182] 0.877840909091 
-F:           [ 0.90909091  0.85714286] 0.883116883117 
-AUC:         0.835227272727 
+Precisions:  [ 0.88235294  0.9       ] 0.891176470588
+Recalls:     [ 0.9375      0.81818182] 0.877840909091
+F:           [ 0.90909091  0.85714286] 0.883116883117
+AUC:         0.835227272727
 Support:     [16 11]
 
 
@@ -436,10 +506,10 @@ Reduced dataset
 ===============
 
 10CV:
-Precisions:  [ 0.88235294  0.9       ] 0.891176470588 
-Recalls:     [ 0.9375      0.81818182] 0.877840909091 
-F:           [ 0.90909091  0.85714286] 0.883116883117 
-AUC:         0.9375 
+Precisions:  [ 0.88235294  0.9       ] 0.891176470588
+Recalls:     [ 0.9375      0.81818182] 0.877840909091
+F:           [ 0.90909091  0.85714286] 0.883116883117
+AUC:         0.9375
 Support:     [16 11]
 
 NPERM = 10000
@@ -466,3 +536,59 @@ NPERM = 10000
 
 
 """
+
+"""
+J'ai refait tout un tour de littérature. Voici l'article en l'état du jour (+ corrections)
+Avant de finaliser le tour sur la discussion, Edouard peux tu faire 2 petites analyses comme discuté:
+
+Corrélation 5.4 et 7.3 ? Comportement dangereux agressif (5.4) et suicidalité (7.3) ?
+0.114949
+(0.11494888257209551, 0.56804924717286553)
+
+Corrélation 7.6 (Obsessive compulsive symptoms) et 7.3 (suicidalité) ?
+0.036473
+(0.036473062759285919, 0.85667251072361938)
+
+Et si tu as le temps une figure comme celle de l'article ci dessous qui reprend tous les items de la CAARMS et qui met en ev des histogrammes à gauche et à droite (en + et en -) correspond au potentiel prédictif? Voici le lien de la revue:
+http://www.schres-journal.com/article/S0920-9964(16)30558-8/pdf
+
+Merci beaucoup beaucoup
+"""
+
+###########################################################################
+## Some correlation
+###########################################################################
+
+Xd[["@5.4", "@7.3", "@7.6"]]
+
+          @5.4      @7.3      @7.6
+@5.4  1.000000  0.114949  0.481341
+@7.3  0.114949  1.000000  0.036473
+@7.6  0.481341  0.036473  1.000000
+
+import scipy.stats as stats
+import seaborn as sns
+
+stats.pearsonr(Xd["@5.4"], Xd["@7.3"])
+
+stats.pearsonr(Xd["@7.6"], Xd["@7.3"])
+
+d = Xd.copy()
+d.pop("inter")
+
+# Compute the correlation matrix
+corr = d.corr()
+
+# Generate a mask for the upper triangle
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+
+# Set up the matplotlib figure
+f, ax = plt.subplots(figsize=(11, 9))
+
+# Generate a custom diverging colormap
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+
+# Draw the heatmap with the mask and correct aspect ratio
+sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5})
