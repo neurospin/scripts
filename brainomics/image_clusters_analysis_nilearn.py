@@ -10,7 +10,7 @@ about the cluster is stored in a csv file.
 Example
 -------
 
-./image_clusters_analysis_nilearn.py /tmp/weight_map.nii.gz -o /tmp/deptms_map --vmax 0.001 --thresh_norm_ratio 0.99 --thresh_size 10 
+./image_clusters_analysis_nilearn.py /tmp/weight_map.nii.gz -o /tmp/deptms_map --vmax 0.001 --thresh_norm_ratio 0.99 --thresh_size 10
 
 """
 
@@ -75,7 +75,7 @@ def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
             ROI_name = atlascort_labels[atlas_lab]
             regions_cort_atlas[ROI_name] = int(np.round(
                                       np.sum(atlascort_clust == atlas_lab) / \
-                                        float(clust_sizes[i]) * 100))                                
+                                        float(clust_sizes[i]) * 100))
             regions_cort_atlas_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
                                                 / float(LA.norm(map_arr[mask])) * 100))
 
@@ -125,7 +125,7 @@ def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
               "x_max_mni",  "y_max_mni",  "z_max_mni",
               "x_min_mni",  "y_min_mni",  "z_min_mni",
               "x_center_mni",  "y_center_mni", "z_center_mni",
-              "mean", "max", "min", 
+              "mean", "max", "min",
               "ROIs_cort_prop (%)", "ROIs_cort_weight_prop (%)",
               "ROI_cort_peak_pos", "ROI_cort_peak_neg",
               "ROIs_sub_prop (%)", "ROIs_sub_weight_prop (%)",
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     map_filename = options.input
     ##########################################################################
     # Read volume
-    import nibabel as nib 
+    import nibabel as nib
     map_img = nib.load(map_filename)
     #map_img = aims.read(map_filename)
 
@@ -214,16 +214,16 @@ if __name__ == "__main__":
         atlassub = nilearn.datasets.fetch_atlas_harvard_oxford("sub-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
         # FIX bug nilearn.datasets.fetch_atlas_harvard_oxford: Errors in HarvardOxford.tgz / sub-maxprob-thr0-1mm
         atlassub.maps = os.path.join('/usr/share/data/harvard-oxford-atlases/HarvardOxford', os.path.basename(atlassub.maps))
-    
+
     atlascort_img = nilearn.image.resample_to_img(source_img=atlascort.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
     atlascort_arr, atlascort_labels = atlascort_img.get_data(), atlascort.labels
     assert len(np.unique(atlascort_arr)) == len(atlascort_labels), "Atlas %s : array lablels must match labels table" %  options.atlas
-    
+
     atlassub_img = nilearn.image.resample_to_img(source_img=atlassub.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
     atlassub_arr, atlassub_labels = atlassub_img.get_data(), atlassub.labels
     atlassub_arr = atlassub_arr.astype(int)
     assert len(np.unique(atlassub_arr)) == len(atlassub_labels), "Atlas %s : array lablels must match labels table" %  options.atlas
-    
+
     assert np.all((map_img.affine == atlassub_img.affine) & (map_img.affine == atlascort_img.affine))
     ##########################################################################
     map_basename, ext = os.path.splitext(map_filename)
@@ -261,7 +261,7 @@ if __name__ == "__main__":
                                                        n_clusts, n_clusts)
     labels = np.unique(map_clustlabels_arr)[1:]
     centers = scipy.ndimage.center_of_mass(clust_bool, map_clustlabels_arr, labels)
-    
+
     # _clusters.nii.gz
     img = nib.Nifti1Image(map_arr, map_img.get_affine())
     img.to_filename(output_clusters_values_filename)
@@ -305,6 +305,7 @@ if __name__ == "__main__":
     fig = plt.figure(figsize=(11.69, 8.27))
     nilearn.plotting.plot_glass_brain(output_clusters_values_filename,
                                       colorbar=True, plot_abs=False,
+                                      cmap=plt.cm.bwr,
                                       #threshold = t,
                                       vmax=abs(vmax), vmin =-abs(vmax))
     pdf.savefig()
@@ -317,13 +318,14 @@ if __name__ == "__main__":
         print(row['size'])
         # A cluster have at least a negative pek or a positive one, but it
         # can have both
-        # positive peak        
+        # positive peak
         if row['ROI_cort_peak_pos']:
             fig = plt.figure(figsize=(11.69, 8.27))
             ax = fig.add_subplot(211)
             title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_pos'], row['ROI_sub_peak_pos'])
-            cut_coords = row[['x_max_mni', 'y_max_mni', 'z_max_mni']]        
+            cut_coords = row[['x_max_mni', 'y_max_mni', 'z_max_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
+                                   cmap=plt.cm.bwr,
                                    cut_coords=cut_coords, figure=fig,axes=ax,#(0, 0, 100, 100),
                                    title=title)
 
@@ -337,8 +339,9 @@ if __name__ == "__main__":
             fig = plt.figure(figsize=(11.69, 8.27))
             ax = fig.add_subplot(211)
             title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_neg'], row['ROI_sub_peak_neg'])
-            cut_coords = row[['x_min_mni', 'y_min_mni', 'z_min_mni']]        
+            cut_coords = row[['x_min_mni', 'y_min_mni', 'z_min_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
+                                   cmap=plt.cm.bwr,
                                    cut_coords=cut_coords, figure=fig,axes=ax,#(0, 0, 100, 100),
                                    title=title)
 
