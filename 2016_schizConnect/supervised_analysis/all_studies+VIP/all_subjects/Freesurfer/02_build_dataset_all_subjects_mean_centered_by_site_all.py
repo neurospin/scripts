@@ -15,12 +15,12 @@ import shutil
 BASE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects"
 TEMPLATE_PATH = os.path.join(BASE_PATH,"freesurfer_template")
 INPUT_CSV = os.path.join(BASE_PATH,"population.csv")
-OUTPUT = os.path.join(BASE_PATH,"data")
+OUTPUT = os.path.join(BASE_PATH,"data","mean_centered_by_site_all")
 
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
-np.save('/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/site.npy',pop["site_num"].as_matrix())
+#np.save('/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/site.npy',pop["site_num"].as_matrix())
 
 #############################################################################
 ## Build mesh template
@@ -37,7 +37,7 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT
 # Read images
 n = len(pop)
 assert n == 567
-Z = np.zeros((n, 3)) # Intercept + Age + Gender + site
+Z = np.zeros((n, 2)) # Age + Gender
 y = np.zeros((n, 1)) # DX
 surfaces = list()
 
@@ -50,12 +50,21 @@ for i, index in enumerate(pop.index):
     surf = np.hstack([left, right])
     surfaces.append(surf)
     y[i, 0] = cur["dx_num"]
-    Z[i, :] = np.asarray(cur[["age", "sex_num", "site_num"]]).ravel()
+    Z[i, :] = np.asarray(cur[["age", "sex_num"]]).ravel()
     print (i)
 
 
 Xtot = np.vstack(surfaces)
 assert Xtot.shape == (567, 327684)
+
+site = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/site.npy")
+
+Xtot[site==1,:] = Xtot[site==1,:] - Xtot[site==1,:].mean(axis=0)
+Xtot[site==2,:] = Xtot[site==2,:] - Xtot[site==2,:].mean(axis=0)
+Xtot[site==3,:] = Xtot[site==3,:] - Xtot[site==3,:].mean(axis=0)
+Xtot[site==4,:] = Xtot[site==4,:] - Xtot[site==4,:].mean(axis=0)
+
+
 
 mask = ((np.max(Xtot, axis=0) > 0) & (np.std(Xtot, axis=0) > 1e-2))
 assert mask.sum() ==  299862
@@ -67,22 +76,15 @@ assert X.shape == (567, 299862)
 
 #############################################################################
 X = np.hstack([Z, X])
-assert X.shape == (567, 299865)
+assert X.shape == (567, 299864)
 #Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-assert X.shape == (567, 299865)
+assert X.shape == (567, 299864)
 
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 
-#X -= X.mean(axis=0)
-#X /= X.std(axis=0)
-#X[:, 0] = 1.
-#n, p = X.shape
-#np.save(os.path.join(OUTPUT, "X.npy"), X)
-#np.save(os.path.join(OUTPUT, "y.npy"), y)
-#
 
 #############################################################################
 

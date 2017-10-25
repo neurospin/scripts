@@ -10,7 +10,7 @@ import os
 import numpy as np
 import nibabel
 import array_utils
-import nilearn  
+import nilearn
 from nilearn import plotting
 from nilearn import image
 
@@ -46,8 +46,9 @@ nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshol
 
 
 #Enet-TV
+
 WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/\
-results/enettv/enettv_schizCo+VIP_all/model_selectionCV/refit/refit/0.01_0.27_0.63_0.1"
+results/enettv/enettv_schizCo+VIP_all/model_selectionCV/refit/refit/enetgn_0.01_0.1_0.9"
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][penalty_start:]
 arr = np.zeros(mask_bool.shape);
 arr[mask_bool] = beta.ravel()

@@ -53,7 +53,7 @@ for i, index in enumerate(pop.index):
 
 shape = babel_image.get_data().shape
 
-
+np.save('/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/site.npy',pop["site_num"].as_matrix())
 
 #############################################################################
 # Compute mask
@@ -109,39 +109,7 @@ X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
 assert X.shape == (606, 125962)
 
-site = X[:,2]
-X = np.hstack([Z[:,:2], X[:,3:]])
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site"
-#NUDAST
-X3 = X[site==3,:]
-y3 = y[site==3]
-np.save(os.path.join(WD,"NUSDAST", "X.npy"), X3)
-np.save(os.path.join(WD,"NUSDAST", "y.npy"), y3)
 
-#NCOBRE
-X1 = X[site==1,:]
-y1 = y[site==1]
-np.save(os.path.join(WD,"COBRE", "X.npy"), X1)
-np.save(os.path.join(WD,"COBRE", "y.npy"), y1)
-
-
-#NMORPHCH
-X2 = X[site==2,:]
-y2 = y[site==2]
-np.save(os.path.join(WD,"NMORPH", "X.npy"), X2)
-np.save(os.path.join(WD,"NMORPH", "y.npy"), y2)
-
-#VIP
-X4 = X[site==4,:]
-y4 = y[site==4]
-np.save(os.path.join(WD,"VIP", "X.npy"), X4)
-np.save(os.path.join(WD,"VIP", "y.npy"), y4)
-
-
-X -= X.mean(axis=0)
-X /= X.std(axis=0)
-X[:, 0] = 1.
-n, p = X.shape
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 
@@ -161,6 +129,3 @@ Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
 assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv_.get_singular_values(0), 11.909770107366217)
 
-###############################################################################
-# precompute beta start
-import parsimony.estimators as estimators

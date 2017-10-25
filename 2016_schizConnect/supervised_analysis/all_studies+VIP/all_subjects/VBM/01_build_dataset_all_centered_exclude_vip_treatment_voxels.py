@@ -30,8 +30,8 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 
 BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects'
 INPUT_CSV= os.path.join(BASE_PATH,"population.csv")
-OUTPUT = os.path.join(BASE_PATH,"data")
-penalty_start = 3
+OUTPUT = os.path.join(BASE_PATH,"data","mean_centered_by_site_all")
+penalty_start = 2
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
@@ -39,7 +39,7 @@ pop = pd.read_csv(INPUT_CSV)
 # Read images
 n = len(pop)
 assert n == 606
-Z = np.zeros((n, 3)) # Age + Gender + site
+Z = np.zeros((n, 2)) # Age + Gender
 y = np.zeros((n, 1)) # DX
 images = list()
 for i, index in enumerate(pop.index):
@@ -48,7 +48,7 @@ for i, index in enumerate(pop.index):
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
-    Z[i,:] = np.asarray(cur[["age", "sex_num","site_num"]]).ravel()
+    Z[i,:] = np.asarray(cur[["age", "sex_num"]]).ravel()
     y[i, 0] = cur["dx_num"]
 
 shape = babel_image.get_data().shape
@@ -61,6 +61,8 @@ shape = babel_image.get_data().shape
 # at some voxel, in any of the images, indicates an unknown and is
 # excluded from the analysis.
 Xtot = np.vstack(images)
+
+
 mask = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
 mask = mask.reshape(shape)
 assert mask.sum() == 150811
@@ -98,17 +100,31 @@ assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 # Save data X and y
 X = Xtot[:, mask_bool.ravel()]
-#Use mean imputation, we could have used median for age
-#imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
-#Z = imput.fit_transform(Z)
+
+
+site = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/site.npy")
+
+X[site==1,:] = X[site==1,:] - X[site==1,:].mean(axis=0)
+X[site==2,:] = X[site==2,:] - X[site==2,:].mean(axis=0)
+X[site==3,:] = X[site==3,:] - X[site==3,:].mean(axis=0)
+X[site==4,:] = X[site==4,:] - X[site==4,:].mean(axis=0)
+
+
 X = np.hstack([Z, X])
-assert X.shape == (606, 125962)
+assert X.shape == (606, 125961)
 
 #Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-assert X.shape == (606, 125962)
+assert X.shape == (606, 125961)
 
+
+np.save(os.path.join(OUTPUT, "X.npy"),X)
+np.save(os.path.join(OUTPUT, "y.npy"),y)
+
+
+
+###############################################################################
 site = X[:,2]
 X = np.hstack([Z[:,:2], X[:,3:]])
 WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site"
@@ -162,5 +178,3 @@ assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv_.get_singular_values(0), 11.909770107366217)
 
 ###############################################################################
-# precompute beta start
-import parsimony.estimators as estimators
