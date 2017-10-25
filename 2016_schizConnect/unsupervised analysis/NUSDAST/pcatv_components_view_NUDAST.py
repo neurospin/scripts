@@ -30,7 +30,7 @@ import array_utils
 
 INPUT_BASE_DIR = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/pcatv'
 INPUT_DIR = os.path.join(INPUT_BASE_DIR,"5_folds_NUDAST","results")
-INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/mask.nii'              
+INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/pcatv_scz/5_folds_NUDAST_10comp/mask.nii'
 
 
 
@@ -41,12 +41,19 @@ number_features = mask_bool.sum()
 #############################################################################
 #SCZ only
 #############################################################################
+#WD = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/\
+#pcatv_10comp/5_folds_NUDAST_10comp/results/0/struct_pca_0.1_0.1_0.1"
 WD = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/\
-pcatv_10comp/5_folds_NUDAST_10comp/results/0/struct_pca_0.1_0.1_0.1"
+pcatv_scz/5_folds_NUDAST_10comp/results/0/struct_pca_0.1_0.1_0.1"
+
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/\
+VBM/all_subjects/results/pcatv_scz/vbm_pcatv_all+VIP_scz/results/0/struct_pca_0.1_0.1_0.1"
+
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 
 
-N_COMP =10 
+
+N_COMP =10
 
 for i in range(comp.shape[1]):
     arr = np.zeros(mask_bool.shape);
@@ -59,7 +66,6 @@ for i in range(comp.shape[1]):
     nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
     print (i)
     print (t)
-
 
 
 #############################################################################
@@ -70,7 +76,7 @@ pcatv_controls/5_folds_NUDAST_controls/results/0/struct_pca_0.1_0.1_0.1"
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 
 
-N_COMP =10 
+N_COMP =10
 
 for i in range(comp.shape[1]):
     arr = np.zeros(mask_bool.shape);
@@ -83,9 +89,9 @@ for i in range(comp.shape[1]):
     nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
     print (i)
     print (t)
-    
-    
-    
+
+
+
 #############################################################################
 #ALL SUBEJCTS: scz + controls
 #############################################################################
@@ -94,7 +100,7 @@ pcatv_all/5_folds_NUDAST_all/results/0/struct_pca_0.1_0.5_0.1"
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 
 
-N_COMP =10 
+N_COMP =10
 
 for i in range(comp.shape[1]):
     arr = np.zeros(mask_bool.shape);
@@ -106,4 +112,4 @@ for i in range(comp.shape[1]):
     comp_t,t = array_utils.arr_threshold_from_norm2_ratio(comp_data, .99)
     nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
     print (i)
-    print (t)    
+    print (t)

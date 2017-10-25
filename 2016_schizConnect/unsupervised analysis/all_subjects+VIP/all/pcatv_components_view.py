@@ -28,9 +28,8 @@ import array_utils
 # Input/Output #
 ################
 
-INPUT_BASE_DIR = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/pcatv'
-INPUT_DIR = os.path.join(INPUT_BASE_DIR,"5_folds_NUDAST","results")
-INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/data/mask.nii'              
+INPUT_BASE_DIR = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_controls'
+INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_controls/vbm_pcatv_all+VIP_controls/mask.nii'
 
 
 
@@ -41,11 +40,11 @@ number_features = mask_bool.sum()
 
 
 # 5comps
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/pcatv/5_folds_NUDAST/results/0/struct_pca_0.1_0.1_0.1"
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_controls/vbm_pcatv_all+VIP_controls/results/0/struct_pca_0.1_0.5_0.1"
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 
 
-N_COMP =5  
+N_COMP = 10
 
 for i in range(comp.shape[1]):
     arr = np.zeros(mask_bool.shape);
@@ -62,12 +61,12 @@ for i in range(comp.shape[1]):
     #nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,vmin= 3,vmax=3)
 
 #
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/VBM/results/\
-pcatv_10comp/5_folds_NUDAST_10comp/results/0/struct_pca_0.1_0.1_0.1"
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
+all_subjects/results/pcatv_scz/vbm_pcatv_all+VIP_scz/results/0/struct_pca_0.1_0.1_0.1"
 comp = np.load(os.path.join(WD,"components.npz"))['arr_0']
 
 
-N_COMP =10 
+N_COMP =10
 
 for i in range(comp.shape[1]):
     arr = np.zeros(mask_bool.shape);

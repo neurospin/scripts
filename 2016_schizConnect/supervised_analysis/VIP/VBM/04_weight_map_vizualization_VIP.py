@@ -10,7 +10,7 @@ import os
 import numpy as np
 import nibabel
 import array_utils
-import nilearn  
+import nilearn
 from nilearn import plotting
 from nilearn import image
 
@@ -45,8 +45,24 @@ nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshol
 
 
 #Enet-TV
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/VIP/VBM/results/enettv/\
-VIP_enettv/model_selectionCV/refit/refit/0.01_0.09_0.81_0.1"
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/VIP/VBM/results/enetall_VIP/5cv/refit/refit/enettv_0.01_0.1_0.8"
+
+beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][penalty_start:]
+arr = np.zeros(mask_bool.shape);
+arr[mask_bool] = beta.ravel()
+out_im = nibabel.Nifti1Image(arr, affine=babel_mask.get_affine())
+filename = os.path.join(WD,"weight_map.nii.gz")
+out_im.to_filename(filename)
+beta = nibabel.load(filename).get_data()
+
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
+
+nilearn.plotting.plot_stat_map(filename,colorbar=True,draw_cross=False,threshold = "auto",vmax = 0.005)
+
+# Enet GN
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/VIP/VBM/results/enetall_VIP/5cv/refit/refit/enetgn_0.01_0.1_0.8"
 
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][penalty_start:]
 arr = np.zeros(mask_bool.shape);

@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 21 17:20:32 2017
+Created on Thu Feb 23 15:06:24 2017
 
+@author: ad247405
+"""
 
-5@author: ad24740
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb 22 10:17:34 2017
 
 Compute mask, concatenate masked non-smoothed images for all the subjects.
 Build X, y, and mask
 
 INPUT:
+- subject_list.txt:
 - population.csv
 
-OUTPUT:
+OUTPUT_ICAARZ:
 - mask.nii
 - y.npy
-- X.npy = Age + Gender + Voxels
+- X.npy = intercept + Age + Gender + Voxel
 """
 
 import os
@@ -29,18 +35,20 @@ import mulm
 import sklearn
 
 
-BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/VIP/VBM'
+BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects_less_than_50years'
 INPUT_CSV= os.path.join(BASE_PATH,"population.csv")
 OUTPUT = os.path.join(BASE_PATH,"data")
 
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
+np.save("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects_less_than_50years/data/site.npy",pop['site_num'])
 #############################################################################
 # Read images
 n = len(pop)
-assert n == 92
-Z = np.zeros((n, 2)) # Age + Gender
+assert n == 526
+Z = np.zeros((n, 3)) # Age + Gender + site
+
 y = np.zeros((n, 1)) # DX
 images = list()
 for i, index in enumerate(pop.index):
@@ -49,8 +57,8 @@ for i, index in enumerate(pop.index):
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
-    Z[i, :] = np.asarray(cur[["sex_code"]]).ravel()
-    y[i, 0] = cur["dx"]
+    Z[i, :] = np.asarray(cur[["age", "sex_num","site_num"]]).ravel()
+    y[i, 0] = cur["dx_num"]
 
 shape = babel_image.get_data().shape
 
@@ -58,11 +66,13 @@ shape = babel_image.get_data().shape
 
 #############################################################################
 # Compute mask
-# Implicit Masking .
+# Implicit Masking involves assuming that a lower than a givent threshold
+# at some voxel, in any of the images, indicates an unknown and is
+# excluded from the analysis.
 Xtot = np.vstack(images)
 mask = (np.min(Xtot, axis=0) > 0.01) & (np.std(Xtot, axis=0) > 1e-6)
 mask = mask.reshape(shape)
-assert mask.sum() == 269964
+assert mask.sum() ==  166290
 
 #############################################################################
 # Compute atlas mask
@@ -75,7 +85,7 @@ assert np.sum(mask_atlas != 0) == 617728
 mask_atlas[np.logical_not(mask)] = 0  # apply implicit mask
 # smooth
 mask_atlas = brainomics.image_atlas.smooth_labels(mask_atlas, size=(3, 3, 3))
-assert np.sum(mask_atlas != 0) ==   249797
+assert np.sum(mask_atlas != 0) ==  140361
 out_im = nibabel.Nifti1Image(mask_atlas,
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask.nii"))
@@ -85,7 +95,7 @@ assert np.all(mask_atlas == im.get_data())
 #############################################################################
 # Compute mask with atlas but binarized (not group tv)
 mask_bool = mask_atlas != 0
-mask_bool.sum() ==  249797
+mask_bool.sum() ==    140361
 out_im = nibabel.Nifti1Image(mask_bool.astype("int16"),
                              affine=babel_image.get_affine())
 out_im.to_filename(os.path.join(OUTPUT, "mask.nii"))
@@ -97,28 +107,34 @@ assert np.all(mask_bool == (babel_mask.get_data() != 0))
 
 # Save data X and y
 X = Xtot[:, mask_bool.ravel()]
-
-#Stack covariates
+#Use mean imputation, we could have used median for age
+#imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
+#Z = imput.fit_transform(Z)
 X = np.hstack([Z, X])
-assert X.shape == (92,  249799)
+assert X.shape ==  (526, 140364)
+
+#Remove nan lines
+X= X[np.logical_not(np.isnan(y)).ravel(),:]
+y=y[np.logical_not(np.isnan(y))]
+assert X.shape ==  (526, 140364)
 
 
-n, p = X.shape
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 ###############################################################################
 ###############################################################################
-## precompute linearoperator
-#X = np.load(os.path.join(OUTPUT, "X.npy"))
-#y = np.load(os.path.join(OUTPUT, "y.npy"))
-#
-#mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
-#
-#import parsimony.functions.nesterov.tv as nesterov_tv
-#from parsimony.utils.linalgs import LinearOperatorNesterov
-#
-#Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
-#Atv.save(os.path.join(OUTPUT, "Atv.npz"))
-#Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
-#assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+# precompute linearoperator
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
+
+mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
+
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+

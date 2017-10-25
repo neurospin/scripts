@@ -39,8 +39,7 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT
 # Read images
 n = len(pop)
 assert n == 80
-Z = np.zeros((n, 3)) # Intercept + Age + Gender #only one site, no need for a site covariate
-Z[:, 0] = 1 # Intercept
+Z = np.zeros((n, 2)) # Intercept + Age + Gender #only one site, no need for a site covariate
 y = np.zeros((n, 1)) # DX
 surfaces = list()
 
@@ -53,11 +52,11 @@ for i, index in enumerate(pop.index):
     surf = np.hstack([left, right])
     surfaces.append(surf)
     y[i, 0] = cur["dx_num"]
-    Z[i, 1:] = np.asarray(cur[["age", "sex_num"]]).ravel()
+    Z[i, :] = np.asarray(cur[["age", "sex_num"]]).ravel()
     print (i)
 
-   
-    
+
+
 Xtot = np.vstack(surfaces)
 assert Xtot.shape == (80, 327684)
 
@@ -73,13 +72,24 @@ assert X.shape ==  (80, 299798)
 #############################################################################
 
 X = np.hstack([Z, X])
-assert X.shape ==  (80, 299801)
-#Remove nan lines 
+assert X.shape ==  (80, 299800)
+#Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-assert X.shape ==  (80, 299801)
+assert X.shape ==  (80, 299800)
 
 
 
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+#############################################################################
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+Atv = nesterov_tv.linear_operator_from_mesh(cor, tri, mask, calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+assert np.allclose(Atv_.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
+assert np.all([a.shape == (299798, 299798) for a in Atv])

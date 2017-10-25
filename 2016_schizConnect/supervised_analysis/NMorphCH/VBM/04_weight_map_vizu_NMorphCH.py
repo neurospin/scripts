@@ -10,7 +10,7 @@ import os
 import numpy as np
 import nibabel
 import array_utils
-import nilearn  
+import nilearn
 from nilearn import plotting
 from nilearn import image
 
@@ -25,7 +25,7 @@ mask_bool = babel_mask.get_data()
 mask_bool= np.array(mask_bool !=0)
 number_features = mask_bool.sum()
 ##################################################################################
-penalty_start = 3
+penalty_start = 2
 
 #
 #SVM
@@ -45,7 +45,7 @@ nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshol
 
 
 #Enet-TV
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/VBM/results/enettv/enettv_model_selection_5folds_NMorphCH/model_selectionCV/refit/refit/1.0_0.06_0.14_0.8"
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/VBM/results/enetall_NMORPHCH/5cv/refit/refit/enettv_0.01_0.1_0.8"
 beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][penalty_start:]
 arr = np.zeros(mask_bool.shape);
 arr[mask_bool] = beta.ravel()
@@ -55,5 +55,22 @@ out_im.to_filename(filename)
 beta = nibabel.load(filename).get_data()
 
 beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
-nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,vmin = -0.00004, vmax = 0.00004)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
+
+nilearn.plotting.plot_stat_map(filename,colorbar=True,draw_cross=False,threshold = "auto",vmax = 0.005)
+
+
+
+#Enet-GN
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/VBM/results/enetall_NMORPHCH/5cv/refit/refit/enetgn_1.0_0.1_0.7"
+beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][penalty_start:]
+arr = np.zeros(mask_bool.shape);
+arr[mask_bool] = beta.ravel()
+out_im = nibabel.Nifti1Image(arr, affine=babel_mask.get_affine())
+filename = os.path.join(WD,"weight_map.nii.gz")
+out_im.to_filename(filename)
+beta = nibabel.load(filename).get_data()
+
+beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t)
 

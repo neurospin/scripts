@@ -46,8 +46,8 @@ pop = pd.read_csv(INPUT_CSV)
 # Read images
 n = len(pop)
 assert n == 526
-Z = np.zeros((n, 4)) # Intercept + Age + Gender
-Z[:, 0] = 1 # Intercept
+Z = np.zeros((n, 3)) # Age + Gender + site
+
 y = np.zeros((n, 1)) # DX
 images = list()
 for i, index in enumerate(pop.index):
@@ -56,7 +56,7 @@ for i, index in enumerate(pop.index):
     imagefile_name = cur.path_VBM
     babel_image = nibabel.load(imagefile_name.as_matrix()[0])
     images.append(babel_image.get_data().ravel())
-    Z[i, 1:] = np.asarray(cur[["age", "sex_num","site_num"]]).ravel()
+    Z[i, :] = np.asarray(cur[["age", "sex_num","site_num"]]).ravel()
     y[i, 0] = cur["dx_num"]
 
 shape = babel_image.get_data().shape
@@ -110,18 +110,30 @@ X = Xtot[:, mask_bool.ravel()]
 #imput = sklearn.preprocessing.Imputer(strategy = 'median',axis=0)
 #Z = imput.fit_transform(Z)
 X = np.hstack([Z, X])
-assert X.shape ==  (526, 140365)
+assert X.shape ==  (526, 140364)
 
-#Remove nan lines 
+#Remove nan lines
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-assert X.shape ==  (526, 140365)
+assert X.shape ==  (526, 140364)
 
 
-X -= X.mean(axis=0)
-X /= X.std(axis=0)
-X[:, 0] = 1.
-n, p = X.shape
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 np.save(os.path.join(OUTPUT, "y.npy"), y)
+
+###############################################################################
+###############################################################################
+# precompute linearoperator
+X = np.load(os.path.join(OUTPUT, "X.npy"))
+y = np.load(os.path.join(OUTPUT, "y.npy"))
+
+mask = nibabel.load(os.path.join(OUTPUT, "mask.nii"))
+
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
+Atv.save(os.path.join(OUTPUT, "Atv.npz"))
+Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 
