@@ -17,7 +17,7 @@ COHORT_MAP = {'eugei': 0, 'icaar': 1}
 
 
 
-BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/2017_icaar_eugei'
+BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei/september_2017'
 INPUT_CLINIC_FILENAME = '/neurospin/brainomics/2016_icaar-eugei/documents/icaar_eugei_images_correspondanceV2 CMLF.xls'
 OUTPUT_CSV_ICAAR = os.path.join(BASE_PATH,"VBM","ICAAR","population.csv")
 INPUT_DATA = "/neurospin/brainomics/2016_icaar-eugei/data/ICAAR-EUGEI/ICAAR"
@@ -28,8 +28,8 @@ OUTPUT_CSV_ICAAR_WITH_SCORES = os.path.join(BASE_PATH,"VBM","ICAAR","population+
 ##############################################################################
 clinic = pd.read_excel(INPUT_CLINIC_FILENAME)
 assert  clinic.shape == (76, 14)
-# Read subjects with image
 
+# Read subjects with image
 paths = glob.glob(os.path.join(INPUT_DATA,"Acquistion_complete/*/*/site_template_mwc1*.nii"))
 subjects = list()
 for i in range(len(paths)):

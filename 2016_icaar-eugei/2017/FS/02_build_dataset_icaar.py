@@ -14,7 +14,6 @@ import shutil
 import mulm
 from mulm import MUOLS
 import brainomics
-from brainomics import create_texture
 
 BASE_PATH = '/neurospin/brainomics/2016_icaar-eugei'
 INPUT_FS = '/neurospin/brainomics/2016_icaar-eugei/preproc_FS/freesurfer_assembled_data_fsaverage'
@@ -102,8 +101,7 @@ Atv.save(os.path.join(OUTPUT, "Atv.npz"))
 Atv_ = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
 assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv_.get_singular_values(0), 8.999, rtol=1e-03, atol=1e-03)
-
-
+assert np.all([a.shape == (316308, 316308) for a in Atv])
 
 #############################################################################
 # MULM
