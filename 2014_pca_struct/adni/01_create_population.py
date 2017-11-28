@@ -53,7 +53,7 @@ assert  clinic.shape == (815, 125)
 #Find Controls and converters according to DX at different time points (Conversion time < 2 years is considered)
 controls_bool = clinic["DX Group"] == 'Normal'
 
-converters_bool= (((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD')) | 
+converters_bool= (((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD')) |
     ((clinic["status.sc"] == 'MCI')  & (clinic["status.m12"] =='AD')) |
      ((clinic["status.sc"] == 'MCI')  & (clinic["status.m18"] =='AD')) |
       ((clinic["status.sc"] == 'MCI')  & (clinic["status.m24"] =='AD')) )
@@ -69,16 +69,20 @@ converters_bool= (((clinic["status.sc"] == 'MCI')  & (clinic["status.m06"] =='AD
 #converters_time[np.array(converters_m18_bool)] = 18
 #converters_time[np.array(converters_m24_bool)] = 24
 
-mcic = clinic[converters_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
+mcic = clinic[converters_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', \
+"status.sc", "mri_path_lh","mri_path_rh","MMSE Total Score.sc","ADAS11.sc","ADAS13.sc",\
+"MMSE Total Score.m12","ADAS11.m12","MMSE Total Score.m24","ADAS11.m24"]]
 mcic["DX"] = "MCIc"
 #mcic["time_of_conversion"] = converters_time[np.array(converters_bool==True)]
 
-ctl = clinic[controls_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', "status.sc", "mri_path_lh",  "mri_path_rh"]]
+ctl = clinic[controls_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', \
+"status.sc", "mri_path_lh","mri_path_rh","MMSE Total Score.sc","ADAS11.sc","ADAS13.sc",\
+"MMSE Total Score.m12","ADAS11.m12","MMSE Total Score.m24","ADAS11.m24"]]
 ctl["DX"] = "CTL"
 
 
 pop = pd.concat([mcic, ctl])
-assert pop.shape == (360, 8)
+assert pop.shape == (360, 15)
 
 # Map group
 pop['DX.num'] = pop["DX"].map(GROUP_MAP)
