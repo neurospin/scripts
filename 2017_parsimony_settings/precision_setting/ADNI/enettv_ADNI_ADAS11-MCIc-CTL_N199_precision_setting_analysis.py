@@ -159,7 +159,7 @@ for ite in conesta_ite:
     fig.add_subplot(nb_conesta,1,i)
     title = "CONESTA iterations: " + str(i) + " -  FISTA iterations : " + str(fista_ite_nb)
     nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,\
-                                      title = title,cmap=plt.cm.bwr,)
+                                      title = title,cmap=plt.cm.bwr)
     plt.text(-43,0.023,"proportion of non-zero voxels:%.4f" % round(prop_non_zero,4))
     pdf.savefig()
     plt.close(fig)
