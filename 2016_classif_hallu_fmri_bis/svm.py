@@ -31,8 +31,8 @@ from sklearn import datasets, svm
 from sklearn.feature_selection import SelectPercentile, f_classif
 from mulm import MUOLS
 import scipy
-from scipy import stats 
-from sklearn.preprocessing import StandardScaler      
+from scipy import stats
+from sklearn.preprocessing import StandardScaler
 
 
 BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
@@ -76,7 +76,7 @@ outf.flush()
 C_range = [100,10,1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9]
 
 
-for c in C_range:   
+for c in C_range:
     n=0
     list_predict=list()
     list_true=list()
@@ -98,9 +98,9 @@ for c in C_range:
             coef[n,:]=clf.coef_
             pred=(clf.predict(Xtest))
             list_predict.append(pred)
-            print n 
-            n=n+1 
-        
+            print (n)
+            n=n+1
+
     #############################################################################
     #Save weights and std of SVM coef
     std_coef=coef.std(axis=0)
@@ -110,10 +110,10 @@ for c in C_range:
     out_im = nibabel.Nifti1Image(arr, affine=mask.get_affine())
     filename = os.path.join(BASE_PATH,"results26","multivariate_analysis","svm","no_model_selection","coef_mean_c=%r.nii.gz")%c
     out_im.to_filename(filename)
-        
+
      #Display scores of classification (accuracy, precision and recall)
-    #############################################################################   
-    
+    #############################################################################
+
     t=np.concatenate(list_true)
     p=np.concatenate(list_predict)
     recall_scores = recall_score(t,p,pos_label=None, average=None,labels=[0,1])
@@ -124,7 +124,7 @@ for c in C_range:
     print pre
     print rec
 #############################################################################
-#############################################################################   
+#############################################################################
 
     outf.write(str(c)+" "+ str(acc)+" "+str(pre)+" "+str(rec)+" "+ filename+"\n")
 
@@ -135,7 +135,7 @@ outf.close()
 
 
 #
-#    
+#
 #
 ##Plot with glass brain
 from nilearn import plotting
@@ -144,12 +144,12 @@ img_path = os.path.join(os.path.join(BASE_PATH,"results26","multivariate_analysi
 
 nilearn.plotting.plot_glass_brain(img_path,colorbar=True,plot_abs=False,threshold = 0.00001,title = "SVM : Transi VS Off state - Discriminative map")
 
-    
-#    
-#    
-#    
-#    
-#    
+
+#
+#
+#
+#
+#
 
 
 beta = np.load('/neurospin/brainomics/2016_classif_hallu_fmri_bis/result26s/multivariate_analysis/logistic_regression_tv/results/0/0.1_0.1_0.1/beta.npz')
@@ -167,4 +167,3 @@ from nilearn import plotting
 from nilearn import image
 nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False)
 
-    

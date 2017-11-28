@@ -29,9 +29,7 @@ from sklearn.metrics import roc_auc_score, recall_score
 import pandas as pd
 from collections import OrderedDict
 
-BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
-#WD = os.path.join(BASE_PATH,"results/multivariate_analysis","svm","svm_model_selection")
-WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/model_selection'
+WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
@@ -198,19 +196,16 @@ def reducer(key, values):
 
 
 if __name__ == "__main__":
-    BASE_PATH="/neurospin/brainomics/2016_classif_hallu_fmri_bis"
 
-    WD = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/svm/model_selection"
-    INPUT_DATA_X = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','T.npy')
-    INPUT_DATA_y = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','y_state.npy')
-    INPUT_DATA_subject = os.path.join(BASE_PATH,'results_nov/multivariate_analysis/data','subject.npy')
-    INPUT_MASK_PATH = os.path.join(BASE_PATH,'results_nov',"multivariate_analysis","data","MNI152_T1_3mm_brain_mask.nii.gz")
-    INPUT_CSV = os.path.join(BASE_PATH,"population26oct.txt")
+    WD = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19"
+    INPUT_DATA_X = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19/T_scores.npy"
+    INPUT_DATA_y = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19/y.npy"
+    INPUT_DATA_subject = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19/subject.npy"
+    INPUT_MASK_PATH = "/neurospin/brainomics/2016_classif_hallu_fmri_bis/results/multivariate_analysis/without_subject19/svm_on_PCA_comp_withou_19/MNI152_T1_3mm_brain_mask.nii.gz"
 
-    pop = pd.read_csv(INPUT_CSV,delimiter=' ')
-    number_subjects = pop.shape[0]
-    NFOLDS_OUTER = number_subjects
+    NFOLDS_OUTER = 37
     NFOLDS_INNER = 5
+    number_subjects = 37
 
     #############################################################################
     ## Create config file
@@ -256,8 +251,7 @@ if __name__ == "__main__":
     #assert len(C_range) == 12
 
 
-    user_func_filename = os.path.join(os.environ["HOME"],
-        "git", "scripts", "2016_classif_hallu_fmri_bis", "svm_doubleCV.py")
+    user_func_filename = "/home/ad247405/git/scripts/2016_classif_hallu_fmri_bis/svm_doubleCV_on_PCA_comp.py"
 
     config = dict(data=dict(X=INPUT_DATA_X, y=INPUT_DATA_y), subject = INPUT_DATA_subject,
                   params=C_range, resample=cv,

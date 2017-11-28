@@ -32,7 +32,7 @@ from brainomics import array_utils
 import mapreduce
 from statsmodels.stats.inter_rater import fleiss_kappa
 
-WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/2017/results_10000ite'
+WD = '/neurospin/brainomics/2016_classif_hallu_fmri_bis/results_nov/multivariate_analysis/enettv/model_selection'
 def config_filename(): return os.path.join(WD,"config_dCV.json")
 def results_filename(): return os.path.join(WD,"results_dCV.xlsx")
 #############################################################################
@@ -108,53 +108,53 @@ def scores(key, paths, config, as_dataframe=False):
     auc = roc_auc_score(y_true, prob_pred) #area under curve score.
 
     # P-values
-    success = r * s
-    success = success.astype('int')
-    prob_class1 = np.count_nonzero(y_true) / float(len(y_true))
-    pvalue_recall0_true_prob = binom_test(success[0], s[0], 1 - prob_class1,alternative = 'greater')
-    pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
-    pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
-    pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
-    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
-
+#    success = r * s
+#    success = success.astype('int')
+#    prob_class1 = np.count_nonzero(y_true) / float(len(y_true))
+#    pvalue_recall0_true_prob = binom_test(success[0], s[0], 1 - prob_class1,alternative = 'greater')
+#    pvalue_recall1_true_prob = binom_test(success[1], s[1], prob_class1,alternative = 'greater')
+#    pvalue_recall0_unknwon_prob = binom_test(success[0], s[0], 0.5,alternative = 'greater')
+#    pvalue_recall1_unknown_prob = binom_test(success[1], s[1], 0.5,alternative = 'greater')
+#    pvalue_recall_mean = binom_test(success[0]+success[1], s[0] + s[1], p=0.5,alternative = 'greater')
+#
 
     # Beta's measures of similarity
-    betas = np.hstack([item["beta"][penalty_start:, :] for item in values]).T
-
-    # Correlation
-    R = np.corrcoef(betas)
-    #print R
-    R = R[np.triu_indices_from(R, 1)]
-    # Fisher z-transformation / average
-    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
-    # bracktransform
-    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
+#    betas = np.hstack([item["beta"][penalty_start:, :] for item in values]).T
+#
+#    # Correlation
+#    R = np.corrcoef(betas)
+#    #print R
+#    R = R[np.triu_indices_from(R, 1)]
+#    # Fisher z-transformation / average
+#    z_bar = np.mean(1. / 2. * np.log((1 + R) / (1 - R)))
+#    # bracktransform
+#    r_bar = (np.exp(2 * z_bar) - 1) /  (np.exp(2 * z_bar) + 1)
 
     # threshold betas to compute fleiss_kappa and DICE
-    try:
-        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
-        #print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
-        #print(np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
-        #                   rtol=0, atol=1e-02))
-
-        # Compute fleiss kappa statistics
-        beta_signed = np.sign(betas_t)
-        table = np.zeros((beta_signed.shape[1], 3))
-        table[:, 0] = np.sum(beta_signed == 0, 0)
-        table[:, 1] = np.sum(beta_signed == 1, 0)
-        table[:, 2] = np.sum(beta_signed == -1, 0)
-        fleiss_kappa_stat = fleiss_kappa(table)
-
-        # Paire-wise Dice coeficient
-        ij = [[i, j] for i in range(betas.shape[0]) for j in range(i+1, betas.shape[0])]
-        dices = list()
-        for idx in ij:
-            A, B = beta_signed[idx[0], :], beta_signed[idx[1], :]
-            dices.append(float(np.sum((A == B)[(A != 0) & (B != 0)])) / (np.sum(A != 0) + np.sum(B != 0)))
-        dice_bar = np.mean(dices)
-    except:
-        dice_bar = fleiss_kappa_stat = 0
-
+#    try:
+#        betas_t = np.vstack([array_utils.arr_threshold_from_norm2_ratio(betas[i, :], .99)[0] for i in range(betas.shape[0])])
+#        #print "--", np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1))
+#        #print(np.allclose(np.sqrt(np.sum(betas_t ** 2, 1)) / np.sqrt(np.sum(betas ** 2, 1)), [0.99]*5,
+#        #                   rtol=0, atol=1e-02))
+#
+#        # Compute fleiss kappa statistics
+#        beta_signed = np.sign(betas_t)
+#        table = np.zeros((beta_signed.shape[1], 3))
+#        table[:, 0] = np.sum(beta_signed == 0, 0)
+#        table[:, 1] = np.sum(beta_signed == 1, 0)
+#        table[:, 2] = np.sum(beta_signed == -1, 0)
+#        fleiss_kappa_stat = fleiss_kappa(table)
+#
+#        # Paire-wise Dice coeficient
+#        ij = [[i, j] for i in range(betas.shape[0]) for j in range(i+1, betas.shape[0])]
+#        dices = list()
+#        for idx in ij:
+#            A, B = beta_signed[idx[0], :], beta_signed[idx[1], :]
+#            dices.append(float(np.sum((A == B)[(A != 0) & (B != 0)])) / (np.sum(A != 0) + np.sum(B != 0)))
+#        dice_bar = np.mean(dices)
+#    except:
+#        dice_bar = fleiss_kappa_stat = 0
+#
     scores = OrderedDict()
     scores['key'] = key
     try:
@@ -172,19 +172,19 @@ def scores(key, paths, config, as_dataframe=False):
     scores['recall_1'] = r[1]
     scores['recall_mean'] = r.mean()
     scores["auc"] = auc
-    scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
-    scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
-    scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
-    scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
-    scores['pvalue_recall_mean'] = pvalue_recall_mean
-    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
-                                    float(np.prod(betas.shape))
-    scores['beta_r_bar'] = r_bar
-    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
-    scores['beta_dice_bar'] = dice_bar
-
-    scores['beta_dice'] = str(dices)
-    scores['beta_r'] = str(R)
+#    scores['pvalue_recall0_true_prob_one_sided'] = pvalue_recall0_true_prob
+#    scores['pvalue_recall1_true_prob_one_sided'] = pvalue_recall1_true_prob
+#    scores['pvalue_recall0_unknwon_prob_one_sided'] = pvalue_recall0_unknwon_prob
+#    scores['pvalue_recall1_unknown_prob_one_sided'] = pvalue_recall1_unknown_prob
+#    scores['pvalue_recall_mean'] = pvalue_recall_mean
+#    scores['prop_non_zeros_mean'] = float(np.count_nonzero(betas_t)) / \
+#                                    float(np.prod(betas.shape))
+#    scores['beta_r_bar'] = r_bar
+#    scores['beta_fleiss_kappa'] = fleiss_kappa_stat
+#    scores['beta_dice_bar'] = dice_bar
+#
+#    scores['beta_dice'] = str(dices)
+#    scores['beta_r'] = str(R)
 
     if as_dataframe:
         scores = pd.DataFrame([list(scores.values())], columns=list(scores.keys()))
