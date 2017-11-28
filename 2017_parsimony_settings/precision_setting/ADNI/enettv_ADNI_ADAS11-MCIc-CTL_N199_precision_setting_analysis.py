@@ -120,3 +120,49 @@ fig.tight_layout()
 pdf.savefig()
 plt.close(fig)
 pdf.close()
+
+
+
+
+# 3) Save Beta map for each conesta iteration in nifti format and display glass brain with iterations info
+##############################################################################
+BASE_PATH = "/neurospin/brainomics/2017_parsimony_settings/precision_setting/ADNI_ADAS11-MCIc-CTL/run"
+
+
+snap_path = os.path.join(BASE_PATH,"conesta_ite_snapshots")
+os.makedirs(snap_path, exist_ok=True)
+beta_path = os.path.join(BASE_PATH,"conesta_ite_beta")
+os.makedirs(beta_path, exist_ok=True)
+conesta_ite = sorted(os.listdir(snap_path))
+nb_conesta = len(conesta_ite)
+i=1
+pdf_path = os.path.join(BASE_PATH,"weight_map_across_iterations.pdf")
+pdf = PdfPages(pdf_path)
+fig = plt.figure(figsize=(11.69, 8.27))
+for ite in conesta_ite:
+    path = os.path.join(snap_path,ite)
+    conesta_ite_number = ite[-11:-4]
+    print ("........Iterations: " + str(conesta_ite_number)+"........")
+    ite = np.load(path)
+    fista_ite_nb =ite['continuation_ite_nb'][-1]
+    beta = ite["beta"][penalty_start:,:]
+    beta_t, t = array_utils.arr_threshold_from_norm2_ratio(beta[penalty_start:], 0.99)
+    prop_non_zero = float(np.count_nonzero(beta_t)) / float(np.prod(beta.shape))
+    print ("Proportion of non-zeros voxels " + str(prop_non_zero))
+    arr = np.zeros(mask_bool.shape);
+    arr[mask_bool] = beta.ravel()
+    out_im = nibabel.Nifti1Image(arr, affine=babel_mask.get_affine())
+    filename = os.path.join(beta_path,"beta_"+conesta_ite_number+".nii.gz")
+    out_im.to_filename(filename)
+    beta = nibabel.load(filename).get_data()
+    beta_t,t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+    fig.add_subplot(nb_conesta,1,i)
+    title = "CONESTA iterations: " + str(i) + " -  FISTA iterations : " + str(fista_ite_nb)
+    nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,threshold = t,\
+                                      title = title,cmap=plt.cm.bwr,)
+    plt.text(-43,0.023,"proportion of non-zero voxels:%.4f" % round(prop_non_zero,4))
+    pdf.savefig()
+    plt.close(fig)
+    i = i +1
+pdf.close()
+#############################################################################
