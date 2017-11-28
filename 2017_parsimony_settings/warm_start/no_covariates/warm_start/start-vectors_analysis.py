@@ -41,3 +41,8 @@ start == beta_final
 ite = np.load("/neurospin/brainomics/2017_parsimony_settings/warm_restart/NUSDAST_30yo/\
 VBM/no_covariates/warm_restart/FISTA_snapshots/cv00_all_as_start_vector/\
 model_selectionCV/cv03/all/0.1_0.08_0.72_0.2/fista_ite_snapshots/fista_ite_00001.npz")
+beta_new = ite["beta_new"]
+beta_old = ite["beta_old"]
+
+beta_start['arr_0'] == beta_old
+beta_start['arr_0'] == beta_new
