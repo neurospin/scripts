@@ -60,7 +60,7 @@ for i in range(0,5):
 
 
 print (frobenius_norm.mean(axis=1))
-
+#PARAMETRIC
 #Test Frobenius norm significance
 tval, pval = scipy.stats.ttest_rel(frobenius_norm[0,:],frobenius_norm[2,:])
 print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
@@ -71,6 +71,44 @@ print(("Frobenius stats for TV vs Enet: T = %r , pvalue = %r ") %(tval, pval))
 
 tval, pval = scipy.stats.ttest_rel(frobenius_norm[3,:],frobenius_norm[2,:])
 print(("Frobenius stats for TV vs graphNet: T = %r , pvalue = %r ") %(tval, pval))
+
+#NON PARAMETRIC
+#Test Frobenius norm significance
+tval, pval = scipy.stats.wilcoxon(frobenius_norm[0,:],frobenius_norm[2,:])
+print(("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
+#Test Frobenius norm significance
+tval, pval = scipy.stats.wilcoxon(frobenius_norm[1,:],frobenius_norm[2,:])
+print(("Frobenius stats for TV vs Enet: T = %r , pvalue = %r ") %(tval, pval))
+
+
+tval, pval = scipy.stats.wilcoxon(frobenius_norm[3,:],frobenius_norm[2,:])
+print(("Frobenius stats for TV vs graphNet: T = %r , pvalue = %r ") %(tval, pval))
+
+
+
+y = frobenius_norm[1,:]-frobenius_norm[2,:]
+scipy.stats.shapiro(y)
+#Corrected pvalue using Tmax with 1000 permutation
+def one_sample_permutation_test(y,nperms):
+    nperms=1000
+    tval, pval = scipy.stats.ttest_1samp(y,popmean=0)
+    max_t = list()
+    two_tailed = True
+
+    for i in range(nperms):
+            r=np.random.choice((-1,1),5)
+            frob_permutated=r*abs(y)
+            tvals_perm,_ = scipy.stats.ttest_1samp( frob_permutated,popmean=0)
+            if two_tailed:
+                tvals_perm = np.abs(tvals_perm)
+            max_t.append(np.nanmax(tvals_perm))
+            #print(i)
+
+    max_t = np.array(max_t)
+    tvals_perm = np.abs(tvals_perm) if two_tailed else  tvals_perm
+    pvalues = (np.sum(max_t> tval)+1) / float(nperms)
+    print (pvalues)
+    return pvalues
 
 ################################################################################
 

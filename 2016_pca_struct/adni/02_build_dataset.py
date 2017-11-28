@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 25 15:46:15 2014
-
-@author:  edouard.duchesnay@cea.fr
-@license: BSD-3-Clause
-"""
 
 import os
 import numpy as np

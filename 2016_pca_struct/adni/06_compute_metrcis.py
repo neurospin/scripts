@@ -176,7 +176,7 @@ def one_sample_permutation_test(y,nperms):
             Tperm= np.abs(Tperm)
             max_t.append(Tperm)
     max_t = np.array(max_t)
-    pvalue = np.sum(max_t>=np.abs(T)) / float(nperms)
+    pvalue = np.sum(max_t>np.abs(T)) / float(nperms)
     return pvalue
 
 

@@ -27,7 +27,7 @@ from parsimony.utils import plots
 import scipy.stats
 import array_utils
 
-
+import scipy.stats
 
 BASE_DIR = "/neurospin/brainomics/2016_pca_struct/dice"
 BASE_DIR_GN = "/neurospin/brainomics/2016_pca_struct/dice/2017"
@@ -166,6 +166,7 @@ plt.legend()
 plt.show()
 
 
+#PARAMETRIC TEST
 #Test significance of MSE  (two samples related t test)
 ##################################################################################
 # TV vs sparse
@@ -199,6 +200,77 @@ print (("Frobenius stats for TV vs GraphNet: T = %r , pvalue = %r ") %(tval, pva
 #TV vs Jenatton
 tval, pval = scipy.stats.ttest_rel(frob_test [:,4],frob_test [:,5], axis=0)
 print (("Frobenius stats for TV vs Jenatton: T = %r , pvalue = %r ") %(tval, pval))
+
+
+#NON PARAMETRIC TEST
+#Test significance of MSE  (two samples related t test)
+##################################################################################
+# TV vs sparse
+tval, pval = scipy.stats.wilcoxon(MSE_results [:,1],MSE_results [:,5])
+print (("MSE stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
+#TV vs Enet
+tval, pval = scipy.stats.wilcoxon(MSE_results [:,2],MSE_results [:,5])
+print (("MSE stats for TV vs Enet: T = %r , pvalue = %r ") %(tval, pval))
+#TV vs GraphNet
+tval, pval = scipy.stats.wilcoxon(MSE_results [:,3],MSE_results [:,5])
+print (("MSE stats for TV vs GraphNet: T = %r , pvalue = %r ") %(tval, pval))
+
+tval, pval = scipy.stats.wilcoxon(MSE_results [:,4],MSE_results [:,5])
+print (("MSE stats for TV vs Jenatton: T = %r , pvalue = %r ") %(tval, pval))
+
+
+#Test significance of Frobenius norm  (two samples related t test)
+# TV vs sparse
+tval, pval = scipy.stats.wilcoxon(frob_test [:,1],frob_test [:,5])
+print (("Frobenius stats for TV vs sparse: T = %r , pvalue = %r ") %(tval, pval))
+
+#TV vs Enet
+tval, pval = scipy.stats.wilcoxon(frob_test [:,2],frob_test [:,5])
+print (("Frobenius stats for TV vs Enet: T = %r , pvalue = %r ") %(tval, pval))
+
+#TV vs GraphNet
+tval, pval = scipy.stats.wilcoxon(frob_test [:,3],frob_test [:,5])
+print (("Frobenius stats for TV vs GraphNet: T = %r , pvalue = %r ") %(tval, pval))
+
+
+#TV vs Jenatton
+tval, pval = scipy.stats.wilcoxon(frob_test [:,4],frob_test [:,5])
+print (("Frobenius stats for TV vs Jenatton: T = %r , pvalue = %r ") %(tval, pval))
+
+
+
+
+
+y = frob_test[:,4]-frob_test[:,1]
+one_sample_permutation_test(y,nperms)
+#Corrected pvalue using Tmax with 1000 permutation
+def one_sample_permutation_test(y,nperms):
+    nperms=1000
+    tval, pval = scipy.stats.ttest_1samp(y,popmean=0)
+    max_t = list()
+    two_tailed = True
+
+    for i in range(nperms):
+            r=np.random.choice((-1,1),50)
+            frob_permutated=r*abs(y)
+            tvals_perm,_ = scipy.stats.ttest_1samp( frob_permutated,popmean=0)
+            if two_tailed:
+                tvals_perm = np.abs(tvals_perm)
+            max_t.append(np.nanmax(tvals_perm))
+            #print(i)
+
+    max_t = np.array(max_t)
+    tvals_perm = np.abs(tvals_perm) if two_tailed else  tvals_perm
+    pvalues = ((np.sum(max_t> np.abs(tval))+1) / float(nperms))
+    print (pvalues)
+    return pvalues
+
+
+
+
+
+
+
 
  ##################################################################################
 for i in range(10):

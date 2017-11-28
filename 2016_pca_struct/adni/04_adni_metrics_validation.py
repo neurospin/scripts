@@ -21,13 +21,13 @@ import scipy.stats
 ################
 
 INPUT_BASE_DIR = "/neurospin/brainomics/2016_pca_struct/adni/adni_model_selection_5x5folds"
-INPUT_DIR = os.path.join(INPUT_BASE_DIR,"model_selectionCV")         
-INPUT_MASK_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/mask.npy"              
-INPUT_RESULTS_FILE=os.path.join(INPUT_BASE_DIR,"results_dCV_5folds.xlsx")                          
+INPUT_DIR = os.path.join(INPUT_BASE_DIR,"model_selectionCV")
+INPUT_MASK_PATH = "/neurospin/brainomics/2016_pca_struct/adni/data/mask.npy"
+INPUT_RESULTS_FILE=os.path.join(INPUT_BASE_DIR,"results_dCV_5folds.xlsx")
 INPUT_CONFIG_FILE = os.path.join(INPUT_BASE_DIR,"config_dCV.json")
 
 INPUT_DIR_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni/model_selectionCV"
-INPUT_RESULTS_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni/results_dCV_5folds.xlsx"
+INPUT_RESULTS_GRAPHNET = "/neurospin/brainomics/2016_pca_struct/adni/2017_GraphNet_adni_corrected_A_500ite_patients/results_dCV_5folds.xlsx"
 
 N_COMP = 10
 N_OUTER_FOLDS = 5
@@ -77,7 +77,7 @@ for i in range(5):
     components_enet[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enet_param[i],"components.npz"))['arr_0']
     components_tv[:,:,i] = np.load(os.path.join(INPUT_DIR,"cv0%s/all" %(i),best_enettv_param[i],"components.npz"))['arr_0']
     components_gn[:,:,i] = np.load(os.path.join(INPUT_DIR_GRAPHNET,"cv0%s/all" %(i),best_graphNet_param[i],"components.npz"))['arr_0']
-    
+
 for i in range(10):
     for j in range(5):
         components_sparse[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_sparse[:,i,j], .99)
@@ -85,7 +85,7 @@ for i in range(10):
         components_tv[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_tv[:,i,j], .99)
         components_gn[:,i,j],t = array_utils.arr_threshold_from_norm2_ratio(components_tv[:,i,j], .99)
 
-        
+
 components_tv = identify_comp(components_tv)
 components_sparse = identify_comp(components_sparse)
 components_enet = identify_comp(components_enet)
@@ -98,9 +98,9 @@ dice_sparse = list()
 all_pairwise_dice_sparse = list()
 dice_enet = list()
 all_pairwise_dice_enet = list()
-dice_gn = list() 
+dice_gn = list()
 all_pairwise_dice_gn = list()
-dice_enettv = list() 
+dice_enettv = list()
 all_pairwise_dice_enettv = list()
 for i in range(N_COMP):
     dice_sparse.append(dice_bar(components_sparse[:,i,:])[0]) #mean of all 10 pairwise dice
@@ -111,24 +111,24 @@ for i in range(N_COMP):
     all_pairwise_dice_gn.append(dice_bar(components_gn[:,i,:])[1])
     dice_enettv.append(dice_bar(components_tv[:,i,:])[0])
     all_pairwise_dice_enettv.append(dice_bar(components_tv[:,i,:])[1])
-print (np.mean(dice_sparse)) 
-print (np.mean(dice_enet))  
-print (np.mean(dice_gn))                         
+print (np.mean(dice_sparse))
+print (np.mean(dice_enet))
+print (np.mean(dice_gn))
 print (np.mean(dice_enettv))
 
 sparse_plot= plt.plot(np.arange(1,11),dice_sparse,'b-o',markersize=3,label = "Sparse PCA")
 enet_plot= plt.plot(np.arange(1,11),dice_enet,'g-^',markersize=3,label = "ElasticNet PCA")
 gn_plot= plt.plot(np.arange(1,11),dice_gn,'y-s',markersize=3,label = "GraphNet PCA")
 tv_plot= plt.plot(np.arange(1,11),dice_enettv,'r-s',markersize=3,label = "PCA-TV")
-    
 
-#############################################################################  
 
-  
-#Statistical test of Dice index 
-###############################################################################  
+#############################################################################
 
-# I want to test whether this list of pairwise diff is different from zero? 
+
+#Statistical test of Dice index
+###############################################################################
+
+# I want to test whether this list of pairwise diff is different from zero?
 #(i.e TV leads to different results than sparse?).
 #We cannot do a one-sample t-test since samples are not independant!
 #Use of permuations
@@ -153,24 +153,24 @@ def identify_comp(comp):
 
         for k in range(1,N_OUTER_FOLDS):
             comp[:,i,k] = comp[:,np.argmax(corr,axis=0)[k],k]
-    return comp          
+    return comp
 
 
-    
+
 def one_sample_permutation_test(y,nperms):
-    T,p =scipy.stats.ttest_1samp(y,0.0)       
+    T,p =scipy.stats.ttest_1samp(y,0.0)
     max_t = list()
-    
-    for i in range(nperms): 
+
+    for i in range(nperms):
             r=np.random.choice((-1,1),y.shape)
             y_p=r*abs(y)
-            Tperm,pp =scipy.stats.ttest_1samp(y_p,0.0)    
+            Tperm,pp =scipy.stats.ttest_1samp(y_p,0.0)
             Tperm= np.abs(Tperm)
-            max_t.append(Tperm)           
+            max_t.append(Tperm)
     max_t = np.array(max_t)
     pvalue = np.sum(max_t>=np.abs(T)) / float(nperms)
     return pvalue
-    
+
 
 def dice_bar(thresh_comp):
     """Given an array of thresholded component of size n_voxels x n_folds,
@@ -190,5 +190,5 @@ def dice_bar(thresh_comp):
               np.sum(thresh_comp_n0[:,idx[1]]))
              for idx in ij]
     dices = np.array([float(num[i]) / denom[i] for i in range(n_corr)])
- 
+
     return dices.mean(), dices
