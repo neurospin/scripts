@@ -13,20 +13,15 @@ import nibabel as nb
 import shutil
 
 
-#import proj_classif_config
-GENDER_MAP = {'female': 0, 'male': 1}
-BASE_PATH = "/neurospin/brainomics/2016_pca_struct/adni"
-INPUT_FS = os.path.join(BASE_PATH,"freesurfer_assembled_data_fsaverage")
-TEMPLATE_PATH = os.path.join(BASE_PATH, "data/freesurfer_template")
-
-INPUT_CSV = "/neurospin/brainomics/2017_memento/analysis/FS/data/adni/population.csv"
-
+BASE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects"
+TEMPLATE_PATH = os.path.join(BASE_PATH,"freesurfer_template")
 MASK_PATH = "/neurospin/brainomics/2017_memento/analysis/FS/data/mask.npy"
-OUTPUT = "/neurospin/brainomics/2017_memento/analysis/FS/data/adni"
+INPUT_CSV = "/neurospin/brainomics/2017_memento/analysis/FS/data/sczCo/population.csv"
+
+OUTPUT = "/neurospin/brainomics/2017_memento/analysis/FS/data/sczCo/"
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
-pop['PTGENDER.num'] = pop["Sex"].map(GENDER_MAP)
 
 #############################################################################
 ## Build mesh template
@@ -42,33 +37,35 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT
 #############################################################################
 # Read images
 n = len(pop)
-assert n == 706
+assert n == 314
 y = np.zeros((n, 1)) # DX
 surfaces = list()
 
-for i, ID in enumerate(pop['Subject ID']):
-    cur = pop[pop["Subject ID"] == ID]
+for i, index in enumerate(pop.index):
+    cur = pop[pop.index== index]
     mri_path_lh = cur["mri_path_lh"].values[0]
     mri_path_rh = cur["mri_path_rh"].values[0]
     left = nb.load(mri_path_lh).get_data().ravel()
     right = nb.load(mri_path_rh).get_data().ravel()
     surf = np.hstack([left, right])
     surfaces.append(surf)
-    y[i, 0] = cur["DX.num"]
+    y[i, 0] = cur["dx_num"]
     print (i)
 
 
 Xtot = np.vstack(surfaces)
-assert Xtot.shape == (706, 327684)
+assert Xtot.shape == (314, 327684)
 
 mask = np.load(MASK_PATH)
 
 
 X = Xtot[:, mask]
-assert X.shape == (706, 299879)
+assert X.shape == (314, 299879)
 
 #############################################################################
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 np.save(os.path.join(OUTPUT, "X.npy"), X)
 
 #############################################################################
+
+

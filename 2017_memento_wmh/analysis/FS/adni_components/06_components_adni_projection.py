@@ -17,74 +17,24 @@ import seaborn as sns
 import parsimony.utils.check_arrays as check_arrays
 from sklearn import preprocessing
 
-BASE_PATH = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_all"
+BASE_PATH = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI"
 MASK_PATH = "/neurospin/brainomics/2017_memento/analysis/FS/data/mask.npy"
-COMP_PATH = os.path.join(BASE_PATH,"results_3triscotte","0","struct_pca_0.01_0.5_0.1","components.npz")
-INPUT_CSV = "/neurospin/brainomics/2017_memento/analysis/FS/population.csv"
+COMP_PATH = os.path.join(BASE_PATH,"results","0","pca_0.0_0.0_0.0","components.npz")
+INPUT_CSV_MEMENTO = "/neurospin/brainomics/2017_memento/analysis/FS/population.csv"
+INPUT_CSV_ADNI = "/neurospin/brainomics/2017_memento/analysis/FS/data/adni/population.csv"
 
 
-pop_memento = pd.read_csv(INPUT_CSV)
-assert pop_memento.shape == (2164, 27)
-GROUP_MAP = {0: "No", 1: 'AD', 2: 'Vasc', 3:"Mixte", 4:"DFT",\
-             5:"Parkinson", 6:"Corps de Lewy", 7:"Autres"}
-pop_memento['DX'] = pop_memento ["etiol"].map(GROUP_MAP)
+pop_adni = pd.read_csv(INPUT_CSV_ADNI)
 
-COMP_PATH = os.path.join(BASE_PATH,"results_3triscotte","0","struct_pca_0.01_0.5_0.1","components.npz")
-PROJ_PATH = os.path.join(BASE_PATH,"results_3triscotte","0","struct_pca_0.01_0.5_0.1","X_test_transform.npz")
+COMP_PATH = os.path.join(BASE_PATH,"results","0","pca_0.0_0.0_0.0","components.npz")
+PROJ_PATH = os.path.join(BASE_PATH,"results","0","pca_0.0_0.0_0.0","X_test_transform.npz")
 
 components = np.load(COMP_PATH)["arr_0"]
 projections = np.load(PROJ_PATH)["arr_0"]
 assert components.shape == (299879, 10)
-assert projections.shape == (2164, 10)
+assert projections.shape == (288, 10)
 
 
-################################################################################
-#Project Memento subejcts
-U_memento = np.load(PROJ_PATH)["arr_0"]
-
-for i in range(10):
-    pop_memento["comp%s"%i] = U_memento[:,i]
-
-
-#Too few subjects of other demence than AD
-pop_memento = pop_memento[pop_memento["DX"]!="Vasc"]
-pop_memento = pop_memento[pop_memento["DX"]!="DFT"]
-pop_memento = pop_memento[pop_memento["DX"]!="Corps de Lewy"]
-pop_memento = pop_memento[pop_memento["DX"]!="Mixte"]
-pop_memento = pop_memento[pop_memento["DX"]!="Autres"]
-
-
-output = "/neurospin/brainomics/2017_memento/analysis/FS/results/PC_score_correlation/struct_pca_0.01_0.5_0.1/memento"
-for i in range(10):
-    T,p = scipy.stats.ttest_ind(pop_memento[pop_memento["etiol"]==0]["comp%r"%i],\
-                                pop_memento[pop_memento["etiol"]==1]["comp%r"%i])
-    sns.set_style("whitegrid")
-    sns.set(font_scale=1.3)
-    plt.figure()
-    ax = sns.violinplot(x="DX", y="comp%r"%i, data=pop_memento,linewidth = 3)
-    plt.tight_layout()
-    plt.legend(loc='lower center',ncol=1)
-    plt.title("ANOVA : T = %f" %T + " and p = %e"%p)
-    plt.savefig(os.path.join(output,"comp%r"%(str(i+1))))
-
-
-
-
-output = "/neurospin/brainomics/2017_memento/analysis/FS/results/PC_score_correlation/struct_pca_0.01_0.5_0.1/memento/mmse"
-for i in range(10):
-    x = pop_memento['mmssctot'][np.isnan(pop_memento['mmssctot'])==False]
-    y = U_memento[:,i][np.array(np.isnan(pop_memento['mmssctot'])==False)]
-    Coef,pvalue = scipy.stats.pearsonr(x,y)
-    mci_status = pop_memento["DX"][np.isnan(pop_memento['mmssctot'])==False]
-    plt.figure()
-    plt.plot(x[mci_status=="No"],y[np.array(mci_status=="No")],'o',label = "No conversion")
-    plt.plot(x[mci_status=="AD"],y[np.array(mci_status=="AD")],'o',label = "AD")
-    plt.xlabel("mmssctot score")
-    plt.ylabel("Score on component %r"%i)
-    plt.legend(loc = "bottom left")
-    plt.title(("Coef of correlation : %s and pvalue = %r"%(np.around(Coef,decimals=3),pvalue)))
-    plt.savefig(os.path.join(output,"comp%r"%(str(i+1))))
-################################################################################
 ################################################################################
 #Project ADNI subjects
 INPUT_CSV = "/neurospin/brainomics/2017_memento/analysis/FS/data/adni/population.csv"
@@ -94,11 +44,7 @@ X_adni = np.load("/neurospin/brainomics/2017_memento/analysis/FS/data/adni/X.npy
 y_adni = np.load("/neurospin/brainomics/2017_memento/analysis/FS/data/adni/y.npy").ravel()
 assert X_adni.shape == (706, 299879)
 
-X_memento = np.load("/neurospin/brainomics/2017_memento/analysis/FS/data/X.npy")
-scaler = preprocessing.StandardScaler().fit(X_memento)
-X_adni = scaler.transform(X_adni)
 U_adni, d = transform(V=components , X = X_adni , n_components=components.shape[1], in_place=False)
-
 assert U_adni.shape == (706, 10)
 
 
@@ -106,7 +52,7 @@ assert U_adni.shape == (706, 10)
 for i in range(10):
     pop_adni["comp%s"%i] = U_adni[:,i]
 
-output = "/neurospin/brainomics/2017_memento/analysis/FS/results/PC_score_correlation/struct_pca_0.01_0.5_0.1/adni"
+output = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/adni_subjects"
 for i in range(10):
     T,p= scipy.stats.f_oneway(pop_adni[pop_adni["DX"]=="CTL"]["comp%r"%i],pop_adni[pop_adni["DX"]=="MCInc"]["comp%r"%i],\
                          pop_adni[pop_adni["DX"]=="MCIc"]["comp%r"%i],pop_adni[pop_adni["DX"]=="AD"]["comp%r"%i] )
@@ -138,9 +84,9 @@ ax = sns.violinplot(x="DX", y='MMSE Total Score.sc', data=pop_adni,linewidth = 3
 plt.tight_layout()
 plt.legend(loc='lower center',ncol=1)
 plt.title("ADNI - ANOVA : T = %f" %T + " and p = %r"%p)
-plt.savefig("/neurospin/brainomics/2017_memento/analysis/FS/results/adni_mmse.png")
+plt.savefig("/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/adni_subjects/adni_mmse.png")
 
-output = "/neurospin/brainomics/2017_memento/analysis/FS/results/PC_score_correlation/struct_pca_0.01_0.5_0.1/adni/mmse"
+output = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/adni_subjects/mmse"
 for i in range(10):
     x = pop_adni['MMSE Total Score.sc'][np.isnan(pop_adni['MMSE Total Score.sc'])==False]
     y = U_adni[:,i][np.array(np.isnan(pop_adni['MMSE Total Score.sc'])==False)]
@@ -157,7 +103,7 @@ for i in range(10):
     plt.title(("Coef of correlation : %s and pvalue = %r"%(np.around(Coef,decimals=3),pvalue)))
     plt.savefig(os.path.join(output,"comp%r"%(str(i+1))))
 
-output = "/neurospin/brainomics/2017_memento/analysis/FS/results/PC_score_correlation/struct_pca_0.01_0.5_0.1/adni/adas11"
+output = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/adni_subjects/adas11"
 for i in range(10):
     x = pop_adni['ADAS11.sc'][np.isnan(pop_adni['ADAS11.sc'])==False]
     y = U_adni[:,i][np.array(np.isnan(pop_adni['ADAS11.sc'])==False)]
@@ -191,16 +137,58 @@ for i in range(10):
 
 
 
+################################################################################
+################################################################################
+#Project memento subjects
+pop_memento = pd.read_csv(INPUT_CSV_MEMENTO)
+assert pop_memento.shape == (2164, 27)
+GROUP_MAP = {0: "No", 1: 'AD', 2: 'Vasc', 3:"Mixte", 4:"DFT",\
+             5:"Parkinson", 6:"Corps de Lewy", 7:"Autres"}
+pop_memento['DX'] = pop_memento ["etiol"].map(GROUP_MAP)
+
+X_memento = np.load("/neurospin/brainomics/2017_memento/analysis/FS/data/X.npy")
+assert X_memento.shape == (2164, 299879)
+#
+#U_memento, d = transform(V=components , X = X_memento , n_components=components.shape[1], in_place=False)
+#assert U_memento.shape == (2164, 10)
+
+U_memento_1, d = transform(V=components , X = X_memento[:1000,:] , n_components=components.shape[1], in_place=False)
+U_memento_2, d = transform(V=components , X = X_memento[1000:,:] , n_components=components.shape[1], in_place=False)
+
+U_memento = np.vstack((U_memento_1,U_memento_2))
+assert U_memento.shape == (2164, 10)
 
 
+#Create dataframe with column of interest
+for i in range(10):
+    pop_memento["comp%s"%i] = U_memento[:,i]
 
 
+#Correlate MEMENTO projections with clinical scores
+
+sns.set_style("whitegrid")
+sns.set(font_scale=1.3)
+plt.figure()
+ax = sns.violinplot(x="DX", y='mmssctot', data=pop_memento,linewidth = 3)
+plt.tight_layout()
+plt.legend(loc='lower center',ncol=1)
+plt.title("memento - ANOVA : T = %f" %T + " and p = %r"%p)
+plt.savefig("/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/memento_subjects/memento_mmse.png")
 
 
-
-
-
-
+output = "/neurospin/brainomics/2017_memento/analysis/FS/results/pcatv_FS_ADNI_MCI/correlations/memento_subjects/mmse"
+for i in range(10):
+    x = pop_memento['mmssctot'][np.isnan(pop_memento['mmssctot'])==False]
+    y = U_memento[:,i][np.array(np.isnan(pop_memento['mmssctot'])==False)]
+    Coef,pvalue = scipy.stats.pearsonr(x,y)
+    mci_status = pop_memento["DX"][np.isnan(pop_memento['mmssctot'])==False]
+    plt.figure()
+    plt.plot(x,y,'o')
+    plt.xlabel("mmssctot score")
+    plt.ylabel("Score on component %r"%i)
+    plt.legend(loc = "bottom left")
+    plt.title(("Coef of correlation : %s and pvalue = %r"%(np.around(Coef,decimals=3),pvalue)))
+    plt.savefig(os.path.join(output,"comp%r"%(str(i+1))))
 
 
 
