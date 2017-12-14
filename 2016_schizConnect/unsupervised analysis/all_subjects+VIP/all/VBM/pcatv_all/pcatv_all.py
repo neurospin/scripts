@@ -122,7 +122,7 @@ def mapper(key, output_collector):
                                     l1=ll1, l2=ll2, ltv=ltv,
                                     Atv=Atv,
                                     criterion="frobenius",
-                                    eps=1e-6,
+                                    eps=1e-4,
                                     max_iter=100,
                                     inner_max_iter=int(1e4),
                                     output=False)

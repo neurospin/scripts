@@ -50,7 +50,7 @@ Created on Thu Feb  9 14:04:05 2017
 ##################################################################################################
 
 
-import os
+#   import os
 import numpy as np
 import pandas as pd
 import glob
@@ -68,29 +68,46 @@ OUTPUT_CSV_SCORES = os.path.join(BASE_PATH,"population_and_scores.csv")
 
 
 scores = pd.read_csv(INPUT_CLINIC_SCORE,delimiter = ";",encoding = "ISO-8859-1")
-scores = scores[["code_patient","PANSS_NEGATIVE","PANSS_POSITIVE","TTT_VIE_NEURO_AAO",\
-"TTT_VIE_ANTIPSY_AAO",\
-"MEDNOM1","MEDLIATC1","MEDIND1","MEDPOSO1",
-"MEDNOM2","MEDLIATC2","MEDIND2","MEDPOSO2",
-"MEDNOM3","MEDLIATC3","MEDIND3","MEDPOSO3",
-"MEDNOM4","MEDLIATC4","MEDIND4","MEDPOSO4",
-"MEDNOM5","MEDLIATC5","MEDIND5","MEDPOSO5",
-"MEDNOM6","MEDLIATC6","MEDIND6","MEDPOSO6",
-"MEDNOM7","MEDLIATC7","MEDIND7","MEDPOSO7",
-"MEDNOM8","MEDLIATC8","MEDIND8","MEDPOSO8",
-"MEDNOM9","MEDLIATC9","MEDIND9","MEDPOSO9"]]
+#scores = scores[["code_patient","PANSS_NEGATIVE","PANSS_POSITIVE","PANSS_GALPSYCHOPAT",\
+              "PANSS_COMPOSITE","CDSS_Total","FAST_TOT",\
+#                 "PANSS_N1","PANSS_N2","PANSS_N3","PANSS_N4","PANSS_N5","PANSS_N6","PANSS_N7",\
+#"TTT_VIE_NEURO_AAO",\
+#"TTT_VIE_ANTIPSY_AAO",\
+#"MEDNOM1","MEDLIATC1","MEDIND1","MEDPOSO1",
+#"MEDNOM2","MEDLIATC2","MEDIND2","MEDPOSO2",
+#"MEDNOM3","MEDLIATC3","MEDIND3","MEDPOSO3",
+#"MEDNOM4","MEDLIATC4","MEDIND4","MEDPOSO4",
+#"MEDNOM5","MEDLIATC5","MEDIND5","MEDPOSO5",
+#"MEDNOM6","MEDLIATC6","MEDIND6","MEDPOSO6",
+#"MEDNOM7","MEDLIATC7","MEDIND7","MEDPOSO7",
+#"MEDNOM8","MEDLIATC8","MEDIND8","MEDPOSO8",
+#"MEDNOM9","MEDLIATC9","MEDIND9","MEDPOSO9"]]
+
+scores.set_value(477,"code_patient","C0828-001-207-001")
+scores.set_value(478,"code_patient","C0828-001-208-001")
+scores.set_value(479,"code_patient","C0828-001-209-001")
+
+scores["code_patient"][477] = "C0828-001-207-001"
+scores["code_patient"][478] = "C0828-001-208-001"
+scores["code_patient"][479] = "C0828-001-209-001"
 
 scores["code_vip"] = scores["code_patient"]
-scores.loc[len(scores)] = ["C0828-001-207-001","","","","",\
-"","","","","","","","","","","","","","","","","","","","","","","","","","",\
-"","","","","","","","","","","C0828-001-207-001"]
-scores.loc[len(scores)] = ["C0828-001-208-001","","","","",\
-"","","","","","","","","","","","","","","","","","","","","","","","","","",\
-"","","","","","","","","","","C0828-001-208-001"]
-scores.loc[len(scores)] = ["C0828-001-209-001","","","","",\
-"","","","","","","","","","","","","","","","","","","","","","","","","","",\
-"","","","","","","","","","","C0828-001-209-001"]
 
+
+#
+#scores.loc[len(scores)] = ["C0828-001-207-001","","","","","","","","",\
+#"","","","","","","","","","","","","","","","","","","","","","","","","","",\
+#"","","","","","","",\
+#"","","","","","","","","","","C0828-001-207-001"]
+#scores.loc[len(scores)] = ["C0828-001-208-001","","","","","","","","",\
+#"","","","","","","","","","","","","","","","","","","","","","","","","","",\
+#"","","","","","","",\
+#"","","","","","","","","","","C0828-001-208-001"]
+#scores.loc[len(scores)] = ["C0828-001-209-001","","","","","","","","",\
+#"","","","","","","","","","","","","","","","","","","","","","","","","","",\
+#"","","","","","","",\
+#"","","","","","","","","","","C0828-001-209-001"]
+#
 
 # Read clinic data
 clinic = pd.read_excel(INPUT_CLINIC_FILENAME)
@@ -121,13 +138,13 @@ assert pop.shape == (92, 24)
 
 
 pop = pop.merge(scores,on="code_vip")
-assert pop.shape ==(92, 28)
+assert pop.shape ==(92, 69)
 
 # Map group
 DX_MAP = {1.0: 0, 3.0: 1}
 SEX_MAP = {1.0: 0, 2.0: 1.0}
 pop['dx'] = pop["diagnostic"].map(DX_MAP)
-pop['sex_code'] = pop["sexe"].map(SEX_MAP)
+pop['sex_code'] = pop["sexe_x"].map(SEX_MAP)
 
 
 assert sum(pop.dx.values==0) == 53
