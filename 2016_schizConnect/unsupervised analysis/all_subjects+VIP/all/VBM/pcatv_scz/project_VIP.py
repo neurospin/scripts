@@ -39,6 +39,55 @@ X_vip = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VI
 
 pop_vip = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/VIP/VBM/population_and_scores.csv")
 age = pop_vip["age"].values
+sex = pop_vip["sex_code"].values
+
+
+scores = "CVLT_RC_listeA_tot","CVLT_P_listeA_tot","CVLT_I_listeA_tot",\
+"CVLT_RICT_RC_tot","CVLT_RICT_P_tot","CVLT_RICT_I_tot","CVLT_RICT_I_tot",\
+"WAIS_COMPL_IM_STD","WAIS_COMPL_IM_CR","WAIS_VOC_TOT","WAIS_VOC_STD",\
+"WAIS_VOC_CR","WAIS_COD_tot","WAIS_COD_err","WAIS_COD_brut","WAIS_COD_CR",\
+"WAIS_COD_STD","WAIS_SIMI_tot","WAIS_SIMI_STD","WAIS_SIMI_CR","NART33_Tot",\
+"NART33_QIT","NART33_QIV","NART33_QIP","WAIS_CUB_TOT","WAIS_CUB_STD",\
+"WAIS_CUB_CR","WAIS_ARITH_T0T","WAIS_ARITH_STD","WAIS_ARITH_CR","WAIS_MC_OD_TOT",\
+
+scores = "WAIS_MC_OINV_TOT","WAIS_MC_TOT","WAIS_MC_EMP_END","WAIS_MC_EMP_ENV","WAIS_MC_STD",\
+"WAIS_MC_CR","WAIS_MC_EMP_END_STD","WAIS_MC_EMP_ENV_STD","WAIS_INFO_TOT","WAIS_INFO_STD",\
+"WAIS_INFO_CR","WAIS_SLC_TOT","WAIS_SLC_STD","WAIS_SLC_CR","WAIS_ASS_OBJ_TOT","WAIS_ASS_OBJ_STD",\
+"WAIS_ASS_OBJ_CR","WAIS_DET_MENT",
+
+# Turn interactive plotting off
+plt.ioff()
+
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
+all_subjects/results/pcatv_scz/results/projection_vip/scores"
+for s in scores:
+    output = os.path.join(WD,s)
+    if os.path.exists(output) == False:
+        os.makedirs(output)
+        neurospycho = pop_vip[s].values[y_vip==1]
+        for i in range(10):
+            df = pd.DataFrame()
+            df["neurospycho"] = neurospycho [np.array(np.isnan(neurospycho)==False)]
+            df["age"] = age[y_vip==1][np.array(np.isnan(neurospycho)==False)]
+            df["sex"] = sex[y_vip==1][np.array(np.isnan(neurospycho)==False)]
+            df["U"] = U_vip_scz[:,i][np.array(np.isnan(neurospycho)==False)]
+            mod = ols("U ~ neurospycho +age + sex",data = df).fit()
+            print(mod.summary())
+            fig = plt.figure(figsize=(10,6))
+            fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
+            plt.figtext(0.1,-0.1,"neurospycho effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["neurospycho"],mod.pvalues["neurospycho"]))
+
+            plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+            plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
+            plt.tight_layout()
+            plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
+            plt.close(fig)
+
+
+
 panss_neg = pop_vip["PANSS_NEGATIVE"]
 panss_pos = pop_vip["PANSS_POSITIVE"]
 panss_galp = pop_vip["PANSS_GALPSYCHOPAT"]
@@ -87,38 +136,44 @@ for i in range(10):
     df = pd.DataFrame()
     df["panss_pos"] = panss_pos_scz[np.array(np.isnan(panss_pos_scz)==False)]
     df["age"] = age[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
     df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
-    mod = ols("U ~ panss_pos +age",data = df).fit()
+    mod = ols("U ~ panss_pos +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
     fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"PANSS POSITIVE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["panss_pos"],mod.pvalues["panss_pos"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.1,-0.1,"panss_pos effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["panss_pos"],mod.pvalues["panss_pos"]))
+    plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
+    plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
+    plt.tight_layout()
 
 
 output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
 all_subjects/results/pcatv_scz/results/projection_vip/panss_neg"
 for i in range(10):
     df = pd.DataFrame()
-    df["panss_neg"] = panss_neg_scz[np.array(np.isnan(panss_neg_scz)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(panss_neg_scz)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_neg_scz)==False)]
-    mod = ols("U ~ panss_neg +age",data = df).fit()
+    df["panss_neg"] = panss_neg_scz[np.array(np.isnan(panss_pos_scz)==False)]
+    df["age"] = age[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
+    mod = ols("U ~ panss_neg +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
     fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"PANSS NEGATIVE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["panss_neg"],mod.pvalues["panss_neg"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.1,-0.1,"panss_neg effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["panss_neg"],mod.pvalues["panss_neg"]))
+    plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
+    plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
+    plt.tight_layout()
 
 
 
@@ -126,206 +181,73 @@ output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
 all_subjects/results/pcatv_scz/results/projection_vip/panss_comp"
 for i in range(10):
     df = pd.DataFrame()
-    df["panss_comp"] = panss_comp_scz[np.array(np.isnan(panss_comp_scz)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(panss_comp_scz)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_comp_scz)==False)]
-    mod = ols("U ~ panss_comp +age",data = df).fit()
+    df["panss_comp"] = panss_comp_scz[np.array(np.isnan(panss_pos_scz)==False)]
+    df["age"] = age[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
+    mod = ols("U ~ panss_comp +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
     fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"PANSS COMPOSITE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["panss_comp"],mod.pvalues["panss_comp"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.1,-0.1,"panss_comp effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["panss_comp"],mod.pvalues["panss_comp"]))
+    plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
+    plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
+    plt.tight_layout()
 
 
 output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
 all_subjects/results/pcatv_scz/results/projection_vip/fast"
 for i in range(10):
     df = pd.DataFrame()
-    df["fast"] = fast_scz[np.array(np.isnan(fast_scz)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(fast_scz)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(fast_scz)==False)]
-    mod = ols("U ~ fast +age",data = df).fit()
+    df["fast"] = fast_scz[np.array(np.isnan(panss_pos_scz)==False)]
+    df["age"] = age[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
+    mod = ols("U ~ fast +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
     fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"FAST effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["fast"],mod.pvalues["fast"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.1,-0.1,"fast effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["fast"],mod.pvalues["fast"]))
+    plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/dose"
-for i in range(10):
-    df = pd.DataFrame()
-    df["dose"] = dose[np.array(np.isnan(dose)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(dose)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(dose)==False)]
-    mod = ols("U ~ dose +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"dose effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["dose"],mod.pvalues["dose"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/hallu_panssp3"
-for i in range(10):
-    df = pd.DataFrame()
-    df["hallu_panssP3_scz"] = hallu_panssP3_scz[np.array(np.isnan(hallu_panssP3_scz)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(hallu_panssP3_scz)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(hallu_panssP3_scz)==False)]
-    mod = ols("U ~ hallu_panssP3_scz +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"hallu_panssP3_scz effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["hallu_panssP3_scz"],mod.pvalues["hallu_panssP3_scz"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
-    plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/CVLT_RILT_RC_tot"
-CVLT_RILT_RC_tot = pop_vip["CVLT_RILT_RC_tot"].values[y_vip==1]
-
-for i in range(10):
-    df = pd.DataFrame()
-    df["CVLT_RILT_RC_tot"] = CVLT_RILT_RC_tot[np.array(np.isnan(CVLT_RILT_RC_tot)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(CVLT_RILT_RC_tot)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(CVLT_RILT_RC_tot)==False)]
-    mod = ols("U ~ CVLT_RILT_RC_tot +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"CVLT_RILT_RC_tot effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["CVLT_RILT_RC_tot"],mod.pvalues["CVLT_RILT_RC_tot"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
-    plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/WAIS_COMPL_IM_STD"
-WAIS_COMPL_IM_STD = pop_vip["WAIS_COMPL_IM_STD"].values[y_vip==1]
-for i in range(10):
-    df = pd.DataFrame()
-    df["WAIS_COMPL_IM_STD"] = WAIS_COMPL_IM_STD[np.array(np.isnan(WAIS_COMPL_IM_STD)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(WAIS_COMPL_IM_STD)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(WAIS_COMPL_IM_STD)==False)]
-    mod = ols("U ~ WAIS_COMPL_IM_STD +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"WAIS Picture Completion \n score effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["WAIS_COMPL_IM_STD"],mod.pvalues["WAIS_COMPL_IM_STD"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
-    plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/WAIS_COD_STD"
-WAIS_COD_STD = pop_vip["WAIS_COD_STD"].values[y_vip==1]
-for i in range(10):
-    df = pd.DataFrame()
-    df["WAIS_COD_STD"] = WAIS_COD_STD[np.array(np.isnan(WAIS_COD_STD)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(WAIS_COD_STD)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(WAIS_COD_STD)==False)]
-    mod = ols("U ~ WAIS_COD_STD +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"WAIS Picture Completion \n score effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["WAIS_COD_STD"],mod.pvalues["WAIS_COD_STD"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
-    plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
 
 
 
 output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/WAIS_MC_TOT"
-WAIS_MC_TOT = pop_vip["WAIS_MC_TOT"].values[y_vip==1]
+all_subjects/results/pcatv_scz/results/projection_vip/hallu_panssP3"
 for i in range(10):
     df = pd.DataFrame()
-    df["WAIS_MC_TOT"] = WAIS_MC_TOT[np.array(np.isnan(WAIS_MC_TOT)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(WAIS_MC_TOT)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(WAIS_MC_TOT)==False)]
-    mod = ols("U ~ WAIS_MC_TOT +age",data = df).fit()
+    df["hallu_panssP3"] = hallu_panssP3_scz[np.array(np.isnan(panss_pos_scz)==False)]
+    df["age"] = age[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_vip==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["U"] = U_vip_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
+    mod = ols("U ~ hallu_panssP3 +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
     fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"WAIS Picture Completion \n score effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["WAIS_MC_TOT"],mod.pvalues["WAIS_MC_TOT"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.1,-0.1,"hallu_panssP3 effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["hallu_panssP3"],mod.pvalues["hallu_panssP3"]))
+    plt.figtext(0.7, -0.1,"age effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.figtext(0.4,-0.1,"sex effect on U:\n Tvalue = %s \n pvalue = %s"
+                  %(mod.tvalues["sex"],mod.pvalues["sex"]))
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
-
-
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/WAIS_ARITH_STD"
-WAIS_ARITH_STD = pop_vip["WAIS_ARITH_STD"].values[y_vip==1]
-for i in range(10):
-    df = pd.DataFrame()
-    df["WAIS_ARITH_STD"] = WAIS_ARITH_STD[np.array(np.isnan(WAIS_ARITH_STD)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(WAIS_ARITH_STD)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(WAIS_ARITH_STD)==False)]
-    mod = ols("U ~ WAIS_ARITH_STD +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"WAIS Picture Completion \n score effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["WAIS_ARITH_STD"],mod.pvalues["WAIS_ARITH_STD"]))
-
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
+    plt.savefig(os.path.join(output,"comp%s"%(i+1)),bbox_inches = 'tight')
     plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
 
 
-output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_vip/WAIS_ASS_OBJ_STD"
-WAIS_ASS_OBJ_STD = pop_vip["WAIS_ASS_OBJ_STD"].values[y_vip==1]
-for i in range(10):
-    df = pd.DataFrame()
-    df["WAIS_ASS_OBJ_STD"] = WAIS_ASS_OBJ_STD[np.array(np.isnan(WAIS_ASS_OBJ_STD)==False)]
-    df["age"] = age[y_vip==1][np.array(np.isnan(WAIS_ASS_OBJ_STD)==False)]
-    df["U"] = U_vip_scz[:,i][np.array(np.isnan(WAIS_ASS_OBJ_STD)==False)]
-    mod = ols("U ~ WAIS_ASS_OBJ_STD +age",data = df).fit()
-    #print(mod.summary())
-    fig = plt.figure(figsize=(10,6))
-    fig = sm.graphics.plot_partregress_grid(mod, fig=fig)
-    plt.figtext(0.6, .3,"WAIS Picture Completion \n score effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["WAIS_ASS_OBJ_STD"],mod.pvalues["WAIS_ASS_OBJ_STD"]))
-    plt.figtext(0.6, .15,"AGE effect on U:\n Tvalue = %s \n pvalue = %s"
-              %(mod.tvalues["age"],mod.pvalues["age"]))
-    plt.tight_layout()
-    plt.savefig(os.path.join(output,"comp%s"%(i+1)))
 
 ################################################################################
 ################################################################################
+

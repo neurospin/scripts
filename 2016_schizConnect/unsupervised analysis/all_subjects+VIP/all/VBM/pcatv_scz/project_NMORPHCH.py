@@ -27,16 +27,16 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import seaborn as sns
 
-INPUT_CLINIC_FILENAME = "/neurospin/abide/schizConnect/data/december_2017_clinical_score/schizconnect_COBRE_assessmentData_4495.csv"
-INPUT_POPULATION = "/neurospin/brainomics/2016_schizConnect/analysis/COBRE/VBM/population.csv"
+INPUT_CLINIC_FILENAME = "/neurospin/abide/schizConnect/data/december_2017_clinical_score/schizconnect_NMorphCH_assessmentData_4495.csv"
+INPUT_POPULATION = "/neurospin/brainomics/2016_schizConnect/analysis/NMorphCH/VBM/population.csv"
 WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_scz/data"
 
-U_cobre = np.load(os.path.join(WD,"U_cobre.npy"))
-U_cobre_scz = np.load(os.path.join(WD,"U_cobre_scz.npy"))
-U_cobre_con = np.load(os.path.join(WD,"U_cobre_con.npy"))
+U_nmorph = np.load(os.path.join(WD,"U_nmorph.npy"))
+U_nmorph_scz = np.load(os.path.join(WD,"U_nmorph_scz.npy"))
+U_nmorph_con = np.load(os.path.join(WD,"U_nmorph_con.npy"))
 
-y_cobre = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site/COBRE/y.npy")
-X_cobre = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site/COBRE/X.npy")
+y_nmorph = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site/NMORPH/y.npy")
+X_nmorph = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/data_by_site/NMORPH/X.npy")
 
 
 clinic = pd.read_csv(INPUT_CLINIC_FILENAME)
@@ -65,17 +65,17 @@ plt.ioff()
 ################################################################################
 for key in clinic.question_id.unique():
     print("%s" %(key))
-    output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_scz/results/projection_cobre/scores/%s" %key
+    output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_scz/results/projection_nmorph/scores/%s" %key
     if os.path.isdir(output) == False:
         os.makedirs(output)
-        neurospycho = df_scores[key].astype(np.float).values[y_cobre==1]
+        neurospycho = df_scores[key].astype(np.float).values[y_nmorph==1]
         for i in range(10):
             print(i+1)
             df = pd.DataFrame()
             df["neurospycho"] = neurospycho[np.array(np.isnan(neurospycho)==False)]
-            df["age"] = age[y_cobre==1][np.array(np.isnan(neurospycho)==False)]
-            df["sex"] = sex[y_cobre==1][np.array(np.isnan(neurospycho)==False)]
-            df["U"] = U_cobre_scz[:,i][np.array(np.isnan(neurospycho)==False)]
+            df["age"] = age[y_nmorph==1][np.array(np.isnan(neurospycho)==False)]
+            df["sex"] = sex[y_nmorph==1][np.array(np.isnan(neurospycho)==False)]
+            df["U"] = U_nmorph_scz[:,i][np.array(np.isnan(neurospycho)==False)]
             mod = ols("U ~ neurospycho + age + sex",data = df).fit()
             print(mod.pvalues["neurospycho"])
             fig = plt.figure(figsize=(10,6))
@@ -100,14 +100,6 @@ for key in clinic.question_id.unique():
 
 
 
-
-
-
-PANSS_MAP = {"Absent": 1, "Minimal": 2, "Mild": 3, "Moderate": 4, "Moderate severe": 5, "Severe": 6, "Extreme": 7,\
-             "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7}
-clinic["question_value"] = clinic["question_value"].map(PANSS_MAP)
-
-
 panss_scores = np.zeros((164,30))
 i=0
 for s in pop.subjectid:
@@ -122,26 +114,26 @@ for s in pop.subjectid:
 
 panss_pos = np.sum(panss_scores[:,:7],axis=1)
 panss_neg = np.sum(panss_scores[:,7:14],axis=1)
-panss_scores_scz = panss_scores[y_cobre==1,:]
-panss_pos_scz = panss_pos[y_cobre==1,]
-panss_neg_scz = panss_neg[y_cobre==1,]
+panss_scores_scz = panss_scores[y_nmorph==1,:]
+panss_pos_scz = panss_pos[y_nmorph==1,]
+panss_neg_scz = panss_neg[y_nmorph==1,]
 
 
 plt.plot(panss_pos_scz,panss_neg_scz,'o')
 plt.xlabel("PANSS positive")
 plt.ylabel("PANSS negative")
 plt.savefig("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/\
-VBM/all_subjects/results/pcatv_scz/results/projection_cobre/panss.png")
+VBM/all_subjects/results/pcatv_scz/results/projection_nmorph/panss.png")
 
 
 output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_cobre/panss_pos"
+all_subjects/results/pcatv_scz/results/projection_nmorph/panss_pos"
 for i in range(10):
     df = pd.DataFrame()
     df["panss_pos"] = panss_pos_scz[np.array(np.isnan(panss_pos_scz)==False)]
-    df["age"] = age[y_cobre==1][np.array(np.isnan(panss_pos_scz)==False)]
-    df["sex"] = sex[y_cobre==1][np.array(np.isnan(panss_pos_scz)==False)]
-    df["U"] = U_cobre_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
+    df["age"] = age[y_nmorph==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["sex"] = sex[y_nmorph==1][np.array(np.isnan(panss_pos_scz)==False)]
+    df["U"] = U_nmorph_scz[:,i][np.array(np.isnan(panss_pos_scz)==False)]
     mod = ols("U ~ panss_pos +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
@@ -159,13 +151,13 @@ for i in range(10):
 
 
 output = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/\
-all_subjects/results/pcatv_scz/results/projection_cobre/panss_neg"
+all_subjects/results/pcatv_scz/results/projection_nmorph/panss_neg"
 for i in range(10):
     df = pd.DataFrame()
     df["panss_neg"] = panss_neg_scz[np.array(np.isnan(panss_neg_scz)==False)]
-    df["age"] = age[y_cobre==1][np.array(np.isnan(panss_neg_scz)==False)]
-    df["sex"] = sex[y_cobre==1][np.array(np.isnan(panss_neg_scz)==False)]
-    df["U"] = U_cobre_scz[:,i][np.array(np.isnan(panss_neg_scz)==False)]
+    df["age"] = age[y_nmorph==1][np.array(np.isnan(panss_neg_scz)==False)]
+    df["sex"] = sex[y_nmorph==1][np.array(np.isnan(panss_neg_scz)==False)]
+    df["U"] = U_nmorph_scz[:,i][np.array(np.isnan(panss_neg_scz)==False)]
     mod = ols("U ~ panss_neg +age+sex",data = df).fit()
     #print(mod.summary())
     fig = plt.figure(figsize=(10,6))
