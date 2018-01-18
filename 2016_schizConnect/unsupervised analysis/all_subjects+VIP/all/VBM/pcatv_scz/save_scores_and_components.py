@@ -139,6 +139,18 @@ np.save(os.path.join(output,"U_nmorph"),U_nmorph)
 np.save(os.path.join(output,"U_nmorph_scz"),U_nmorph_scz)
 np.save(os.path.join(output,"U_nmorph_con"),U_nmorph_con)
 
+#Save PRAGUE subjects
+y_prague= np.load("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/VBM/data/y.npy")
+X_prague = np.load("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/VBM/data/X.npy")
+assert X_prague.shape ==  (133, 125961)
+X_prague = X_prague[:,2:]
+U_prague, d = transform(V=components , X = X_prague , n_components=components.shape[1], in_place=False)
+assert U_prague.shape == (133, 10)
+U_prague_scz = U_prague[y_prague==1,:]
+U_prague_con = U_prague[y_prague==0,:]
+np.save(os.path.join(output,"U_prague"),U_prague)
+np.save(os.path.join(output,"U_prague_scz"),U_prague_scz)
+np.save(os.path.join(output,"U_prague_con"),U_prague_con)
 
 
 def transform(V, X, n_components, in_place=False):

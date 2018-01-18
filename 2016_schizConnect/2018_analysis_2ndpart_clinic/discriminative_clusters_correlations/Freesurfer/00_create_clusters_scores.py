@@ -8,54 +8,100 @@ Created on Thu Dec 21 12:08:33 2017
 
 
 import os
+import subprocess
+import json
 import numpy as np
-import pandas as pd
-import nibabel as nb
-import shutil
-import scipy.stats
-import matplotlib.pyplot as plt
-import seaborn as sns
-import parsimony.utils.check_arrays as check_arrays
+from sklearn.cross_validation import StratifiedKFold
+import nibabel
+from sklearn import svm
+from sklearn.metrics import precision_recall_fscore_support
+from sklearn.feature_selection import SelectKBest
+import brainomics.image_atlas
+import brainomics.array_utils
+from scipy.stats import binom_test
+from collections import OrderedDict
 from sklearn import preprocessing
-from nibabel import gifti
+from sklearn.metrics import roc_auc_score, recall_score
+import pandas as pd
+from collections import OrderedDict
+import nilearn
+from nilearn import plotting
+from nilearn import image
+import seaborn as sns
+import matplotlib.pylab as plt
+import shutil
+import sys
+sys.path.insert(0,'/home/ed203246/git/scripts/brainomics')
+import array_utils, mesh_processing
+from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
+
+WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/\
+all_subjects/results/enetall_all+VIP_all/5cv/refit/refit/enettv_0.1_0.1_0.8"
+beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][:]
 
 
-MASK_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/mask.nii"
-babel_mask  = nb.load(MASK_PATH)
-mask_bool = babel_mask.get_data()
-mask_bool= np.array(mask_bool !=0)
-number_features = mask_bool.sum()
 
-
-
-WD = "/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/\
-results/enetall_all+VIP_all/5cv/refit/refit/enettv_0.1_0.1_0.8"
-beta = np.load(os.path.join(WD,"beta.npz"))['arr_0'][3:]
-
-
-CLUSTER_LABELS = "/neurospin/brainomics/2016_schizConnect/analysis/\
-all_studies+VIP/VBM/all_subjects/results/enetall_all+VIP_all/5cv/refit/refit/\
-enettv_0.1_0.1_0.8/weight_map_clust_labels.nii.gz"
-
-labels_img  = nb.load(CLUSTER_LABELS)
-labels_arr = labels_img.get_data()
-labels_flt = labels_arr[mask_bool]
-
-#Save all subjects
-pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
 pop_all_scz = pop_all[pop_all['dx_num']==1]
 pop_all_con = pop_all[pop_all['dx_num']==0]
-y_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
-X_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/X.npy")
-assert X_all.shape == (606, 125961)
+y_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/y.npy")
+X_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/X.npy")
+assert X_all.shape == (567, 299865)
 X_all_scz = X_all[y_all==1,:]
 X_all_con = X_all[y_all==0,:]
 
-assert X_all_scz.shape == (276, 125961)
+assert X_all_scz.shape == (253, 299865)
 
 N_scz = X_all_scz.shape[0]
 N_con = X_all_con.shape[0]
 N = X_all.shape[0]
+
+mask_mesh = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/Freesurfer/all_subjects/data/mask.npy")
+
+beta, t = array_utils.arr_threshold_from_norm2_ratio(beta, .99)
+beta = beta.ravel()
+
+assert X_all_scz.shape[1] == beta.shape[0]
+N = X_all_scz.shape[0]
+print(pd.Series(beta.ravel()).describe(), t)
+
+# Write morph data
+from nibabel import gifti
+
+
+[coords_l, faces_l], beta_mesh_l, [coords_r, faces_r], beta_mesh_r, stat = \
+    beta_to_mesh_lr(beta, mask_mesh, mesh_l, mesh_r, threshold=1.)
+
+hemi, view = 'right', 'medial'
+
+if hemi == 'left':
+    coords_x, faces_x, beta_mesh_x, sulc_x =\
+        coords_l, faces_l, beta_mesh_l, sulc_l
+elif hemi == 'right':
+    coords_x, faces_x, beta_mesh_x, sulc_x =\
+        coords_r, faces_r, beta_mesh_r, sulc_r
+
+vmax_beta = np.max(np.abs(beta)) / 10
+vmax_beta = np.max(np.abs(beta_mesh_x) * 1000) / 10
+
+plotting.plot_surf_stat_map([coords_x, faces_x], stat_map=1000 * beta_mesh_x,
+                            hemi=hemi, view=view,
+                            bg_map=sulc_x, #bg_on_data=True,
+                            #vmax = vmax_beta,#stat[2] / 10,#vmax=vmax_beta,
+                            darkness=.5,
+                            cmap=plt.cm.seismic,
+                            #symmetric_cbar=True,
+                            #output_file=output_filename
+                            )
+
+print(pd.Series((beta_mesh_l[beta_mesh_l != 0]).ravel()).describe())
+print(pd.Series((beta_mesh_r[beta_mesh_r != 0]).ravel()).describe())
+
+mesh_processing.save_texture(os.path.join(WD_CLUST, "beta_lh.gii"),
+                             beta_mesh_l)
+
+mesh_processing.save_texture(os.path.join(WD_CLUST, "beta_rh.gii"),
+                             beta_mesh_r)
 
 # Extract a single score for each cluster
 K_interest = [18,14,33,20,4,25,23,22,15,41]
@@ -122,3 +168,37 @@ for i in range(10):
     plt.title(("T : %s and pvalue = %r"%(np.around(T,decimals=3),p)))
     plt.savefig(os.path.join(output,"cluster%s"%((i+1))))
 
+
+
+
+def beta_to_mesh_lr(beta, mask_mesh, mesh_l, mesh_r, threshold=.99):
+    # beta to array of mesh size
+    #ouput_filename = os.path.splitext(beta_filename)[0] + ".nii.gz"
+    assert beta.shape[0] == mask_mesh.sum()
+    beta_t, t = array_utils.arr_threshold_from_norm2_ratio(beta, threshold)
+    #print(np.sum(beta != 0), np.sum(beta_t != 0), np.max(np.abs(beta_t)))
+    beta_mesh = np.zeros(mask_mesh.shape)
+    beta_mesh[mask_mesh] = beta_t.ravel()
+
+    # mesh, l+r
+    mesh_l = nilearn.plotting.surf_plotting.load_surf_mesh(mesh_l)
+    coords_l, faces_l = mesh_l[0], mesh_l[1]
+    mesh_r = nilearn.plotting.surf_plotting.load_surf_mesh(mesh_r)
+    coords_r, faces_r = mesh_r[0], mesh_r[1]
+    assert coords_l.shape[0] == coords_r.shape[0] == beta_mesh.shape[0] / 2
+
+    beta_mesh_l = np.zeros(coords_l.shape)
+    beta_mesh_l = beta_mesh[:coords_l.shape[0]]
+    beta_mesh_r = np.zeros(coords_r.shape)
+    beta_mesh_r = beta_mesh[coords_l.shape[0]:]
+
+    return [coords_l, faces_l], beta_mesh_l, [coords_r, faces_r], beta_mesh_r, [np.sum(beta != 0), np.sum(beta_t != 0), np.max(np.abs(beta_t))]
+
+
+def mesh_lr_to_beta(beta_mesh_l, beta_mesh_r, mask_mesh):
+    beta_mesh = np.zeros(mask_mesh.shape)
+    idx_r = int(beta_mesh.shape[0] / 2)
+    beta_mesh[:idx_r] = beta_mesh_l
+    beta_mesh[idx_r:] = beta_mesh_r
+    beta = beta_mesh[mask_mesh]
+    return beta

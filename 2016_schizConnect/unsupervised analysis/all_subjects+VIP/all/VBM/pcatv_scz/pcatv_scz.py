@@ -30,8 +30,8 @@ import parsimony.functions.nesterov.tv as tv_helper
 ##################
 
 INPUT_BASE_DIR ='/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects'
-INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/mask.nii'   
-INPUT_DATA_X = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/X_scz.npy'                     
+INPUT_MASK = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/mask.nii'
+INPUT_DATA_X = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/X_scz.npy'
 OUTPUT_DIR = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/pcatv_scz'
 
 
@@ -43,8 +43,8 @@ OUTPUT_DIR = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/V
 
 # Parameters for the function create_config
 # Note that value at index 1 will be the name of the task on the cluster
-CONFIGS = [[5,"vbm_pcatv_all+VIP_scz", "config.json", True]]
-N_COMP = 10
+CONFIGS = [[5,"vbm_pcatv_all+VIP_scz_100comp_1e-5", "config.json", True]]
+N_COMP = 100
 
 
 PARAMS= [('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.1, 0.5, 0.8),\
@@ -53,7 +53,9 @@ PARAMS= [('struct_pca', 0.1, 0.5, 0.5),('struct_pca', 0.1, 0.5, 0.8),\
 ('struct_pca', 0.1, 0.8, 0.1),('struct_pca', 0.1, 0.8, 0.5),('struct_pca', 0.1, 0.8, 0.8)\
 ,("pca", 0.0, 0.0, 0.0)]
 
-#            
+PARAMS= [('pca', 0, 0, 0),('struct_pca', 0.1, 0.1, 0.1)]
+
+#
 
 #############
 # Functions #
@@ -88,23 +90,21 @@ def mapper(key, output_collector):
     if model_name == 'pca':
         global_pen = tv_ratio = l1_ratio = 0
 
-    if model_name == 'sparse_pca':   
-        
+    if model_name == 'sparse_pca':
+
         global_pen = tv_ratio = 0
-        ll1=l1_ratio 
+        ll1=l1_ratio
 
     if model_name == 'struct_pca':
         ltv = global_pen * tv_ratio
         ll1 = l1_ratio * global_pen * (1 - tv_ratio)
         ll2 = (1 - l1_ratio) * global_pen * (1 - tv_ratio)
         assert(np.allclose(ll1 + ll2 + ltv, global_pen))
-        
-    penalty_start = 4    
+
+    penalty_start = 4
     X_train = GLOBAL.DATA_RESAMPLED["X"][0][:,penalty_start:]
-    print (X_train.shape)
     n, p = X_train.shape
     X_test = GLOBAL.DATA_RESAMPLED["X"][1][:,penalty_start:]
-    print (X_test.shape)
     Atv = GLOBAL.Atv
 
 
@@ -113,18 +113,18 @@ def mapper(key, output_collector):
         model = sklearn.decomposition.PCA(n_components=N_COMP)
 
     if model_name == 'sparse_pca':
-        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,alpha = ll1)                                  
-                                    
-                                    
+        model = sklearn.decomposition.SparsePCA(n_components=N_COMP,alpha = ll1)
+
+
     if model_name == 'struct_pca':
         model = pca_tv.PCA_L1_L2_TV(n_components=N_COMP,
                                     l1=ll1, l2=ll2, ltv=ltv,
                                     Atv=Atv,
                                     criterion="frobenius",
-                                    eps=1e-6,
+                                    eps=1e-5,
                                     max_iter=100,
                                     inner_max_iter=int(1e4),
-                                    output=False)
+                                    output=True)
 
     model.fit(X_train)
 
@@ -140,7 +140,7 @@ def mapper(key, output_collector):
     if (model_name == 'pca')or (model_name == 'sparse_pca'):
         X_train_transform = model.transform(X_train)
         X_test_transform = model.transform(X_test)
-        
+
     if (model_name == 'struct_pca'):
         X_train_transform, _ = model.transform(X_train)
         X_test_transform, _ = model.transform(X_test)
@@ -152,7 +152,7 @@ def mapper(key, output_collector):
     if (model_name == 'pca') or (model_name == 'sparse_pca'):
         X_train_predict = np.dot(X_train_transform, V.T)
         X_test_predict = np.dot(X_test_transform, V.T)
-        
+
     if (model_name == 'struct_pca') :
         X_train_predict = model.predict(X_train)
         X_test_predict = model.predict(X_test)
@@ -160,7 +160,7 @@ def mapper(key, output_collector):
     # Compute Frobenius norm between original and recontructed datasets
     frobenius_train = np.linalg.norm(X_train - X_train_predict, 'fro')
     frobenius_test = np.linalg.norm(X_test - X_test_predict, 'fro')
-    print(frobenius_test) 
+    print(frobenius_test)
 
 
     # Compute explained variance ratio
@@ -181,8 +181,8 @@ def mapper(key, output_collector):
                evr_test=evr_test)
 
     output_collector.collect(key, ret)
-    
-    
+
+
 def reducer(key, values):
     output_collectors = values
     global N_COMP
@@ -214,23 +214,23 @@ def reducer(key, values):
 #            evr_train[:,item] = values["evr_train"]
 #            evr_test[:,item] = values["evr_test"]
 #            times[:,item] = values["time"]
-       
+
     #Solve non-identifiability problem  (baseline = first fold)
     for i in range(1,5):
         if np.abs(np.corrcoef(components[:,0,0],components[:,0,i])[0,1]) <  np.abs(np.corrcoef(components[:,0,0],components[:,1,i])[0,1]):
-            print("components inverted") 
+            print("components inverted")
             print(i)
             temp_comp1 = np.copy(components[:,1,i])
             components[:,1,i] = components[:,0,i]
             components[:,0,i] = temp_comp1
-            
+
         if np.abs(np.corrcoef(components[:,1,0],components[:,1,i])[0,1]) <  np.abs(np.corrcoef(components[:,1,0],components[:,2,i])[0,1]):
-            print("components inverted") 
+            print("components inverted")
             print(i)
             temp_comp2 = np.copy(components[:,2,i])
             components[:,2,i] = components[:,1,i]
-            components[:,1,i] = temp_comp2    
-            
+            components[:,1,i] = temp_comp2
+
     # Thesholded components (list of tuples (comp, threshold))
     thresh_components = np.empty(components.shape)
     thresholds = np.empty((N_COMP, N_FOLDS))
@@ -260,20 +260,20 @@ def reducer(key, values):
     # Compute fleiss_kappa and DICE on thresholded components
     fleiss_kappas = np.empty(N_COMP)
     dice_bars = np.empty(N_COMP)
-    dices = np.zeros((10,N_COMP))
-    
+    dices = np.zeros((N_COMP,N_COMP))
+
     for k in range(N_COMP):
         # One component accross folds
         thresh_comp = aligned_thresh_comp[:, k, :]
         fleiss_kappas[k] = metrics.fleiss_kappa(thresh_comp)
-        dice_bars[k],dices[:,k] = metrics.dice_bar(thresh_comp) 
-       
-#    print dices.mean(axis=1) 
+        dice_bars[k],dices[:,k] = metrics.dice_bar(thresh_comp)
+
+#    print dices.mean(axis=1)
 #    dices_mean_path = os.path.join(OUTPUT_DIR,'fmri_5folds/results','dices_mean_%s.npy' %key[0])
 #    if key[0] == 'struct_pca' and key[2]==1e-6:
 #        dices_mean_path = os.path.join(OUTPUT_DIR,'fmri_5folds/results','dices_mean_%s.npy' %'enet_pca')
-        
-#    print dices_mean_path    
+
+#    print dices_mean_path
 #    np.save(dices_mean_path,dices.mean(axis=1) )
 
     print(key)
@@ -360,10 +360,10 @@ if __name__ == "__main__":
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
     #Retreive variables
-    X= np.load(INPUT_DATA_X)    
+    X= np.load(INPUT_DATA_X)
     y = np.ones(X.shape[0])
-    shutil.copy(INPUT_DATA_X, os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz"))
-    shutil.copy(INPUT_MASK, os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz"))
+    shutil.copy(INPUT_DATA_X, os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz_100comp"))
+    shutil.copy(INPUT_MASK, os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz_100comp"))
 
     #############################################################################
        # Create config files
@@ -372,10 +372,10 @@ if __name__ == "__main__":
     DEBUG = False
     if DEBUG:
         run_test(OUTPUT_DIR, config_5folds)
-        
+
      # Build utils files: sync (push/pull) and PBS
 
     sync_push_filename, sync_pull_filename, WD_CLUSTER = \
-        clust_utils.gabriel_make_sync_data_files(os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz"))
+        clust_utils.gabriel_make_sync_data_files(os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz_100comp"))
     cmd = "mapreduce.py --map  %s/config.json" % WD_CLUSTER
-    clust_utils.gabriel_make_qsub_job_files(os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz"), cmd,walltime = "250:00:00")    
+    clust_utils.gabriel_make_qsub_job_files(os.path.join(OUTPUT_DIR,"vbm_pcatv_all+VIP_scz_100comp"), cmd,walltime = "250:00:00")
