@@ -33,7 +33,7 @@ clinic_VIP["site"] = "vip"
 clinic_VIP["sex_num"] = clinic_VIP["sex_code"]
 clinic_VIP["dx_num"] = clinic_VIP["dx"]
 clinic_VIP = clinic_VIP[['path_VBM','sex_num','dx_num','site','age']]
-
+clinic_VIP['subjectid'] = 'code_vip'
 
 
 
@@ -41,10 +41,10 @@ clinic_VIP = clinic_VIP[['path_VBM','sex_num','dx_num','site','age']]
 
 all_clinic = [clinic_COBRE, clinic_NMorphCH, clinic_NUSDAST,clinic_VIP]
 pop = pd.concat(all_clinic)
-pop = pop[["dx_num","path_VBM","sex_num","site","age"]]
-assert pop.shape == (606, 5)
+pop = pop[['subjectid',"dx_num","path_VBM","sex_num","site","age"]]
+assert pop.shape == (606, 6)
 
-#pop.site.unique() 
+#pop.site.unique()
 SITE_MAP = {'MRN': 1, 'NU': 2, "WUSTL" : 3,"vip" : 4}
 pop['site_num'] = pop["site"].map(SITE_MAP)
 assert sum(pop.site_num.values==1) == 164

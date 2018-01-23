@@ -33,6 +33,7 @@ shutil.copyfile(os.path.join(TEMPLATE_PATH, "lrh.pial.gii"), os.path.join(OUTPUT
 # Read images
 n = len(pop)
 assert n == 2164
+y = np.zeros((n, 1)) # DX
 surfaces = list()
 for i, ID in enumerate(pop['usubjid']):
     cur = pop[pop["usubjid"] == ID]
@@ -42,6 +43,7 @@ for i, ID in enumerate(pop['usubjid']):
     right = nb.load(mri_path_rh).get_data().ravel()
     surf = np.hstack([left, right])
     surfaces.append(surf)
+    y[i, 0] = cur["statut"]
     print (i)
 
 
@@ -71,6 +73,7 @@ assert X.shape == (2164, 299879)
 
 np.save(os.path.join(OUTPUT, "mask.npy"), mask_surf)
 np.save(os.path.join(OUTPUT, "X.npy"), X)
+np.save(os.path.join(OUTPUT, "y.npy"), y)
 
 #############################################################################
 import parsimony.functions.nesterov.tv as nesterov_tv
