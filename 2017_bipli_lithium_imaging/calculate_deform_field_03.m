@@ -43,7 +43,7 @@ function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,ke
     tempsegfile=strcat(dirsegment,'\tempmatseg.mat');
     save(tempsegfile,'matlabbatch');
     spm_jobman('run',tempsegfile);
-    delete tempsegfile;
+    delete(tempsegfile);
     deformfield=strcat(subjectdir,'\y_',filename,ext);
     
 end
