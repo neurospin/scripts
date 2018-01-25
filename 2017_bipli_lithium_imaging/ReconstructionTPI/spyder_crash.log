@@ -1,0 +1,39 @@
+Traceback (most recent call last):
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\spyderlib\spyder.py", line 2331, in main
+    mainwindow = run_spyder(app, options, args)
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\spyderlib\spyder.py", line 2215, in run_spyder
+    main.setup()
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\spyderlib\spyder.py", line 752, in setup
+    from spyderlib.plugins.inspector import ObjectInspector
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\spyderlib\plugins\inspector.py", line 41, in <module>
+    from spyderlib.widgets.ipython import IPythonControlWidget
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\spyderlib\widgets\ipython.py", line 32, in <module>
+    from qtconsole.rich_jupyter_widget import RichJupyterWidget as RichIPythonWidget
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\qtconsole\rich_jupyter_widget.py", line 14, in <module>
+    from .jupyter_widget import JupyterWidget
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\qtconsole\jupyter_widget.py", line 21, in <module>
+    from .frontend_widget import FrontendWidget
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\qtconsole\frontend_widget.py", line 22, in <module>
+    from qtconsole.base_frontend_mixin import BaseFrontendMixin
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\qtconsole\base_frontend_mixin.py", line 3, in <module>
+    from jupyter_client import BlockingKernelClient
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\jupyter_client\__init__.py", line 7, in <module>
+    from .manager import KernelManager, run_kernel
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\jupyter_client\manager.py", line 32, in <module>
+    from .session import Session
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\jupyter_client\session.py", line 48, in <module>
+    from zmq.eventloop.ioloop import IOLoop
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\zmq\eventloop\__init__.py", line 3, in <module>
+    from zmq.eventloop.ioloop import IOLoop
+  File "C:\Users\js247994\AppData\Local\Continuum\Anaconda3\lib\site-packages\zmq\eventloop\ioloop.py", line 35, in <module>
+    from tornado.ioloop import PollIOLoop, PeriodicCallback
+  File "C:\Python27\Lib\site-packages\tornado\ioloop.py", line 46, in <module>
+    from tornado.concurrent import TracebackFuture, is_future
+  File "C:\Python27\Lib\site-packages\tornado\concurrent.py", line 37, in <module>
+    from concurrent import futures
+  File "C:\Python27\Lib\site-packages\concurrent\futures\__init__.py", line 8, in <module>
+    from concurrent.futures._base import (FIRST_COMPLETED,
+  File "C:\Python27\Lib\site-packages\concurrent\futures\_base.py", line 355
+    raise type(self._exception), self._exception, self._traceback
+                               ^
+SyntaxError: invalid syntax
