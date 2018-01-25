@@ -135,44 +135,6 @@ LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df_scores["labels_name"]  = df_scores["labels"].map(LABELS_DICT)
 
 
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["saps7"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["saps7"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["saps7"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["saps20"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["saps20"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["saps20"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["saps25"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["saps25"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["saps25"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["saps34"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["saps34"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["saps34"].astype(np.float).values)
-
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["sans8"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["sans8"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["sans8"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["sans13"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["sans13"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["sans13"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["sans17"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["sans17"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["sans17"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["sans22"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["sans22"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["sans22"].astype(np.float).values)
-
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 1"]["sans25"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 2"]["sans25"].astype(np.float).values)
-np.nanmean(df_scores[df_scores["labels_name"]=="cluster 3"]["sans25"].astype(np.float).values)
-
-
 
 output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
 results/clustering/corrected_results/correction_age_sex_site/3_clusters_solution/nudast"
@@ -192,35 +154,19 @@ plt.savefig(os.path.join(output,"vocabsca.png"))
 
 
 
-
 df = pd.DataFrame()
-score = df_scores["cvlfps"].astype(np.float).values
+score = df_scores["matrxsca"].astype(np.float).values
 df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
 df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
 LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
-df["cvlfps"] =  score[np.array(np.isnan(score)==False)]
-T, p = scipy.stats.f_oneway(df[df["labels"]==0]["cvlfps"],\
-                     df[df["labels"]==1]["cvlfps"],\
-                     df[df["labels"]==2]["cvlfps"])
-ax = sns.violinplot(x="labels_name", y="cvlfps", data=df,order=["cluster 1","cluster 2","cluster 3"])
+df["matrxsca"] =  score[np.array(np.isnan(score)==False)]
+T, p = scipy.stats.f_oneway(df[df["labels"]==0]["matrxsca"],\
+                     df[df["labels"]==1]["matrxsca"],\
+                     df[df["labels"]==2]["matrxsca"])
+ax = sns.violinplot(x="labels_name", y="matrxsca", data=df,order=["cluster 1","cluster 2","cluster 3"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
-plt.savefig(os.path.join(output,"cvlfps.png"))
-
-
-df = pd.DataFrame()
-score = df_scores["matrxraw"].astype(np.float).values
-df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
-df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
-LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
-df["labels_name"]  = df["labels"].map(LABELS_DICT)
-df["matrxraw"] =  score[np.array(np.isnan(score)==False)]
-T, p = scipy.stats.f_oneway(df[df["labels"]==0]["matrxraw"],\
-                     df[df["labels"]==1]["matrxraw"],\
-                     df[df["labels"]==2]["matrxraw"])
-ax = sns.violinplot(x="labels_name", y="matrxraw", data=df,order=["cluster 1","cluster 2","cluster 3"])
-plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
-plt.savefig(os.path.join(output,"matrxraw.png"))
+plt.savefig(os.path.join(output,"matrxsca.png"))
 
 df = pd.DataFrame()
 score = df_scores["dstscalc"].astype(np.float).values
@@ -310,6 +256,8 @@ plt.savefig(os.path.join(output,"sapsSubtot.png"))
 
 
 ################################################################################
+
+
 df = pd.DataFrame()
 score = df_scores["yrschool"].astype(np.float).values
 df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
@@ -322,3 +270,47 @@ T, p = scipy.stats.f_oneway(df[df["labels"]==0]["yrschool"],\
                      df[df["labels"]==2]["yrschool"])
 ax = sns.violinplot(x="labels_name", y="yrschool", data=df,order=["cluster 1","cluster 2","cluster 3"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
+
+
+
+
+key = "nlevedum"
+key = "nleveduf"
+key = "yrschool"
+key = "nlevedum"
+key = "nlevedu"
+key = "yrschlf"
+key = "yrschlm"
+key = "flevedu"
+key = "fyrschl"
+key = "frating"
+key = "madrs10"
+key = "saps7"
+key = "saps20"
+key = "saps25"
+key = "saps34"
+
+key = "sans8"
+key = "sans13"
+key = "sans17"
+key = "sans22"
+key = "sans25"
+
+key = "srstotsc"
+key = "srsq63"
+
+key = "bprs10"
+key = "srsq63"
+
+df = pd.DataFrame()
+score = df_scores[key].astype(np.float).values
+df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
+LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
+df["labels_name"]  = df["labels"].map(LABELS_DICT)
+df[key] =  score[np.array(np.isnan(score)==False)]
+T,p = scipy.stats.f_oneway(df[df["labels"]==0][key],\
+                     df[df["labels"]==1][key],\
+                     df[df["labels"]==2][key])
+ax = sns.violinplot(x="labels_name", y=key, data=df,order=["cluster 1","cluster 2","cluster 3"])
+plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
+

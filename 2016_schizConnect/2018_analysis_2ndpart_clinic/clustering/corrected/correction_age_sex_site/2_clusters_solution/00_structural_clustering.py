@@ -24,15 +24,21 @@ from sklearn.cluster import KMeans
 ##############################################################################
 U_all = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering/U_scores_corrected/U_all.npy")
 y_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
+
+pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
+site = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/site.npy")
+
+
+
+U_all = scipy.stats.zscore(U_all)
+
+
 U_all_scz = U_all[y_all==1,:]
 U_all_con = U_all[y_all==0,:]
 
-pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
-
-U_all_scz = (U_all_scz  -U_all_scz.mean())  / U_all_scz.std()
 
 mod = KMeans(n_clusters=2)
-mod.fit(U_all_scz[:,1:])
+mod.fit(U_all_scz[:,2:])
 #mod.fit(U_all_scz[:,[2,3,4,5,8,9]])
 
 labels_all_scz = mod.labels_
@@ -47,7 +53,7 @@ for i in range(10):
 
 
 output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
-results/clustering/corrected_results/2_clusters_solution"
+results/clustering/corrected_results/correction_age_sex_site/2_clusters_solution"
 np.save(os.path.join(output,"labels_cluster.npy"),labels_all_scz)
 
 #############################################################################

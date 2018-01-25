@@ -37,13 +37,13 @@ pop = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+
 clinic = pd.read_csv(INPUT_CLINIC_FILENAME)
 pop= pop[pop["site_num"]==3]
 age = pop["age"].values
-sex = pop["sex_num"].values[site==3]
+sex = pop["sex_num"].values
 
 y = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
 labels_cluster = np.load("/neurospin/brainomics/2016_schizConnect/\
 2018_analysis_2ndpart_clinic/results/clustering/corrected_results/\
 correction_age_sex_site/3_clusters_solution/with_controls/labels_all.npy")
-labels_cluster = labels_cluster[site==3]
+labels_cluster = labels_cluster
 
 
 df_scores = pd.DataFrame()

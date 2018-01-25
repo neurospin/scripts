@@ -44,7 +44,7 @@ U_all_con = U_all[y_all==0,:]
 U_all_scz = scipy.stats.zscore(U_all_scz)
 
 
-k_range = [1,5,9,13,16]
+k_range = [1,13,19,20,22,62,89]
 
 #mod = KMeans(n_clusters=3)
 #mod.fit(U_all_scz[:,k_range])
@@ -139,7 +139,6 @@ for key in clinic.question_id.unique():
         df_stats.loc[df_stats.clinical_scores==key,"p"] = p
 
     except:
-        print("issue")
         df_stats.loc[df_stats.clinical_scores==key,"T"] = np.nan
         df_stats.loc[df_stats.clinical_scores==key,"p"] = np.nan
 

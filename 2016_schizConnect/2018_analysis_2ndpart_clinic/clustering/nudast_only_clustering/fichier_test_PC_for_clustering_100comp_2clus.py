@@ -19,9 +19,10 @@ from sklearn import preprocessing
 from nibabel import gifti
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
+from sklearn import mixture
+from sklearn.mixture import GMM
 
 
-##############################################################################
 ##############################################################################
 pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/NUSDAST/\
 VBM/population.csv")
@@ -42,14 +43,15 @@ U_all_con = U_all[y_all==0,:]
 
 U_all_scz = scipy.stats.zscore(U_all_scz)
 
-mod = KMeans(n_clusters=4)
 
 k_range = [1,13,19,22,62,89]
 
+#mod = KMeans(n_clusters=3)
+#mod.fit(U_all_scz[:,k_range])
+#labels_all_scz = mod.labels_
 
-mod.fit(U_all_scz[:,k_range])
-
-labels_all_scz = mod.labels_
+mod = GMM(n_components=2)
+labels_all_scz = mod.fit_predict(U_all_scz[:,k_range])
 
 df = pd.DataFrame()
 df["labels"] = labels_all_scz
@@ -59,7 +61,7 @@ df["sex"] = pop_all["sex_num"].values[y_all==1]
 for i in (k_range):
     df["U%s"%i] = U_all_scz[:,i]
 
-LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3",3: "cluster 4"}
+LABELS_DICT = {0: "cluster 1", 1: "cluster 2"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 
 
@@ -81,20 +83,8 @@ for i in (df.index.values):
 
 fig = plt.figure()
 fig.set_size_inches(11.7, 8.27)
-ax = sns.barplot(x="labels_name", y="score", hue="PC", data=df_complete,order=["cluster 1","cluster 2","cluster 3","cluster 4"])
+ax = sns.barplot(x="labels_name", y="score", hue="PC", data=df_complete,order=["cluster 1","cluster 2"])
 plt.legend(loc ='lower left' )
-#############################################################################
-
-#ANOVA on age
-
-T, p = scipy.stats.f_oneway(df[df["labels"]==0]["age"],\
-                     df[df["labels"]==1]["age"],\
-                     df[df["labels"]==2]["age"])
-ax = sns.violinplot(x="labels_name", y="age", data=df,order=["cluster 1","cluster 2","cluster 3"])
-plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
-
-#############################################################################
-#############################################################################
 #############################################################################
 
 
@@ -140,9 +130,7 @@ for key in clinic.question_id.unique():
         df["sex"] = sex[np.array(np.isnan(neurospycho)==False)]
         df["labels"]=labels_cluster[np.array(np.isnan(neurospycho)==False)]
         T,p = scipy.stats.f_oneway(df[df["labels"]==0][key],\
-                 df[df["labels"]==1][key],\
-                 df[df["labels"]==2][key],\
-                df[df["labels"]==3][key])
+                 df[df["labels"]==1][key])
         if p<0.1:
             print(key)
             print(p)
@@ -150,28 +138,30 @@ for key in clinic.question_id.unique():
         df_stats.loc[df_stats.clinical_scores==key,"p"] = p
 
     except:
-        print("issue")
         df_stats.loc[df_stats.clinical_scores==key,"T"] = np.nan
         df_stats.loc[df_stats.clinical_scores==key,"p"] = np.nan
 
 
-key = "cvlrccs"
+
+
+
+key = "cvlsdfrr"
 key = "cvlthits"
 key = "d4prime"
-key = "lflunova"
 key = "vocabsca"
+key = "wcsttcom"
+key = "fp1raw"
+key = "ssblsraw"
 
 df = pd.DataFrame()
 score = df_scores[key].astype(np.float).values
 df["labels"]=labels_cluster[np.array(np.isnan(score)==False)]
-LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3",3: "cluster 4"}
+LABELS_DICT = {0: "cluster 1", 1: "cluster 2"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 df[key] =  score[np.array(np.isnan(score)==False)]
 T,p = scipy.stats.f_oneway(df[df["labels"]==0][key],\
-                     df[df["labels"]==1][key],\
-                     df[df["labels"]==2][key],\
-                     df[df["labels"]==3][key])
-ax = sns.violinplot(x="labels_name", y=key, data=df,order=["cluster 1","cluster 2","cluster 3","cluster 4"])
+                     df[df["labels"]==1][key])
+ax = sns.violinplot(x="labels_name", y=key, data=df,order=["cluster 1","cluster 2"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
 
 
@@ -232,9 +222,8 @@ LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 df["sansTOTAL"] =  score[np.array(np.isnan(score)==False)]
 T,p = scipy.stats.f_oneway(df[df["labels"]==0]["sansTOTAL"],\
-                     df[df["labels"]==1]["sansTOTAL"],\
-                     df[df["labels"]==2]["sansTOTAL"])
-ax = sns.violinplot(x="labels_name", y="sansTOTAL", data=df,order=["cluster 1","cluster 2","cluster 3"])
+                     df[df["labels"]==1]["sansTOTAL"])
+ax = sns.violinplot(x="labels_name", y="sansTOTAL", data=df,order=["cluster 1","cluster 2"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
 
 
@@ -245,9 +234,8 @@ LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 df["sapsTOTAL"] =  score[np.array(np.isnan(score)==False)]
 T,p = scipy.stats.f_oneway(df[df["labels"]==0]["sapsTOTAL"],\
-                     df[df["labels"]==1]["sapsTOTAL"],\
-                     df[df["labels"]==2]["sapsTOTAL"])
-ax = sns.violinplot(x="labels_name", y="sapsTOTAL", data=df,order=["cluster 1","cluster 2","cluster 3"])
+                     df[df["labels"]==1]["sapsTOTAL"])
+ax = sns.violinplot(x="labels_name", y="sapsTOTAL", data=df,order=["cluster 1","cluster 2"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
 
 
@@ -258,9 +246,8 @@ LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 df["sansSUbtot"] =  score[np.array(np.isnan(score)==False)]
 T,p = scipy.stats.f_oneway(df[df["labels"]==0]["sansSUbtot"],\
-                     df[df["labels"]==1]["sansSUbtot"],\
-                     df[df["labels"]==2]["sansSUbtot"])
-ax = sns.violinplot(x="labels_name", y="sansSUbtot", data=df,order=["cluster 1","cluster 2","cluster 3"])
+                     df[df["labels"]==1]["sansSUbtot"])
+ax = sns.violinplot(x="labels_name", y="sansSUbtot", data=df,order=["cluster 1","cluster 2"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))
 
 
@@ -271,7 +258,6 @@ LABELS_DICT = {0: "cluster 1", 1: "cluster 2", 2: "cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 df["sapsSUbtot"] =  score[np.array(np.isnan(score)==False)]
 T,p = scipy.stats.f_oneway(df[df["labels"]==0]["sapsSUbtot"],\
-                     df[df["labels"]==1]["sapsSUbtot"],\
-                     df[df["labels"]==2]["sapsSUbtot"])
+                     df[df["labels"]==1]["sapsSUbtot"])
 ax = sns.violinplot(x="labels_name", y="sapsSUbtot", data=df,order=["cluster 1","cluster 2","cluster 3"])
 plt.title("ANOVA: t = %s, and  p= %s"%(T,p))

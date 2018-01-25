@@ -23,12 +23,18 @@ from sklearn.cluster import AgglomerativeClustering
 
 
 ##############################################################################
+##############################################################################
 U_all = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering/U_scores_corrected/U_all.npy")
 y_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
+
+pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
+
+U_all = scipy.stats.zscore(U_all)
+
+
 U_all_scz = U_all[y_all==1,:]
 U_all_con = U_all[y_all==0,:]
 
-pop_all = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
 
 labels_all_scz = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering/corrected_results/correction_age_sex_site/3_clusters_solution/labels_cluster.npy")
 
