@@ -1,0 +1,45 @@
+Installation of BTK :
+Because of the installation tools of the dependencies used by BTK, the following method supposes one uses Linux (though a Windows implementation is of course theoretically possible if one can install Linux commands like Cmake using Chocolatey or other tools)
+1°)Open up a terminal and use the command
+‘apt-get install cmake cmake-curses-gui libtclap-dev libgomp1 libvtk5-dev libann-dev doxygen’
+
+This will install many useful dependencies, in particular the cmake command. 
+
+2°) Ensure you have Git installed. If not, launch the command
+‘apt-get install git-core’
+
+3°) Ensure you have Python and numpy installed (in python, test if ‘import numpy’ brings an error). If not, just use ‘apt-get install python python-numpy’
+
+3°) Now, we must install ITK 4.3.1 (Other versions WILL NOT WORK)
+
+First, download the right ITK.tar.gz ( https://sourceforge.net/projects/itk/files/itk/4.3/InsightToolkit-4.3.1.tar.gz/download , with all versions available at https://itk.org/ITK/resources/legacy_releases.html )
+Then, extract it in any location, but note or copy the address of the extracted folder. Now, create a new folder which will become your official ITK installation folder ( name it as ITK-build for instance). 
+While using the command terminal, go inside your new directory ( cd ITK-build ), then type
+ ‘ccmake {extracted folder address}’ 
+(an example: ccmake ../InsightToolkit-4.12.1 )
+
+Now that we’re in the ccmake gui, first type ‘c’ to start the configuration. Then, go through the different settings of the ccmake gui to make sure they have the right values (type ‘t’ to go into advanced modes with more values)
+BUILD_TESTING = OFF
+CMAKE_BUILD_TYPE = Release
+ITK_USE_REVIEW = ON
+ITK_BUILD_ALL_MODULES = ON
+BUILD_DOCUMENTATION = OFF
+Once all this is done, type ‘c’ to configure ccmake once more, ‘g’ to create the make file and exit the ccmake gui, then while still in the installation folder, type ‘make’, which will launch the full ITK installation. ( Though this will take a decent amount of time, you do not need to wait for it to finish before going on to step 4, the VTK installation)
+
+4°) Next is installing VTK version 5.10.1 (again, make sure it’s the right version)
+The right tar.gz can be found at https://gitlab.kitware.com/vtk/vtk/tags/v5.0.0.
+The process is then similar to ITK, where you must first extract the tar.gz somewhere on your computer, create a new empty folder where VTK is installed, then use ‘ccmake {vtk folder address}’. 
+Then, press ‘c’ to start the configuration, and press ‘t’ to launch the advanced mode. Check these parameters:
+
+BUILD_TESTING = OFF
+BUILD_EXAMPLE = OFF
+CMAKE_BUILD_TYPE = Release
+VTK_USE_INFOVIS = ON
+VTK_USE_RENDERING = ON
+
+Then press ‘c’ followed by ‘g’ to create teh make file, then type make. This process takes about 30 minutes to complete.
+
+5°) Finally, we can install BTK. First download the BTK 1.5 for Linux in tar.gz form at https://www.nitrc.org/projects/btk/ , then extract the folder, which should be named ‘fbrain’. Create a new folder for your btk installation (fbrain-build for instance), then use ‘ccmake {fbrain address}’. When typing ‘c’, you will likely get an error saying it is missing itk, just type e to exit the message, then find among the ccmake parameters, ‘ITK_DIR =’. Change the ITK_DIR value so it is instead the address of your new ITK_build folder, then type ‘c’. You should now have a ‘VTK_DIR’ , make it point to the VTK folder. Finally, ensure you have
+CMAKE_BUILD_TYPE = Release
+Then type ‘c’ once more, followed by ‘g’. Now the make file is generated, type ‘make’ in the console. After 30 minutes, btk should be installed!
+ 
