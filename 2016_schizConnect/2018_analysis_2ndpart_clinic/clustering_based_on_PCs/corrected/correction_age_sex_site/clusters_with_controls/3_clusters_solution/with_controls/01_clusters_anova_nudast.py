@@ -28,7 +28,7 @@ from statsmodels.formula.api import ols
 import seaborn as sns
 
 DATA_PATH = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/data"
-INPUT_CLINIC_FILENAME = "/neurospin/abide/schizConnect/data/december_2017_clinical_score/schizconnect_COBRE_assessmentData_4495.csv"
+INPUT_CLINIC_FILENAME = "/neurospin/abide/schizConnect/data/december_2017_clinical_score/schizconnect_NUSDAST_assessmentData_4495.csv"
 
 site = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/site.npy")
 y = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
@@ -36,14 +36,14 @@ y = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VB
 
 pop = pd.read_csv("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/population.csv")
 clinic = pd.read_csv(INPUT_CLINIC_FILENAME)
-pop= pop[pop["site_num"]==1]
+pop= pop[pop["site_num"]==3]
 age = pop["age"].values
 sex = pop["sex_num"].values
 
 labels_cluster = np.load("/neurospin/brainomics/2016_schizConnect/\
 2018_analysis_2ndpart_clinic/results/clustering/corrected_results/\
 correction_age_sex_site/clusters_with_controls/2_clusters_solution/with_controls/labels_all.npy")
-labels_cluster = labels_cluster[site==1]
+labels_cluster = labels_cluster[site==3]
 
 
 df_scores = pd.DataFrame()
@@ -82,7 +82,7 @@ for key in clinic.question_id.unique():
 ################################################################################
 output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
 results/clustering/corrected_results/correction_age_sex_site/clusters_with_controls/\
-2_clusters_solution/with_controls/cobre"
+2_clusters_solution/with_controls/nudast"
 
 for key in key_of_interest:
     plt.figure()
@@ -99,15 +99,4 @@ for key in key_of_interest:
     plt.savefig(os.path.join(output,"%s.png"%key))
 
 
-################################################################################
-DICT = {"grade 6 or less":	1,
-"grade 7 - 12 (without graduating high school)":	2,
-"graduated high school or high school equivalent":	3,
-"part college":	4,
-"graduated 2 yr college":	5,
-"graduated 4 yr college":	6,
-"part graduate/professional school":	7,
-"completed graduate/professional school":	8}
 
-df_scores["CODEM_5"]  = df_scores["CODEM_5"].map(DICT)
-df_scores["CODEM_6"]  = df_scores["CODEM_6"].map(DICT)
