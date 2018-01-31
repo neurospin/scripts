@@ -117,18 +117,29 @@ features_of_interest = [12,47,28,63,65,30,74,92,81,96,82,97]
 #features_of_interest_name = features_name[features_of_interest]
 #features = features[:,features_of_interest]
 ##############################################################################
-medialorbitofrontal_thickness = features[:,12] + features[:,47]
-superiortemporal_thickness = features[:,28] + features[:,63]
-frontalpole_thickness = features[:,65] + features[:,30]
-thalamus_volume = features[:,74] + features[:,92]
-hippocampus_volume = features[:,81] + features[:,96]
-amygdala_volume = features[:,82] + features[:,97]
+Medialorbitofrontal_thickness = features[:,12] + features[:,47]
+Superiortemporal_thickness = features[:,28] + features[:,63]
+Frontalpole_thickness = features[:,65] + features[:,30]
+Thalamus_volume = features[:,74] + features[:,92]
+Hippocampus_volume = features[:,81] + features[:,96]
+Amygdala_volume = features[:,82] + features[:,97]
+ICV = features[:,-1]
+Mean_thickness = features[:,34]+features[:,66]
+
 features_of_interest_name =  ['medialorbitofrontal thickness','superiortemporal thickness',\
-               'frontalpole thickness','thalamus volume',\
+               'frontalpole thickness',"mean_thickness",'thalamus volume',\
+               'hippocampus volume','amygdala volume',"icv",]
+features = np.vstack((Medialorbitofrontal_thickness,Superiortemporal_thickness,\
+               Frontalpole_thickness,Mean_thickness, Thalamus_volume,\
+               Hippocampus_volume,Amygdala_volume,ICV)).T
+
+
+features_of_interest_name =  ['superiortemporal thickness',\
+               'frontalpole thickness',\
                'hippocampus volume','amygdala volume']
-features = np.vstack((medialorbitofrontal_thickness,superiortemporal_thickness,\
-               frontalpole_thickness,thalamus_volume,\
-               hippocampus_volume,amygdala_volume)).T
+features = np.vstack((Superiortemporal_thickness,\
+               Frontalpole_thickness,\
+               Hippocampus_volume,Amygdala_volume,ICV)).T
 
 ##############################################################################
 
@@ -158,9 +169,9 @@ for f in features_of_interest_name:
     i= i+1
 
 
-output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
-results/clustering_ROIs/results/thick+vol/3_clusters"
-np.save(os.path.join(output,"labels_cluster.npy"),df["labels_name"].values)
+#output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
+#results/clustering_ROIs/results/thick+vol/3_clusters"
+#np.save(os.path.join(output,"labels_cluster.npy"),df["labels_name"].values)
 
 
 

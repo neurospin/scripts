@@ -111,11 +111,40 @@ features = features[:,(np.std(features, axis=0) > 1e-6)]
 
 features = scipy.stats.zscore(features)
 
-features_of_interest = [12,28,47,63,74,81,82,92,96,97]
-features_of_interest_name = features_name[features_of_interest]
-features = features[:,features_of_interest]
+features_of_interest = [12,47,28,63,65,30,74,92,81,96,82,97]
+#features_of_interest = [12,28,47,63,74,81,82,92,96,97]
+
+#features_of_interest_name = features_name[features_of_interest]
+#features = features[:,features_of_interest]
+##############################################################################
+Medialorbitofrontal_thickness = features[:,12] + features[:,47]
+Superiortemporal_thickness = features[:,28] + features[:,63]
+Frontalpole_thickness = features[:,65] + features[:,30]
+Thalamus_volume = features[:,74] + features[:,92]
+Hippocampus_volume = features[:,81] + features[:,96]
+Amygdala_volume = features[:,82] + features[:,97]
+ICV = features[:,-1]
+Mean_thickness = features[:,34]+features[:,66]
+
+features_of_interest_name =  ['medialorbitofrontal thickness','superiortemporal thickness',\
+               'frontalpole thickness',"mean_thickness",'thalamus volume',\
+               'hippocampus volume','amygdala volume',"icv",]
+features = np.vstack((Medialorbitofrontal_thickness,Superiortemporal_thickness,\
+               Frontalpole_thickness,Mean_thickness, Thalamus_volume,\
+               Hippocampus_volume,Amygdala_volume,ICV)).T
 
 
+features_of_interest_name =  ['superiortemporal thickness',\
+               'frontalpole thickness',\
+               'hippocampus volume','amygdala volume']
+features = np.vstack((Superiortemporal_thickness,\
+               Frontalpole_thickness,\
+               Hippocampus_volume,Amygdala_volume,ICV)).T
+
+##############################################################################
+
+#clustering
+##############################################################################
 features_scz = features[y_all==1,:]
 features_con = features[y_all==0,:]
 
@@ -131,7 +160,7 @@ df["age"] = pop_volume["age"].values
 df["labels"] = np.nan
 df["labels"][y_all==1] = labels_all_scz
 df["labels"][y_all==0] = "controls"
-LABELS_DICT = {"controls":"Controls",0: "SCZ Cluster 1", 1: "SCZ Cluster 2", 2: "SCZ Cluster 3", 3: "SCZ Cluster 4"}
+LABELS_DICT = {"controls":"Controls",0: "SCZ Cluster 1", 1: "SCZ Cluster 2", 2: "SCZ Cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 
 i=0

@@ -174,3 +174,46 @@ def render_mpl_table(data,output, col_width=30.0, row_height=0.325, font_size=12
     plt.savefig(output)
     return ax
 
+###############################################################################
+###############################################################################
+#code to plot NP meand variables
+
+NP_scores = ["vocabsca",'matrxsca',"dstscalc","sstscalc","lnsscalc","lmiscalc","fpiscalc","trailb","wcstpsve"]
+
+
+df_stats = pd.DataFrame(columns=["mean Controls","std Controls","mean Cluster 1","mean Cluster 2","mean Cluster 3",\
+                                 "std Cluster 1","std Cluster 2","std Cluster 3"])
+df_stats.insert(0,"clinical_scores",NP_scores)
+for key in NP_scores:
+    neurospycho = df_scores[key].astype(np.float).values
+    df = pd.DataFrame()
+    df[key] = scipy.stats.zscore(neurospycho[np.array(np.isnan(neurospycho)==False)])
+    df["labels"]=labels_cluster[np.array(np.isnan(neurospycho)==False)]
+    df_stats.loc[df_stats.clinical_scores==key,"mean Controls"] = round(df[df["labels"]=='Controls'][key].mean(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"mean Cluster 1"] = round(df[df["labels"]=='SCZ Cluster 1'][key].mean(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"mean Cluster 2"] = round(df[df["labels"]=='SCZ Cluster 2'][key].mean(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"mean Cluster 3"] = round(df[df["labels"]=='SCZ Cluster 3'][key].mean(),3)
+
+    df_stats.loc[df_stats.clinical_scores==key,"std Controls"] = round(df[df["labels"]=='Controls'][key].std(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"std Cluster 1"] = round(df[df["labels"]=='SCZ Cluster 1'][key].std(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"std Cluster 2"] = round(df[df["labels"]=='SCZ Cluster 2'][key].std(),3)
+    df_stats.loc[df_stats.clinical_scores==key,"std Cluster 3"] = round(df[df["labels"]=='SCZ Cluster 3'][key].std(),3)
+
+#plt.errorbar(x,y=df_stats["mean Controls"],yerr=df_stats["std Controls"],label = "Controls",marker='o',ls='--')
+#plt.errorbar(x,y=df_stats["mean Cluster 1"],yerr=df_stats["std Cluster 1"],label = "SCZ Cluster 1",marker='v',ls='--')
+#plt.errorbar(x,y=df_stats["mean Cluster 2"],yerr=df_stats["std Cluster 2"],label = "SCZ Cluster 2",marker='p',ls='--')
+#plt.errorbar(x,y=df_stats["mean Cluster 3"],yerr=df_stats["std Cluster 3"],label = "SCZ Cluster 3",marker='d',ls='--')
+#plt.legend()
+#plt.ylabel("Z-score")
+
+plt.plot(df_stats["mean Controls"],'o',label = 'Controls', marker='v',markersize=10,ls='--',color= "g")
+plt.plot(df_stats["mean Cluster 1"],'o',label = 'SCZ Cluster 1', marker='o',markersize=10,ls='--',color= "b")
+plt.plot(df_stats["mean Cluster 2"],'o',label = 'SCZ Cluster 2', marker='s',markersize=10,ls='--',color= "r")
+plt.plot(df_stats["mean Cluster 3"],'o',label = 'SCZ Cluster 3', marker='d',markersize=10,ls='--',color= "y")
+plt.legend(loc = 'lower center',ncol =4)
+plt.ylabel("Z-score")
+x = np.arange(9)
+NP_scores_legend = ["WAIS vocab",'WAIS MR',"WMS Digit Span","WMS Spatial Span","WMS LN","WMS LM","WMS FP","Trails B","WCST errors"]
+plt.xticks(x,NP_scores_legend,rotation=60, fontsize=12)
+plt.tight_layout()
+plt.savefig(os.path.join(output,"neuropsy_per_clusters"))
