@@ -86,7 +86,11 @@ y_min = 10 ** (-9)
 
 # plot
 pdf_path = os.path.join(BASE_PATH,"fig_mri3d_adni_adas_l1l2tv_regression_conesta_precision_iterations.pdf")
+#pdf_path = os.path.join(BASE_PATH,"precision_iterations.pdf")
+
 pdf = PdfPages(pdf_path)
+
+# -
 #fig = plt.figure(figsize=(6, 4.5))# Nice size
 fig = plt.figure(figsize=(6, 2.3))# reduce height
 #plt.plot(ite_final["gap"],label = r"$\textsc{Gap}_{\mu}$")
@@ -97,21 +101,24 @@ plt.plot(ite, func_val - fstar, color=colors[1],
          label = r"$\varepsilon\equiv f(\beta^{k})$ - $f(\beta^{*})$" )
 plt.yscale('log')
 plt.xscale('log')
-plt.ylim([y_min, y_max])
-
+#plt.ylim([y_min, y_max])
+plt.ylim(1e-5, 1e5)
+plt.xlim(1e1, 1e5)
+plt.yticks([1e4, 1e1, 1e-1, 1e-2, 1e-3, 1e-5])
 plt.xlabel("Iterations [k]")
 plt.ylabel(r"Precision [$\varepsilon$]")
 plt.grid()
 plt.legend()#prop={'size':15})
 #plt.title("ADNI - MCI-CTL - 286214 features")
 fig.tight_layout()
+# -
 
 pdf.savefig()
 plt.close(fig)
 pdf.close()
 
 ###############################################################################
-# 2) x:precision, y: cor(Xbeta*, Xbeta_hat) + cor(beta*, beta_hat)
+# 2) x:precision, y: cor(Xbeta*, Xbeta_hat) and cor(beta*, beta_hat)
 ###############################################################################
 
 BASE_PATH = "/neurospin/brainomics/2017_parsimony_settings/precision_setting/ADNI_ADAS11-MCIc-CTL/run"
@@ -126,10 +133,13 @@ corr = np.zeros((nb_conesta))
 decfunc =  np.zeros((nb_conesta))
 decfunc_mse =  np.zeros((nb_conesta))
 decfunc_mse_norm =  np.zeros((nb_conesta))
+decfunc_mae =  np.zeros((nb_conesta)) # mean absolute error
+decfunc_mae_norm =  np.zeros((nb_conesta)) # mean absolute error
 
 i=0
 Xbetastar = np.dot(X, beta_star[:,0])
 Xbetastar_nrm  = np.sqrt(np.sum(Xbetastar ** 2))
+Xbetastar_nrm1  = np.sum(np.abs(Xbetastar))
 
 for ite in conesta_ite:
     path = os.path.join(snap_path,ite)
@@ -137,9 +147,13 @@ for ite in conesta_ite:
     corr[i] = np.corrcoef(ite["beta"][:,0], beta_star[:,0])[0][1]
     Xbetak = np.dot(X, ite["beta"][:,0])
     decfunc[i] = np.corrcoef(Xbetak, Xbetastar)[0][1]
-    decfunc_mse[i] = np.sqrt(np.sum((Xbetak - Xbetastar) ** 2))
+    decfunc_mse[i] = np.sqrt(np.sum((Xbetak - Xbetastar) ** 2)) / len(Xbetastar)
     decfunc_mse_norm[i] = np.sqrt(np.sum((Xbetak - Xbetastar) ** 2)) / Xbetastar_nrm
+    decfunc_mae[i] = np.mean(np.abs(Xbetak - Xbetastar))
+    decfunc_mae_norm[i] = np.sum(np.abs(Xbetak - Xbetastar)) / Xbetastar_nrm1
     i = i + 1
+
+plt.plot(decfunc_mse, decfunc_mae)
 
 gap = np.zeros((nb_conesta))
 func = np.zeros((nb_conesta))
@@ -148,9 +162,16 @@ for i in range(len(conesta_ite)):
      gap[i] = ite["gap"][fista_number -1]
      func[i] = ite["func_val"][fista_number -1]
 
+eps_true = func - func[-1]
+
 eps_thrsld = 1e-3
 gap_thrsld_idx = np.where(gap <= eps_thrsld)[0][0]
-eps_thrsld_idx = np.where(func - func[-1] <= eps_thrsld)[0][0]
+eps_thrsld_idx = np.where(eps_true <= eps_thrsld)[0][0]
+
+eps_thrsld_loose = 0.01009564#1e-2
+gap_thrsld_idx_loose = np.where(gap <= eps_thrsld_loose)[0][0]
+eps_thrsld_idx_loose = np.where(eps_true <= eps_thrsld_loose)[0][0]
+#eps_true[ (eps_true >= 1e-3) & (eps_true <= 1e-1)]
 
 print("Stopping at gap <= 1e-3, lead to a corr(betak, beta*) of %.2f" % corr[gap_thrsld_idx])
 print("Stopping at eps <= 1e-3, lead to a corr(betak, beta*) of %.2f" % corr[eps_thrsld_idx])
@@ -170,14 +191,40 @@ plt.rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
 
 pdf_path = os.path.join(BASE_PATH,"precision_vs_corr_beta.pdf")
 pdf = PdfPages(pdf_path)
+
+# -
+y_axis = corr
 #fig = plt.figure(figsize=(6, 4.5))# Nice size
 fig = plt.figure(figsize=(6, 2.3))# reduce height
 plt.plot(gap, corr, label = r"$\varepsilon\equiv \textsc{Gap}_{\mu^k}(\beta^{k}) + \mu^k\gamma M$", color=colors[0])
 plt.plot(func - func[-1], corr, label = r"$\varepsilon\equiv f(\beta^{k})$ - $f(\beta^{*})$", color=colors[1])
-# vline @ 1e-3
-plt.plot([eps_thrsld, eps_thrsld], [0, cor_up], "k--")
-plt.text(eps_thrsld, cor_up + cor_up/100, "%.2f" % cor_up)
 
+# vline @ 1e-2 on gap
+plt.plot([eps_thrsld_loose, eps_thrsld_loose], [0, y_axis[gap_thrsld_idx_loose]], "k--")
+plt.text(eps_thrsld_loose + eps_thrsld_loose/10, y_axis[gap_thrsld_idx_loose]- 0.05,
+         "%.3f" % y_axis[gap_thrsld_idx_loose], verticalalignment='top')
+# vline @ 1e-2 on true eps
+(func - func[-1])[y_axis <= 2e-2]
+
+plt.plot([eps_thrsld_loose, eps_thrsld_loose], [0, y_axis[eps_thrsld_idx_loose]], "k--")
+plt.text(eps_thrsld_loose + eps_thrsld_loose/10, y_axis[eps_thrsld_idx_loose],
+         "%.3f" % y_axis[eps_thrsld_idx_loose], verticalalignment='top')
+
+# vline @ 1e-3 on gap
+plt.plot([eps_thrsld, eps_thrsld], [0, y_axis[gap_thrsld_idx]], "k--")
+plt.text(eps_thrsld + eps_thrsld/10, y_axis[gap_thrsld_idx] + 0.1,
+         "%.3f" % y_axis[gap_thrsld_idx], verticalalignment='top')
+# vline @ 1e-3 on true eps
+plt.plot([eps_thrsld, eps_thrsld], [0, y_axis[eps_thrsld_idx]], "k--")
+plt.text(eps_thrsld + eps_thrsld/10, y_axis[eps_thrsld_idx],
+         "%.3f" % y_axis[eps_thrsld_idx], verticalalignment='top')
+
+# vline @ 1e-3
+#plt.plot([eps_thrsld, eps_thrsld], [0, cor_up], "k--")
+#plt.text(eps_thrsld, cor_up + cor_up/100, "%.2f" % cor_up)
+
+plt.xlim(1e-5, 1e3)
+plt.ylim(0, 1.1)
 plt.xscale('log')
 plt.ylabel(r"corr$(\beta^{k}$, $\beta^{*})$ ")
 plt.xlabel(r"Precision [$\varepsilon$]")
@@ -185,6 +232,8 @@ plt.grid()
 plt.legend()#prop={'size':15})
 #plt.title("ADNI - MCI-CTL - 286214 features")
 fig.tight_layout()
+# -
+
 pdf.savefig()
 plt.close(fig)
 pdf.close()
@@ -197,36 +246,60 @@ Stopping at eps <= 1e-3, lead to a corr(betak, beta*) of 0.92
 ###############################################################################
 # Plot precision vs cor(Xbeta*, Xbeta_hat)
 
-decfunc_mse_norm_up = decfunc_mse_norm[gap_thrsld_idx]
-decfunc_mse_up = decfunc_mse[gap_thrsld_idx]
-
 # tune
 plt.rc("text", usetex=True)
 plt.rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
 #plt.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
 
-pdf_path = os.path.join(BASE_PATH,"precision_vs_err_decision_function.pdf")
+#pdf_path = os.path.join(BASE_PATH,"precision_vs_err_decision_function.pdf")
+pdf_path = os.path.join(BASE_PATH,"precision_vs_mae-norm_decision_function.pdf")
 pdf = PdfPages(pdf_path)
+
+# -
 fig = plt.figure(figsize=(6, 4.5))#(11.69, 8.27))
-#plt.plot(gap,decfunc,label = r"$gap$")
-#plt.plot(func - func[-1],decfunc,label = r"$f(\beta^{k})$ - $f(\beta^{*})$")
-plt.plot(gap, decfunc_mse,label = r"$\varepsilon\equiv\textsc{Gap}_{\mu^k}(\beta^k)$", color=colors[0])
-plt.plot(func - func[-1], decfunc_mse,label = r"$\varepsilon\equiv f(\beta^{k})$ - $f(\beta^{*})$", color=colors[1])
-#plt.plot(gap, decfunc_mse_norm,label = r"$\varepsilon\equiv\textsc{Gap}_{\mu^k}(\beta^k)$")
-#plt.plot(func - func[-1],decfunc_mse_norm,label = r"$\varepsilon\equiv f(\beta^{k})$ - $f(\beta^{*})$")
 
-# vline @ 1e-3
-plt.plot([eps_thrsld, eps_thrsld], [0, decfunc_mse_norm_up], "k--")
-plt.text(eps_thrsld + eps_thrsld/10, decfunc_mse_norm_up,
-         "%.3f" % decfunc_mse_norm_up, verticalalignment='top')
+#y_axis = decfunc_mse
+#y_axis = decfunc_mse_norm
+#y_axis = decfunc_mae
+y_axis = decfunc_mae_norm
 
+y_axis_topvline = y_axis[gap_thrsld_idx]
+plt.plot(gap, y_axis,label = r"$\varepsilon\equiv\textsc{Gap}_{\mu^k}(\beta^k)$", color=colors[0])
+plt.plot(func - func[-1], y_axis,label = r"$\varepsilon\equiv f(\beta^{k})$ - $f(\beta^{*})$", color=colors[1])
+
+# vline @ 1e-2 on gap
+plt.plot([eps_thrsld_loose, eps_thrsld_loose], [0, y_axis[gap_thrsld_idx_loose]], "k--")
+plt.text(eps_thrsld_loose + eps_thrsld_loose/10, y_axis[gap_thrsld_idx_loose],
+         "%.3f" % y_axis[gap_thrsld_idx_loose], verticalalignment='top')
+# vline @ 1e-2 on true eps
+(func - func[-1])[y_axis <= 2e-2]
+
+plt.plot([eps_thrsld_loose, eps_thrsld_loose], [0, y_axis[eps_thrsld_idx_loose]], "k--")
+plt.text(eps_thrsld_loose + eps_thrsld_loose/10, y_axis[eps_thrsld_idx_loose]/1.2,
+         "%.3f" % y_axis[eps_thrsld_idx_loose], verticalalignment='top')
+
+# vline @ 1e-3 on gap
+plt.plot([eps_thrsld, eps_thrsld], [0, y_axis[gap_thrsld_idx]], "k--")
+plt.text(eps_thrsld + eps_thrsld/10, y_axis[gap_thrsld_idx],
+         "%.3f" % y_axis[gap_thrsld_idx], verticalalignment='top')
+# vline @ 1e-3 on true eps
+plt.plot([eps_thrsld, eps_thrsld], [0, y_axis[eps_thrsld_idx]], "k--")
+plt.text(eps_thrsld + eps_thrsld/10, y_axis[eps_thrsld_idx],
+         "%.3f" % y_axis[eps_thrsld_idx], verticalalignment='top')
+
+plt.xlim(1e-6, 1e0)
+plt.ylim(1e-4, 1e-1)
 plt.xscale('log')
 plt.yscale('log')
-plt.ylabel(r"${\Vert X \beta^{k} - X\beta^{*}\Vert_2 / \Vert X\beta^{*}\Vert_2$ ")
+plt.ylabel(r"${\Vert X \beta^{k} - X\beta^{*}\Vert_1 / \Vert X\beta^{*}\Vert_1$ ")
+#plt.ylabel(r"${\Vert X \beta^{k} - X\beta^{*}\Vert_2 / \Vert X\beta^{*}\Vert_2$ ")
 plt.xlabel(r"Precision [$\varepsilon$]")
+plt.grid()
 plt.legend(loc="lower right")#prop={'size':15})
 #plt.title("ADNI - MCI-CTL - 286214 features")
+
 fig.tight_layout()
+# -
 
 pdf.savefig()
 plt.close(fig)
