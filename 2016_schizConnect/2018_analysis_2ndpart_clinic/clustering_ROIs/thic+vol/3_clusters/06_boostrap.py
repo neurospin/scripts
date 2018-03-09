@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Dec 21 12:08:33 2017
-
-@author: ad247405
-"""
-
 import os
 import numpy as np
 import pandas as pd
@@ -14,16 +6,17 @@ import shutil
 import scipy.stats
 import matplotlib.pyplot as plt
 import seaborn as sns
-import parsimony.utils.check_arrays as check_arrays
 from sklearn import preprocessing
 from nibabel import gifti
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 
+
 ##############################################################################
 y_all = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/y.npy")
 site = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/site.npy")
 ##############################################################################
+
 
 #1) Extarction of thickness features
 ##############################################################################
@@ -126,159 +119,88 @@ frontal_thickness = features[:,20]+features[:,22]+features[:,55]+features[:,57]
 parietal_thickness = features[:,6]+features[:,27]+features[:,41]+features[:,61]
 precuneus_thickness = features[:,23]+features[:,58]
 
-features_of_interest_name =  ['medialorbitofrontal thickness','superiortemporal thickness',\
-               'frontalpole thickness',"mean_thickness",'thalamus volume',\
-               'hippocampus volume','amygdala volume',"icv",]
-features = np.vstack((Medialorbitofrontal_thickness,Superiortemporal_thickness,\
-               Frontalpole_thickness,Mean_thickness, Thalamus_volume,\
-               Hippocampus_volume,Amygdala_volume,ICV)).T
-
-features_of_interest_name =  ["mean_thickness","icv",]
-features = np.vstack((Mean_thickness,ICV)).T
-
-
-features_of_interest_name =  ['superiortemporal thickness',\
-               'frontalpole thickness',\
-               'hippocampus volume','amygdala volume']
-features = np.vstack((Superiortemporal_thickness,\
-               Frontalpole_thickness,\
-               Hippocampus_volume,Amygdala_volume)).T
-
-features_of_interest_name =  ['Temporalpole_thickness ',"frontal_thickness",\
-               "posteriorcingulate_thickness",'hippocampus volume','amygdala volume','thalamus volume']
-features = np.vstack((Temporalpole_thickness ,frontal_thickness,\
-               posteriorcingulate_thickness, Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
 
 features_of_interest_name =  ['temporal_thickness',"frontal_thickness",\
                'hippocampus volume','amygdala volume','thalamus volume']
 features = np.vstack((temporal_thickness,frontal_thickness,\
                Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
 
-#features_of_interest_name =  ['temporal_thickness',"frontal_thickness","precuneus_thickness",\
-#               'hippocampus volume','amygdala volume','thalamus volume']
-#features = np.vstack((temporal_thickness,frontal_thickness,precuneus_thickness,\
-#               Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
-###############################################################################
-#
-#features = scipy.stats.zscore(features)
-#features = ((features - features.mean(axis=0))/features.std(axis=0))
 features = ((features - features[y_all==0,:].mean(axis=0))/features[y_all==0,:].std(axis=0))
-
-#clustering
-##############################################################################
 features_scz = features[y_all==1,:]
 features_con = features[y_all==0,:]
 
-#mod = AgglomerativeClustering(n_clusters=3,linkage='ward')
+#clustering
+##############################################################################
 mod = KMeans(n_clusters=3)
 mod.fit(features_scz)
-labels_all_scz = mod.labels_
-
-from sklearn.metrics import silhouette_samples, silhouette_score
-print(silhouette_score(features_scz,labels_all_scz))
-#silhouette_samples(features_scz,labels_all_scz)
-
-df = pd.DataFrame()
-df["sex"] = pop_volume["sex"].values
-df["age"] = pop_volume["age"].values
-df["site"] = pop_volume["site"].values
-df["labels"] = np.nan
-df["labels"][y_all==1] = labels_all_scz
-df["labels"][y_all==0] = "controls"
-LABELS_DICT = {"controls":"Controls",0: "Subcortical", 1: "Cortical", 2: "Preserved"}
-#LABELS_DICT = {"controls":"Controls",0: "SCZ Cluster 1", 1: "SCZ Cluster 2", 2: "SCZ Cluster 3"}
-df["labels_name"]  = df["labels"].map(LABELS_DICT)
-
-i=0
-for f in features_of_interest_name:
-    df[f] = features[:,i]
-    i= i+1
-
-output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
-results/clustering_ROIs/results/thick+vol/3_clusters"
-np.save(os.path.join(output,"labels_cluster.npy"),df["labels_name"].values)
-
-#############################################################################
-#PLOT WEIGHTS OF PC FOR EACH CLUSTER
-df_complete = pd.DataFrame()
-df_complete["Feature"] = 99
-df_complete["score"] = 99
-
-ind = 0
-for i in (df.index.values):
-    for k in features_of_interest_name :
-        df_complete = df_complete.append(df[df.index==i][['labels_name', 'age']],ignore_index=True)
-        df_complete.loc[df_complete.index==ind,"Feature"] = k
-        df_complete.loc[df_complete.index==ind,"score"] = df[df.index==i][k].values
-        ind = ind +1
-
-fig = plt.figure()
-fig.set_size_inches(11.7, 8.27)
-ax = sns.barplot(x="labels_name", y="score", hue="Feature", data=df_complete,order=["Subcortical","Cortical","Preserved"])
-plt.legend(loc ='lower left' )
-plt.savefig(os.path.join(output,"cluster_weights.png"))
-
-#############################################################################
-# Another kind of plot
-df = df_complete[df_complete["labels_name"]!="Controls"]
-df = df_complete[df_complete["labels_name"]!="Controls"]
-df = df.rename(columns={'labels_name': 'Cluster'})
-df = df.rename(columns={'score': 'Z-score'})
-
-df = df.replace(to_replace = "temporal_thickness",value = "Temporal\n thickness")
-df = df.replace(to_replace = "frontal_thickness",value = "Frontal\n thickness")
-df = df.replace(to_replace = "hippocampus volume",value = "Hippocampus\n volume")
-df = df.replace(to_replace = "amygdala volume",value = "  Amygdala\n volume")
-df = df.replace(to_replace = "thalamus volume",value = "Thalamus\n volume")
+labels_all_scz_orig = mod.labels_
+centers_orig =mod.cluster_centers_
 
 
+
+features_cluster0 = list()
+features_cluster1 = list()
+features_cluster2 = list()
+n_ite = 1000
+for ite in range(n_ite ):
+    mod = KMeans(n_clusters=3)
+    index = np.arange(sum(y_all==1))
+    index_resampled = np.random.choice(index, size=253, replace=True)
+    mod.fit(features_scz[index_resampled,:])
+    labels_all_scz = mod.labels_
+    centers = mod.cluster_centers_
+    for k_orig in range(3):
+        distance = list()
+        for i in range(3):
+            distance.append(np.linalg.norm(centers[i,:]-centers_orig[k_orig,:]))
+        argmin = np.argmin(distance)
+        f = features_scz[index_resampled,:][labels_all_scz==argmin]
+        if k_orig==0:features_cluster0.append(f)
+        if k_orig==1:features_cluster1.append(f)
+        if k_orig==2:features_cluster2.append(f)
+
+assert len(features_cluster0) ==len(features_cluster1) ==len(features_cluster2) == n_ite
+
+
+
+##############################################################################
+T_scz1 = np.zeros((5,n_ite))
+T_scz2 = np.zeros((5,n_ite))
+T_scz3 = np.zeros((5,n_ite))
+p_scz1 = np.zeros((5,n_ite))
+p_scz2 = np.zeros((5,n_ite))
+p_scz3 = np.zeros((5,n_ite))
+for ite in range(n_ite ):
+    con = features_con
+    scz1 = features_cluster0[ite]
+    scz2 = features_cluster1[ite]
+    scz3 = features_cluster2[ite]
+    T_scz1[:,ite],p_scz1[:,ite] = scipy.stats.ttest_ind(con,scz1)
+    T_scz2[:,ite],p_scz2[:,ite] = scipy.stats.ttest_ind(con,scz2)
+    T_scz3[:,ite],p_scz3[:,ite] = scipy.stats.ttest_ind(con,scz3)
+
+
+df_scz1 = pd.DataFrame()
+df_scz1 ["T-statistics"] = np.hstack((T_scz1[0],T_scz1[1],T_scz1[2],T_scz1[3],T_scz1[4]))
+df_scz1 ["ROIs"] = np.hstack((np.repeat("Temporal\n Thickness", n_ite),np.repeat("Frontal\n Thickness", n_ite),\
+np.repeat("Hippocampus\n Volume", n_ite),np.repeat("Amygdala\n Volume", n_ite),np.repeat("Thalamus\n Volume", n_ite)))
+df_scz1["Clusters"] = np.repeat("Cluster 1",5*n_ite)
+
+df_scz2 = pd.DataFrame()
+df_scz2["T-statistics"] = np.hstack((T_scz2[0],T_scz2[1],T_scz2[2],T_scz2[3],T_scz2[4]))
+df_scz2["ROIs"] = np.hstack((np.repeat("Temporal\n Thickness", n_ite),np.repeat("Frontal\n Thickness", n_ite),\
+np.repeat("Hippocampus\n Volume", n_ite),np.repeat("Amygdala\n Volume", n_ite),np.repeat("Thalamus\n Volume", n_ite)))
+df_scz2["Clusters"] = np.repeat("Cluster 2",5*n_ite)
+
+df_scz3 = pd.DataFrame()
+df_scz3["T-statistics"] = np.hstack((T_scz3[0],T_scz3[1],T_scz3[2],T_scz3[3],T_scz3[4]))
+df_scz3["ROIs"] = np.hstack((np.repeat("Temporal\n Thickness", n_ite),np.repeat("Frontal\n Thickness", n_ite),\
+np.repeat("Hippocampus\n Volume", n_ite),np.repeat("Amygdala\n Volume", n_ite),np.repeat("Thalamus\n Volume", n_ite)))
+df_scz3["Clusters"] = np.repeat("Cluster 3",5*n_ite)
+
+df = pd.concat((df_scz1,df_scz2,df_scz3))
 sns.set_style("whitegrid")
-ax = sns.factorplot(x="Feature", y="Z-score",data=df, kind="bar",col="Cluster",\
-                    col_order=["Subcortical","Cortical","Preserved"],\
-                   palette="binary")
-
-ax.set_titles("{col_name}",size=15)
-ax.set_xlabels("Features")
-plt.savefig(os.path.join(output,"cluster_weights_plot.png"))
-#############################################################################
-
-
-plt.figure()
-sns.set_style("whitegrid")
-ax = sns.barplot(x="labels_name", y="age",data=df,order=["SCZ Cluster 1","SCZ Cluster 2","SCZ Cluster 3"])
-#plt.savefig(os.path.join(output,"age.png"))
-
-#############################################################################
-
-#ANOVA on age
-
-T, p = scipy.stats.f_oneway(df[df["labels"]==0]["age"],\
-                     df[df["labels"]==1]["age"],\
- df[df["labels"]==2]["age"])
-ax = sns.violinplot(x="labels_name", y="age", data=df,order=["Controls","SCZ Cluster 1","SCZ Cluster 2","SCZ Cluster 3"])
-plt.title("ANOVA patients: t = %s, and  p= %s"%(T,p))
-plt.savefig(os.path.join(output,"age_anova.png"))
-
-
-obs = np.array([[sum(df[df["labels"]==0]["site"]==1),\
-                 sum(df[df["labels"]==0]["site"]==2),\
-                 sum(df[df["labels"]==0]["site"]==3),\
-                 sum(df[df["labels"]==0]["site"]==4)],\
-                 [sum(df[df["labels"]==1]["site"]==1),\
-                 sum(df[df["labels"]==1]["site"]==2),\
-                 sum(df[df["labels"]==1]["site"]==3),\
-                 sum(df[df["labels"]==1]["site"]==4)],\
-                     [sum(df[df["labels"]==2]["site"]==1),\
-                 sum(df[df["labels"]==2]["site"]==2),\
-                 sum(df[df["labels"]==2]["site"]==3),\
-                 sum(df[df["labels"]==2]["site"]==4)]])
-scipy.stats.chi2_contingency(obs)
-
-obs = np.array([[sum(df[df["labels"]==0]["sex"]==0),\
-                 sum(df[df["labels"]==0]["sex"]==1)],\
-                 [sum(df[df["labels"]==1]["sex"]==0),\
-                 sum(df[df["labels"]==1]["sex"]==1)],\
-                     [sum(df[df["labels"]==2]["sex"]==0),\
-                 sum(df[df["labels"]==2]["sex"]==1)]])
-scipy.stats.chi2_contingency(obs)
+ax = sns.factorplot(x="ROIs", y="T-statistics", data=df, kind="bar",col="Clusters")
+plt.savefig("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/results/thick+vol/\
+3_clusters/boostrap_T_stat.png")
 

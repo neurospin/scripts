@@ -100,6 +100,10 @@ df_stats.to_csv(os.path.join(output,"clusters_clinics_p_values.csv"))
 
 
 ################################################################################
+key = "totalSAPS"
+key = "totalSANS"
+key = "sansSUbtot"
+key = "sapsSUbtot"
 
 for key in key_of_interest:
     plt.figure()

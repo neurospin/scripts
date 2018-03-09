@@ -111,44 +111,20 @@ df_stats.to_csv(output)
 ################################################################################
 
 ################################################################################
+df_scores["totalSANS"] = 0
+for i in (1,2,3,4,5,6,7,9,10,11,12,14,15,16,18,19,20,21,23,24):
+   df_scores["totalSANS"] = df_scores["totalSANS"]  + df_scores["sans%s"%i].astype(np.float).values
 
-df_scores["sansTOTAL"] = df_scores["sans1"].astype(np.float).values+df_scores["sans2"].astype(np.float).values+\
-df_scores["sans3"].astype(np.float).values+df_scores["sans4"].astype(np.float).values+\
-df_scores["sans5"].astype(np.float).values+df_scores["sans6"].astype(np.float).values+\
-df_scores["sans7"].astype(np.float).values+df_scores["sans8"].astype(np.float).values+\
-df_scores["sans9"].astype(np.float).values+df_scores["sans10"].astype(np.float).values+\
-df_scores["sans11"].astype(np.float).values+df_scores["sans12"].astype(np.float).values+\
-df_scores["sans13"].astype(np.float).values+df_scores["sans14"].astype(np.float).values+\
-df_scores["sans15"].astype(np.float).values+df_scores["sans16"].astype(np.float).values+\
-df_scores["sans17"].astype(np.float).values+df_scores["sans18"].astype(np.float).values+\
-df_scores["sans19"].astype(np.float).values+df_scores["sans20"].astype(np.float).values+\
-df_scores["sans21"].astype(np.float).values+df_scores["sans22"].astype(np.float).values+\
-df_scores["sans23"].astype(np.float).values+df_scores["sans24"].astype(np.float).values+\
-df_scores["sans25"].astype(np.float).values
 
-df_scores["sapsTOTAL"] = df_scores["sans1"].astype(np.float).values+df_scores["saps2"].astype(np.float).values+\
-df_scores["saps3"].astype(np.float).values+df_scores["saps4"].astype(np.float).values+\
-df_scores["saps5"].astype(np.float).values+df_scores["saps6"].astype(np.float).values+\
-df_scores["saps7"].astype(np.float).values+df_scores["saps8"].astype(np.float).values+\
-df_scores["saps9"].astype(np.float).values+df_scores["saps10"].astype(np.float).values+\
-df_scores["saps11"].astype(np.float).values+df_scores["saps12"].astype(np.float).values+\
-df_scores["saps13"].astype(np.float).values+df_scores["saps14"].astype(np.float).values+\
-df_scores["saps15"].astype(np.float).values+df_scores["saps16"].astype(np.float).values+\
-df_scores["saps17"].astype(np.float).values+df_scores["saps18"].astype(np.float).values+\
-df_scores["saps19"].astype(np.float).values+df_scores["saps20"].astype(np.float).values+\
-df_scores["saps21"].astype(np.float).values+df_scores["saps22"].astype(np.float).values+\
-df_scores["saps23"].astype(np.float).values+df_scores["saps24"].astype(np.float).values+\
-df_scores["saps25"].astype(np.float).values+df_scores["saps26"].astype(np.float).values+\
-df_scores["saps27"].astype(np.float).values+df_scores["saps28"].astype(np.float).values+\
-df_scores["saps29"].astype(np.float).values+df_scores["saps30"].astype(np.float).values+\
-df_scores["saps31"].astype(np.float).values+df_scores["saps32"].astype(np.float).values+\
-df_scores["saps33"].astype(np.float).values+df_scores["saps34"].astype(np.float).values
-
+df_scores["totalSAPS"] = 0
+for i in (1,2,3,4,5,6,8,9,10,11,12,13,14,15,16,17,18,19,21,22,23,24,26,27,28,29,30,31,32,33):
+   df_scores["totalSAPS"] = df_scores["totalSAPS"]  + df_scores["saps%s"%i].astype(np.float).values
 
 
 df_scores["sansSUbtot"] = df_scores["sans8"].astype(np.float).values+df_scores["sans13"].astype(np.float).values+\
 df_scores["sans17"].astype(np.float).values+df_scores["sans22"].astype(np.float).values+\
 df_scores["sans25"].astype(np.float).values
+
 
 df_scores["sapsSUbtot"] = df_scores["saps7"].astype(np.float).values+df_scores["saps20"].astype(np.float).values+\
 df_scores["saps25"].astype(np.float).values+df_scores["saps34"].astype(np.float).values

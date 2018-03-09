@@ -20,15 +20,19 @@ from nibabel import gifti
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 
-##############################################################################
 y_all = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/y.npy")
-site = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/site.npy")
+y_all_bp =  np.hstack((y_all ,np.ones(35)))
+##############################################################################
+site = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
+results/clustering_ROIs/results/thickness/corrected_results/data_corrected_with_vip_bp/site_all_and_bp.npy")
+sets = np.hstack((np.zeros(567),np.ones(35)))
 ##############################################################################
 
 #1) Extarction of thickness features
 ##############################################################################
 
-pop_thickness = pd.read_csv("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/results/thickness/corrected_results/data_corrected/pop_all_corrected.csv")
+pop_thickness = pd.read_csv("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
+results/clustering_ROIs/results/thickness/corrected_results/data_corrected_with_vip_bp/pop_all_corrected.csv")
 features_name_thickness = np.array(['rh_bankssts_thickness', 'rh_caudalanteriorcingulate_thickness',
        'rh_caudalmiddlefrontal_thickness', 'rh_cuneus_thickness',
        'rh_entorhinal_thickness', 'rh_fusiform_thickness',
@@ -72,7 +76,8 @@ features_name_thickness = features_name_thickness[np.std(features_thickness, axi
 
 #1) Extarction of volume features
 ##############################################################################
-pop_volume = pd.read_csv("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/results/volume/corrected_results/data_corrected/pop_all_corrected.csv")
+pop_volume = pd.read_csv("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
+results/clustering_ROIs/results/volume/corrected_results/data_corrected_with_vip_bp/pop_all_corrected.csv")
 features_name_volume = np.array(['Left_Lateral_Ventricle', 'Left_Inf_Lat_Vent',
        'Left_Cerebellum_White_Matter', 'Left_Cerebellum_Cortex',
        'Left_Thalamus_Proper', 'Left_Caudate', 'Left_Putamen',
@@ -126,50 +131,26 @@ frontal_thickness = features[:,20]+features[:,22]+features[:,55]+features[:,57]
 parietal_thickness = features[:,6]+features[:,27]+features[:,41]+features[:,61]
 precuneus_thickness = features[:,23]+features[:,58]
 
-features_of_interest_name =  ['medialorbitofrontal thickness','superiortemporal thickness',\
-               'frontalpole thickness',"mean_thickness",'thalamus volume',\
-               'hippocampus volume','amygdala volume',"icv",]
-features = np.vstack((Medialorbitofrontal_thickness,Superiortemporal_thickness,\
-               Frontalpole_thickness,Mean_thickness, Thalamus_volume,\
-               Hippocampus_volume,Amygdala_volume,ICV)).T
 
-features_of_interest_name =  ["mean_thickness","icv",]
-features = np.vstack((Mean_thickness,ICV)).T
-
-
-features_of_interest_name =  ['superiortemporal thickness',\
-               'frontalpole thickness',\
-               'hippocampus volume','amygdala volume']
-features = np.vstack((Superiortemporal_thickness,\
-               Frontalpole_thickness,\
-               Hippocampus_volume,Amygdala_volume)).T
-
-features_of_interest_name =  ['Temporalpole_thickness ',"frontal_thickness",\
-               "posteriorcingulate_thickness",'hippocampus volume','amygdala volume','thalamus volume']
-features = np.vstack((Temporalpole_thickness ,frontal_thickness,\
-               posteriorcingulate_thickness, Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
 
 features_of_interest_name =  ['temporal_thickness',"frontal_thickness",\
                'hippocampus volume','amygdala volume','thalamus volume']
 features = np.vstack((temporal_thickness,frontal_thickness,\
                Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
 
-#features_of_interest_name =  ['temporal_thickness',"frontal_thickness","precuneus_thickness",\
-#               'hippocampus volume','amygdala volume','thalamus volume']
-#features = np.vstack((temporal_thickness,frontal_thickness,precuneus_thickness,\
-#               Hippocampus_volume,Amygdala_volume,Thalamus_volume)).T
-###############################################################################
-#
-#features = scipy.stats.zscore(features)
-#features = ((features - features.mean(axis=0))/features.std(axis=0))
-features = ((features - features[y_all==0,:].mean(axis=0))/features[y_all==0,:].std(axis=0))
+
+##############################################################################
+
+features = ((features - features[y_all ==0,:].mean(axis=0))/features[y_all ==0,:].std(axis=0))
+features_all = features[sets==0,:]
+features_vip_bp = features[sets==1,:]
 
 #clustering
 ##############################################################################
-features_scz = features[y_all==1,:]
-features_con = features[y_all==0,:]
+y_all_sczco = np.load("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/y.npy")
+features_scz = features_all[y_all_sczco==1,:]
+features_con = features_all[y_all_sczco==0,:]
 
-#mod = AgglomerativeClustering(n_clusters=3,linkage='ward')
 mod = KMeans(n_clusters=3)
 mod.fit(features_scz)
 labels_all_scz = mod.labels_
@@ -179,24 +160,19 @@ print(silhouette_score(features_scz,labels_all_scz))
 #silhouette_samples(features_scz,labels_all_scz)
 
 df = pd.DataFrame()
-df["sex"] = pop_volume["sex"].values
-df["age"] = pop_volume["age"].values
-df["site"] = pop_volume["site"].values
+df["sex"] = pop_volume["sex"].values[sets==0]
+df["age"] = pop_volume["age"].values[sets==0]
+df["site"] = pop_volume["site"].values[sets==0]
 df["labels"] = np.nan
-df["labels"][y_all==1] = labels_all_scz
-df["labels"][y_all==0] = "controls"
-LABELS_DICT = {"controls":"Controls",0: "Subcortical", 1: "Cortical", 2: "Preserved"}
-#LABELS_DICT = {"controls":"Controls",0: "SCZ Cluster 1", 1: "SCZ Cluster 2", 2: "SCZ Cluster 3"}
+df["labels"][y_all_sczco==1] = labels_all_scz
+df["labels"][y_all_sczco==0] = "controls"
+LABELS_DICT = {"controls":"Controls",0: "SCZ Cluster 1", 1: "SCZ Cluster 2", 2: "SCZ Cluster 3"}
 df["labels_name"]  = df["labels"].map(LABELS_DICT)
 
 i=0
 for f in features_of_interest_name:
-    df[f] = features[:,i]
+    df[f] = features_all[:,i]
     i= i+1
-
-output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/\
-results/clustering_ROIs/results/thick+vol/3_clusters"
-np.save(os.path.join(output,"labels_cluster.npy"),df["labels_name"].values)
 
 #############################################################################
 #PLOT WEIGHTS OF PC FOR EACH CLUSTER
@@ -214,71 +190,15 @@ for i in (df.index.values):
 
 fig = plt.figure()
 fig.set_size_inches(11.7, 8.27)
-ax = sns.barplot(x="labels_name", y="score", hue="Feature", data=df_complete,order=["Subcortical","Cortical","Preserved"])
+ax = sns.barplot(x="labels_name", y="score", hue="Feature", data=df_complete,order=["SCZ Cluster 1","SCZ Cluster 2","SCZ Cluster 3"])
 plt.legend(loc ='lower left' )
-plt.savefig(os.path.join(output,"cluster_weights.png"))
-
-#############################################################################
-# Another kind of plot
-df = df_complete[df_complete["labels_name"]!="Controls"]
-df = df_complete[df_complete["labels_name"]!="Controls"]
-df = df.rename(columns={'labels_name': 'Cluster'})
-df = df.rename(columns={'score': 'Z-score'})
-
-df = df.replace(to_replace = "temporal_thickness",value = "Temporal\n thickness")
-df = df.replace(to_replace = "frontal_thickness",value = "Frontal\n thickness")
-df = df.replace(to_replace = "hippocampus volume",value = "Hippocampus\n volume")
-df = df.replace(to_replace = "amygdala volume",value = "  Amygdala\n volume")
-df = df.replace(to_replace = "thalamus volume",value = "Thalamus\n volume")
-
-
-sns.set_style("whitegrid")
-ax = sns.factorplot(x="Feature", y="Z-score",data=df, kind="bar",col="Cluster",\
-                    col_order=["Subcortical","Cortical","Preserved"],\
-                   palette="binary")
-
-ax.set_titles("{col_name}",size=15)
-ax.set_xlabels("Features")
-plt.savefig(os.path.join(output,"cluster_weights_plot.png"))
-#############################################################################
-
-
-plt.figure()
-sns.set_style("whitegrid")
-ax = sns.barplot(x="labels_name", y="age",data=df,order=["SCZ Cluster 1","SCZ Cluster 2","SCZ Cluster 3"])
-#plt.savefig(os.path.join(output,"age.png"))
 
 #############################################################################
 
-#ANOVA on age
-
-T, p = scipy.stats.f_oneway(df[df["labels"]==0]["age"],\
-                     df[df["labels"]==1]["age"],\
- df[df["labels"]==2]["age"])
-ax = sns.violinplot(x="labels_name", y="age", data=df,order=["Controls","SCZ Cluster 1","SCZ Cluster 2","SCZ Cluster 3"])
-plt.title("ANOVA patients: t = %s, and  p= %s"%(T,p))
-plt.savefig(os.path.join(output,"age_anova.png"))
+#Cluster Bipolar subjects using the learn clusters
 
 
-obs = np.array([[sum(df[df["labels"]==0]["site"]==1),\
-                 sum(df[df["labels"]==0]["site"]==2),\
-                 sum(df[df["labels"]==0]["site"]==3),\
-                 sum(df[df["labels"]==0]["site"]==4)],\
-                 [sum(df[df["labels"]==1]["site"]==1),\
-                 sum(df[df["labels"]==1]["site"]==2),\
-                 sum(df[df["labels"]==1]["site"]==3),\
-                 sum(df[df["labels"]==1]["site"]==4)],\
-                     [sum(df[df["labels"]==2]["site"]==1),\
-                 sum(df[df["labels"]==2]["site"]==2),\
-                 sum(df[df["labels"]==2]["site"]==3),\
-                 sum(df[df["labels"]==2]["site"]==4)]])
-scipy.stats.chi2_contingency(obs)
-
-obs = np.array([[sum(df[df["labels"]==0]["sex"]==0),\
-                 sum(df[df["labels"]==0]["sex"]==1)],\
-                 [sum(df[df["labels"]==1]["sex"]==0),\
-                 sum(df[df["labels"]==1]["sex"]==1)],\
-                     [sum(df[df["labels"]==2]["sex"]==0),\
-                 sum(df[df["labels"]==2]["sex"]==1)]])
-scipy.stats.chi2_contingency(obs)
-
+labels_y_vip_bp_scz = mod.predict(features_vip_bp)
+sum(labels_y_vip_bp_scz ==0)/35
+sum(labels_y_vip_bp_scz ==1)/35
+sum(labels_y_vip_bp_scz ==2)/35

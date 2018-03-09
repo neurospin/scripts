@@ -75,6 +75,86 @@ np.save(os.path.join(OUTPUT_DATA,"y.npy"),y)
 np.save(os.path.join(OUTPUT_DATA,"features.npy"),features)
 
 
+###############################################################################
+###############################################################################
+###############################################################################
+BASE_PATH = "/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/Freesurfer"
+INPUT_CSV = os.path.join(BASE_PATH,"population.csv")
+OUTPUT_DATA = os.path.join(BASE_PATH,"data","data_ROIs")
+
+INPUT_SCZCO_RH_THICKNESS = "/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/\
+data/FS/freesurfer_stats/aparc_thickness_rh_all.csv"
+INPUT_SCZCO_LH_THICKNESS = "/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/\
+data/FS/freesurfer_stats/aparc_thickness_lh_all.csv"
+INPUT_SCZCO_VOLUME ="/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/\
+data/FS/freesurfer_stats/aseg_volume_all.csv"
+#Create thickness dataset
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+pop = pd.read_csv(INPUT_CSV)
+rh_thk = pd.read_csv(INPUT_SCZCO_RH_THICKNESS,sep='\t')
+rh_thk["code"] = rh_thk["rh.aparc.thickness"]
+
+lh_thk = pd.read_csv(INPUT_SCZCO_LH_THICKNESS,sep='\t')
+lh_thk["code"] = lh_thk["lh.aparc.thickness"]
+
+thk_all = rh_thk.merge(lh_thk,on="code")
+
+i=0
+for p in pop["mri_path_lh"]:
+    print(os.path.basename(p)[:-7])
+    pop["code"][i] = os.path.basename(p)[:-7]
+    i=i+1
+i=0
+for p in thk_all["code"]:
+    print(os.path.basename(p))
+    thk_all["code"][i] = os.path.basename(p)
+    i=i+1
+
+table = pop.merge(thk_all, on="code")
+del table["lh.aparc.thickness"]
+y = np.asarray(table["dx_num"])
+stats = np.asarray(table)
+Xt = stats[:,13:].astype(float)
+features = table.keys()[13:]
+features =features.get_values()
+np.save("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/Freesurfer/data/data_ROIs/Xrois_thickness.npy",Xt)
+np.save("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/Freesurfer/data/data_ROIs/features_thickness.npy",features)
+
+
+
+#Create volume dataset
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+pop = pd.read_csv(INPUT_CSV)
+vol = pd.read_csv(INPUT_SCZCO_VOLUME,sep='\t')
+
+
+#################################################
+i=0
+for p in pop["mri_path_lh"]:
+    print(os.path.basename(p)[:-7])
+    pop["code"][i] = os.path.basename(p)[:-7]
+    i=i+1
+####################################################
+i=0
+vol["code"] = vol["Measure:volume"]
+for p in vol["Measure:volume"]:
+    print(os.path.basename(p))
+    vol["code"][i] = os.path.basename(p)
+    i=i+1
+
+
+table = pop.merge(vol, on="code")
+y = np.asarray(table["dx_num"])
+stats = np.asarray(table)
+Xv = stats[:,13:].astype(float)
+features = table.keys()[13:]
+features =features.get_values()
+np.save("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/Freesurfer/data/data_ROIs/Xrois_volumes.npy",Xv)
+np.save("/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/Freesurfer/data/data_ROIs/features_volumes.npy",features)
 
 
 

@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Feb  9 16:59:22 2017
+
+@author: ad247405
+"""
+
+import os
+import numpy as np
+import glob
+import pandas as pd
+import nibabel as nib
+import brainomics.image_atlas
+import shutil
+import mulm
+import sklearn
+from  scipy import ndimage
+import nibabel
+
+
+BASE_PATH = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism"
+INPUT_CSV = os.path.join(BASE_PATH,"population.csv")
+
+INPUT_VOLUME_CSV = "/neurospin/brainomics/2016_AUSZ/data/ROIs/freesurfer_stats/aseg_volume_all.csv"
+INPUT_RH_THICKNESS = "/neurospin/brainomics/2016_AUSZ/data/ROIs/freesurfer_stats/aparc_thickness_rh_all.csv"
+INPUT_LH_THICKNESS = "/neurospin/brainomics/2016_AUSZ/data/ROIs/freesurfer_stats/aparc_thickness_lh_all.csv"
+#Create thickness dataset
+#######################################################################################################
+#######################################################################################################
+pop = pd.read_csv(INPUT_CSV)
+pop["code"] = pop['IRM.1']
+
+rh_thk = pd.read_csv(INPUT_RH_THICKNESS,sep='\t')
+rh_thk["code"] = rh_thk["rh.aparc.thickness"]
+
+lh_thk = pd.read_csv(INPUT_LH_THICKNESS,sep='\t')
+lh_thk["code"] = lh_thk["lh.aparc.thickness"]
+
+thk_all = rh_thk.merge(lh_thk,on="code")
+
+i=0
+for p in pop["mri_path_lh"]:
+    print(os.path.basename(p)[:-7])
+    pop["code"][i] = os.path.basename(p)[:-7]
+    i=i+1
+i=0
+for p in thk_all["code"]:
+    print(os.path.basename(p))
+    thk_all["code"][i] = os.path.basename(p)
+    i=i+1
+
+table = pop.merge(thk_all, on="code")
+#pop =table[["Âge_x",'sex.num','Groupe_x','group.num']]
+#pop.to_csv("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/pop.csv")
+del table["lh.aparc.thickness"]
+y = np.asarray(table["Groupe_x"])
+stats = np.asarray(table)
+Xt = stats[:,43:].astype(float)
+features = table.keys()[43:]
+features = features.get_values()
+np.save("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/Xrois_thickness.npy",Xt)
+np.save("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/features_thickness.npy",features)
+
+
+
+#Create volume dataset
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+pop = pd.read_csv(INPUT_CSV)
+pop["code"] = pop['IRM.1']
+vol = pd.read_csv(INPUT_VOLUME_CSV,sep='\t')
+
+
+#################################################
+i=0
+for p in pop["mri_path_lh"]:
+    print(os.path.basename(p)[:-7])
+    pop["code"][i] = os.path.basename(p)[:-7]
+    i=i+1
+####################################################
+i=0
+vol["code"] = vol["Measure:volume"]
+for p in vol["Measure:volume"]:
+    print(os.path.basename(p))
+    vol["code"][i] = os.path.basename(p)
+    i=i+1
+
+
+table = pop.merge(vol, on="code")
+y = np.asarray(table["Groupe_x"])
+np.save("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/y_ausz.npy",y)
+stats = np.asarray(table)
+Xv = stats[:,43:].astype(float)
+features = table.keys()[43:]
+features =features.get_values()
+np.save("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/Xrois_volumes.npy",Xv)
+np.save("/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/clustering_ROIs/data/ausz_autism/features_volumes.npy",features)

@@ -48,10 +48,11 @@ pop_all_con = pop_all[pop_all['dx_num']==0]
 y_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/y.npy")
 X_all = np.load("/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/data/X.npy")
 assert X_all.shape == (606, 125961)
-X_all_scz = X_all[y_all==1,:]
-X_all_con = X_all[y_all==0,:]
+X_all_scz = X_all[y_all==1,2:]
+X_all_con = X_all[y_all==0,2:]
+X_all = X_all[:,2:]
 
-assert X_all_scz.shape == (276, 125961)
+assert X_all_scz.shape == (276, 125959)
 
 N_scz = X_all_scz.shape[0]
 N_con = X_all_con.shape[0]
@@ -59,9 +60,9 @@ N = X_all.shape[0]
 
 # Extract a single score for each cluster
 K_interest = [18,14,33,20,4,25,23,22,15,41]
-scores_all_scz = np.zeros((N_scz, len(K_interest)))
-scores_all_con = np.zeros((N_con, len(K_interest)))
-scores_all = np.zeros((N, len(K_interest)))
+scores_all_scz = np.zeros((N_scz, len(K_interest)+1))
+scores_all_con = np.zeros((N_con, len(K_interest)+1))
+scores_all = np.zeros((N, len(K_interest)+1))
 
 i=0
 for k in range (len(K_interest)):
@@ -73,7 +74,11 @@ for k in range (len(K_interest)):
     scores_all[:, i] = np.dot(X_all[:, mask], beta[mask]).ravel()
     i= i+1
 
-
+mask = labels_flt == (18 or  14 or 33 or 20 or 4 or 25 or 23 or 22 or 15 or 41)
+#mask = labels_flt == (18 or 4 or 25)
+scores_all_scz[:, 10] = np.dot(X_all_scz[:, mask], beta[mask]).ravel()
+scores_all_con[:, 10] = np.dot(X_all_con[:, mask], beta[mask]).ravel()
+scores_all[:, 10] = np.dot(X_all[:,mask], beta[mask]).ravel()
 
 pop_all_scz["cluster1_cingulate_gyrus"] = scores_all_scz[:, 0]
 pop_all_scz["cluster2_right_caudate_putamen"] = scores_all_scz[:,1]
@@ -85,6 +90,19 @@ pop_all_scz["cluster7_left_caudate_putamen"] = scores_all_scz[:, 6]
 pop_all_scz["cluster8_left_thalamus"] = scores_all_scz[:, 7]
 pop_all_scz["cluster9_right_thalamus"] = scores_all_scz[:, 8]
 pop_all_scz["cluster10_middle_temporal_gyrus"] = scores_all_scz[:, 9]
+pop_all_scz["cluster11_predictive_signature"] = scores_all_scz[:, 10]
+
+pop_all["cluster1_cingulate_gyrus"] = scores_all[:, 0]
+pop_all["cluster2_right_caudate_putamen"] = scores_all[:,1]
+pop_all["cluster3_precentral_postcentral_gyrus"] = scores_all[:, 2]
+pop_all["cluster4_frontal_pole"] = scores_all[:, 3]
+pop_all["cluster5_temporal_pole"] = scores_all[:, 4]
+pop_all["cluster6_left_hippocampus_amygdala"] = scores_all[:, 5]
+pop_all["cluster7_left_caudate_putamen"] = scores_all[:, 6]
+pop_all["cluster8_left_thalamus"] = scores_all[:, 7]
+pop_all["cluster9_right_thalamus"] = scores_all[:, 8]
+pop_all["cluster10_middle_temporal_gyrus"] = scores_all[:, 9]
+pop_all["cluster11_predictive_signature"] = scores_all[:, 10]
 
 
 output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/data"
@@ -97,7 +115,9 @@ pop_nmorph_scz = pop_all_scz[pop_all_scz["site_num"]==2]
 pop_nmorph_scz.to_csv(os.path.join(output,"pop_nmorph_scz.csv") , index=False)
 
 pop_nudast_scz = pop_all_scz[pop_all_scz["site_num"]==3]
+pop_nudast = pop_all[pop_all["site_num"]==3]
 pop_nudast_scz.to_csv(os.path.join(output,"pop_nudast_scz.csv") , index=False)
+pop_nudast.to_csv(os.path.join(output,"pop_nudast.csv") , index=False)
 
 pop_vip_scz = pop_all_scz[pop_all_scz["site_num"]==4]
 pop_vip_scz.to_csv(os.path.join(output,"pop_vip_scz.csv") , index=False)
@@ -106,7 +126,7 @@ pop_vip_scz.to_csv(os.path.join(output,"pop_vip_scz.csv") , index=False)
 #Test discriminative power of each cluster with a paired t test
 ##############################################################################
 output = "/neurospin/brainomics/2016_schizConnect/2018_analysis_2ndpart_clinic/results/supervised_clusters_results/clusters_ttest"
-for i in range(10):
+for i in range(11):
     plt.figure()
     df = pd.DataFrame()
     df["score"] = scores_all[:,i]

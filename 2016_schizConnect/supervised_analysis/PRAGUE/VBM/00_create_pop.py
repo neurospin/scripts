@@ -18,7 +18,7 @@ BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/results/VBM
 INPUT_CLINIC_FILENAME =  '/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/document/prague_demographics2.xls'
 OUTPUT_CSV = os.path.join(BASE_PATH,"population.csv")
 
-
+CLINIC_CSV = "/neurospin/brainomics/2016_schizConnect/analysis/PRAGUE/document/Charles_10_7_2017.xlsx"
 
 
 # Read clinic data
@@ -79,3 +79,21 @@ pop['sex_01code'] = pop["sex"].map(SEX_MAP)
 pop.to_csv(OUTPUT_CSV , index=False)
 
 ##############################################################################
+
+
+clinic = pd.read_excel(CLINIC_CSV)
+clinic["code"] = clinic["nom2"]
+pop = pop.merge(clinic, on = "code")
+assert pop.shape == (133, 25)
+
+
+pos = pop[pop["dx_num"]==1]['PANSS / P1 - 7']
+pos = pos[(pos != "x").values]
+np.mean(pos)
+np.std(pos)
+
+neg = pop[pop["dx_num"]==1]['PANSS / N1 - 7']
+neg = neg[(neg != "x").values]
+np.mean(neg)
+np.std(neg)
+
