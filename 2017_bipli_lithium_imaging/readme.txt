@@ -1,10 +1,12 @@
 This readme describes the pipeline and codes used for the BipLi project. Most of the codes described were done in matlab,
 though the reconstruction of the Twisted Projection Imaging dat file to an usuable nifti was coded in Python27.
+BTKNLMDenoising is a process used to filter the data, however it has a long and complex installation time which is described in the separate "BTKInstallation.txt" file.
 
-1°) The pipeline itself
+1°) Pipeline
 
 The first step that will be described here is to turn the dat files of the Twisted projection imaging (TPI) into nifti files.
 This reconstruction is done through regridding, although it also creates csv files that may be used for FISTA reconstruction in future versions.
+In the case of the Variable flip angle (VFA) acquisitions, an additional matlab script must then be launched, called 'run_Compute_VFA' which will create usable concentration files from the nifti signal acquisitions.
 
 Then, these nifti files will be denoised using the BTK process "BTKNLMDenoising". 
 This denoising will make the Lithium signal more clearly visible, though the reliability of such a method must still be more throughly discussed.
@@ -12,7 +14,7 @@ We may also discuss using a mask of the signal to improve the process, though du
 
 Once this is done, we may now do a correction based on the calculated T1 value of the Lithium of this patient and the phantom acquisitions.
 
-Once this is over, the main scripts doing the repositioning of the lithium files to the MNI space can be launched. This is done using spm processes.
+Once this is over, the main scripts doing the repositioning of the lithium files to the MNI space can be launched. This is done using spm12 processes.
 Specifically: First, the Lithium data matrix is compared to the Lithium 7T anatomical image to ensure that they are aligned in spm.
 Then, the 7T anatomical image is coregistered to the 3T anatomical image, (using only translations and rotations), and the rotation matrix is then applied to
 the matrix of the Lithium image to place it in the 3T space.
@@ -20,6 +22,7 @@ Finally, the 3T image is transformed (with deformations) to the MNI space using 
 placing them all in the same MNI space.
 
 
+2°) Scripts
 
 launch_reconstruct_TPI.m
 	This is the first function that converts the raw dat files of Siemens into usable nifti files. It is mostly used to call the different subjects

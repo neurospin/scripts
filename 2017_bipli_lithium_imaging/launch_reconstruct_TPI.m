@@ -37,7 +37,7 @@ for subj=S'
         if exist(twixdir,'dir')
             filedir=twixdir;
         elseif exist(T7dir,'dir')
-        filedir=T7dir;
+            filedir=T7dir;
         end
         listdat=dir(filedir);
 
