@@ -43,9 +43,39 @@ DATASET = "full"
 ############################################################################
 ## Dataset: CARMS ONLY
 ############################################################################
-Xd, yd = utils.read_Xy(WD=WD)
+Xd, yd, df = utils.read_Xy(WD=WD)
 Xd = Xd.drop(['PAS2gr', 'CB_EXPO'], 1)
 
+
+#
+df.AGE.describe()
+"""
+count    27.000000
+mean     21.629630
+std       3.701851
+min      16.000000
+25%      19.000000
+50%      21.000000
+75%      23.500000
+max      30.000000
+"""
+
+df.REEVAL
+
+s = "M15 MK"
+df.REEVAL = [int(s.replace(" MK", "").strip().replace("M", "")) for s in df.REEVAL]
+
+df.REEVAL.describe()
+"""
+count    27.000000
+mean     22.370370
+std       6.546568
+min      12.000000
+25%      18.000000
+50%      22.000000
+75%      27.000000
+max      33.000000
+"""
 
 # Add intercept
 inter= pd.DataFrame([1.]*Xd.shape[0], columns=["inter"])
@@ -78,7 +108,7 @@ y = y.astype(float)[:, np.newaxis]
 #A, n_compacts = A_empty(X.shape[1]-1)
 l1_max_logistic_loss(X, y)
 
-# assert X.shape == (27, 26)
+assert X.shape == (27, 26)
 
 ############################################################################
 ## FIXED PARAMETERS
@@ -395,12 +425,13 @@ with pd.ExcelWriter(xls_filename) as writer:
  '7.7': 'Dissociative symptoms',
  '7.8': 'Impaired tolerance to normal stress'}
 
-items = pd.read_excel("/home/ed203246/documents/publications/2016/CAARMS_enet/caarm_items_mapping.xlsx")#, 0)
+items = pd.read_excel(os.path.join(WD, "caarm_items_mapping.xlsx"))#, 0)
 
 mapping = {str(row[1][0]):row[1][2] for row in items.iterrows()}
 
 data = pd.read_excel(xls_filename, sheetname='Coef BOOT-alpha%.3f, l1%.2f' % (ALPHA, L1_PROP))
-data.index
+print(len(data.index), data.index)
+
 data.columns
 #Index(['count', 'mean', 'std', 'min', '1%', '5%', '10%', '50%', '90%', '95%',
 #       '99%', 'max'],
@@ -409,6 +440,7 @@ data.columns
 data = data[1:]
 predictors = [s.replace('@', '') for s in data.index]
 predictors = [mapping[p] for p in predictors]
+assert len(predictors) == data.shape[0] == len(coef) == 25
 
 coef = data['mean']
 plt.clf()
@@ -419,15 +451,17 @@ x_ = np.arange(len(coef))
 plt.barh(x_, coef, facecolor='#9999ff',
         fc = 'lightgrey', lw=1,
         edgecolor='black', align='center',
-        xerr = data['std'], ecolor='black',
+        xerr = data['std'], ecolor='black', color='gray',
         label='Coefs Mean(Boot)')
 
 plt.axvline(0, ls='-', lw=1, color="black")
 #plt.tick_params(axis='x', labelsize=8)
 plt.yticks(x_, predictors)#, rotation=90)
-plt.ylim(0-0.5, np.max(x_)-0.5)
+#plt.yticks(x_, x_)#, rotation=90)
+plt.ylim(0-0.5, np.max(x_)+0.5)
 
 plt.grid()
+plt.tight_layout()
 #plt.legend(loc='best')
 #plt.title("Coefficients")
 
