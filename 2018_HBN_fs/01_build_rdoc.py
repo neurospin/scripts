@@ -156,3 +156,5 @@ print(avail_data.head())
 
 # pivot the stacked dataframe in a wide format
 avail_data = avail_data.pivot(index='eid', columns='var_name', values='var_val')
+
+print(avail_data.sum(axis=0).to_string())
