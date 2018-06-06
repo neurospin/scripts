@@ -1,0 +1,12 @@
+# Create clusters information
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py /neurospin/ciclops/projects/BIPLi7/ClinicalData/Analysis/ProcessingMay/Analysisoutputs/coef_vals_threshold.nii.gz
+
+
+Usage
+image_clusters_analysis_nilearn.py filnename.nii.gz 
+
+Outupt
+filnename_clust_info.csv: ROI information
+filnename_clust_info.pdf
+filnename_clust_labels.nii.gz
+filnename_clust_values.nii.gz

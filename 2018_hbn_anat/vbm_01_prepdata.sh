@@ -1,6 +1,6 @@
 #! /bin/sh
 
-
+# Cpy / unzip
 SITE=CBIC
 
 ls /neurospin/psy_sbox/hbn/$SITE/sourcedata/*/anat/*T1w.nii.gz|while read src; do echo $src ;

@@ -44,7 +44,7 @@ for dirname in dirnames:
     # dirname = '/neurospin/psy/canbind/data/raw/canbind_sourcedata_FS/Week8/UCA_0033_03'
     #regexp = re.compile(r"^%s/([^/]+)/(.+)" % SRC)
     ses, site, sub, tp = regexp.match(dirname).groups()
-    input_mgz = os.path.join(dirname, "mri", "T1.mgz")
+    input_mgz = os.path.join(dirname, "mri", "orig.mgz")
 
     #input_mgz = "/tmp/T1.mgz"
     ouput_dir = os.path.join(DST, "sub-%s_%s" % (site, sub), "ses-%s" % ses, "anat")
