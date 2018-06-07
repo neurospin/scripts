@@ -28,36 +28,49 @@ def exec_fs_cmd(command, FREESURFER_HOME="/i2bm/local/freesurfer"):
 WD = "/neurospin/psy/canbind"
 
 
-SRC = os.path.join(WD, "data", "raw", "canbind_sourcedata_FS")
-DST = os.path.join(WD, "data", "raw", "canbind")
+SRC = os.path.join(WD, "data", "sourcedata", "canbind_mgz")
+DST = os.path.join(WD, "data", "sourcedata", "canbind_bids")
 
 # FREESURFER_HOME="/usr/local/freesurfer"
 FREESURFER_HOME="/i2bm/local/freesurfer" # At Neurospin
 shell = '/bin/bash'
 
-regexp = re.compile(r"%s/([^/]+)/(.+)_(.+)_(.+)" % SRC)
+# regexp = re.compile(r"%s/([^/]+)/(.+)_(.+)_(.+)" % SRC)
+regexp = re.compile(r"(.+)_(.+)_(.+)")
 
-dirnames = glob.glob(os.path.join(SRC, "*", "*"))
+
+filenames = glob.glob(os.path.join(SRC, "*", "*.mgz"))
+basenames = [os.path.basename(f) for f in filenames]
+
+assert len(filenames) == len(set(basenames)) == 808, "Not unique filename"
 
 items = list()
-for dirname in dirnames:
+for filename in filenames:
     # dirname = '/neurospin/psy/canbind/data/raw/canbind_sourcedata_FS/Week8/UCA_0033_03'
     #regexp = re.compile(r"^%s/([^/]+)/(.+)" % SRC)
-    ses, site, sub, tp = regexp.match(dirname).groups()
-    input_mgz = os.path.join(dirname, "mri", "orig.mgz")
+    src_basename, _ = os.path.splitext(os.path.basename(filename))
+
+    site, sub, tp = regexp.match(src_basename).groups()
 
     #input_mgz = "/tmp/T1.mgz"
-    ouput_dir = os.path.join(DST, "sub-%s_%s" % (site, sub), "ses-%s" % ses, "anat")
+    ouput_dir = os.path.join(DST, "sub-%s-%s" % (site, sub), "ses-%s" % tp, "anat")
     os.makedirs(ouput_dir, exist_ok=True)
-    ouput_filename = os.path.join(ouput_dir, os.path.basename(dirname) + ".nii")
 
-    print(dirname, ouput_dir)
-    items.append(["%s_%s" % (site, sub), site, ses])
-    command = ["mri_convert.bin", input_mgz, ouput_filename]
+    dst_basename = "sub-%s-%s_ses-%s_T1w.nii" % (site, sub, tp)
+
+    ouput_filename = os.path.join(ouput_dir, dst_basename)
+
+    print(filename, ouput_filename)
+    items.append(["%s-%s" % (site, sub), site, tp])
+    command = ["mri_convert.bin", filename, ouput_filename]
     exec_fs_cmd(command, FREESURFER_HOME="/i2bm/local/freesurfer")
+
+
 
 # participants =
 df = pd.DataFrame(items, columns=["participant_id", "site", "time_point"])
+
+assert len(glob.glob(os.path.join(DST, "sub-*/ses-*/anat/sub-*_T1w.nii"))) == len(filenames) == df.shape[0] == 808
 
 df["One"] = 1
 # df["One"].astype(int)
@@ -65,14 +78,32 @@ df["One"] = 1
 #df.pivot(index=['participant_id', 'site'], columns="time_point", values="time_point")
 participants = df.pivot(index='participant_id', columns="time_point", values="One").reset_index()
 
-assert participants[['Week0', 'Week2', 'Week8']].sum().sum() == len(items)
+sesssions = ['01', '01-alt03', '01-alt16', '01SE02', '02', '03',  '03SE02']
+participants.reset_index()
+sesssions = ['ses-'+s for s in sesssions]
+
+participants.columns = ['participant_id'] + sesssions
+
+assert participants[sesssions].sum().sum() == len(items)
 
 print(participants.sum())
-# Week0                                                           278
-# Week2                                                           262
-# Week8                                                           251
+#ses-01                                                          258
+#ses-01-alt03                                                      1
+#ses-01-alt16                                                      1
+#ses-01SE02                                                        1
+#ses-02                                                          284
+#ses-03                                                          262
+#ses-03SE02                                                        1
+df = df[["participant_id", "site"]].drop_duplicates()
+assert df.shape[0] == participants.shape[0] == 310
+
+participants = pd.merge(participants, df, on='participant_id', how='left')
+
 
 participants.to_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t', index=False)
 ptcp = pd.read_csv(os.path.join(WD, "data", "participants.tsv"), sep="\t")
-assert ptcp[['Week0', 'Week2', 'Week8']].sum().sum() == 791
+
+participants.shape[0] == 310
+participants[sesssions].sum().sum() == 808
+
 
