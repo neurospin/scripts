@@ -10,13 +10,16 @@ Also provide csv file of tissue volumes computed as sum(probability map) * voxel
 Example:
 -------
 
-$ spmsegment_qc.py --gm data/*/c1usub-*.nii.gz --wm data/*/c2usub-*.nii.gz --csf  data/*/c3usub-*.nii.gz --t1 data/*/usub-*.nii --pdf --anat
-
 # with csf map
 spmsegment_qc.py --gm data/*/c1usub-*.nii.gz --wm data/*/c2usub-*.nii.gz --t1 data/*/usub-*.nii --csf  data/*/c3usub-*.nii.gz --pdf --anat --output withcsf
 
 # without csf map
 spmsegment_qc.py --gm data/*/c1usub-*.nii.gz --wm data/*/c2usub-*.nii.gz --t1 data/*/usub-*.nii --pdf --anat --output nocsf
+
+# rsync -rltgoDuvzn ed203246@$NS:/neurospin/psy/hbn/CBIC/derivatives/spmsegment/sub-NDARAM873GAC ./data/
+
+python -W ignore ./src/spmsegment_qc.py --gm data/*/c1usub-*.nii.gz --wm data/*/c2usub-*.nii.gz --t1 data/*/usub-*.nii --csf  data/*/c3usub-*.nii.gz --pdf --anat --output withcsf
+
 """
 import os, sys
 import os.path
@@ -57,6 +60,19 @@ if __name__ == "__main__":
 
     options = parser.parse_args()
 
+    ## DEBUG
+    """
+    options.gm = ["data/sub-NDARAM873GAC/c1usub-NDARAM873GAC_acq-VNav_T1w.nii.gz"]
+    options.wm = ["data/sub-NDARAM873GAC/c2usub-NDARAM873GAC_acq-VNav_T1w.nii.gz"]
+    options.csf = ["data/sub-NDARAM873GAC/c3usub-NDARAM873GAC_acq-VNav_T1w.nii.gz"]
+    options.t1 = ["data/sub-NDARAM873GAC/usub-NDARAM873GAC_acq-VNav_T1w.nii"]
+    options.anat = True
+    options.output = "./test"
+    options.pdf = True
+    options.nslices = 6
+    options.save_seg = False
+    """
+    ## DEBUG
     if options.gm is None:
         #print("Error: Input is missing.")
         parser.print_help()
@@ -93,6 +109,7 @@ if __name__ == "__main__":
     tissues_vol = list()
     # Iterate over images
     for i in range(len(keys)):
+        # i = 0
         output_prefix = os.path.join(output_dir, keys[i])
         print(keys[i])
 
@@ -169,17 +186,20 @@ if __name__ == "__main__":
         display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
         #display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
-        display.add_contours(gm_msk_img, levels=[1], colors='r')
+        display.add_contours(gm_msk_img, colors='r')
+
+        #display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices)
+        #display.add_overlay(gm_msk_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
 
         ax = fig.add_subplot(fignum + 1)
         display = plotting.plot_anat(background_img, display_mode='y', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
-        display.add_contours(gm_msk_img, levels=[1], colors='r')
+        display.add_contours(gm_msk_img, colors='r')
 
         ax = fig.add_subplot(fignum + 2)
         display = plotting.plot_anat(background_img, display_mode='x', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
-        display.add_contours(gm_msk_img, levels=[1], colors='r')
+        display.add_contours(gm_msk_img, colors='r')
 
         plt.subplots_adjust(wspace=0, hspace=0, top=0.9, bottom=0.1)
         #plt.subplots_adjust(left = (5/25.4)/fig.xsize, bottom = (4/25.4)/fig.ysize, right = 1 - (1/25.4)/fig.xsize, top = 1 - (3/25.4)/fig.ysize)
