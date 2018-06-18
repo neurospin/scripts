@@ -60,7 +60,15 @@ if __name__ == "__main__":
     with open(list_scans_filenames, 'r') as fd:
         scans = [os.path.splitext(os.path.basename(f.strip()))[0] for f in fd.readlines()]
 
-    qc_tab = pd.DataFrame([s.split('_') for s in scans], columns = ['participant_id', 'session', 'modality'])
+
+    #print([s.split('_') + [s] for s in scans])
+    try:
+        qc_tab = pd.DataFrame([s.split('_') + [s] for s in scans], columns = ['participant_id', 'session', 'modality', 'scan'])
+    except:
+        qc_tab = pd.DataFrame(scans, columns = ['scan'])
+
+    #print([s.split('_') + [s] for s in scans])
+
 
     scans = {s:[] for s in scans}
 

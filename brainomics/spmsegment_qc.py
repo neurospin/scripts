@@ -29,6 +29,7 @@ import nibabel as nib  # import generate a FutureWarning
 import matplotlib.pyplot as plt
 from nilearn import plotting
 from matplotlib.backends.backend_pdf import PdfPages
+import seaborn as sns
 import pandas as pd
 #
 
@@ -39,6 +40,7 @@ if __name__ == "__main__":
     alpha_overlay = 0.7
     nslices = 6
     gm_filenames = wm_filenames = csf_filenames = t1_filenames = None
+    cut_coords = [-50, -25, 0, 25, 50, 75]
 
     # parse command line options
     #parser = optparse.OptionParser(description=__doc__)
@@ -66,8 +68,15 @@ if __name__ == "__main__":
     options.wm = ["data/sub-NDARAM873GAC/c2usub-NDARAM873GAC_acq-VNav_T1w.nii.gz"]
     options.csf = ["data/sub-NDARAM873GAC/c3usub-NDARAM873GAC_acq-VNav_T1w.nii.gz"]
     options.t1 = ["data/sub-NDARAM873GAC/usub-NDARAM873GAC_acq-VNav_T1w.nii"]
+    #
+    options.gm = ["/neurospin/psy/canbind/data/derivatives/spmsegment/sub-CAM-0002/ses-01/anat/c1sub-CAM-0002_ses-01_T1w.nii"]
+    options.wm = ["/neurospin/psy/canbind/data/derivatives/spmsegment/sub-CAM-0002/ses-01/anat/c2sub-CAM-0002_ses-01_T1w.nii"]
+    options.csf = ["/neurospin/psy/canbind/data/derivatives/spmsegment/sub-CAM-0002/ses-01/anat/c3sub-CAM-0002_ses-01_T1w.nii"]
+    options.t1 = ["/neurospin/psy/canbind/data/derivatives/spmsegment/sub-CAM-0002/ses-01/anat/sub-CAM-0002_ses-01_T1w.nii"]
+    options.output = "/neurospin/psy/canbind/data/derivatives/spmsegment/QC"
+
+    #
     options.anat = True
-    options.output = "./test"
     options.pdf = True
     options.nslices = 6
     options.save_seg = False
@@ -104,7 +113,7 @@ if __name__ == "__main__":
         keys = [filename.replace('/', '_') for filename in gm_filenames]
 
     if options.pdf:
-        pdf = PdfPages(os.path.join(output_dir, "scans_slices.pdf"))
+        pdf = PdfPages(os.path.join(output_dir, "spmsegment_slices.pdf"))
 
     tissues_vol = list()
     # Iterate over images
@@ -171,10 +180,10 @@ if __name__ == "__main__":
                 csf_msk_img.to_filename(os.path.join(output_dir, csf_filename))
 
         fig = plt.figure(figsize=(19.995, 11.25))
-        # 16x9: 13.33 x 7.5 inches or 33.867 x 19.05 cm.
+        # 16x9: 13.33,  7.5 inches or 33.867 x 19.05 cm.
         fig.suptitle(keys[i])
-
         fignum = 411 if options.anat else 311
+
         #plt.subplot(211)
         if options.anat:
             ax = fig.add_subplot(fignum)
@@ -183,21 +192,28 @@ if __name__ == "__main__":
         #plotting.plot_anat(background_img, dim=-1)
 
         ax = fig.add_subplot(fignum + 0)
+
+        # Workaround of a bug in nilearn
+        import numbers
+        if isinstance(nslices, numbers.Number):
+            cuts = plotting.find_cut_slices(background_img, direction='z', n_cuts=nslices, spacing='auto')
+            if len(set(cuts)) != nslices:
+                nslices = cut_coords
+
         display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
         #display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
         display.add_contours(gm_msk_img, colors='r')
 
-        #display = plotting.plot_anat(background_img, display_mode='z', cut_coords=nslices)
-        #display.add_overlay(gm_msk_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
-
         ax = fig.add_subplot(fignum + 1)
         display = plotting.plot_anat(background_img, display_mode='y', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
+        #display = plotting.plot_anat(background_img, display_mode='y', cut_coords=nslices, dim=-1)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
         display.add_contours(gm_msk_img, colors='r')
 
         ax = fig.add_subplot(fignum + 2)
         display = plotting.plot_anat(background_img, display_mode='x', cut_coords=nslices, figure=fig,axes=ax, dim=-1)
+        # display = plotting.plot_anat(background_img, display_mode='x', cut_coords=nslices, dim=-1)
         display.add_overlay(gm_img, alpha=alpha_overlay, cmap=plt.cm.Greens, colorbar=True)
         display.add_contours(gm_msk_img, colors='r')
 
@@ -215,4 +231,23 @@ if __name__ == "__main__":
         pdf.close()
 
     tissues_vol = pd.DataFrame(tissues_vol, columns = ["scan_id", "GMvol_l", "WMvol_l", "CSFvol_l"])
-    tissues_vol.to_csv(os.path.join(output_dir, "scans_volumes.csv"), index=False)
+    tissues_vol["TIV_l"] = tissues_vol[["GMvol_l", "WMvol_l", "CSFvol_l"]].sum(axis=1)
+    tissues_vol["GMratio"] = tissues_vol["GMvol_l"] / tissues_vol["TIV_l"]
+    tissues_vol["WMratio"] = tissues_vol["WMvol_l"] / tissues_vol["TIV_l"]
+    tissues_vol["CSFratio"] = tissues_vol["CSFvol_l"] / tissues_vol["TIV_l"]
+    tissues_vol.to_csv(os.path.join(output_dir, "spmsegment_volumes.csv"), index=False)
+
+    # Plot of Volume ratios
+    pdf = PdfPages(os.path.join(output_dir, "spmsegment_volumes.pdf"))
+    fig = plt.figure(figsize=(13.33, 7.5))
+    df = tissues_vol[["GMratio", "WMratio", "CSFratio"]].melt()
+    sns.violinplot("variable", "value", data=df, inner="quartile")
+    sns.swarmplot("variable", "value", color="white", data=df, size=2, alpha=0.5)
+    pdf.savefig()
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(13.33, 7.5))
+    sns.pairplot(tissues_vol[["GMratio", "WMratio", "CSFratio"]])
+    pdf.savefig()
+    plt.close(fig)
+    pdf.close()
