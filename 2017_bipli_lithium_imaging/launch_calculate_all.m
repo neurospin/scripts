@@ -22,11 +22,19 @@ function launch_calculate_all(subjectdir)
     Anat3Tfile=strcat(subjectdir,'\Anatomy3T\t1_weighted_sagittal_1_0iso.nii');
     Anat7Tfile=strcat(subjectdir,'\Anatomy7T\t1_mpr_tra_iso1_0mm.nii');
     LifilesS=dir(strcat(subjectdir,'\TPI\Reconstruct_gridding\03-Filtered\*.nii'));
+    otherfilesS=dir(strcat(subjectdir,'\Trufi\*.nii'));
     i=1;
     Lifiles=cell(size(LifilesS,1),1);
     for Lifile=LifilesS'
         Lifiles{i}=strcat(subjectdir,'\TPI\Reconstruct_gridding\03-Filtered\',Lifile.name);
         i=i+1;
     end
+    i=1;
+    for otherfile=otherfilesS'
+        if ~contains(otherfile.name,'3T')
+            otherfiles{i}=strcat(subjectdir,'\Trufi\',otherfile.name);
+            i=i+1;
+        end
+    end
     
-    calculate_all_00(Lifiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+    calculate_all_00(Lifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);

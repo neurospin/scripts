@@ -67,9 +67,6 @@ shape = babel_image.get_data().shape
 # excluded from the analysis.
 Xtot = np.vstack(images)
 
-
-
-
 mask_ima = nibabel.load(os.path.join(BASE_PATH,"Processing", "ROIs", "Wholebrain.nii"))
 mask_arr = mask_ima.get_data() != 0
 
@@ -93,9 +90,6 @@ mask_arr = mask_ima.get_data() != 0
 #############################################################################
 # Compute mask with atlas but binarized (not group tv)
 #mask_bool = mask_atlas != 0
-
-
-
 #############################################################################
 
 # Save data X and y
@@ -108,7 +102,6 @@ X = np.hstack([Z, X])
 #Remove nan lines 
 X= X[np.logical_not(np.isnan(y)).ravel(),:]
 y=y[np.logical_not(np.isnan(y))]
-
 
 X -= X.mean(axis=0)
 X /= X.std(axis=0)
@@ -123,11 +116,8 @@ np.save(os.path.join(OUTPUT_DATA, "y.npy"), y)
 #mask_ima = nibabel.load(os.path.join(OUTPUT_DATA, "mask_whole_brain.nii"))
 #mask_arr = mask_ima.get_data() != 0
 
-
-
 #mask_ima = mask_atlas
 #mask_arr = mask_atals.get_data() != 0
-
 
 X = np.load(os.path.join(OUTPUT_DATA, "X.npy"))
 y = np.load(os.path.join(OUTPUT_DATA, "y.npy"))
@@ -155,7 +145,6 @@ arr = np.zeros(mask_arr.shape); arr[mask_arr] = -np.log10(pvals[0])
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DATA,"log10pval_stat_conversion_NoConversion.nii.gz"))
 
-
 nperms = 1000
 tvals_perm, pvals_perm, _ = muols.t_test_maxT(contrasts=np.array([[1, 0, 0, 0]]),nperms=nperms,two_tailed=True)
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = tvals_perm[0]
@@ -169,8 +158,6 @@ out_im.to_filename(os.path.join(OUTPUT_DATA,"pval_stat_conversion_NoConversion_c
 arr = np.zeros(mask_arr.shape); arr[mask_arr] = -np.log10(pvals_perm[0])
 out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
 out_im.to_filename(os.path.join(OUTPUT_DATA,"log10pval_stat_conversion_NoConversion_correction_Tmax.nii.gz"))
-
-
 
 #Plot univariate analysis map
 filename = os.path.join(OUTPUT_DATA,"t_stat_conversion_NoConversion.nii.gz")

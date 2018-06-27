@@ -252,3 +252,14 @@ plt.plot(TRm,valsplot3,'b')
 valsplot4=MRIfunc('SSFP_echo',TRm,500,T1,T2,alpharad,betarad)
 plt.plot(TRm,valsplot4,'y')
 plt.show()
+
+#Li clinical values
+T1=3947000
+T2=63000
+
+TR=200000
+TE=300
+alphasrad=degtorad(alphas)
+valsplotangnew=MRIfunc('SSFP_fid',TR,TE,T1,T2,alphasrad,betarad)
+plt.plot(alphas,valsplotangnew,'g')
+plt.show()
