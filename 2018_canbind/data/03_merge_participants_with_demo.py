@@ -17,6 +17,8 @@ WD = "/neurospin/psy/canbind"
 demo = pd.read_csv(os.path.join(WD, "data/sourcedata/clinic_demo/CBN-database_20180618.csv")).iloc[:, 1:]
 participants = pd.read_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t')
 
+
+participants.head()
 demo.head()
 #  SUBJLABEL    Group_x  AGE_x  SEX_x
 #0  CAM_0002    Control   26.0    2.0
@@ -27,7 +29,8 @@ demo.head()
 
 demo.columns = ["participant_id", "group", "age", "sex_x"]
 
-demo["participant_id"] = [s.replace("_", "-") for s in demo["participant_id"]]
+# append sub- and change _ to -
+demo["participant_id"] = ["sub-%s" % s.replace("_", "-") for s in demo["participant_id"]]
 
 participants.head()
 #  participant_id  ses-01  ses-01-alt03  ses-01-alt16  ses-01SE02  ses-02  ses-03  ses-03SE02 site
@@ -46,9 +49,8 @@ df.head()
 
 
 with_ima = df[[s for s in df.columns if s.count("ses")]].sum(axis=1) > 0
-assert with_ima.sum() == participants.shape[0]
+assert with_ima.sum() == participants.shape[0] == 310
 
 
 # append "sub-"
-df["participant_id"] = ["sub-%s" % s for s in df["participant_id"]]
 df.to_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t', index=False)
