@@ -98,12 +98,13 @@ df = df[["participant_id", "site"]].drop_duplicates()
 assert df.shape[0] == participants.shape[0] == 310
 
 participants = pd.merge(participants, df, on='participant_id', how='left')
+participants["participant_id"] = ["sub-%s" % s for s in participants["participant_id"]]
 
 
 participants.to_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t', index=False)
 ptcp = pd.read_csv(os.path.join(WD, "data", "participants.tsv"), sep="\t")
 
-participants.shape[0] == 310
-participants[sesssions].sum().sum() == 808
+assert participants.shape[0] == 310
+assert participants[sesssions].sum().sum() == 808
 
 
