@@ -1624,7 +1624,7 @@ matlabbatch{1}.spm.tools.dartel.mni_norm.data.subjs.images = {
                                                               }
                                                               }';
 %%
-matlabbatch{1}.spm.tools.dartel.mni_norm.vox = [1.5 1.5 1.5];
+matlabbatch{1}.spm.tools.dartel.mni_norm.vox = [1 1 1];
 matlabbatch{1}.spm.tools.dartel.mni_norm.bb = [NaN NaN NaN
                                                NaN NaN NaN];
 matlabbatch{1}.spm.tools.dartel.mni_norm.preserve = 1;

@@ -39,6 +39,7 @@ shell = '/bin/bash'
 regexp = re.compile(r"(.+)_(.+)_(.+)")
 
 
+
 filenames = glob.glob(os.path.join(SRC, "*", "*.mgz"))
 basenames = [os.path.basename(f) for f in filenames]
 
