@@ -41,4 +41,13 @@ with_ima = df[[s for s in df.columns if s.count("ses")]].sum(axis=1) > 0
 assert with_ima.sum() == participants.shape[0] == 310
 
 
-df.to_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t', index=False)
+participants = df
+participants.to_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t', index=False)
+
+
+###############################################################################
+# 2) How to Merge volume with participants
+participants = pd.read_csv(os.path.join(WD, "data", "participants.tsv"), sep='\t')
+vols = pd.read_csv(os.path.join(WD, "data/derivatives/spmsegment/spmsegment_volumes.csv"))
+df = pd.merge(participants, vols, on="participant_id", how='right')
+df.head()

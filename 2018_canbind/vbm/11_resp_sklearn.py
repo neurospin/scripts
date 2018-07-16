@@ -27,6 +27,7 @@ from sklearn.model_selection import GridSearchCV
 import sklearn.metrics as metrics
 import sklearn.linear_model as lm
 from matplotlib import pyplot as plt
+import mulm
 
 WD = '/neurospin/psy/canbind'
 #BASE_PATH = '/neurospin/brainomics/2018_euaims_leap_predict_vbm/results/VBM/1.5mm'
@@ -36,26 +37,53 @@ WD = '/neurospin/psy/canbind'
 vs = "1.5mm-s8mm"
 #vs = "1.5mm"
 
-INPUT = os.path.join(WD, "models", "predict_resp_from_baseline_%s" % vs)
+INPUT = os.path.join(WD, "models", "univstats-RespNoResp_vbm_%s" % vs)
+OUTPUT = os.path.join(WD, "models", "ml-RespNoResp_vbm_%s" % vs)
 
 # load data
 #X = np.load(os.path.join(INPUT, "Xres.npy"))
-X = np.load(os.path.join(INPUT, "Xcentersite.npy"))
+Xim = np.load(os.path.join(INPUT, "Xsite.npy"))
 
 y = np.load(os.path.join(INPUT, "y.npy"))
 pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
 assert np.all(pop['respond_wk16_num'] == y)
 
-mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
-mask_arr = mask_img.get_data()
-mask_arr = mask_arr == 1
+Xclin = pop[['age', 'sex_num', 'psyhis_mdd_age']]
+Xclin.loc[Xclin["psyhis_mdd_age"].isnull(), "psyhis_mdd_age"] = Xclin["psyhis_mdd_age"].mean()
+print(Xclin.isnull().sum())
+Xclin = np.asarray(Xclin)
 
+#mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
+#mask_arr = mask_img.get_data()
+#mask_arr = mask_arr == 1
+
+###############################################################################
+# Model 1: LR_ClinIm-scaled_rs85
 scaler = preprocessing.StandardScaler()
+Xim = scaler.fit(Xim).transform(Xim)
+X = np.concatenate([Xclin, Xim], axis=1)
 X = scaler.fit(X).transform(X)
-cv = StratifiedKFold(n_splits=5, random_state=0)
+
+
+###############################################################################
+# Model 2:  LR_ImResClin-scaled_rs85
+# resid-lm: MRI residual = MRI ~ psyhis_mdd_age + age + sex_num
+#                    MRI residual ~ respond_wk16_num
+
+## OLS with MULM
+contrasts = [1] + [0] *(Xclin.shape[1] - 1)
+
+mod = mulm.MUOLS(Xim, Xclin)
+mod.fit()
+residuals = Xim - mod.predict(Xclin)
+X = residuals
+X = scaler.fit(X).transform(X)
 
 ###############################################################################
 # ML
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=85) # 51
+
 def balanced_acc(estimator, X, y):
     return metrics.recall_score(y, estimator.predict(X), average=None).mean()
 
@@ -64,7 +92,7 @@ scoring = {'AUC': 'roc_auc', 'bAcc':balanced_acc}
 model = lm.LogisticRegression(class_weight='balanced')
 #model = svm.LinearSVC(class_weight='balanced', dual=False)
 
-Cs = [0.00001, 0.0001, 0.001, .01, .1, 1, 10]
+Cs = [0.00001, 0.0001, 0.001, .01, .1, 1, 10, 100]
 
 param_grid = {'C': Cs}
 gs = GridSearchCV(model, cv=cv, param_grid=param_grid, scoring=scoring, refit='AUC', n_jobs=16)
@@ -73,14 +101,17 @@ print(gs.best_params_)
 gs.cv_results_
 
 results = gs.cv_results_
+#results_51 = gs.cv_results_
+# results_85 = results
+# results = results_51
 
 ###############################################################################
 # Plot
 plt.figure(figsize=(13, 13))
-plt.title("GridSearchCV evaluating using multiple scorers simultaneously",
+plt.title("GridSearchCV LR",
           fontsize=16)
 
-plt.xlabel("min_samples_split")
+plt.xlabel("C")
 plt.ylabel("Score")
 plt.grid()
 
@@ -116,7 +147,10 @@ for scorer, color in zip(sorted(scoring), ['g', 'k']):
 
 plt.legend(loc="best")
 plt.grid('off')
-plt.show()
+#plt.show()
+#plt.savefig(os.path.join(OUTPUT, "LR_ClinIm-scaled_rs85.pdf"))
+
+plt.savefig(os.path.join(OUTPUT, "LR_ImResClin-scaled_rs85.pdf"))
 
 
 
@@ -125,14 +159,25 @@ plt.show()
 
 
 
-model = lm.LogisticRegression(class_weight='balanced', C=gs.best_params_['C'])
-model = lm.LogisticRegression(class_weight='balanced', C=1)
+
+
+
+
+model = lm.LogisticRegression(class_weight='balanced', C=1e-4)
+#model = lm.LogisticRegression(class_weight='balanced', C=1)
 
 model = svm.LinearSVC(class_weight='balanced', dual=False, C=gs.best_params_['C'])
 
 %time scores = cross_val_score(estimator=model, X=X, y=y, cv=cv, scoring='roc_auc', n_jobs=-1)
 print(model, "\n", scores, scores.mean())
 """
+
+univstats-RespNoResp_vbm_1.5mm-s8mm
+-----------------------------------
+LogisticRegression
+C10-4
+53%
+
 "Xcentersite.npy"
 ----------------
 print(model, "\n", scores, scores.mean())
