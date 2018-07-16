@@ -43,8 +43,8 @@ WD = '/neurospin/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
-vs = "1.5mm-s8mm"
-#vs = "1.5mm"
+#vs = "1.5mm-s8mm"
+vs = "1.5mm"
 
 OUTPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
 
@@ -206,7 +206,7 @@ mod = mulm.MUOLS(Xraw, Z)
 tvals, pvals, df = mod.fit().t_test(contrasts, pval=True, two_tailed=True)
 
 print([[thres, np.sum(pvals <thres), np.sum(pvals <thres)/pvals.size] for thres in 10. ** np.array([-4, -3, -2])])
-# [[0.0001, 11, 2.081354469803331e-05], [0.001, 311, 0.00058845567282621444], [0.01, 3606, 0.0068230583801007372]]
+# [[0.0001, 34, 8.5521897378753849e-05], [0.001, 333, 0.0008376115243272068], [0.01, 3374, 0.0084867906398798671]]
 
 tstat_arr = np.zeros(mask_arr.shape)
 pvals_arr = np.zeros(mask_arr.shape)

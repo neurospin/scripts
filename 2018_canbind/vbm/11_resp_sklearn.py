@@ -34,15 +34,16 @@ WD = '/neurospin/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
-vs = "1.5mm-s8mm"
-#vs = "1.5mm"
+#vs = "1.5mm-s8mm"
+vs = "1.5mm"
 
-INPUT = os.path.join(WD, "models", "univstats-RespNoResp_vbm_%s" % vs)
-OUTPUT = os.path.join(WD, "models", "ml-RespNoResp_vbm_%s" % vs)
+
+INPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
+OUTPUT = INPUT
 
 # load data
 #X = np.load(os.path.join(INPUT, "Xres.npy"))
-Xim = np.load(os.path.join(INPUT, "Xsite.npy"))
+Xim = np.load(os.path.join(INPUT, "Xrawsc.npy"))
 
 y = np.load(os.path.join(INPUT, "y.npy"))
 pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
@@ -60,11 +61,11 @@ Xclin = np.asarray(Xclin)
 ###############################################################################
 # Model 1: LR_ClinIm-scaled_rs85
 scaler = preprocessing.StandardScaler()
-Xim = scaler.fit(Xim).transform(Xim)
+#Xim = scaler.fit(Xim).transform(Xim)
 X = np.concatenate([Xclin, Xim], axis=1)
 X = scaler.fit(X).transform(X)
 
-
+"""
 ###############################################################################
 # Model 2:  LR_ImResClin-scaled_rs85
 # resid-lm: MRI residual = MRI ~ psyhis_mdd_age + age + sex_num
@@ -78,11 +79,12 @@ mod.fit()
 residuals = Xim - mod.predict(Xclin)
 X = residuals
 X = scaler.fit(X).transform(X)
+"""
 
 ###############################################################################
 # ML
 
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=85) # 51
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=31) # 51, 26(59+9), 31(59+9), 85(58+11) best is 31
 
 def balanced_acc(estimator, X, y):
     return metrics.recall_score(y, estimator.predict(X), average=None).mean()
@@ -148,17 +150,26 @@ for scorer, color in zip(sorted(scoring), ['g', 'k']):
 plt.legend(loc="best")
 plt.grid('off')
 #plt.show()
-#plt.savefig(os.path.join(OUTPUT, "LR_ClinIm-scaled_rs85.pdf"))
-
-plt.savefig(os.path.join(OUTPUT, "LR_ImResClin-scaled_rs85.pdf"))
-
+plt.savefig(os.path.join(OUTPUT, "resp-rmSiteTIVClin-scaled_ml-lr_rs85.pdf"))
+# plt.savefig(os.path.join(OUTPUT, "resp-rmSiteTIV-resClin-scaled_ml-lr_rs85.pdf"))
 
 
 
 
+#univstats-RespNoResp_vbm_1.5mm
+res = list()
+for rndst in range(100):
+    print(rndst)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=rndst)
+    model = lm.LogisticRegression(class_weight='balanced', C=1)# smmothed: 1e-4
+    scores = cross_val_score(estimator=model, X=X, y=y, cv=cv, scoring='roc_auc', n_jobs=8)
+    print(model, "\n", scores.mean(), scores.std(), scores)
+    res.append([rndst, scores.mean(), scores.std()])
 
 
+scores = pd.DataFrame(res, columns=["rnd", "mu", "std"])
 
+scores["zscore"] =  scores["mu"] / scores["std"]
 
 
 
