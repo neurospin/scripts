@@ -24,10 +24,11 @@ def launch_reconstruct(dirdat,ProcessedTPIpath,subjectnumber,reconstructfile):
             Tpifilename=listdat[j]
             Tpifilepath=os.path.join(dirdat,Tpifilename);
             deg=Tpifilename.find('deg');
-            degval=(Tpifilename[deg-2:deg-1]);
+            degval=(Tpifilename[deg-2:deg]);
             TPIresultname=('Patient'+str(subjectnumber)+'_'+degval+'deg.nii');
             Reconstructpath=os.path.join(ProcessedTPIpath,(TPIresultname));
-            codelaunch=({'python2 '}+reconstructfile+{' --i '}+Tpifilepath+{' --NSTPI --s --FISTA_CSV --o '}+Reconstructpath);
+            codelaunch=('python2 '+reconstructfile+' --i '+Tpifilepath+' --NSTPI --s --FISTA_CSV --o '+Reconstructpath);
             subprocess.run(codelaunch)
             #status = system(codelaunch);
+            print(codelaunch)
   

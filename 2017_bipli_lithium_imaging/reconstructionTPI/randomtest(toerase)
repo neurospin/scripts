@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jul  4 14:41:23 2018
+
+@author: js247994
+"""
+import io
+
+source_file="/neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2018_06_08/twix7T/meas_MID34_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID2524.dat"
+#source_file="/volatile/scripts/2017_bipli_lithium_imaging/hithere.txt";
+#with open("hithere.txt") as source:
+with open(source_file,'rb') as source:
+    #source.seek(5)
+    print("hello")
+    a="dljslfj"
+    source.seek(2)
+    print("\n")
+    print(source.read(7))
+    for line in source:
+        pattern1 = 'Hi'
+        #rx1 = re.compile(pattern1, re.IGNORECASE|re.MULTILINE|re.DOTALL)    
