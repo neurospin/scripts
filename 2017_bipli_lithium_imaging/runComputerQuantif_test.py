@@ -103,7 +103,7 @@ if not os.path.isdir(os.path.join(Subjectdirp,'Anatomy7T')):
     os.mkdir(os.path.join(Subjectdirp,'Anatomy7T'));
 if not os.path.isdir(os.path.join(Subjectdirp,'TPI')):
     os.makedirs(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'));
-    os.mkdir(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','02-Post-Quantif'));
+    os.mkdir(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','02-PostQuantif'));
     os.mkdir(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','03-Filtered'));
     os.mkdir(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','04-7Tanatspace'));
     os.mkdir(os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','05-3Tanatspace'));
@@ -118,7 +118,7 @@ reconstructfile=os.path.join(Codedir,'ProcessData.py');
 launch_reconstruct(Subjectdirtwix,Subjectdirresult,subjectnumber,reconstructfile);
 
 filesdirin=os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw');
-filesdirout=os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','02-Post-Quantif');
+filesdirout=os.path.join(Subjectdirp,'TPI','Reconstruct_gridding','02-PostQuantif');
 filesdone=[];
 fileslist=os.listdir(filesdirin);
 filesnii=[]

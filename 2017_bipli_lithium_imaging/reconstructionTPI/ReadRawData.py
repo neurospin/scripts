@@ -1761,7 +1761,7 @@ def ReadFastSiemensTPI_MultiEcho(Source,HeaderOnly,NS_TPI):
 
 	from ReadRawData import ParseHeader, ReadKline
 	ACQParams = ParseHeader(Source)
-	header_size = int(ACQParams[17])
+	header_size = int(ACQParams[17])#int(ACQParams[17])
 	nbLines = int(ACQParams[0])
 	nbPoints = int(ACQParams[1])
 	averages = int(ACQParams[2])
@@ -1793,9 +1793,12 @@ def ReadFastSiemensTPI_MultiEcho(Source,HeaderOnly,NS_TPI):
 			for echo in range(int(nbEchoes)):
 				for coil in range(coils):
 					CplxDataFrame[0][coil][y][echo]=CplxDataFrame[0][coil][y][echo]+Cplxline[(echo*coils*nbPoints*int(oversamplingFactor))+coil*nbPoints*int(oversamplingFactor):(echo*coils*nbPoints*int(oversamplingFactor))+(coil+1)*nbPoints*int(oversamplingFactor)]
-			KXarray[y,:] = np.array(KX[0:nbPoints*int(oversamplingFactor)]).T
-			KYarray[y,:] = np.array(KY[0:nbPoints*int(oversamplingFactor)]).T
-			KZarray[y,:] = np.array(KZ[0:nbPoints*int(oversamplingFactor)]).T
+			try:
+				KXarray[y,:] = np.array(KX[0:nbPoints*int(oversamplingFactor)]).T
+				KYarray[y,:] = np.array(KY[0:nbPoints*int(oversamplingFactor)]).T
+				KZarray[y,:] = np.array(KZ[0:nbPoints*int(oversamplingFactor)]).T				             
+			except:                
+				print("hi")
 			
 	# if (str(Nucleus) != str('1H')):				# The case of the proton channel is handled in reconstruction
 		# CplxDataFrame=np.delete(CplxDataFrame,0,1)
@@ -1809,23 +1812,29 @@ def Read_NS_ME_TPIBlock(source_file, position, nbPoints, oversamplingFactor,coil
 	with open(source_file,'rb') as source:
 		cplx=[]
 		#source=source.read().decode("UTF-8")
+#		position=500000
+#		position=position+28352
 		source.seek(position) # We go to desired position in file
-		KspaceLine = np.zeros(shape=(int(echoes)*int(coils)*int(nbPoints)*int(oversamplingFactor)),dtype=np.complex64)
+		if position==53434390:
+			print("we are here")
+		else:
+			cplx=[]
+		KspaceLine = np.zeros(shape=(int(echoes)*int(coils)*int(nbPoints)*int(oversamplingFactor)),dtype=np.complex64);
 		# A line in K space is acquired by each coil and composed of (IM,RE)*NbPts*Oversampling*32bits
 		# Data are NOT supposed to be Oversampled in TPI
 		# In Multiple echoes mode data for each projection are stored as : [Coil1-echo1;Coil2-echo1;...;Coiln-echon;KX;KY;KZ]
 		
-		KX=[];KY=[];KZ=[]
+		KX=[];KY=[];KZ=[];
 		# Acquired Signal Data are still stored as N complex points stored over 32bits values for both real and Imaginary parts. --> N*2*32 *(possible Oversampling Factor) 
-		DataLineLength=int(nbPoints)*2*int(oversamplingFactor)*32 # --> Length computed in Bits --> Later converted to Bytes (octets)
-		DataLinediv=int(DataLineLength/8)
-		HDRlength=192			# Position parts have an extra hearder of 64 octets so 128 + 64 = 192
+		DataLineLength=int(nbPoints)*2*int(oversamplingFactor)*32; # --> Length computed in Bits --> Later converted to Bytes (octets)
+		DataLinediv=int(DataLineLength/8);
+		HDRlength=192;			# Position parts have an extra hearder of 64 octets so 128 + 64 = 192
 
-		PosLength=int(nbPoints)*int(oversamplingFactor)*4			# Positions consist Nbpoints real value stored over 32bits --> 4 octets (possibly oversampled)
+		PosLength=int(nbPoints)*int(oversamplingFactor)*4;			# Positions consist Nbpoints real value stored over 32bits --> 4 octets (possibly oversampled)
 		# Kline=source.read((DataLineLength/8+(128))*(coils)+3*(PosLength+HDRlength))		# The old block was long of Nbcoils x Points + positions (3 times Positions (KX,KY,KZ))
-		Kline=source.read(int((DataLineLength/8+(128))*(coils)*(echoes)+3*(PosLength+HDRlength)))		# The new block is long of NbEchoes x NbCoils x Points + positions
+		Kline=source.read(int((DataLineLength/8+(128))*(coils)*(echoes)+3*(PosLength+HDRlength)));		# The new block is long of NbEchoes x NbCoils x Points + positions
 		# The accurate header length is 60octets, but there is a 4octet ending flag (control ?) so we need to adjust position
-		
+		test=source.read(40)
 		# the old one still to be checked
 		# KSpace_hdr1=Kline[0:HDRlength-4]
 		# Kx=Kline[HDRlength-4:HDRlength+PosLength-4]
@@ -1872,7 +1881,10 @@ def Read_NS_ME_TPIBlock(source_file, position, nbPoints, oversamplingFactor,coil
 	# print len(cplx)
 
 	for x in range(int(echoes)*int(coils)*int(nbPoints)*int(oversamplingFactor)):
-		KspaceLine[x] = cplx[x]
+		try:
+			KspaceLine[x] = cplx[x]
+		except:           
+			print("hi")           
 	position=position+len(Kline)
 	# del(KX);del(KY); del(KZ); 
 	del(cplx); del(pos2); del(pos); del(KSpace_hdr1); del(KSpace_hdr2); del(KSpace_hdr3);

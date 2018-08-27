@@ -134,7 +134,7 @@ for file1=filesnii'
         end
         %[~,filename,ext]=fileparts(file1.name);
         %Computedniipath=strcat(filesdir,filename,ext);
-        Computedniipath=strcat(filesdirout,file1.name);
+        Computedniipath=fullfile(filesdirout,file1.name);
         codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
         status = system(codelaunchQuant{1});
     end

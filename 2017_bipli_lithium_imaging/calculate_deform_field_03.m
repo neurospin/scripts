@@ -20,15 +20,15 @@ function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,ke
         matlabbatch(2).spm.util.imcalc.input=U.matlabbatch(2).spm.util.imcalc.input(1:3);
     elseif size(TPMfile,1)==1
         for i=1:6
-            matlabbatch{1,1}.spm.spatial.preproc.tissue(i).tpm={strcat(TPMfile,',',num2str(i))};
+            matlabbatch{1,1}.spm.spatial.preproc.tissue(i).tpm={char(TPMfile+','+num2str(i))};
         end
     else
         error('Cannot read TPMfile')
     end
-    matlabbatch{1}.spm.spatial.preproc.channel.vols =  { [anat3Tfile, ',1'] };
+    matlabbatch{1}.spm.spatial.preproc.channel.vols = {char(anat3Tfile + ',1')};
     [subjectdir,filename,ext]=fileparts(anat3Tfile);
-    matlabbatch{2}.spm.util.imcalc.output = strcat(subjectdir,'\sumsegments.nii');    
-    matlabbatch{3}.spm.util.imcalc.output = strcat(subjectdir,'\mask3T.nii');    
+    matlabbatch{2}.spm.util.imcalc.output = fullfile(subjectdir,'sumsegments.nii');    
+    matlabbatch{3}.spm.util.imcalc.output = fullfile(subjectdir,'mask3T.nii');    
     
     if keepniifiles>0
         matlabbatch=matlabbatch(1:5);
@@ -40,10 +40,10 @@ function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,ke
         end
     end  
     
-    tempsegfile=strcat(dirsegment,'\tempmatseg.mat');
+    tempsegfile=fullfile(dirsegment,'tempmatseg.mat');
     save(tempsegfile,'matlabbatch');
     spm_jobman('run',tempsegfile);
     delete(tempsegfile);
-    deformfield=strcat(subjectdir,'\y_',filename,ext);
+    deformfield=fullfile(subjectdir,strcat('y_',filename,ext));
     
 end

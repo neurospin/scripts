@@ -213,12 +213,18 @@ if TPI :
 		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
 		for echo in range(parameters[24]):
 			FISTApath = os.path.dirname(OutputPath)
-			FISTApath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
+			OutputName= os.path.basename(OutputPath)
+			OutputName = os.path.splitext(OutputName)            
+			OutputName = OutputName[0]
+			#OutputPath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
+			#FISTApath = os.path.dirname(OutputPath)
+			#FISTApath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
+			FISTAPath = os.path.join( FISTApath, OutputName+'_KspaceVals_Echo{0}_TE_{1}.csv'.format(echo,parameters[25][echo]) )
 			#print 'Hello, this is FISTApath,',FISTApath[0]
-			if not os.path.isfile(FISTApath) :
+			if not os.path.isfile(FISTAPath) :
 				# f=open("TPI_Kspace_positions_values_31P_bouleFawziTubes_p075_40960proj_FA10_TE4_5.csv","w")
 				print('INFO    : Writing CSV file for echo ', echo+1)
-				f=open(FISTApath,"w")
+				f=open(FISTAPath,"w")
 				#####f.write(float(KX))
 				### en changeant l'incrément de la boucle on retourne plus ou moins de points de la trajectoire ! faire attention !!
 				# for i in range(0,KX.shape[0],100):
@@ -385,18 +391,18 @@ if not HeaderOnly:
 			if MIA : parameters[24]=3
 			if int(parameters[24])==1:
 				Hpath, Fname = os.path.split(str(OutputPath))
-				Fname = Fname[0].split('.')
+				Fname = Fname.split('.')
 				if SavePhase :
-					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE.nii')
+					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
 					SaveArrayAsNIfTI(ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
-					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_PHASE.nii')
+					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_PHASE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
 					SaveArrayAsNIfTI(Phase[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
 				else :
-					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE.nii')
+					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
 					SaveArrayAsNIfTI(ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
 					
 				if SaveKspace :
-					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KB_GriddedKspace.nii')
+					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KB_GriddedKspace_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
 					SaveArrayAsNIfTI(Kspace[0,0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
 
 			if int(parameters[24])>1:
@@ -405,12 +411,12 @@ if not HeaderOnly:
 				Fname = Fname.split('.')
 				for echo in range(int(parameters[24])):
 					if SavePhase :
-						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo%s.nii" %echo )
+						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
 						SaveArrayAsNIfTI(ReconstructedImg[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
-						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_PHASE_Echo%s.nii" %echo )
+						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_PHASE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
 						SaveArrayAsNIfTI(Phase[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
 					else:
-						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo%s.nii" %echo )
+						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
 						SaveArrayAsNIfTI(ReconstructedImg[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
 				if SumEchoes:
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_SumCplx_Echoes.nii")
