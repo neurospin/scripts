@@ -7,16 +7,21 @@
 # command : ProcessData.py --i E:\meas_MID86_ute_tra_TE100us_1H_1SL20mm_FID8353.dat --verbose --regrid=rad --vis=True 
 
 import os,sys
-import argparse, numpy
-from ReadRawData import *
-from Regridding import *
-from nipy import save_image
-from ctypes import *
+import argparse
+import numpy as np
+from ReadRawData import ReadSiemensSpectro, ReadFastSiemensRAD, ReadFastSiemensTPI_MIA_MonoEcho, ReadFastSiemensTPI_MultiEcho
+from Regridding import KaiserBesselRegridding, KaiserBesselTPI, KaiserBesselTPI_ME, Direct_Reconstruction_2D, Direct_Reconstruction_3D, KaiserBesselTPI_ME_B0
+from ProcessCorrections import Fieldmap_to_Source_space, Fieldmap_get
+from nifty_funclib import SaveArrayAsNIfTI
+#from nipy import save_image
+#from ctypes import *
+
 #STD_OUTPUT_HANDLE_ID = c_ulong(0xfffffff5)
 #windll.Kernel32.GetStdHandle.restype = c_ulong
 #std_output_hdl = windll.Kernel32.GetStdHandle(STD_OUTPUT_HANDLE_ID)
 
 #--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2018_06_08/twix7T/meas_MID34_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID2524.dat --NSTPI --s --FISTA_CSV --o /volatile/temp/test.nii
+#--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2017_02_21/twix7T/meas_MID203_7Li_TPI_fisp_TR200_20deg_P05_FID6746.dat --NSTPI --s --FISTA_CSV --fieldmap /neurospin/ciclops/projects/BIPLi7/ClinicalData/Processed_Data/2017_02_21/Field_mapping_2/field_mapping_phase.nii --o /neurospin/ciclops/people/Jacques/Bipli/B0Map_inhomogeneity_testzone/2017_02_21/reconstruc_fieldmap_test1.nii
 
 import time
 
@@ -47,6 +52,8 @@ parser.add_argument("--SaveKspace", help="Export regridded Kspace", action = "st
 parser.add_argument("--UseFullDCF", help="Use Full DCF Computation --> LONG", action = "store_true")
 parser.add_argument("--SumEchoes", help="Sum all echoes K space", action = "store_true")
 parser.add_argument("--MIA", help="Metabolic Interleaved Acquisition", action = "store_true")
+parser.add_argument("--fieldmap", type=str, help="Field Map acquisition for application of B0 correction")
+parser.add_argument("--fieldcalc", type=str, help="Field Map acquisition for application of B0 correction")
 args = parser.parse_args()
 
 if args.v: verbose=True
@@ -163,6 +170,20 @@ if args.SumEchoes:
 	SumEchoes=True
 else :
 	SumEchoes=False	
+    
+if args.fieldmap: 
+    B0correct=True
+    fieldmap_file=args.fieldmap
+else:
+    B0correct=False
+    
+if args.fieldcalc:
+    B0correct=True
+    field_interpol=True
+    fieldmap_file_orig=args.fieldcalc
+else:
+    field_interpol=False
+    
 print()
 print('------------------------------------------------------------')
 print('Processing Pipeline :')
@@ -195,12 +216,12 @@ if TPI :
 	# Sum of averages if performed now to be correctly writen for FISTA file
 	# CPLX=numpy.sum(CPLX[:,:,:,:],0);
 	if CPLX.shape[0] != 1:
-		CPLX=numpy.sum(CPLX[:,:,:,:,:],0)
+		CPLX=np.sum(CPLX[:,:,:,:,:],0)
 	elif CPLX.shape[0] == 1 and CPLX.shape[3] != 1:
-		CPLX = numpy.reshape(CPLX,(CPLX.shape[1],CPLX.shape[2],CPLX.shape[3],CPLX.shape[4]))        
-		#CPLX = numpy.squeeze(CPLX)
+		CPLX = np.reshape(CPLX,(CPLX.shape[1],CPLX.shape[2],CPLX.shape[3],CPLX.shape[4]))        
+		#CPLX = np.squeeze(CPLX)
 	elif CPLX.shape[0] == 1 and CPLX.shape[3] == 1:
-		CPLX = numpy.reshape(CPLX,(CPLX.shape[1],CPLX.shape[2],CPLX.shape[3],CPLX.shape[4]))	
+		CPLX = np.reshape(CPLX,(CPLX.shape[1],CPLX.shape[2],CPLX.shape[3],CPLX.shape[4]))	
 	print(KX.shape)
 	print(CPLX.shape)
 	print("----------------------------------")
@@ -235,7 +256,7 @@ if TPI :
 				#print 'Hello, this is an example of KX[0,0]',KX[0,0]  
 				#print 'Hello, this is an example of KY[0,0]',KY[0,0]
 				#print 'Hello, this is an example of KZ[0,0]',KZ[0,0]    
-				#print 'Hello, this is an example of numpy CPLX',CPLX[0,0,0,0]
+				#print 'Hello, this is an example of np CPLX',CPLX[0,0,0,0]
 				print(KX.shape)
 				print(CPLX.shape)				
 				for coil in range(CPLX.shape[0]):
@@ -255,36 +276,36 @@ if TPI :
 							f.write(',')
 							f.write(str(float(KZ[i,j])))
 							f.write(',')
-							f.write(str(numpy.real(CPLX[coil,i,echo,j])))
+							f.write(str(np.real(CPLX[coil,i,echo,j])))
 							f.write(',')
-							f.write(str(numpy.imag(CPLX[coil,i,echo,j])))
+							f.write(str(np.imag(CPLX[coil,i,echo,j])))
 							f.write("\n")
 				f.close()
 		
 	# from scipy.spatial import Voronoi
 	# from scipy.spatial import Delaunay
 	# from processingFunctions import tetrahedron_volume
-	# points = numpy.column_stack((numpy.ravel(KX[0:KX.shape[0]:100,0:KX.shape[1]:10]),numpy.ravel(KY[0:KY.shape[0]:100,0:KY.shape[1]:10]),numpy.ravel(KZ[0:KZ.shape[0]:100,0:KZ.shape[1]:10])))
-	# points = numpy.column_stack((numpy.ravel(KX[5:5000:5,:]),numpy.ravel(KY[5:5000:5,:]),numpy.ravel(KZ[5:5000:5,:])))
+	# points = np.column_stack((np.ravel(KX[0:KX.shape[0]:100,0:KX.shape[1]:10]),np.ravel(KY[0:KY.shape[0]:100,0:KY.shape[1]:10]),np.ravel(KZ[0:KZ.shape[0]:100,0:KZ.shape[1]:10])))
+	# points = np.column_stack((np.ravel(KX[5:5000:5,:]),np.ravel(KY[5:5000:5,:]),np.ravel(KZ[5:5000:5,:])))
 
 	# #####compute Voronoi tesselation
 	# vor = Voronoi(points)
 	# print len(vor.regions)
 	# ####print vor.vertices
 	# from scipy.spatial import ConvexHull
-	# volume = numpy.zeros(len(vor.regions))
+	# volume = np.zeros(len(vor.regions))
 	# for node in range(len(vor.regions)):
 		# if node <(points.shape[0]) :
 			# print node
 			# print vor.regions[node]
 			# if vor.regions[node] != []:
-				# xv = vor.points[numpy.mod(vor.regions[node],points.shape[0]),0]
-				# yv = vor.points[numpy.mod(vor.regions[node],points.shape[0]),1]
-				# zv = vor.points[numpy.mod(vor.regions[node],points.shape[0]),2]
+				# xv = vor.points[np.mod(vor.regions[node],points.shape[0]),0]
+				# yv = vor.points[np.mod(vor.regions[node],points.shape[0]),1]
+				# zv = vor.points[np.mod(vor.regions[node],points.shape[0]),2]
 				# xv = vor.points[vor.regions[node],0]
 				# yv = vor.points[vor.regions[node],1]
 				# zv = vor.points[vor.regions[node],2]
-				# pts=numpy.zeros(shape=(len(xv),3))
+				# pts=np.zeros(shape=(len(xv),3))
 				# for i in range(len(xv)):
 					# pts[i]=[xv[i],yv[i],zv[i]]
 				# print (xv.shape,yv.shape, zv.shape)
@@ -297,19 +318,19 @@ if TPI :
 					# dt = Delaunay(VoronoiCellConvexHull.points)
 					# tetras = dt.points[dt.simplices]
 					# print tetras
-					# volume[node] = numpy.sum(tetrahedron_volume(tetras[:, 0], tetras[:, 1], tetras[:, 2], tetras[:, 3]))
+					# volume[node] = np.sum(tetrahedron_volume(tetras[:, 0], tetras[:, 1], tetras[:, 2], tetras[:, 3]))
 					# print VoronoiCellConvexHull.vertices
 					# volume[node] = VoronoiCellConvexHull.volume()
 					# print 'Volume',node,' == ',volume[node]/200**3
 				# print tetras.shape	
 					
-	# #weightVoronoi=numpy.unique(numpy.round(area,9))
-	# #weightVoronoi=numpy.sort(weightVoronoi)
+	# #weightVoronoi=np.unique(np.round(area,9))
+	# #weightVoronoi=np.sort(weightVoronoi)
 	# del(points);del(vor);del(xv);del(yv);del(zv);
 	# if not os.path.isfile("TPI_Kspace_coefs.csv") :
 		# f=open("TPI_Kspace_coefs.csv","w")
 		# for i in range(len(volume)):
-			# f.write(str(float(numpy.round(volume[i],9))))
+			# f.write(str(float(np.round(volume[i],9))))
 			# f.write("\n")
 		# f.close()
 		
@@ -321,6 +342,37 @@ else :
 
 # KaiserBesselRegridding(parameters[0],parameters[1],parameters[2],parameters[3],parameters[4],parameters[5],CPLX)
 
+# Get pixel dimensions : 
+if regrid and regridding.upper() == 'RAD' :
+	pix_x=float(float(parameters[8])/(float(parameters[1])*float(parameters[5])*2)) #(= FOV_x / (nbpts (*oversamplingFactor)*2))
+	pix_y=float(float(parameters[9])/(float(parameters[1])*float(parameters[5])*2)) #(= FOV_y / (nbpts (*oversamplingFactor)*2) (On a deux radiales pour une dim de FOV)
+else:
+	pix_x=float(2*float(parameters[8])/(float(parameters[1])*float(parameters[5])))
+	pix_y=float(float(parameters[9])/(float(parameters[0]))) #(= FOV_y / nbLines (EN CARTESIEN) (NO oversampling in this direction))
+if TPI : 
+	pix_x=float(parameters[21])
+	pix_y=float(parameters[21])
+	pix_z=float(parameters[21])
+	affine = np.diag([pix_x,pix_y, pix_z, 1]);
+	new_affine=affine
+	size=parameters[8]/parameters[21]
+	source_shape=(int(size),int(size),int(size))
+	for i in range(0,3):
+		new_affine[i,3]=-(source_shape[i]/2-1)*affine[i,i]
+	affine=new_affine
+	del new_affine
+
+
+if B0correct:
+    if field_interpol:
+        fieldmap_data=Fieldmap_to_Source_space(source_shape,affine,fieldmap_file_orig)
+        Hpath, Fname = os.path.split(str(OutputPath))
+        OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_fieldmap.nii')
+        #SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+        SaveArrayAsNIfTI(fieldmap_data,affine,OutputPath)
+    else:
+        fieldmap_data=Fieldmap_get(fieldmap_file)
+#
 if Spectro:
 	Spectrum = ReadSiemensSpectro(source_file,verbose)
 
@@ -344,8 +396,12 @@ if not HeaderOnly:
 			if SavePhase and not SaveKspace : ReconstructedImg, Phase =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace)
 			else : 
 				# ReconstructedImg, Phase =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,UseFullDCF)
-				ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace)
-				del(Phase)
+				if B0correct:
+					ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME_B0(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,fieldmap_data)
+					del(Phase)
+				else:
+					ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace)
+					del(Phase)
 		else:
 			ReconstructedImg=KaiserBesselTPI(20000,parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity)
 		# ReconstructedImg=KaiserBesselTPI(4498,parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,verbose)
@@ -368,22 +424,10 @@ if not HeaderOnly:
 		# print "Phase image saved in current directory as Phase.nii"
 	if Save:	
 		
-		# Get pixel dimensions : 
-		if regrid and regridding.upper() == 'RAD' :
-			pix_x=float(float(parameters[8])/(float(parameters[1])*float(parameters[5])*2)) #(= FOV_x / (nbpts (*oversamplingFactor)*2))
-			pix_y=float(float(parameters[9])/(float(parameters[1])*float(parameters[5])*2)) #(= FOV_y / (nbpts (*oversamplingFactor)*2) (On a deux radiales pour une dim de FOV)
-		else:
-			pix_x=float(2*float(parameters[8])/(float(parameters[1])*float(parameters[5])))
-			pix_y=float(float(parameters[9])/(float(parameters[0]))) #(= FOV_y / nbLines (EN CARTESIEN) (NO oversampling in this direction))
-		
-		if TPI : 
-			pix_x=float(parameters[21])
-			pix_y=float(parameters[21])
-			pix_z=float(parameters[21])
-		
-		from nifty_funclib import SaveArrayAsNIfTI,SaveArrayAsNIfTI_2
+		Reconstruct_multiplier=10**6
 		if not TPI : 
-			SaveArrayAsNIfTI(ReconstructedImg,pix_x,pix_y,float(parameters[10]),OutputPath)
+			
+			SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg,pix_x,pix_y,float(parameters[10]),OutputPath)
 			# SaveArrayAsNIfTI_2(ReconstructedImg,pix_x,pix_y,float(parameters[10]),NbPoints,NbLines,NbSlices,rad,orientation,OutputPath)
 	
 			# SaveArrayAsNIfTI_2(ReconstructedImg,pix_x,pix_y,float(parameters[10]),int((parameters[1])*(parameters[5])*2),int(parameters[0]),int(parameters[4]),rad,str(parameters[12]),OutputPath)
@@ -394,16 +438,17 @@ if not HeaderOnly:
 				Fname = Fname.split('.')
 				if SavePhase :
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
-					SaveArrayAsNIfTI(ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					#SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[0,:,:,:],affine,OutputPath)
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_PHASE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
-					SaveArrayAsNIfTI(Phase[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					#SaveArrayAsNIfTI(Phase[0,:,:,:],affine,OutputPath)
 				else :
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KBgrid_MODULE_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
-					SaveArrayAsNIfTI(ReconstructedImg[0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[0,:,:,:],affine,OutputPath)
 					
 				if SaveKspace :
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + '_KB_GriddedKspace_Echo{0}_TE{1}.nii'.format(echo,parameters[25][echo] ))
-					SaveArrayAsNIfTI(Kspace[0,0,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					SaveArrayAsNIfTI(Kspace[0,0,:,:,:],affine,OutputPath)
 
 			if int(parameters[24])>1:
 				print("INFO    : Saving Multiple Images")
@@ -412,15 +457,15 @@ if not HeaderOnly:
 				for echo in range(int(parameters[24])):
 					if SavePhase :
 						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
-						SaveArrayAsNIfTI(ReconstructedImg[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+						SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[echo,:,:,:],affine,OutputPath)
 						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_PHASE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
-						SaveArrayAsNIfTI(Phase[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+						SaveArrayAsNIfTI(Phase[echo,:,:,:],affine,OutputPath)
 					else:
 						OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}.nii".format(echo,parameters[25][echo] ))
-						SaveArrayAsNIfTI(ReconstructedImg[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+						SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[echo,:,:,:],affine,OutputPath)
 				if SumEchoes:
 					OutputPath = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_SumCplx_Echoes.nii")
-					SaveArrayAsNIfTI(ReconstructedImg[echo,:,:,:],pix_x,pix_y,pix_z,OutputPath)
+					SaveArrayAsNIfTI(Reconstruct_multiplier*ReconstructedImg[echo,:,:,:],affine,OutputPath)
 					# if SaveKspace :
 						# Hpath, Fname = os.path.split(OutputPath)
 						# Fname = Fname.split('.')

@@ -1043,7 +1043,216 @@ def KaiserBesselTPI_ME(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFac
 			Sum_of_Regridded_kspace[:,:,:] = Sum_of_Regridded_kspace[:,:,:] + Regridded_kspace[:,:,:]		
 			Coil_Combined_Kspace_Module[echo,:,:,:]=Coil_Combined_Kspace_Module[echo,:,:,:]+numpy.absolute(numpy.fft.fftshift(numpy.fft.ifftn(numpy.fft.fftshift(numpy.squeeze(Regridded_kspace[i][:][:])))))**2
 			Coil_Combined_Kspace_Phase[echo,:,:,:]=Coil_Combined_Kspace_Phase[echo,:,:,:]+numpy.angle(numpy.fft.fftshift(numpy.fft.ifftn(numpy.fft.fftshift(numpy.squeeze(Regridded_kspace[i][:][:])))))**2
-			
+			Regridded_kspace = numpy.zeros(shape=(int(NbCoils),Kx_size,Ky_size,Kz_size), dtype=numpy.complex64)		#Jacques edit test
+            
+			print ('   >> Projections = ', float(int(usedline)/int(NbProjections))*100, '%')
+		Coil_Combined_Kspace_Module[echo,:,:,:]=numpy.sqrt((Coil_Combined_Kspace_Module[echo,:,:,:]))
+		#### Image Reorientation to Scanner DICOM anatomical Images
+		## First we swap axes to bring the axial plane correctly opened in Anatomist compared to Anatomy
+		## Second we rotate of 180\B0 to fix the left/Right and Antero Posterior Orientation vs Anatomy
+		Coil_Combined_Kspace_Module[echo,:,:,:]=numpy.swapaxes(Coil_Combined_Kspace_Module[echo,:,:,:],0,2)
+		Coil_Combined_Kspace_Module[echo,:,:,:]=numpy.swapaxes(Coil_Combined_Kspace_Module[echo,:,:,:],0,1)
+		Coil_Combined_Kspace_Module[echo,:,:,:]=numpy.rot90(Coil_Combined_Kspace_Module[echo,:,:,:],2)
+	print ('[done]')
+	# PlotImgMag(numpy.absolute((Regridded_kspace[4][:][:])))
+	# return Regridded_kspace[0]
+	Abs_Sum_of_Regridded_kspace=numpy.absolute(numpy.fft.fftshift(numpy.fft.ifftn(numpy.fft.fftshift(numpy.squeeze(Sum_of_Regridded_kspace[:,:,:])))))**2
+	if SaveKspace : return Coil_Combined_Kspace_Module, Coil_Combined_Kspace_Phase, Regridded_kspace
+	else : return Coil_Combined_Kspace_Module, Coil_Combined_Kspace_Phase, Abs_Sum_of_Regridded_kspace
+
+
+def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFactor,Nucleus,MagneticField,SubSampling,Data,KX,KY,KZ,pval,resolution,FOV,verbose,PSF_ND,PSF_D,B1sensitivity,echoes,SaveKspace,fieldmap):
+	NormalizedKernel, u, beta = CalculateKaiserBesselKernel(3,2,4)
+	NormalizedKernelflip=numpy.flipud(NormalizedKernel)
+	# print((NormalizedKernelflip))
+	NormalizedKernelflip=numpy.delete(NormalizedKernelflip,2)
+	NormalizedKernel=numpy.append(NormalizedKernelflip,NormalizedKernel)
+	NormalizedKernel = NormalizedKernel/numpy.amax(NormalizedKernel)
+	print((NormalizedKernel))
+
+	if NbProjections: 
+		print ('INFO    : Number of Lines = ',NbProjections)
+	else: print ('ERROR    : Unspecified number of radial lines')
+	if NbPoints: 
+		print ('INFO    : Number of Points per line = ',NbPoints)
+	else: print ('ERROR    : Unspecified number of points per line')
+	if NbAverages: 
+		print ('INFO    : Number of Averages = ',NbAverages)
+	else: print ('ERROR    : Unspecified number of Averages')
+	if NbCoils: 
+		print ('INFO    : Number of Coils = ',NbCoils)
+		if Nucleus != "1H":
+			coilstart=1
+		else :
+			coilstart=0
+	else: 
+		print ('ERROR    : Unspecified number of Coils')
+		coilstart=0
+	if Nucleus:
+		if Nucleus.find("1H")>-1:
+			Gamma = 42.576e6
+		if Nucleus.find("23Na")>-1:
+			Gamma=11.262e6
+		if Nucleus.find("31P")>-1:
+			Gamma= 17.235e6
+		if Nucleus.find("7Li")>-1:
+			Gamma = 16.546e6
+		print ('INFO    : Used Nucleus = ',Nucleus)
+		print ('INFO    : Gyromagnetic Ratio = ',Gamma,'Hz')
+	else: print ('ERROR    : Unspecified Nucleus')
+	if MagneticField: 
+		print ('INFO    : Magnetic Field Strength : ',MagneticField,'T')
+	else : print ('ERROR    : Undefined magnetic Field value')
+	
+	print("INFO    : Reading K space locations")
+	if KX.any() : 
+		print("INFO    : KX [OK]")
+		print('INFO    : KX bounds : ',numpy.amin(KX), numpy.amax(KX))
+	else : print ("ERROR    :  [KX]") 
+	if KY.any() : 
+		print("INFO    : KY [OK]")
+		print('INFO    : KY bounds : ',numpy.amin(KY), numpy.amax(KY))
+	else : print ("ERROR    :  [KY]") 
+	if KZ.any() : 
+		print("INFO    : KZ [OK]")
+		print('INFO    : KZ bounds : ',numpy.amin(KZ), numpy.amax(KZ))
+	else : print ("ERROR    :  [KZ]") 
+	
+	
+	if PSF_D: 
+		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 15)
+		decay=float(input('REQUEST :  T2/T2* decay [us] >> '))
+		ReadOutTime=float(input('REQUEST :  ReadOutTime [us] >> '))
+		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
+		decroissance = numpy.zeros(NbPoints)
+		for i in range(NbPoints):
+			decroissance[i]=numpy.exp(-(i*ReadOutTime/NbPoints)/decay)
+	
+	NbCoils=int(NbCoils+1)
+	# BW=260.0
+	# size = NbPoints*OverSamplingFactor*2 # In this case we have twice the number of points (each line covers half of the plan)
+	# On utilise une grille 2 fois plus grande pour minimiser les erreurs de regridding et on crop apr\E8s
+	# size = NbPoints*OverSamplingFactor*2*2
+	# print (NbProjections)
+	# print(size)
+	print (Data.shape)
+
+	size=round (FOV/resolution)
+	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 10)
+	print ('INFO    : Reconstruction Matrix Size = ',size)
+	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
+	
+	Kx_size=int(size)
+	Ky_size=int(size)
+	Kz_size=int(size)
+	
+	linweights=numpy.ones(NbPoints,dtype=float)
+	# print (linweights.shape)
+	# for i in range(int(numpy.round(len(linweights)*float(pval)))):
+	for i in range(int(len(linweights)/2)):
+		# linweights[i]=float(i)*float(1/(numpy.round(float(len(linweights))*float(pval))))+1e-04
+		linweights[i]=numpy.power(float(i)*float(1/(numpy.round(float(len(linweights))*float(pval)))),1.25)+1e-04
+		# linweights[i]=float(i**2)*float(1/96.0)+1e-04
+		# print (linweights[i])
+		
+	Regridded_kspace = numpy.zeros(shape=(int(NbCoils),Kx_size,Ky_size,Kz_size), dtype=numpy.complex64)		
+	Sum_of_Regridded_kspace = numpy.zeros(shape=(int(NbCoils),Kx_size,Ky_size,Kz_size), dtype=numpy.complex64)		
+	Coil_Combined_Kspace_Module = numpy.zeros(shape=(echoes,Kx_size,Ky_size,Kz_size))
+	Coil_Combined_Kspace_Phase = numpy.zeros(shape=(echoes,Kx_size,Ky_size,Kz_size))
+	Abs_Sum_of_Regridded_kspace = numpy.zeros(shape=(Kx_size,Ky_size,Kz_size))
+	# Regridded_kspace = numpy.zeros(shape=(int(NbCoils),int(size),int(size),int(size)), dtype=numpy.complex64)		
+	# Coil_Combined_Kspace = numpy.zeros(shape=(int(size),int(size),int(size)))
+	
+	if (B1sensitivity): 
+		sousech=0.95
+	else : sousech=0.0
+	# KspaceNRJ=0.0
+	
+	KX = numpy.ravel(KX); KY=numpy.ravel(KY); KZ=numpy.ravel(KZ)
+	Kxloc=numpy.zeros(KX.size);Kyloc=numpy.zeros(KX.size);Kzloc=numpy.zeros(KX.size);
+	# Kxloc=numpy.round(((KX/numpy.amax(KX))*((size)))-(size)-2)
+	# Kyloc=numpy.round(((KY/numpy.amax(KY))*((size)/2))-(size/2)-2)
+	# Kzloc=numpy.round(((KZ/numpy.amax(KZ))*((size)/8))-(size/8)-2)
+	Kxloc=numpy.floor(((KX/numpy.amax(KX))*((size/2))-(size/2)+1))
+	Kyloc=numpy.floor(((KY/numpy.amax(KY))*((size/2))-(size/2)+1))
+	Kzloc=numpy.floor(((KZ/numpy.amax(KZ))*((size/2))-(size/2)+1))
+	Kxloc=Kxloc.astype(int)   
+	Kyloc=Kyloc.astype(int)   
+	Kzloc=Kzloc.astype(int)   
+	
+	DensityCompensationCoefficients = numpy.zeros(NbPoints,dtype=float)
+	for i in range (len(DensityCompensationCoefficients)):
+		DensityCompensationCoefficients[i]=numpy.sqrt((KX[i+1]-KX[i])**2 + (KY[i+1]-KY[i])**2 + (KZ[i+1]-KZ[i])**2)*numpy.sqrt((KX[i]/numpy.amax(KX))**2 + (KY[i]/numpy.amax(KY))**2 + (KZ[i]/numpy.amax(KZ))**2)**2		
+	
+	DensityCompensationCoefficients[int(NbPoints-1)]=DensityCompensationCoefficients[int(NbPoints-2)]
+	DensityCompensationCoefficients[0]=DensityCompensationCoefficients[3]
+	DensityCompensationCoefficients[1]=DensityCompensationCoefficients[3]
+	DensityCompensationCoefficients[2]=DensityCompensationCoefficients[3]
+	
+	# DensityCompensationCoefficients = numpy.zeros(shape=(NbProjections,NbPoints),dtype=float)
+	# for p in range ((NbProjections)):
+		# for i in range (NbPoints):
+			# DensityCompensationCoefficients[p,i]=numpy.sqrt((KX[p*NbPoints+i+1]-KX[p*NbPoints+i])**2 + (KY[p*NbPoints+i+1]-KY[p*NbPoints+i])**2 + (KZ[p*NbPoints+i+1]-KZ[p*NbPoints+i])**2)*numpy.sqrt((KX[p*NbPoints+i]/numpy.amax(KX))**2 + (KY[p*NbPoints+i]/numpy.amax(KY))**2 + (KZ[p*NbPoints+i]/numpy.amax(KZ))**2)**2		
+	
+		# DensityCompensationCoefficients[p,int(NbPoints-1)]=DensityCompensationCoefficients[p,int(NbPoints-2)]
+		# DensityCompensationCoefficients[p,0]=DensityCompensationCoefficients[p,3]
+		# DensityCompensationCoefficients[p,1]=DensityCompensationCoefficients[p,3]
+		# DensityCompensationCoefficients[p,2]=DensityCompensationCoefficients[p,3]
+	
+	# print (DensityCompensationCoefficients.shape)
+	
+	# Data=numpy.sum(Data[:,:,:,:],0)
+	# print (Data.shape)
+	if (len(Data.shape)) >4:
+		Data=numpy.sum(Data[:,:,:,:,:],0)
+	print (Data.shape)
+	
+	for echo in range (echoes):
+		
+		print ('>> Griding echo ',echo)
+		for i in range(coilstart,int(NbCoils)):
+			print ('   >> regridding coil', i+1)
+			usedline=0
+			for l in range(NbProjections):
+				# We generate a random value (Uniform Distribution (Gaussian ?)) and compare it with some threshold to remove the line
+				rand= numpy.random.rand(1)
+				
+				if rand[0] > sousech : 
+					usedline+=1
+					# print (rand[0])
+					rand2= numpy.random.rand(1)
+					if rand2 >0 :
+						nbofpoints=NbPoints*OverSamplingFactor
+					else :
+						nbofpoints=NbPoints
+					for m in range(nbofpoints):
+						# Pour avoir le K space centr\E9
+						# x_current=numpy.round(KX[l][m]/numpy.amax(KX)*size/2)-size/2-1
+						# y_current=numpy.round(KY[l][m]/numpy.amax(KY)*size/2)-size/2-1
+						# z_current=numpy.round(KZ[l][m]/numpy.amax(KZ)*size/2)-size/2-1
+						# Val=DataAvg[i][l][m]
+						if (PSF_ND and not PSF_D) : Val=1
+						if (PSF_D and not PSF_ND)  : Val=decroissance[m]
+						elif (not PSF_ND and not PSF_D) : Val=Data[i][l][echo][m]*DensityCompensationCoefficients[m]
+						# print (numpy.squeeze(Data[i][l][echo][m]))
+						# print (Val)
+						# Val=DataAvg[j][i][l][m]*weightVoronoi[m]
+						# Val=Data[j][i][l][m]*LinearWeigths[m]
+						# print(Val)
+						# KspaceNRJ+=(float(numpy.absolute(Val)**2)*(1/float(BW)))
+						
+						for a in range(-1,1,1):
+							for b in range(-1,1,1):
+								for c in range(-1,1,1):
+									# print (Regridded_kspace[i][Kzloc[(l*NbPoints)+m+a]][Kyloc[(l*NbPoints)+m+b]][Kxloc[(l*NbPoints)+m+c]])
+									# print (Val)
+									Regridded_kspace[i][Kzloc[(l*NbPoints)+m+a]][Kyloc[(l*NbPoints)+m+b]][Kxloc[(l*NbPoints)+m+c]]=Regridded_kspace[i][Kzloc[(l*NbPoints)+m+a]][Kyloc[(l*NbPoints)+m+b]][Kxloc[(l*NbPoints)+m+c]]+Val*NormalizedKernel[c+1]
+						# Regridded_kspace[i][Kzloc[(l*NbPoints)+m]][Kyloc[(l*NbPoints)+m]][Kxloc[(l*NbPoints)+m]]=Regridded_kspace[i][Kzloc[(l*NbPoints)+m]][Kyloc[(l*NbPoints)+m]][Kxloc[(l*NbPoints)+m]]+Val
+			Sum_of_Regridded_kspace[:,:,:] = Sum_of_Regridded_kspace[:,:,:] + Regridded_kspace[:,:,:]		
+			Coil_Combined_Kspace_Module[echo,:,:,:]=Coil_Combined_Kspace_Module[echo,:,:,:]+numpy.absolute(numpy.fft.fftshift(numpy.fft.ifftn(numpy.fft.fftshift(numpy.squeeze(Regridded_kspace[i][:][:])))))**2
+			Coil_Combined_Kspace_Phase[echo,:,:,:]=Coil_Combined_Kspace_Phase[echo,:,:,:]+numpy.angle(numpy.fft.fftshift(numpy.fft.ifftn(numpy.fft.fftshift(numpy.squeeze(Regridded_kspace[i][:][:])))))**2
+			Regridded_kspace = numpy.zeros(shape=(int(NbCoils),Kx_size,Ky_size,Kz_size), dtype=numpy.complex64)		#Jacques edit test
+            
 			print ('   >> Projections = ', float(int(usedline)/int(NbProjections))*100, '%')
 		Coil_Combined_Kspace_Module[echo,:,:,:]=numpy.sqrt((Coil_Combined_Kspace_Module[echo,:,:,:]))
 		#### Image Reorientation to Scanner DICOM anatomical Images

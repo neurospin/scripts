@@ -5,23 +5,20 @@
 # Purpose : Handle NIfTI format
 #--------------------------------------------------------------------------------------------------------------------------------- 
 
-import os
+#import os
 
-def SaveArrayAsNIfTI(Matrix,ResoX,ResoY,ResoZ,OutputFileName):
-
+def SaveArrayAsNIfTI(Matrix,affine,OutputFileName):
+      
 	print(('INFO    : Saving image to : ', OutputFileName))
-	
-	from nipy.core.api import Image
-	from nibabel.nifti1 import Nifti1Header
 	import nibabel as nib
-	import numpy as np
 	# print ResoX
-	affine = np.diag([ResoX,ResoY, ResoZ,  1])  # Homogeneous affine Matrix 
 	# print affine
 	img = nib.Nifti1Image(Matrix, affine)
 	# print img.get_header()
 	nib.save(img,OutputFileName)
 	print("------------------------------------------------------------")
+	
+
 	
 def GetMatrixFromNIfTI(imageNIfTI):
 
@@ -74,3 +71,19 @@ def SaveArrayAsNIfTI_2(Matrix,ResoX,ResoY,ResoZ,NbPoints,NbLines,NbSlices,rad,or
 	img = nib.Nifti1Image(Matrix,affine)
 	nib.save(img,OutputFileName)
 	print('------------------------------------------------------------')
+    
+def SaveArrayAsNIfTI_3(Matrix,ResoX,ResoY,ResoZ,OutputFileName):
+
+	print(('INFO    : Saving image to : ', OutputFileName))
+	
+	from nipy.core.api import Image
+	from nibabel.nifti1 import Nifti1Header
+	import nibabel as nib
+	import numpy as np
+	# print ResoX
+	affine = np.diag([ResoX,ResoY, ResoZ,  1])  # Homogeneous affine Matrix 
+	# print affine
+	img = nib.Nifti1Image(Matrix, affine)
+	# print img.get_header()
+	nib.save(img,OutputFileName)
+	print("------------------------------------------------------------")    
