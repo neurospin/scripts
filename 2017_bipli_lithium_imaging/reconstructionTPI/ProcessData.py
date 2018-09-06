@@ -22,6 +22,9 @@ from nifty_funclib import SaveArrayAsNIfTI
 
 #--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2018_06_08/twix7T/meas_MID34_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID2524.dat --NSTPI --s --FISTA_CSV --o /volatile/temp/test.nii
 #--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2017_02_21/twix7T/meas_MID203_7Li_TPI_fisp_TR200_20deg_P05_FID6746.dat --NSTPI --s --FISTA_CSV --fieldmap /neurospin/ciclops/projects/BIPLi7/ClinicalData/Processed_Data/2017_02_21/Field_mapping_2/field_mapping_phase.nii --o /neurospin/ciclops/people/Jacques/Bipli/B0Map_inhomogeneity_testzone/2017_02_21/reconstruc_fieldmap_test1.nii
+#--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2017_02_21/twix7T/meas_MID203_7Li_TPI_fisp_TR200_20deg_P05_FID6746.dat --NSTPI --s --FISTA_CSV --fieldmap /neurospin/ciclops/projects/BIPLi7/ClinicalData/Processed_Data/2017_02_21/Field_mapping_2/rfield_mapping_phase.nii --o /neurospin/ciclops/people/Jacques/Bipli/B0Map_inhomogeneity_testzone/2017_02_21/reconstructsTPItests/reconstruc_fieldmap_test1.nii
+#--i /neurospin/ciclops/projects/SIMBA/Clinicaldata/Raw_Data/2018_08_01/twix7T/meas_MID162_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID6447.dat --NSTPI --s --FISTA_CSV --o /neurospin/ciclops/projects/SIMBA/Clinicaldata/Processed_Data/2018_08_01/TPI/Reconstruct_gridding/01-Raw/meas162.nii
+#--i /neurospin/ciclops/projects/SIMBA/Clinicaldata/Raw_Data/2018_08_01/twix7T/meas_MID165_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID6450.dat --NSTPI --s --FISTA_CSV --o /neurospin/ciclops/projects/SIMBA/Clinicaldata/Processed_Data/2018_08_01/TPI/Reconstruct_gridding/01-Raw/meas165.nii
 
 import time
 
@@ -360,6 +363,7 @@ if TPI :
 	for i in range(0,3):
 		new_affine[i,3]=-(source_shape[i]/2-1)*affine[i,i]
 	affine=new_affine
+	#affine=np.array([[4., 0.,	0.,	-95], [0.,	4.,	0.,	-126], [0.,	0.,	4.,	-95], [0.,	0.,	0.,	1.]])
 	del new_affine
 
 
