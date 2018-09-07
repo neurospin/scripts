@@ -43,10 +43,11 @@ WD = '/neurospin/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
-#vs = "1.5mm-s8mm"
-vs = "1.5mm"
+vs = "1.5mm-s8mm"
+#vs = "1.5mm"
 
 OUTPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
+
 
 #############################################################################
 # 1) Build Raw dataset
@@ -74,6 +75,12 @@ pop = pd.merge(participants, img, on=["participant_id"], how='right')
 pop["sex_num"] = pop["sex"].map({1:1, 2:0})
 pop["respond_wk16_num"] = pop["respond_wk16"].map({"NonResponder":0, "Responder":1})
 
+#
+#pop_ = pd.read_csv(os.path.join(OUTPUT, "population.csv"))
+pop_orig = pd.read_csv(os.path.join(OUTPUT, "population.csv.bak"))
+#pop_.participant_id == pop.participant_id
+
+
 #############################################################################
 # 2) Read images
 n = len(pop)
@@ -93,15 +100,15 @@ shape = img.get_data().shape
 
 #############################################################################
 # 3) Compute mask implicit mask
-Xtot = np.vstack(gm_arrs)
-#mask_arr = (np.std(Xtot, axis=0) > 1e-7)
+XTot = np.vstack(gm_arrs)
+#mask_arr = (np.std(XTot, axis=0) > 1e-7)
 
-mask_arr = (np.mean(Xtot, axis=0) >= 0.1) & (np.std(Xtot, axis=0) >= 1e-6)
+mask_arr = (np.mean(XTot, axis=0) >= 0.1) & (np.std(XTot, axis=0) >= 1e-6)
 mask_arr = mask_arr.reshape(shape)
 
-#nibabel.Nifti1Image(np.min(Xtot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "min_all.nii.gz"))
-nibabel.Nifti1Image(np.mean(Xtot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "mean.nii.gz"))
-nibabel.Nifti1Image(np.std(Xtot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "std.nii.gz"))
+#nibabel.Nifti1Image(np.min(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "min_all.nii.gz"))
+nibabel.Nifti1Image(np.mean(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "mean.nii.gz"))
+nibabel.Nifti1Image(np.std(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "std.nii.gz"))
 
 # Avoid isolated clusters: remove all cluster smaller that 5
 mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
@@ -147,21 +154,35 @@ plotting.plot_anat(mask_img, display_mode='y', cut_coords=nslices, figure=fig,ax
 plt.savefig(os.path.join(OUTPUT, "mask.png"))
 
 # apply mask
-Xraw = Xtot[:, mask_arr.ravel()]
+XTot = XTot[:, mask_arr.ravel()]
 
 #############################################################################
 # Proportional scaling: remove TIV effect
 propscal = pop.TIV_l.mean() / pop.TIV_l
-Xraws = Xraw * np.asarray(propscal)[:, np.newaxis]
+XTotTiv = XTot * np.asarray(propscal)[:, np.newaxis]
 
 #############################################################################
 # Remove site effect
 
-Xrawsc = np.zeros(Xraws.shape)
+XTotTivSite = np.zeros(XTotTiv.shape)
 # center data by site
 for s in set(pop.site):
     m = pop.site == s
-    Xrawsc[m] = Xraws[m] - Xraws[m, :].mean(axis=0)
+    XTotTivSite[m] = XTotTiv[m] - XTotTiv[m, :].mean(axis=0)
+
+#############################################################################
+# Rm few component of PCA
+from sklearn import decomposition
+pca = decomposition.PCA(n_components=1)
+XTotTivSiteCtr = XTotTivSite - np.mean(XTotTivSite, axis=0)
+pca.fit(XTotTivSiteCtr)
+'''
+pca.explained_variance_ratio_
+array([ 0.06738766,  0.01289889,  0.01056353,  0.00998285,  0.00903054])
+rm only the first component
+'''
+PC = pca.transform(XTotTivSiteCtr)
+XTotTivSitePca = XTotTivSiteCtr - np.dot(PC, pca.components_)
 
 #############################################################################
 # Keep only Resp/NoResp
@@ -172,13 +193,19 @@ pop[keep].respond_wk16.describe()
 # unique            2
 # top       Responder
 #freq             92
-
 pop = pop[keep]
-Xrawsc = Xrawsc[keep, :]
-Xraw = Xraw[keep, :]
+pop = pop.reset_index(drop=True)
+# Make sure that participants keepts the same order
+pop_orig = pd.read_csv(os.path.join(OUTPUT, "population.csv.bak"))
+assert np.all(pop_orig.participant_id == pop.participant_id)
 
-np.save(os.path.join(OUTPUT, "Xrawsc.npy"), Xrawsc)
-np.save(os.path.join(OUTPUT, "Xraw.npy"), Xraw)
+XTreatTivSite = XTotTivSite[keep, :]
+XTreatTivSitePca = XTotTivSitePca[keep, :]
+XTreat = XTot[keep, :]
+
+np.save(os.path.join(OUTPUT, "XTreatTivSitePca.npy"), XTreatTivSitePca)
+np.save(os.path.join(OUTPUT, "XTreatTivSite.npy"), XTreatTivSite)
+np.save(os.path.join(OUTPUT, "XTreat.npy"), XTreat)
 y =  pop['respond_wk16_num']
 np.save(os.path.join(OUTPUT, "y.npy"), y)
 pop.to_csv(os.path.join(OUTPUT, "population.csv"), index=False)
@@ -189,12 +216,12 @@ assert np.sum(pop['respond_wk16_num'] == 1) == 92
 #############################################################################
 # Univar stat Full model
 Zdf = pd.concat([
-        pop[['respond_wk16_num', 'psyhis_mdd_age', 'age', 'sex_num', 'TIV_l']],
+        pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num', 'TIV_l']],
         pd.get_dummies(pop[['site']])], axis=1)
 
 print(Zdf.isnull().sum())
 
-Zdf.loc[Zdf["psyhis_mdd_age"].isnull(), "psyhis_mdd_age"] = Zdf["psyhis_mdd_age"].mean()
+Zdf.loc[Zdf["age_onset"].isnull(), "age_onset"] = Zdf["age_onset"].mean()
 print(Zdf.isnull().sum())
 
 Z = np.asarray(Zdf)
@@ -202,7 +229,7 @@ Z = np.asarray(Zdf)
 ## OLS with MULM
 contrasts = [1] + [0] *(Zdf.shape[1] - 1)
 
-mod = mulm.MUOLS(Xraw, Z)
+mod = mulm.MUOLS(XTreat, Z)
 tvals, pvals, df = mod.fit().t_test(contrasts, pval=True, two_tailed=True)
 
 print([[thres, np.sum(pvals <thres), np.sum(pvals <thres)/pvals.size] for thres in 10. ** np.array([-4, -3, -2])])
@@ -215,10 +242,10 @@ pvals_arr[mask_arr] = -np.log10(pvals[0])
 tstat_arr[mask_arr] = tvals[0]
 
 pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
-pvals_img.to_filename(os.path.join(OUTPUT, "resp-fulllm_log10pvals.nii.gz"))
+pvals_img.to_filename(os.path.join(OUTPUT, "XTreat_fulllm_log10pvals.nii.gz"))
 
 tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
-tstat_img.to_filename(os.path.join(OUTPUT, "resp-fulllm_tstat.nii.gz"))
+tstat_img.to_filename(os.path.join(OUTPUT, "XTreat_fulllm_tstat.nii.gz"))
 
 threshold = 3
 fig = plt.figure(figsize=(13.33,  7.5 * 4))
@@ -237,16 +264,16 @@ plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=thr
 ax = fig.add_subplot(414)
 ax.set_title("T-stats T>%.2f" % threshold)
 plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
-plt.savefig(os.path.join(OUTPUT, "resp-fulllm_tstat.png"))
+plt.savefig(os.path.join(OUTPUT, "XTreat_fulllm_tstat.png"))
 
 
 #############################################################################
-# Univar stat on data with site effect and TIV removed: use Xrawsc
-Zdf = pop[['respond_wk16_num', 'psyhis_mdd_age', 'age', 'sex_num']]
+# Univar stat on data with site effect and TIV removed: use XTreatTivSite
+Zdf = pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
 
 print(Zdf.isnull().sum())
 
-Zdf.loc[Zdf["psyhis_mdd_age"].isnull(), "psyhis_mdd_age"] = Zdf["psyhis_mdd_age"].mean()
+Zdf.loc[Zdf["age_onset"].isnull(), "age_onset"] = Zdf["age_onset"].mean()
 print(Zdf.isnull().sum())
 
 Z = np.asarray(Zdf)
@@ -254,12 +281,14 @@ Z = np.asarray(Zdf)
 ## OLS with MULM
 contrasts = [1] + [0] *(Zdf.shape[1] - 1)
 
-mod = mulm.MUOLS(Xrawsc, Z)
+mod = mulm.MUOLS(XTreatTivSite, Z)
 tvals, pvals, df = mod.fit().t_test(contrasts, pval=True, two_tailed=True)
 
 print([[thres, np.sum(pvals <thres), np.sum(pvals <thres)/pvals.size] for thres in 10. ** np.array([-4, -3, -2])])
-# [[0.0001, 11, 2.081354469803331e-05], [0.001, 311, 0.00058845567282621444], [0.01, 3606, 0.0068230583801007372]]
-# [[0.0001, 604, 0.001142852817964738], [0.001, 3969, 0.0075099053551358364], [0.01, 17394, 0.032911890588871943]]
+#### [[0.0001, 11, 2.081354469803331e-05], [0.001, 311, 0.00058845567282621444], [0.01, 3606, 0.0068230583801007372]]
+#### [[0.0001, 604, 0.001142852817964738], [0.001, 3969, 0.0075099053551358364], [0.01, 17394, 0.032911890588871943]]
+# [[0.0001, 85, 0.00021380474344688462], [0.001, 628, 0.0015796397515840416], [0.01, 5355, 0.01346969883715373]]
+
 tstat_arr = np.zeros(mask_arr.shape)
 pvals_arr = np.zeros(mask_arr.shape)
 
@@ -267,10 +296,10 @@ pvals_arr[mask_arr] = -np.log10(pvals[0])
 tstat_arr[mask_arr] = tvals[0]
 
 pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
-pvals_img.to_filename(os.path.join(OUTPUT, "resp-rmSiteTIV_log10pvals.nii.gz"))
+pvals_img.to_filename(os.path.join(OUTPUT, "XTreatTivSite_lm_log10pvals.nii.gz"))
 
 tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
-tstat_img.to_filename(os.path.join(OUTPUT, "resp-rmSiteTIV_tstat.nii.gz"))
+tstat_img.to_filename(os.path.join(OUTPUT, "XTreatTivSite_lm_tstat.nii.gz"))
 
 threshold = 3
 fig = plt.figure(figsize=(13.33,  7.5 * 4))
@@ -289,26 +318,58 @@ plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=thr
 ax = fig.add_subplot(414)
 ax.set_title("T-stats T>%.2f" % threshold)
 plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
-plt.savefig(os.path.join(OUTPUT, "resp-rmSiteTIV_tstat.png"))
+plt.savefig(os.path.join(OUTPUT, "XTreatTivSite_lm_tstat.png"))
 
 # yeah !!!
 
 
+#############################################################################
+# Univar stat on data with site effect, TIV and Pca removed: use XTreatTivSitePca
+Zdf = pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
 
+print(Zdf.isnull().sum())
 
+Zdf.loc[Zdf["age_onset"].isnull(), "age_onset"] = Zdf["age_onset"].mean()
+print(Zdf.isnull().sum())
 
+Z = np.asarray(Zdf)
 
+## OLS with MULM
+contrasts = [1] + [0] *(Zdf.shape[1] - 1)
 
+mod = mulm.MUOLS(XTreatTivSitePca, Z)
+tvals, pvals, df = mod.fit().t_test(contrasts, pval=True, two_tailed=True)
 
+print([[thres, np.sum(pvals <thres), np.sum(pvals <thres)/pvals.size] for thres in 10. ** np.array([-4, -3, -2])])
+# [[0.0001, 94, 0.00023644289275302532], [0.001, 726, 0.001826144044028685], [0.01, 5504, 0.013844485975666504]]
 
+tstat_arr = np.zeros(mask_arr.shape)
+pvals_arr = np.zeros(mask_arr.shape)
 
-np.save(os.path.join(OUTPUT, "Xraw.npy"), Xraw)
+pvals_arr[mask_arr] = -np.log10(pvals[0])
+tstat_arr[mask_arr] = tvals[0]
 
-gmvol = Xraw.sum(axis=1)
-plt.plot(gmvol * (1.5 ** 3) / 1e6, pop.GMvol_l)
+pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
+pvals_img.to_filename(os.path.join(OUTPUT, "XTreatTivSitePca_lm_log10pvals.nii.gz"))
 
-pop.to_csv(os.path.join(OUTPUT, "population.csv"), index=False)
+tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
+tstat_img.to_filename(os.path.join(OUTPUT, "XTreatTivSitePca_lm_tstat.nii.gz"))
 
-assert pop.shape[0] == Xraw.shape[0]
+threshold = 3
+fig = plt.figure(figsize=(13.33,  7.5 * 4))
+ax = fig.add_subplot(411)
+ax.set_title("-log pvalues >%.2f"% threshold)
+plotting.plot_glass_brain(pvals_img, threshold=threshold, figure=fig, axes=ax)
 
+ax = fig.add_subplot(412)
+ax.set_title("T-stats T>%.2f" % threshold)
+plotting.plot_glass_brain(tstat_img, threshold=threshold, figure=fig, axes=ax)
 
+ax = fig.add_subplot(413)
+ax.set_title("-log pvalues >%.2f"% threshold)
+plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
+
+ax = fig.add_subplot(414)
+ax.set_title("T-stats T>%.2f" % threshold)
+plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
+plt.savefig(os.path.join(OUTPUT, "XTreatTivSitePca_lm_tstat.png"))
