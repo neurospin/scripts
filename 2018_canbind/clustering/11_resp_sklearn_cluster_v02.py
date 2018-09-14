@@ -1656,7 +1656,7 @@ fig = plt.figure()
 coef_arr[mask_img.get_data() != 0] = c0
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
-                       title='Group 1 center (centered and scaled)', colorbar=True)
+                       title='Group 0 center (centered and scaled)', colorbar=True)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
