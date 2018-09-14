@@ -356,7 +356,7 @@ if TPI :
 	pix_x=float(parameters[21])
 	pix_y=float(parameters[21])
 	pix_z=float(parameters[21])
-	affine = np.diag([pix_x,pix_y, pix_z, 1]);
+	affine = np.diag([-pix_x,pix_y, pix_z, 1]);
 	new_affine=affine
 	size=parameters[8]/parameters[21]
 	source_shape=(int(size),int(size),int(size))
@@ -364,10 +364,13 @@ if TPI :
 		new_affine[i,3]=-(source_shape[i]/2-1)*affine[i,i]
 	affine=new_affine
 	#affine=np.array([[4., 0.,	0.,	-95], [0.,	4.,	0.,	-126], [0.,	0.,	4.,	-95], [0.,	0.,	0.,	1.]])
+    
 	del new_affine
 
 
 if B0correct:
+    freq=parameters[23]
+    Timesampling=11.2*10**(-3)
     if field_interpol:
         fieldmap_data=Fieldmap_to_Source_space(source_shape,affine,fieldmap_file_orig)
         Hpath, Fname = os.path.split(str(OutputPath))
@@ -376,6 +379,13 @@ if B0correct:
         SaveArrayAsNIfTI(fieldmap_data,affine,OutputPath)
     else:
         fieldmap_data=Fieldmap_get(fieldmap_file)
+    diff_freq=np.max(fieldmap_data)-np.min(fieldmap_data)
+    from math import ceil
+    L=ceil((4*diff_freq*Timesampling)/np.pi)
+    if np.int(L)%2==1:
+        L=L+1
+    recon_method='fsc'
+    ba='before'
 #
 if Spectro:
 	Spectrum = ReadSiemensSpectro(source_file,verbose)
@@ -401,7 +411,7 @@ if not HeaderOnly:
 			else : 
 				# ReconstructedImg, Phase =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,UseFullDCF)
 				if B0correct:
-					ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME_B0(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,fieldmap_data)
+					ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME_B0(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,fieldmap_data,Timesampling,L,recon_method,ba)
 					del(Phase)
 				else:
 					ReconstructedImg, Phase, Abs_Sum_of_Regridded_kspace =KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace)

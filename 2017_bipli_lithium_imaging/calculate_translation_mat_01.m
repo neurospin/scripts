@@ -14,3 +14,4 @@ function transmat=calculate_translation_mat_01(Lifile)%,Litranslation)
     %transmat(1:3,4)=transmat(1:3,4)-((Lispm.dim.*[Lispm.mat(1,1),Lispm.mat(2,2),Lispm.mat(3,3)])/2)';
     %transmat(1:3,4)=transmat(1:3,4)+[20,8,4]';
 end
+
