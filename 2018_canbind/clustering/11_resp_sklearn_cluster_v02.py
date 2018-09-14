@@ -39,10 +39,12 @@ import sklearn.linear_model as lm
 from matplotlib import pyplot as plt
 import mulm
 import seaborn as sns
+import getpass
 
-WD = '/neurospin/psy/canbind'
-WD = '/home/edouard/data/psy/canbind'
-#BASE_PATH = '/neurospin/brainomics/2018_euaims_leap_predict_vbm/results/VBM/1.5mm'
+if getpass.getuser() == 'ed203246':
+    WD = '/neurospin/psy/canbind'
+elif getpass.getuser() == 'edouard':
+    WD = '/home/edouard/data/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
@@ -695,9 +697,8 @@ print("#", auc_test_microavg, bacc_test_microavg, acc_test_microavg)
 XTreatTivSite
 # 0.438519021739 0.451766304348 0.443548387097
 
-XTreatTivSitePca
-
-ICI NoPca RESULTS
+# XTreatTivSitePca (124, 397559)
+# 0.461956521739 0.457201086957 0.451612903226
 
 """
 
@@ -1175,67 +1176,7 @@ sns.distplot(df["y_test_prob_pred_img"][(df.cluster == 1) & (df["respond_wk16"] 
 # density left an top
 # https://stackoverflow.com/questions/49671053/seaborn-changing-line-styling-in-kdeplot
 
-###############################################################################
-# Caracterize Cluster centers
 
-clusters = np.load(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"))
-clusters["cluster_labels"]
-cluster_centers = clusters["cluster_centers"]
-## WIP HERE
-from nilearn import datasets, plotting, image
-
-import  nibabel
-mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
-
-coef_arr = np.zeros(mask_img.get_data().shape)
-pd.Series(np.abs(cluster_centers[0, :])).describe()
-"""
-count    397559.000000
-mean          0.207656
-std           0.128221
-min           0.000002
-25%           0.104007
-50%           0.195704
-75%           0.297715
-max           0.694904
-"""
-
-pd.Series(np.abs(cluster_centers[1, :])).describe()
-"""
-count    397559.000000
-mean          0.207656
-std           0.128221
-min           0.000002
-25%           0.104007
-50%           0.195704
-75%           0.297715
-max           0.694904
-"""
-pd.Series(np.abs(cluster_centers[1, :]- cluster_centers[0, :])).describe()
-"""
-count    397559.000000
-mean          0.415313
-std           0.256443
-min           0.000003
-25%           0.208014
-50%           0.391407
-75%           0.595429
-max           1.389808
-"""
-
-coef = cluster_centers[0, :]
-coef = cluster_centers[1, :]
-coef = cluster_centers[1, :] - cluster_centers[0, :]
-
-coef_arr[mask_img.get_data() != 0] = coef
-coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
-plotting.plot_glass_brain(coef_img, threshold=0.2)#, figure=fig, axes=ax)
-
-
-plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=5,
-                       title='Threshold image with string percentile', colorbar=True)
-
-## WIP HERE
 
 ###############################################################################
 # Caracterize Cluster Stats
@@ -1632,4 +1573,198 @@ print("#",
 
 # 0.481045751634 [ 0.52941176  0.55555556] 0.548387096774
 # Boff
+
+
+###############################################################################
+# Caracterize Cluster centers
+from nilearn import datasets, plotting, image
+import  nibabel
+from matplotlib.backends.backend_pdf import PdfPages
+
+clusters = np.load(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"))
+clusters["cluster_labels"]
+cluster_centers = clusters["cluster_centers"]
+## WIP HERE
+
+mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
+coef_arr = np.zeros(mask_img.get_data().shape)
+
+pd.Series(np.abs(cluster_centers[0, :])).describe()
+"""
+count    397559.000000
+mean          0.207656
+std           0.128221
+min           0.000002
+25%           0.104007
+50%           0.195704
+75%           0.297715
+max           0.694904
+"""
+
+pd.Series(np.abs(cluster_centers[1, :])).describe()
+"""
+count    397559.000000
+mean          0.207656
+std           0.128221
+min           0.000002
+25%           0.104007
+50%           0.195704
+75%           0.297715
+max           0.694904
+"""
+pd.Series(np.abs(cluster_centers[1, :]- cluster_centers[0, :])).describe()
+"""
+count    397559.000000
+mean          0.415313
+std           0.256443
+min           0.000003
+25%           0.208014
+50%           0.391407
+75%           0.595429
+max           1.389808
+"""
+
+c0 = cluster_centers[0, :]
+c1 = cluster_centers[1, :]
+
+scaler = preprocessing.StandardScaler()
+X = scaler.fit(Xim).transform(Xim)
+n0 = np.sum(clusters["cluster_labels"] == 0)
+n1 = np.sum(clusters["cluster_labels"] == 1)
+
+X0 = X[clusters["cluster_labels"] == 0, ]
+X1 = X[clusters["cluster_labels"] == 1, ]
+X0c = X0 - c0
+X1c = X1 - c1
+
+s = np.sqrt((np.sum(X0c ** 2, axis=0) * (n0 - 1) + np.sum(X1c ** 2, axis=0) * (n1 - 1)) / (n0 + n1 -2))
+
+tmap = (c1 - c0) / (s * np.sqrt(1 / n1 + 1 / n0))
+zmap = (c1 - c0) / s
+
+figure_filename = os.path.join(INPUT, IMADATASET+"-clust_centers.pdf")
+pdf = PdfPages(figure_filename)
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = c1
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Group 1 center (centered and scaled)', colorbar=True)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = c0
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Group 1 center (centered and scaled)', colorbar=True)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = c1 - c0
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Difference of the centers: center 1 - center 2', colorbar=True)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = zmap
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Z map of the ifference', colorbar=True)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = tmap
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='T map of the ifference', colorbar=True)
+pdf.savefig(); plt.close()
+
+pdf.close()
+
+###############################################################################
+
+modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
+coef_arr = np.zeros(mask_img.get_data().shape)
+
+coef_refit = modelscv['coef_refitall_clust1']
+coef_refit0 = modelscv['coef_refitall_clust0']
+
+coef_avgcv = modelscv['coefs_cv'].mean(axis=0)
+
+pd.Series(coef_refit).describe(percentiles=[0.01, 0.05, 0.1, .25, .5, .75, 0.9])
+"""
+mean     1.964499e-06
+std      2.665711e-04
+min     -3.996681e-02
+1%      -3.560218e-05
+5%      -9.006354e-07
+10%     -4.374313e-07
+25%     -5.879315e-08
+50%      1.644117e-07
+75%      8.587507e-07
+90%      2.337638e-06
+max      4.493354e-02
+"""
+pd.Series(np.abs(coef_refit)).describe(percentiles=[0.01, 0.05, 0.1, .25, .5, .75, 0.9])
+
+"""
+count    3.975590e+05
+mean     1.594814e-05
+std      2.661009e-04
+min      0.000000e+00
+1%       0.000000e+00
+5%       8.501144e-09
+10%      2.956393e-08
+25%      1.116976e-07
+50%      3.801250e-07
+75%      1.095108e-06
+90%      2.842495e-06
+max      4.493354e-02
+"""
+#pd.Series(coef_refit0).describe()
+pd.Series(coef_avgcv).describe()
+np.corrcoef(coef_refit, coef_avgcv)
+# 0.94223324
+np.corrcoef(coef_refit0, coef_avgcv)
+# -0.06505002
+
+
+coef_arr[mask_img.get_data() != 0] = coef_refit
+#coef_arr[np.abs(coef_arr)<=1e-9] = np.nan
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+coef_img.to_filename(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_refit.nii.gz"))
+"""
+cd /neurospin/psy/canbind/models/clustering_v02/
+cp XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5_refit.nii.gz ./coefs_map
+cd ./coefs_map
+
+image_clusters_analysis_nilearn.py XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5_refit.nii.gz -o ./ --thresh_norm_ratio 0.99 --thresh_size 10
+
+"""
+figure_filename = os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5.pdf")
+pdf = PdfPages(figure_filename)
+
+fig = plt.figure()
+plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False)#, figure=fig, axes=ax)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
+                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='x', cut_coords=7,
+                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+
+pdf.savefig(); plt.close()
+
+pdf.close()
 
