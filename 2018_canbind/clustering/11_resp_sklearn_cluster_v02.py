@@ -1768,7 +1768,12 @@ pdf.close()
 
 """
 cd /home/edouard/data/psy/canbind/models/clustering_v02
-convert XTreatTivSite-clust_centers.pdf
+convert XTreatTivSite-clust_centers.pdf toto.png
+
+convert XTreatTivSite-clust_centers.pdf[2] images/group0_center.png
+convert XTreatTivSite-clust_centers.pdf[3] images/group1_center.png
+convert XTreatTivSite-clust_centers.pdf[5] images/zmap-diff_centers.png
+convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[0] images/signature_glassview.png
 
 """
 ###############################################################################
