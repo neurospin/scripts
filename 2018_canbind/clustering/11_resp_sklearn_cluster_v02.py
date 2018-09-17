@@ -50,9 +50,9 @@ import seaborn as sns
 import getpass
 
 if getpass.getuser() == 'ed203246':
-    WD = '/neurospin/psy/canbind'
+    BASEDIR = '/neurospin/psy/canbind'
 elif getpass.getuser() == 'edouard':
-    WD = '/home/edouard/data/psy/canbind'
+    BASEDIR = '/home/edouard/data/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
@@ -68,11 +68,8 @@ yb = np.load("/neurospin/psy/canbind/models/vbm_resp_1.5mm-/y.npy")
 np.all(ya == yb)
 """
 
-INPUT = os.path.join(WD, "models", "clustering_v02")
-
-os.chdir(INPUT)
-
-OUTPUT = INPUT
+WD = os.path.join(BASEDIR, "models", "clustering_v02")
+os.chdir(WD)
 
 # load data
 #DATASET = "XTreatTivSitePca"
@@ -80,16 +77,37 @@ OUTPUT = INPUT
 IMADATASET = "XTreatTivSite"
 # IMADATASET = "XTreatTivSitePca"
 
-#X = np.load(os.path.join(INPUT, "Xres.npy"))
-#Xim = np.load(os.path.join(INPUT, "Xrawsc.npy"))
-Xim = np.load(os.path.join(INPUT, IMADATASET+".npy"))
+#X = np.load(os.path.join(WD, "Xres.npy"))
+#Xim = np.load(os.path.join(WD, "Xrawsc.npy"))
+Xim = np.load(os.path.join(WD, IMADATASET+".npy"))
 
 
-yorig = np.load(os.path.join(INPUT, "y.npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
 
-pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
+pop = pd.read_csv(os.path.join(WD, "population.csv"))
 assert np.all(pop['respond_wk16_num'] == yorig)
 
+
+###############################################################################
+# ML
+from sklearn.model_selection import cross_val_score, cross_validate
+from sklearn.model_selection import StratifiedKFold
+import copy
+
+#clustering = pd.read_csv(os.path.join(WD, DATASET+"-clust.csv"))
+#cluster_labels = clustering.cluster
+C = 0.1
+NFOLDS = 5
+cv = StratifiedKFold(n_splits=NFOLDS)
+model = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=C)
+scaler = preprocessing.StandardScaler()
+def balanced_acc(estimator, X, y):
+    return metrics.recall_score(y, estimator.predict(X), average=None).mean()
+scorers = {'auc': 'roc_auc', 'bacc':balanced_acc, 'acc':'accuracy'}
+
+
+#############################################################################
+# Clinical data: imput missing
 democlin = pop[['participant_id', 'age', 'sex_num', 'educ', 'age_onset',
                 'respond_wk16',
                 'mde_num', 'madrs_Baseline', 'madrs_Screening']]
@@ -134,9 +152,11 @@ assert(np.all(democlin.isnull().sum() == 0))
 # add duration
 democlin["duration"] = democlin["age"] - democlin["age_onset"]
 
-
-pop[['participant_id', 'age', 'sex']]
-democlin.to_csv("demo-clin-imputed.csv")
+if os.path.exists("demo-clin-imputed.csv"):
+    democlin_ = pd.read_csv("demo-clin-imputed.csv")
+    assert np.all(democlin_ == democlin)
+else:
+    democlin.to_csv("demo-clin-imputed.csv", index=False)
 
 # Rm participant_id & response
 np.all(democlin.pop('participant_id') == pop['participant_id'])
@@ -148,23 +168,6 @@ democlin.columns
 ['age', 'sex_num', 'educ', 'age_onset', 'mde_num', 'madrs_Baseline', 'duration']
 """
 Xclin = np.asarray(democlin)
-
-###############################################################################
-# ML
-from sklearn.model_selection import cross_val_score, cross_validate
-from sklearn.model_selection import StratifiedKFold
-import copy
-
-#clustering = pd.read_csv(os.path.join(INPUT, DATASET+"-clust.csv"))
-#cluster_labels = clustering.cluster
-C = 0.1
-NFOLDS = 5
-cv = StratifiedKFold(n_splits=NFOLDS)
-model = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=C)
-scaler = preprocessing.StandardScaler()
-def balanced_acc(estimator, X, y):
-    return metrics.recall_score(y, estimator.predict(X), average=None).mean()
-scorers = {'auc': 'roc_auc', 'bacc':balanced_acc, 'acc':'accuracy'}
 
 
 ###############################################################################
@@ -231,7 +234,7 @@ for n_clusters in range_n_clusters:
         res.append(['Clinic', 'test_acc', n_clusters, clust, subset.sum()] + cv_results["test_acc"].tolist() + [cv_results["test_acc"].mean()])
 
 clustering = pd.DataFrame(clustering)
-clustering.to_csv(os.path.join(INPUT, "Xclin-clust.csv"), index=False)
+clustering.to_csv(os.path.join(WD, "Xclin-clust.csv"), index=False)
 
 clustering["nclust=2"]
 
@@ -296,25 +299,25 @@ For n_clusters = 3 The average silhouette_score is : 0.00226944083272
 For n_clusters = 4 The average silhouette_score is : -0.00550654879244
 """
 clustering = pd.DataFrame(clustering)
-clustering.to_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"), index=False)
+clustering.to_csv(os.path.join(WD, IMADATASET+"-clust.csv"), index=False)
 
 # refit with 2 cluster
 clusterer = KMeans(n_clusters=2, random_state=10)
 cluster_labels_ = clusterer.fit_predict(X)
 assert np.all(cluster_labels_ == clustering["nclust=2"])
 
-np.savez_compressed(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"),
+np.savez_compressed(os.path.join(WD, IMADATASET+"-clust_centers.npz"),
                     cluster_labels=cluster_labels_,
                     cluster_centers=clusterer.cluster_centers_)
 
 clustering = pd.DataFrame(clustering)
-clustering.to_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"), index=False)
+clustering.to_csv(os.path.join(WD, IMADATASET+"-clust.csv"), index=False)
 
 ###############################################################################
 # Clustering Im classifiy Clin
 
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
@@ -398,8 +401,8 @@ XTreatTivSitePca
 ###############################################################################
 # Clustering Im classifiy Im
 
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
@@ -470,8 +473,8 @@ XTreatTivSitePca
 ###############################################################################
 # Clustering Clin classifiy Im
 
-clustering = pd.read_csv(os.path.join(INPUT, "Xclin-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, "Xclin-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
@@ -558,8 +561,8 @@ XTreatTivSitePca
 ###############################################################################
 # Clustering Im classifiy ClinIm
 
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
@@ -636,12 +639,12 @@ import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
 # Data
-Xim = np.load(os.path.join(OUTPUT, IMADATASET + ".npy"))
-yorig = np.load(os.path.join(OUTPUT, "y.npy"))
-mask = nibabel.load(os.path.join(OUTPUT, "mask.nii.gz"))
+Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
+mask = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 # Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
-# Atv.save(os.path.join(OUTPUT, "Atv.npz"))
-Atv = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+# Atv.save(os.path.join(WD, "Atv.npz"))
+Atv = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
 #assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv.get_singular_values(0), 11.956104408414376)
 
@@ -693,7 +696,7 @@ for cv_i, (train, test) in enumerate(cv.split(X, y)):
     coefs_cv[cv_i, :] = estimator.beta.ravel()
 
 
-np.savez_compressed(os.path.join(OUTPUT, IMADATASET+"_enettv_0.1_0.1_0.8_5cv.npz"),
+np.savez_compressed(os.path.join(WD, IMADATASET+"_enettv_0.1_0.1_0.8_5cv.npz"),
                     coefs_cv=coefs_cv, y_pred=y_test_pred, y_true=y,
                     proba_pred=y_test_prob_pred, beta=coefs_cv)
 
@@ -727,18 +730,18 @@ import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
 # Data
-Xim = np.load(os.path.join(OUTPUT, IMADATASET + ".npy"))
-yorig = np.load(os.path.join(OUTPUT, "y.npy"))
-mask = nibabel.load(os.path.join(OUTPUT, "mask.nii.gz"))
+Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
+mask = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 # Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
-# Atv.save(os.path.join(OUTPUT, "Atv.npz"))
-Atv = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+# Atv.save(os.path.join(WD, "Atv.npz"))
+Atv = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
 #assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv.get_singular_values(0), 11.956104408414376)
 
 # Cluster
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
 """
@@ -795,7 +798,7 @@ for cv_i, (train, test) in enumerate(cv.split(X, y)):
 
     coefs_cv[cv_i, :] = estimator.beta.ravel()
 
-np.savez_compressed(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"),
+np.savez_compressed(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"),
                     coefs_cv=coefs_cv, y_pred=y_test_pred, y_true=y,
                     proba_pred=y_test_prob_pred, beta=coefs_cv)
 
@@ -827,22 +830,24 @@ import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
-
 # Cluster
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
-metrics.confusion_matrix(yorig, clustering["nclust=2"])
+assert np.all(metrics.confusion_matrix(yorig, clustering["nclust=2"]) == \
+    np.array([[17, 15],
+              [45, 47]]))
+
 CLUST = 1
 subset = clustering["nclust=2"] == CLUST
 
 # Data
-Xim = np.load(os.path.join(OUTPUT, IMADATASET + ".npy"))
-yorig = np.load(os.path.join(OUTPUT, "y.npy"))
-mask = nibabel.load(os.path.join(OUTPUT, "mask.nii.gz"))
+Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
+mask = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 # Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
-# Atv.save(os.path.join(OUTPUT, "Atv.npz"))
-Atv = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+# Atv.save(os.path.join(WD, "Atv.npz"))
+Atv = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
 #assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv.get_singular_values(0), 11.956104408414376)
 
@@ -853,21 +858,18 @@ y = yorig[subset]
 Ximg = scaler.fit(Ximg).transform(Ximg)
 Xcling = scaler.fit(Xcling).transform(Xcling)
 
-# Load models
-modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+# Load models Coeficients
+modelscv = np.load(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
 
-
-# parameters
+# Parameters
 key = 'enettv_0.1_0.1_0.8'.split("_")
 algo, alpha, l1l2ratio, tvratio = key[0], float(key[1]), float(key[2]), float(key[3])
 tv = alpha * tvratio
 l1 = alpha * float(1 - tv) * l1l2ratio
 l2 = alpha * float(1 - tv) * (1- l1l2ratio)
-
-print(key, algo, alpha, l1, l2, tv)
+# print(key, algo, alpha, l1, l2, tv)
 
 # CV loop
-
 y_test_pred_img = np.zeros(len(y))
 y_test_prob_pred_img = np.zeros(len(y))
 y_test_decfunc_pred_img = np.zeros(len(y))
@@ -990,7 +992,7 @@ print("#", auc_test_stck_microavg, bacc_test_stck_microavg, acc_test_stck_microa
 df = pop[["participant_id", "respond_wk16", 'GMvol_l', 'WMvol_l', 'CSFvol_l', 'TIV_l', 'GMratio', 'WMratio', 'CSFratio']]
 
 # Cluster
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
 assert(np.all(clustering.participant_id == df["participant_id"]))
 df["cluster"] = clustering["nclust=2"]
 
@@ -1006,7 +1008,7 @@ df.loc[df["cluster"] == 1, "y_test_pred_stck"] = y_test_pred_stck
 df.loc[df["cluster"] == 1, "y_test_prob_pred_stck"] = y_test_prob_pred_stck
 df.loc[df["cluster"] == 1, "y_test_decfunc_pred_stck"] = y_test_decfunc_pred_stck
 
-df.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
+df.to_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
 
 # 0.739007092199 0.68865248227 0.596774193548
 
@@ -1039,8 +1041,8 @@ df.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"),
 # Caracterize Cluster 1/2: scatterplot Clinic vs image
 # Run first Clustering Im classifiy ClinImEnettv
 CLUST=1
-# df = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed_img-scores.csv"))
-df = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
+# df = pd.read_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed_img-scores.csv"))
+df = pd.read_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
 
 """
 sns.lmplot(x="y_test_prob_pred_clin", y="y_test_prob_pred_img", hue="respond_wk16" , data=df, fit_reg=False)
@@ -1121,7 +1123,7 @@ plt.clabel(CS, fontsize=9, inline=1)
 """
 
 
-pdf = PdfPages(os.path.join(OUTPUT, IMADATASET+'-clust_img-clin_scatter_density.pdf'))
+pdf = PdfPages(os.path.join(WD, IMADATASET+'-clust_img-clin_scatter_density.pdf'))
 
 fig = plt.figure()
 
@@ -1211,12 +1213,12 @@ import scipy.stats as stats
 
 CLUST=1
 
-xls_filename = os.path.join(OUTPUT,
+xls_filename = os.path.join(WD,
                      IMADATASET+"-clust%i"%CLUST +"_demo-clin-vs-cluster.xlsx")
 
 # add cluster information
-pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
-clust = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
+pop = pd.read_csv(os.path.join(WD, "population.csv"))
+clust = pd.read_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
 pop = pd.merge(pop, clust[["participant_id", 'cluster']], on='participant_id')
 
 pop["duration"] = pop['age'] - pop['age_onset']
@@ -1309,7 +1311,7 @@ palette_resp = {"NonResponder":sns.color_palette()[0],
            "Responder":sns.color_palette()[2]}
 alphas_clust = {1:1, 0:.5}
 
-pdf = PdfPages(os.path.join(OUTPUT,
+pdf = PdfPages(os.path.join(WD,
                      IMADATASET+"-clust%i"%CLUST +"_demo-clin-vs-cluster.pdf"))
 
 sns.set(style="whitegrid")
@@ -1391,7 +1393,7 @@ pdf.close()
 # Intra-group heterogeneity Distances
 
 # Caracterize cluster
-clusters = np.load(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"))
+clusters = np.load(os.path.join(WD, IMADATASET+"-clust_centers.npz"))
 clusters["cluster_labels"]
 cluster_centers = clusters["cluster_centers"]
 
@@ -1504,8 +1506,8 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 
 
 # Cluster
-clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
-#pop = pd.read_csv(os.path.join(INPUT,"population.csv"))
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
 assert np.all(pop.participant_id == clustering.participant_id)
 metrics.confusion_matrix(yorig, clustering["nclust=2"])
 """
@@ -1517,12 +1519,12 @@ subset1 = clustering["nclust=2"] == CLUST
 subset0 = clustering["nclust=2"] == 0
 
 # Data
-Xim = np.load(os.path.join(OUTPUT, IMADATASET + ".npy"))
-yorig = np.load(os.path.join(OUTPUT, "y.npy"))
-mask = nibabel.load(os.path.join(OUTPUT, "mask.nii.gz"))
+Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
+mask = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 # Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
-# Atv.save(os.path.join(OUTPUT, "Atv.npz"))
-Atv = LinearOperatorNesterov(filename=os.path.join(OUTPUT, "Atv.npz"))
+# Atv.save(os.path.join(WD, "Atv.npz"))
+Atv = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
 #assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
 assert np.allclose(Atv.get_singular_values(0), 11.956104408414376)
 
@@ -1546,7 +1548,7 @@ Xcling0 = scaler_clin.fit(Xcling0).transform(Xcling0)
 [np.sum(y0 == lev) for lev in np.unique(y0)]
 
 # Load models
-modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+modelscv = np.load(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
 
 # parameters
 key = 'enettv_0.1_0.1_0.8'.split("_")
@@ -1569,13 +1571,13 @@ coef_all_clust1 = estimator_img.beta
 modelscv.keys()
 ['coefs_cv', 'y_pred', 'y_true', 'proba_pred', 'beta']
 
-np.savez_compressed(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"),
+np.savez_compressed(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"),
                     coefs_cv=modelscv["coefs_cv"], y_pred=modelscv["y_pred"], y_true=modelscv["y_true"],
                     proba_pred=modelscv["proba_pred"],
                     coef_refitall_clust0=coef_all_clust0.ravel(), coef_refitall_clust1=coef_all_clust1.ravel())
 
 """
-modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+modelscv = np.load(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
 modelscv_["coefs_cv"] == modelscv["coefs_cv"]
 modelscv[
 #estimator_img.beta = modelscv["coefs_cv"].mean(axis=0)[:, None]
@@ -1605,13 +1607,13 @@ import  nibabel
 from matplotlib.backends.backend_pdf import PdfPages
 CLUST = 1
 
-clusters = np.load(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"))
+clusters = np.load(os.path.join(WD, IMADATASET+"-clust_centers.npz"))
 clusters["cluster_labels"]
 cluster_centers = clusters["cluster_centers"]
 
 ## WIP HERE
 
-mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
+mask_img = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 coef_arr = np.zeros(mask_img.get_data().shape)
 
 pd.Series(np.abs(cluster_centers[0, :])).describe()
@@ -1657,11 +1659,11 @@ X = scaler.fit(Xim).transform(Xim)
 mean = scaler.mean_
 
 proj_c1c0  = np.dot(X, c1 - c0)
-imgscores = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
+imgscores = pd.read_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
 imgscores["proj_c1c0"] = proj_c1c0
 np.all(imgscores.participant_id == pop.participant_id)
 
-imgscores.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
+imgscores.to_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
 
 """
 df = imgscores.copy()
@@ -1693,7 +1695,7 @@ s = np.sqrt((np.sum(X0c ** 2, axis=0) * (n0 - 1) + np.sum(X1c ** 2, axis=0) * (n
 tmap = (c1 - c0) / (s * np.sqrt(1 / n1 + 1 / n0))
 zmap = (c1 - c0) / s
 
-figure_filename = os.path.join(INPUT, IMADATASET+"-clust_centers.pdf")
+figure_filename = os.path.join(WD, IMADATASET+"-clust_centers.pdf")
 pdf = PdfPages(figure_filename)
 
 fig = plt.figure()
@@ -1776,17 +1778,182 @@ convert XTreatTivSite-clust_centers.pdf[5] images/zmap-diff_centers.png
 convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[0] images/signature_glassview.png
 
 """
-###############################################################################
-# signature
 
-modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
-mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
+
+###############################################################################
+# Bootstrap Signature
+
+import nibabel
+import parsimony.algorithms as algorithms
+import parsimony.estimators as estimators
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+# Cluster
+clustering = pd.read_csv(os.path.join(WD, IMADATASET+"-clust.csv"))
+#pop = pd.read_csv(os.path.join(WD,"population.csv"))
+assert np.all(pop.participant_id == clustering.participant_id)
+assert np.all(metrics.confusion_matrix(yorig, clustering["nclust=2"]) == \
+    np.array([[17, 15],
+              [45, 47]]))
+
+CLUST = 1
+subset = clustering["nclust=2"] == CLUST
+
+# Data
+Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
+yorig = np.load(os.path.join(WD, "y.npy"))
+mask = nibabel.load(os.path.join(WD, "mask.nii.gz"))
+# Atv = nesterov_tv.linear_operator_from_mask(mask.get_data(), calc_lambda_max=True)
+# Atv.save(os.path.join(WD, "Atv.npz"))
+Atv = LinearOperatorNesterov(filename=os.path.join(WD, "Atv.npz"))
+#assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
+assert np.allclose(Atv.get_singular_values(0), 11.956104408414376)
+
+scaler = preprocessing.StandardScaler()
+Ximg = Xim[subset, :]
+Xcling = Xclin[subset, :]
+y = yorig[subset]
+Ximg = scaler.fit(Ximg).transform(Ximg)
+Xcling = scaler.fit(Xcling).transform(Xcling)
+
+# Load models Coeficients
+# modelscv = np.load(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+
+# Parameters
+keystr = 'enettv_0.1_0.1_0.8'
+key = keystr.split("_")
+algo, alpha, l1l2ratio, tvratio = key[0], float(key[1]), float(key[2]), float(key[3])
+tv = alpha * tvratio
+l1 = alpha * float(1 - tv) * l1l2ratio
+l2 = alpha * float(1 - tv) * (1- l1l2ratio)
+# print(key, algo, alpha, l1, l2, tv)
+
+# BOOT loop
+NBOOT = 100
+
+coefs_boot_img = np.zeros((NBOOT, Ximg.shape[1]))
+auc_test_img = list()
+recalls_test_img = list()
+acc_test_img = list()
+
+
+coefs_boot_clin = np.zeros((NBOOT, Xcling.shape[1]))
+auc_test_clin = list()
+recalls_test_clin = list()
+acc_test_clin = list()
+
+
+coefs_boot_stck = np.zeros((NBOOT, 2))
+auc_test_stck = list()
+recalls_test_stck = list()
+acc_test_stck = list()
+
+# Stratified Bootstraping
+idx_all = np.arange(y.shape[0])
+
+for boot_i in range(NBOOT):
+    print(boot_i)
+    np.random.seed(seed=boot_i)
+    # resample with replacement within groups
+    train = np.concatenate([np.random.choice(idx_all[y == lab], size=np.sum(y == lab), replace=True) for lab in np.unique(y)])
+    test = np.setdiff1d(idx_all, train, assume_unique=False)
+    X_train_img, X_test_img, y_train, y_test = Ximg[train, :], Ximg[test, :], y[train], y[test]
+    X_train_clin, X_test_clin = Xcling[train, :], Xcling[test, :]
+    # Im
+    conesta = algorithms.proximal.CONESTA(max_iter=10000)
+    estimator_img = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
+                                                    class_weight="auto", penalty_start=0)
+    estimator_img.fit(X_train_img, y_train)
+
+    # Predictions
+    y_test_pred_img = estimator_img.predict(X_test_img).ravel()
+    y_test_prob_pred_img = estimator_img.predict_probability(X_test_img).ravel()#[:, 1]
+    y_test_decfunc_pred_img = np.dot(X_test_img, estimator_img.beta).ravel()
+
+    coefs_boot_img[boot_i, :] = estimator_img.beta.ravel()
+    np.savez_compressed(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST + "_" + keystr + "_boot/cooef_boot-%.4i.npz" % boot_i),
+                    y_pred=y_test_pred_img, y_test=y_test, seed=boot_i, train_idx=train, test_idx=test,
+                    proba_pred=y_test_prob_pred_img, beta=estimator_img.beta.ravel())
+
+    # Compute score for macro avg
+    auc_test_img.append(metrics.roc_auc_score(y_test, y_test_prob_pred_img))
+    recalls_test_img.append(metrics.recall_score(y_test, y_test_pred_img, average=None))
+    acc_test_img.append(metrics.accuracy_score(y_test, y_test_pred_img))
+
+    # Clin
+    estimator_clin = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=C)
+    estimator_clin.fit(X_train_clin, y_train)
+
+    # Compute score for macro avg
+    auc_test_clin.append(metrics.roc_auc_score(y_test, estimator_clin.predict_proba(X_test_clin)[:, 1]))
+    recalls_test_clin.append(metrics.recall_score(y_test, estimator_clin.predict(X_test_clin).ravel(), average=None))
+    acc_test_clin.append(metrics.accuracy_score(y_test, estimator_clin.predict(X_test_clin).ravel()))
+    coefs_boot_clin[boot_i, :] = estimator_clin.coef_.ravel()
+
+    # Stacking
+    X_train_stck = np.c_[
+            np.dot(X_train_img, estimator_img.beta).ravel(),
+            estimator_clin.decision_function(X_train_clin).ravel()]
+    X_test_stck = np.c_[
+            np.dot(X_test_img, estimator_img.beta).ravel(),
+            estimator_clin.decision_function(X_test_clin).ravel()]
+    X_train_stck = scaler.fit(X_train_stck).transform(X_train_stck)
+    X_test_stck = scaler.transform(X_test_stck)
+
+    #
+    estimator_stck = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=100)
+    estimator_stck.fit(X_train_stck, y_train)
+
+    # Compute score for macro avg
+    auc_test_stck.append(metrics.roc_auc_score(y_test, estimator_stck.predict_proba(X_test_stck)[:, 1]))
+    recalls_test_stck.append(metrics.recall_score(y_test, estimator_stck.predict(X_test_stck).ravel(), average=None))
+    acc_test_stck.append(metrics.accuracy_score(y_test, estimator_stck.predict(X_test_stck).ravel()))
+    coefs_boot_stck[boot_i, :] = estimator_stck.coef_.ravel()
+
+
+import glob
+# Compute macro avg
+
+coef_boot_img = list()
+auc_boot_img = list()
+recalls_boot_img = list()
+acc_boot_img = list()
+
+filenames = glob.glob(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST + "_" + keystr + "_boot/cooef_boot-*.npz"))
+#f = filenames[0]
+for f in filenames:
+    boot = np.load(f)
+    y_test = y[boot["test_idx"]]
+    y_test_prob_pred_img = boot["y_pred"]
+    y_test_pred_img = boot["y_pred"]
+    coef_boot_img.append(boot["beta"])
+    # Compute score for macro avg
+    auc_boot_img.append(metrics.roc_auc_score(y_test, y_test_prob_pred_img))
+    recalls_boot_img.append(metrics.recall_score(y_test, y_test_pred_img, average=None))
+    acc_boot_img.append(metrics.accuracy_score(y_test, y_test_pred_img))
+
+TODO
+
+###############################################################################
+# Signature
+from nilearn import plotting, image
+import  nibabel
+from matplotlib.backends.backend_pdf import PdfPages
+CLUST = 1
+
+# CV
+# --
+
+modelscv = np.load(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
+mask_img = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 coef_arr = np.zeros(mask_img.get_data().shape)
 
 coef_refit = modelscv['coef_refitall_clust1']
 coef_refit0 = modelscv['coef_refitall_clust0']
 
-coef_avgcv = modelscv['coefs_cv'].mean(axis=0)
+coef_cv = modelscv['coefs_cv']
+#coef_avgcv = coef_cv.mean(axis=0)
 
 pd.Series(coef_refit).describe(percentiles=[0.01, 0.05, 0.1, .25, .5, .75, 0.9])
 """
@@ -1818,46 +1985,77 @@ min      0.000000e+00
 90%      2.842495e-06
 max      4.493354e-02
 """
-#pd.Series(coef_refit0).describe()
-pd.Series(coef_avgcv).describe()
-np.corrcoef(coef_refit, coef_avgcv)
-# 0.94223324
-np.corrcoef(coef_refit0, coef_avgcv)
-# -0.06505002
+
+# Bootstrap
+# ---------
+
+import glob
+
+coef_boot_img = np.array(
+        [np.load(f)["beta"] for f in glob.glob(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST + "_" + keystr + "_boot/cooef_boot-*.npz"))]
+)
+
+print(coef_boot_img.shape)
+
+# Plot
+# ----
+print(
+np.corrcoef(coef_refit, coef_cv.mean(axis=0))[0, 1],
+np.corrcoef(coef_refit, coef_boot_img.mean(axis=0))[0, 1],
+np.corrcoef(coef_cv.mean(axis=0), coef_boot_img.mean(axis=0))[0, 1],
+np.corrcoef(coef_cv.std(axis=0), coef_boot_img.std(axis=0))[0, 1])
+
+# 0.942233238632 0.745839768565 0.806542301258 0.73123706908
 
 
-coef_arr[mask_img.get_data() != 0] = coef_refit
-#coef_arr[np.abs(coef_arr)<=1e-9] = np.nan
-coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
-coef_img.to_filename(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_refit.nii.gz"))
 """
 cd /neurospin/psy/canbind/models/clustering_v02/
 cp XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5_refit.nii.gz ./coefs_map
 cd ./coefs_map
 
 image_clusters_analysis_nilearn.py XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5_refit.nii.gz -o ./ --thresh_norm_ratio 0.99 --thresh_size 10
-
 """
-figure_filename = os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5.pdf")
+figure_filename = os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5.pdf")
 pdf = PdfPages(figure_filename)
 
+mask_img = nibabel.load(os.path.join(WD, "mask.nii.gz"))
+coef_arr = np.zeros(mask_img.get_data().shape)
+
+# Boot
 fig = plt.figure()
+coef_boot_img_avg = coef_boot_img.mean(axis=0)
+coef_boot_img_std = coef_boot_img.std(axis=0)
+coef_boot_img_avg[np.abs(coef_boot_img_avg) < coef_boot_img_std] = 0
+coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature mean boot where mean>sd')#, figure=fig, axes=ax)
+pdf.savefig(); plt.close()
+
+# Refit all
+coef_arr[mask_img.get_data() != 0] = coef_refit
+#coef_arr[np.abs(coef_arr)<=1e-9] = np.nan
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False)#, figure=fig, axes=ax)
+coef_img.to_filename(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_refit.nii.gz"))
+
+
+fig = plt.figure()
+plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature refit')#, figure=fig, axes=ax)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
-                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
-                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='x', cut_coords=7,
-                       title='Coef',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 
 pdf.savefig(); plt.close()
 
