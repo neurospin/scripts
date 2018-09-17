@@ -17,6 +17,14 @@ cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/population.csv /neurospin/psy/ca
 cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/mask.nii.gz /neurospin/psy/canbind/models/clustering_v02/
 cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/y.npy /neurospin/psy/canbind/models/clustering_v02/
 
+laptop to desktop
+rsync -azvun /home/edouard/data/psy/canbind/models/clustering_v02/* ed203246@is234606.intra.cea.fr:/neurospin/psy/canbind/models/clustering_v02/
+
+desktop to laptop
+rsync -azvu ed203246@is234606.intra.cea.fr:/neurospin/psy/canbind/models/clustering_v02/* /home/edouard/data/psy/canbind/models/clustering_v02/
+
+WD = '/neurospin/psy/canbind'
+WD = '/home/edouard/data/psy/canbind'
 """
 
 #############################################################################
@@ -62,6 +70,8 @@ np.all(ya == yb)
 
 INPUT = os.path.join(WD, "models", "clustering_v02")
 
+os.chdir(INPUT)
+
 OUTPUT = INPUT
 
 # load data
@@ -80,7 +90,7 @@ yorig = np.load(os.path.join(INPUT, "y.npy"))
 pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
 assert np.all(pop['respond_wk16_num'] == yorig)
 
-democlin = pop[['age', 'sex_num', 'educ', 'age_onset',
+democlin = pop[['participant_id', 'age', 'sex_num', 'educ', 'age_onset',
                 'respond_wk16',
                 'mde_num', 'madrs_Baseline', 'madrs_Screening']]
 democlin.describe()
@@ -124,7 +134,12 @@ assert(np.all(democlin.isnull().sum() == 0))
 # add duration
 democlin["duration"] = democlin["age"] - democlin["age_onset"]
 
-# Rm response
+
+pop[['participant_id', 'age', 'sex']]
+democlin.to_csv("demo-clin-imputed.csv")
+
+# Rm participant_id & response
+np.all(democlin.pop('participant_id') == pop['participant_id'])
 resp_ = democlin.pop("respond_wk16")
 assert np.all((resp_ == "Responder") == yorig)
 
@@ -972,9 +987,7 @@ print("#", auc_test_stck_microavg, bacc_test_stck_microavg, acc_test_stck_microa
 
 
 # Save
-df = democlin.copy()
-df["participant_id"] = pop.participant_id
-df["respond_wk16"] = pop.respond_wk16
+df = pop[["participant_id", "respond_wk16", 'GMvol_l', 'WMvol_l', 'CSFvol_l', 'TIV_l', 'GMratio', 'WMratio', 'CSFratio']]
 
 # Cluster
 clustering = pd.read_csv(os.path.join(INPUT, IMADATASET+"-clust.csv"))
@@ -993,7 +1006,7 @@ df.loc[df["cluster"] == 1, "y_test_pred_stck"] = y_test_pred_stck
 df.loc[df["cluster"] == 1, "y_test_prob_pred_stck"] = y_test_prob_pred_stck
 df.loc[df["cluster"] == 1, "y_test_decfunc_pred_stck"] = y_test_decfunc_pred_stck
 
-df.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed-decisionfunction.csv"), index=False)
+df.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
 
 # 0.739007092199 0.68865248227 0.596774193548
 
@@ -1019,14 +1032,17 @@ df.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed
 # C=1000
 # 0.737588652482 0.68865248227 0.596774193548
 
+###############################################################################
+# Computes usefull scores
 
 ###############################################################################
 # Caracterize Cluster 1/2: scatterplot Clinic vs image
 # Run first Clustering Im classifiy ClinImEnettv
 CLUST=1
-df = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed-decisionfunction.csv"))
+# df = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed_img-scores.csv"))
+df = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
 
-
+"""
 sns.lmplot(x="y_test_prob_pred_clin", y="y_test_prob_pred_img", hue="respond_wk16" , data=df, fit_reg=False)
 sns.lmplot(x="y_test_decfunc_pred_clin", y="y_test_decfunc_pred_img", hue="respond_wk16" , data=df, fit_reg=False)
 #sns.jointplot(x=df["decfunc_pred_clin_clust1"], y=df["decfunc_pred_img_clust1"], color="respond_wk16", kind='scatter')
@@ -1048,6 +1064,7 @@ sns.distplot(df["y_test_decfunc_pred_stck"][(df.cluster == 1) & (df["respond_wk1
 # or
 sns.kdeplot(df["y_test_decfunc_pred_stck"][(df.cluster == 1) & (df["respond_wk16"] == "Responder")], color="red")
 sns.kdeplot(df["y_test_decfunc_pred_stck"][(df.cluster == 1) & (df["respond_wk16"] == "NonResponder")], color="blue")
+"""
 
 assert np.all(yorig == df.respond_wk16.map({'NonResponder':0, 'Responder':1}))
 
@@ -1090,6 +1107,8 @@ z_proba = z_proba.reshape(xx.shape)
 palette = {"NonResponder":sns.xkcd_rgb["denim blue"], "Responder":sns.xkcd_rgb["pale red"]}
 palette = {"NonResponder":"blue", "Responder":"red"}
 sns.color_palette()[0]
+
+sns.set(style="whitegrid")
 palette = {"NonResponder":sns.color_palette()[0],
            "Responder":sns.color_palette()[2]}
 
@@ -1100,15 +1119,18 @@ g.ax_joint.scatter(df["y_test_prob_pred_clin"], df["y_test_prob_pred_img"], c=[p
 CS = g.ax_joint.contour(xx, yy, z_proba, 6, levels=[0.5], colors='k', axis=g.ax_joint)
 plt.clabel(CS, fontsize=9, inline=1)
 """
+
+
 pdf = PdfPages(os.path.join(OUTPUT, IMADATASET+'-clust_img-clin_scatter_density.pdf'))
-sns.set(style="whitegrid")
 
 fig = plt.figure()
 
 plt.scatter(df["y_test_prob_pred_clin"], df["y_test_prob_pred_img"], c=[palette[res] for res in df.respond_wk16])
 #sns.lmplot(x="y_test_prob_pred_clin", y="y_test_prob_pred_img", hue="respond_wk16" , data=df, fit_reg=False, palette=palette, axis=g.ax_joint)
-CS = plt.contour(xx, yy, z_proba, 6, levels=[0.5], colors='k', axis=g.ax_joint)
-plt.clabel(CS, fontsize=9, inline=1)
+CS1 = plt.contour(xx, yy, z_proba, 6, levels=[0.5], colors='k')#, axis=g.ax_joint)
+CS2 = plt.contour(xx, yy, z_proba, 6, levels=[0.25, 0.75], linestyles="dashed", colors='grey')#, axis=g.ax_joint)
+plt.clabel(CS1, CS1.levels, fontsize=9, inline=1)
+plt.clabel(CS2, CS2.levels, fontsize=9, inline=1)
 plt.xlabel("Clinic proba.")
 plt.ylabel("Imaging proba.")
 pdf.savefig(); plt.close()
@@ -1187,13 +1209,14 @@ import seaborn as sns
 import pandas as pd
 import scipy.stats as stats
 
+CLUST=1
+
 xls_filename = os.path.join(OUTPUT,
                      IMADATASET+"-clust%i"%CLUST +"_demo-clin-vs-cluster.xlsx")
 
 # add cluster information
 pop = pd.read_csv(os.path.join(INPUT, "population.csv"))
-CLUST=1
-clust = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_demo-clin-imputed-decisionfunction.csv"))
+clust = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
 pop = pd.merge(pop, clust[["participant_id", 'cluster']], on='participant_id')
 
 pop["duration"] = pop['age'] - pop['age_onset']
@@ -1580,10 +1603,12 @@ print("#",
 from nilearn import datasets, plotting, image
 import  nibabel
 from matplotlib.backends.backend_pdf import PdfPages
+CLUST = 1
 
 clusters = np.load(os.path.join(INPUT, IMADATASET+"-clust_centers.npz"))
 clusters["cluster_labels"]
 cluster_centers = clusters["cluster_centers"]
+
 ## WIP HERE
 
 mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
@@ -1629,6 +1654,32 @@ c1 = cluster_centers[1, :]
 
 scaler = preprocessing.StandardScaler()
 X = scaler.fit(Xim).transform(Xim)
+mean = scaler.mean_
+
+proj_c1c0  = np.dot(X, c1 - c0)
+imgscores = pd.read_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
+imgscores["proj_c1c0"] = proj_c1c0
+np.all(imgscores.participant_id == pop.participant_id)
+
+imgscores.to_csv(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"), index=False)
+
+"""
+df = imgscores.copy()
+df["respond_wk16"] = pop["respond_wk16"]
+df["sex"] = pop["sex"]
+df["age"] = pop["age"]
+
+plt.plot(imgscores.GMratio, imgscores.proj_c1c0, 'o')
+
+ICI
+sns.lmplot(x="GMratio", y="proj_c1c0", hue="respond_wk16" , data=df, fit_reg=False)
+sns.lmplot(x="GMratio", y="proj_c1c0", hue="cluster" , data=df, fit_reg=False)
+sns.lmplot(x="GMratio", y="proj_c1c0", hue="age" , data=df, fit_reg=False)
+sns.lmplot(x="GMratio", y="age", hue="cluster" , data=df, fit_reg=False)
+sns.lmplot(x="age", y="GMratio", hue="cluster" , data=df, fit_reg=False)
+sns.lmplot(x="age", y="proj_c1c0", hue="cluster" , data=df, fit_reg=False)
+"""
+
 n0 = np.sum(clusters["cluster_labels"] == 0)
 n1 = np.sum(clusters["cluster_labels"] == 1)
 
@@ -1646,7 +1697,7 @@ figure_filename = os.path.join(INPUT, IMADATASET+"-clust_centers.pdf")
 pdf = PdfPages(figure_filename)
 
 fig = plt.figure()
-coef_arr[mask_img.get_data() != 0] = c1
+coef_arr[mask_img.get_data() != 0] = c1 + mean
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
                        title='Group 1 center (centered and scaled)', colorbar=True)
@@ -1659,6 +1710,22 @@ plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
                        title='Group 0 center (centered and scaled)', colorbar=True)
 pdf.savefig(); plt.close()
 
+
+c0_ = scaler.inverse_transform(c0)
+coef_arr[mask_img.get_data() != 0] = c0_ - c0_.min()
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_anat(coef_img, display_mode='ortho', cut_coords=(5, -13, 1), black_bg=True,  draw_cross=False,
+                       title='Group 0 center')
+pdf.savefig(); plt.close()
+
+c1_ = scaler.inverse_transform(c1)
+coef_arr[mask_img.get_data() != 0] = c1_ - c1_.min()
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_anat(coef_img, display_mode='ortho', cut_coords=(5, -13, 1), black_bg=True, draw_cross=False,
+                       title='Group 1 center')
+pdf.savefig(); plt.close()
+
+
 fig = plt.figure()
 coef_arr[mask_img.get_data() != 0] = c1 - c0
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
@@ -1669,20 +1736,43 @@ pdf.savefig(); plt.close()
 fig = plt.figure()
 coef_arr[mask_img.get_data() != 0] = zmap
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
-plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
-                       title='Z map of the ifference', colorbar=True)
+plotting.plot_stat_map(coef_img, display_mode='ortho', draw_cross=False, cut_coords=(5, -13, 1),
+                       title='Z map of the difference', colorbar=True)
 pdf.savefig(); plt.close()
+
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = zmap
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Z map of the difference', colorbar=True)
+pdf.savefig(); plt.close()
+
+
+fig = plt.figure()
+coef_arr[mask_img.get_data() != 0] = zmap
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
+                       title='Z map of the difference', colorbar=True)
+pdf.savefig(); plt.close()
+
 
 fig = plt.figure()
 coef_arr[mask_img.get_data() != 0] = tmap
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
-                       title='T map of the ifference', colorbar=True)
+                       title='T map of the difference', colorbar=True)
 pdf.savefig(); plt.close()
 
 pdf.close()
 
+"""
+cd /home/edouard/data/psy/canbind/models/clustering_v02
+convert XTreatTivSite-clust_centers.pdf
+
+"""
 ###############################################################################
+# signature
 
 modelscv = np.load(os.path.join(OUTPUT,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"))
 mask_img = nibabel.load(os.path.join(INPUT, "mask.nii.gz"))
@@ -1768,3 +1858,55 @@ pdf.savefig(); plt.close()
 
 pdf.close()
 
+"""
+Manual inspection fsleye
+
+# Positive clusters
+
+R clusters
+R
+39.0% Postcentral Gyrus (Show/Hide)
+16.0% Supramarginal Gyrus, anterior division
+0.00052 (5e-4)
+
+Regional increases of cortical thickness in untreated, first-episode major depressive disorder
+ranslational Psychiatry 4(4):e378
+"Areas with cortical thickness differences between healthy controls and patients with major depression (left) after FDR correction.
+Scatterplots show the negative correlation between HDRS with right rostral middle frontal gyrus and right supramarginal gyrus (right).
+Warmer colors (positive values) represent cortical thickening; cooler colors (negative values) represent signi
+ficant cortical thinning in MDD patients.
+
+R
+52.0% Precuneous Cortex (Show/Hide)
++0.00013 (1e-4)
+
+53.0% Middle Temporal Gyrus, temporooccipital part
++0.00017 (1e-4)
+
+Right Amygdala (Show/Hide)
+Right Parahippocampal Gyrus, anterior division
+Rigth and Left Temporal Fusiform
++0.0003 (3e-4)
+
+Left Cerebelum anterior parts of VIIIa and VIIIb
++0.00084
+
+Voxel-based lesion symptom mapping analysis of depressive mood in patients with isolated cerebellar stroke: A pilot study
+https://www.sciencedirect.com/science/article/pii/S2213158216302170
+Voxel-wise subtraction and χ (Ayerbe et al., 2014) analyses indicated that damage to the left posterior cerebellar hemisphere was associated with depression. Significant correlations were also found between the severity of depressive symptoms and lesions in lobules VI, VIIb, VIII, Crus I, and Crus II of the left cerebellar hemisphere (Pcorrected = 0.045). Our results suggest that damage to the left posterior cerebellum is associated with increased depressive mood severity in patients with isolated cerebellar stroke.
+
+# Negative
+
+R (L)
+100.0% Left Thalamus (Show/Hide)
+R:-0.0009
+L:-0.00003
+
+R (L)
+90.6% Brain-Stem (Show/Hide)
+R:-0.0009
+L:-0.0009
+
+
+de Brouwer E.J.M., Kockelkoren R., Claus J.J., et al. "Hippocampal Calcifications: Risk Factors and Association with Cognitive Function.” Radiology, June 12, 2018. https://doi.org/10.1148/radiol.2018172588
+"""
