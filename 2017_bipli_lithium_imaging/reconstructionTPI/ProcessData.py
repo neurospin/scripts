@@ -379,13 +379,30 @@ if B0correct:
         SaveArrayAsNIfTI(fieldmap_data,affine,OutputPath)
     else:
         fieldmap_data=Fieldmap_get(fieldmap_file)
+    Nucleus=parameters[6]    
+    GammaH = 42.576e6
+    if Nucleus.find("1H")>-1:
+        Gamma = 42.576e6
+        ratio=1            
+    elif Nucleus.find("23Na")>-1:
+        Gamma=11.262e6
+        ratio=Gamma/GammaH
+    elif Nucleus.find("31P")>-1:
+        Gamma= 17.235e6
+        ratio=Gamma/GammaH            
+    elif Nucleus.find("7Li")>-1:
+        Gamma = 16.546e6
+        ratio=Gamma/GammaH        
+    fieldmap_data=fieldmap_data*ratio     
     diff_freq=np.max(fieldmap_data)-np.min(fieldmap_data)
     from math import ceil
-    L=ceil((4*diff_freq*Timesampling)/np.pi)
-    if np.int(L)%2==1:
-        L=L+1
+    minL=ceil((4*diff_freq*Timesampling)/np.pi)
+    if np.int(minL)%2==1:
+        minL=minL+1
+    #select optimal L => L=findL(minL,diff_freq)
     recon_method='fsc'
     ba='before'
+    L=16 #because that causes deltaw to have a value close to 0, will have to mess with that down the line
 #
 if Spectro:
 	Spectrum = ReadSiemensSpectro(source_file,verbose)

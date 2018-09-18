@@ -1126,14 +1126,16 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
 		print ('ERROR    : Unspecified number of Coils')
 		coilstart=0
 	if Nucleus:
+		GammaH = 42.576e6
 		if Nucleus.find("1H")>-1:
-			Gamma = 42.576e6
-		if Nucleus.find("23Na")>-1:
+			Gamma = 42.576e6      
+		elif Nucleus.find("23Na")>-1:
 			Gamma=11.262e6
-		if Nucleus.find("31P")>-1:
-			Gamma= 17.235e6
-		if Nucleus.find("7Li")>-1:
+		elif Nucleus.find("31P")>-1:
+			Gamma= 17.235e6      
+		elif Nucleus.find("7Li")>-1:
 			Gamma = 16.546e6
+		else: print ('ERROR    : Unrecognized Nucleus')            
 		print ('INFO    : Used Nucleus = ',Nucleus)
 		print ('INFO    : Gyromagnetic Ratio = ',Gamma,'Hz')
 	else: print ('ERROR    : Unspecified Nucleus')
@@ -1204,8 +1206,8 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
 	else : sousech=0.0
 	# KspaceNRJ=0.0
 
-	#delta=(np.max(field_map) - np.min(field_map))/(L*2*np.pi)
-	deltaw = np.linspace(np.max(field_map), np.min(field_map), L+1)*2*np.pi
+	#delta=(np.max(field_map) - np.min(field_map))/(L*2*np.pi) 
+	deltaw = np.linspace(np.max(field_map), np.min(field_map), L)*2*np.pi
     
 	time= np.linspace(0,Timesampling,NbPoints) 
 
@@ -1255,9 +1257,9 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
 		Data=np.sum(Data[:,:,:,:,:],0)
 	print (Data.shape)
 	
-	for freq in range(L):
+	for freq in range(L): #for freq in range(L):
 		print(freq)
-		for echo in range (1):
+		for echo in range (echoes):
         		
         		print ('>> Griding echo ',echo)
         		for i in range(coilstart,int(NbCoils)):
@@ -1322,7 +1324,7 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
                 
                 
 	fh,fw,fl = np.shape(field_map)  
-	final_image= np.zeros(shape=(echo,fh,fw,fl))
+	final_image= np.zeros(shape=(echoes,fh,fw,fl))
     
 	for echo in range (echoes):     		        
 		if (recon_method=='fsc'):
@@ -1331,7 +1333,10 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
         				for z in range(fl):
         					px_freq = field_map[x,y,z]*2*np.pi
         					idx=np.argmin(abs(deltaw-px_freq))
-        					final_image[echo,x,y,z] = Coil_Combined_Kspace_Module[echo,idx,x,y,z]
+        					try:                            
+        						final_image[echo,x,y,z] = Coil_Combined_Kspace_Module[echo,x,y,z,idx]
+        					except:
+        						print('hi')                        
     
 		elif (recon_method=='mfi'):
 			Coil_Combined_temp[echo,:,:,:]=Coil_Combined_Kspace_Module[echo,:,:,:]
