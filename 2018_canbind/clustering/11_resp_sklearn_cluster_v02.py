@@ -447,7 +447,7 @@ res = pd.DataFrame(res, columns=['data', 'score', 'n_clusters', 'clust', 'size']
 print(res)
 
 """
-XTreatTivSite
+XTreatTivSite (5CV)
   data      score  n_clusters  clust  size     fold0     fold1     fold2     fold3     fold4       avg
 0  Ima   test_auc           2      0    62  0.472222  0.694444  0.444444  0.111111  0.740741  0.492593
 1  Ima  test_bacc           2      0    62  0.500000  0.500000  0.500000  0.500000  0.500000  0.500000
@@ -631,6 +631,7 @@ NOTHING
 """
 ###############################################################################
 # No Clustering / classifiy ImEnettv
+NFOLDS = 10 # ICI TEST
 
 import nibabel
 import parsimony.algorithms as algorithms
@@ -696,7 +697,7 @@ for cv_i, (train, test) in enumerate(cv.split(X, y)):
     coefs_cv[cv_i, :] = estimator.beta.ravel()
 
 
-np.savez_compressed(os.path.join(WD, IMADATASET+"_enettv_0.1_0.1_0.8_5cv.npz"),
+np.savez_compressed(os.path.join(WD, IMADATASET+"_enettv_0.1_0.1_0.8_%icv.npz" % NFOLDS),
                     coefs_cv=coefs_cv, y_pred=y_test_pred, y_true=y,
                     proba_pred=y_test_prob_pred, beta=coefs_cv)
 
@@ -712,7 +713,7 @@ print("#", auc_test_microavg, bacc_test_microavg, acc_test_microavg)
 
 #print(auc_test_microavg, bacc_test_microavg, acc_test_microavg)
 """
-XTreatTivSite
+XTreatTivSite (5CV)
 # 0.438519021739 0.451766304348 0.443548387097
 
 # XTreatTivSitePca (124, 397559)
@@ -729,6 +730,7 @@ import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
+NFOLDS = 10
 # Data
 Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
 yorig = np.load(os.path.join(WD, "y.npy"))
@@ -774,7 +776,6 @@ coefs_cv = np.zeros((NFOLDS, X.shape[1]))
 
 auc_test = list()
 recalls_test = list()
-
 acc_test = list()
 
 for cv_i, (train, test) in enumerate(cv.split(X, y)):
@@ -798,7 +799,7 @@ for cv_i, (train, test) in enumerate(cv.split(X, y)):
 
     coefs_cv[cv_i, :] = estimator.beta.ravel()
 
-np.savez_compressed(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5cv.npz"),
+np.savez_compressed(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_%icv.npz" % NFOLDS),
                     coefs_cv=coefs_cv, y_pred=y_test_pred, y_true=y,
                     proba_pred=y_test_prob_pred, beta=coefs_cv)
 
@@ -815,8 +816,10 @@ print("#", auc_test_microavg, bacc_test_microavg, acc_test_microavg)
 #
 # YEAH !!
 
-# XTreatTivSite-clust1
+# XTreatTivSite-clust1 (5CV)
 # 0.697872340426 0.678014184397 0.58064516129
+
+# XTreatTivSite-clust1 (10CV) WAIT
 
 # XTreatTivSitePca-clust1 (87, 397559)
 # 0.465321563682 0.474148802018 0.448275862069
@@ -1239,18 +1242,32 @@ stds = pop[cols_].groupby(by="cluster").std().T.reset_index()
 stds.columns = ['var', 'std_0', 'std_1']
 desc = pd.merge(means, stds)
 
-stat = pd.DataFrame(
+stat_p = pd.DataFrame(
 [[col] + list(stats.ttest_ind(
         pop.loc[pop.cluster==1, col],
         pop.loc[pop.cluster==0, col],
         equal_var=False, nan_policy='omit'))
-    for col in cols_], columns=['var', 'stat', 'pval'])
+    for col in cols_], columns=['var', 'T', 'T-pval'])
 
-stat_clust_vs_var = pd.merge(desc, stat)
+stat_clust_vs_var = pd.merge(desc, stat_p)
+
+
+stat_np = list()
+for col in cols_:
+    clust = pop["cluster"][pop[col].notnull()]
+    val = pop.loc[pop[col].notnull(), col]
+    auc = metrics.roc_auc_score(clust, val)
+    auc = max(auc, 1 - auc)
+    wilcox = stats.mannwhitneyu(*[val[clust == r] for r in np.unique(clust)])
+    stat_np.append([col, auc, wilcox.statistic, wilcox.pvalue])
+
+stat_np = pd.DataFrame(stat_np,  columns=['var', 'auc', 'Mann–Whitney-U', 'MW-U-pval'])
+
+stat_clust_vs_var = pd.merge(stat_clust_vs_var, stat_np)
 
 print(stat_clust_vs_var)
 """
-              var     mean_0     mean_1      std_0     std_1       stat  \
+              var     mean_0     mean_1      std_0     std_1          T  \
 0             age  41.580645  29.806452  12.277593  9.844427  -5.891231
 1            educ  17.000000  16.622951   2.522034  1.950760  -0.928299
 2       age_onset  23.779661  18.186441  11.365507  7.431236  -3.163806
@@ -1261,16 +1278,16 @@ print(stat_clust_vs_var)
 7         WMratio   0.299968   0.296910   0.023441  0.022140  -0.746770
 8           TIV_l   1.503500   1.392831   0.155763  0.134993  -4.227700
 
-           pval
-0  3.796567e-08
-1  3.552030e-01
-2  2.063409e-03
-3  1.064894e-02
-4  4.572176e-01
-5  8.340998e-01
-6  1.788653e-18
-7  4.566439e-01
-8  4.642436e-05
+         T-pval       auc  Mann–Whitney-U     MW-U-pval
+0  3.796567e-08  0.774584           866.5  6.584649e-08
+1  3.552030e-01  0.569011          1630.0  8.997774e-02
+2  2.063409e-03  0.659868          1184.0  1.365327e-03
+3  1.064894e-02  0.599971          1392.5  3.055953e-02
+4  4.572176e-01  0.601190           770.5  4.942305e-02
+5  8.340998e-01  0.510417          1762.5  4.228655e-01
+6  1.788653e-18  0.901925           377.0  5.886210e-15
+7  4.566439e-01  0.551249          1725.0  1.630527e-01
+8  4.642436e-05  0.699272          1156.0  6.525133e-05
 
 Grp 1 are younger (6 years), earlier onset (3 years) and shorter duration
 """
@@ -1741,6 +1758,7 @@ coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_stat_map(coef_img, display_mode='ortho', draw_cross=False, cut_coords=(5, -13, 1),
                        title='Z map of the difference', colorbar=True)
 pdf.savefig(); plt.close()
+coef_img.to_filename(os.path.join(WD, IMADATASET+"-clust_centers_zmap-diff.nii.gz"))
 
 
 fig = plt.figure()
@@ -1757,7 +1775,6 @@ coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
                        title='Z map of the difference', colorbar=True)
 pdf.savefig(); plt.close()
-
 
 fig = plt.figure()
 coef_arr[mask_img.get_data() != 0] = tmap
@@ -1933,7 +1950,11 @@ for f in filenames:
     recalls_boot_img.append(metrics.recall_score(y_test, y_test_pred_img, average=None))
     acc_boot_img.append(metrics.accuracy_score(y_test, y_test_pred_img))
 
-TODO
+print(
+np.array(auc_boot_img).mean(),
+np.array(recalls_boot_img).mean(),
+np.array(acc_boot_img).mean())
+
 
 ###############################################################################
 # Signature
@@ -2006,6 +2027,10 @@ np.corrcoef(coef_cv.mean(axis=0), coef_boot_img.mean(axis=0))[0, 1],
 np.corrcoef(coef_cv.std(axis=0), coef_boot_img.std(axis=0))[0, 1])
 
 # 0.942233238632 0.745839768565 0.806542301258 0.73123706908
+# 0.942233238632 0.755023156032 0.834868776487 0.742830307793
+# 0.942233238632 0.797933102049 0.878795596685 0.721951036469
+# 0.942233238632 0.824568882048 0.896801442198 0.759808244301
+# 0.942233238632 0.872093385138 0.940329152839 0.78211136126
 
 
 """
@@ -2025,8 +2050,10 @@ coef_arr = np.zeros(mask_img.get_data().shape)
 fig = plt.figure()
 coef_boot_img_avg = coef_boot_img.mean(axis=0)
 coef_boot_img_std = coef_boot_img.std(axis=0)
+
 coef_boot_img_avg[np.abs(coef_boot_img_avg) < coef_boot_img_std] = 0
 coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg
+#coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg / coef_boot_img_std
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature mean boot where mean>sd')#, figure=fig, axes=ax)
 pdf.savefig(); plt.close()
