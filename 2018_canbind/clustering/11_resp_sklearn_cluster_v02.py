@@ -819,7 +819,8 @@ print("#", auc_test_microavg, bacc_test_microavg, acc_test_microavg)
 # XTreatTivSite-clust1 (5CV)
 # 0.697872340426 0.678014184397 0.58064516129
 
-# XTreatTivSite-clust1 (10CV) WAIT
+# XTreatTivSite-clust1 (10CV) (62, 397559)
+# 0.658156028369 0.612765957447 0.516129032258
 
 # XTreatTivSitePca-clust1 (87, 397559)
 # 0.465321563682 0.474148802018 0.448275862069
@@ -1786,6 +1787,14 @@ pdf.savefig(); plt.close()
 pdf.close()
 
 """
+L/R Thalami
+L/R Caudates, Putamen, Insular cortex
+L/R Cingulate gyrus Anterior and posterior
+L/R precentral
+L/R Temporal pole
+"""
+
+"""
 cd /home/edouard/data/psy/canbind/models/clustering_v02
 convert XTreatTivSite-clust_centers.pdf toto.png
 
@@ -2031,6 +2040,7 @@ np.corrcoef(coef_cv.std(axis=0), coef_boot_img.std(axis=0))[0, 1])
 # 0.942233238632 0.797933102049 0.878795596685 0.721951036469
 # 0.942233238632 0.824568882048 0.896801442198 0.759808244301
 # 0.942233238632 0.872093385138 0.940329152839 0.78211136126
+# 0.942233238632 0.86648106966 0.939997706992 0.782311038707
 
 
 """
@@ -2055,20 +2065,32 @@ coef_boot_img_avg[np.abs(coef_boot_img_avg) < coef_boot_img_std] = 0
 coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg
 #coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg / coef_boot_img_std
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
-plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature mean boot where mean>sd')#, figure=fig, axes=ax)
+plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature avg boot where avg > sd')#, figure=fig, axes=ax)
 pdf.savefig(); plt.close()
 
 # Refit all
 coef_arr[mask_img.get_data() != 0] = coef_refit
-#coef_arr[np.abs(coef_arr)<=1e-9] = np.nan
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
-plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False)#, figure=fig, axes=ax)
-coef_img.to_filename(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_refit.nii.gz"))
-
-
+#coef_img.to_filename(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_refit.nii.gz"))
 fig = plt.figure()
 plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature refit')#, figure=fig, axes=ax)
 pdf.savefig(); plt.close()
+
+# CV
+coef = coef_cv.mean(axis=0)
+coef[np.abs(coef) < coef_cv.std(axis=0)] = 0
+
+coef_arr[mask_img.get_data() != 0] =  coef
+#coef_arr[np.abs(coef_arr)<=1e-9] = np.nan
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+fig = plt.figure()
+plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False, title='Signature avg 5CV, where avg > sd')#, figure=fig, axes=ax)
+#coef_img.to_filename(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5_c.nii.gz"))
+pdf.savefig(); plt.close()
+
+# Refit all slices
+coef_arr[mask_img.get_data() != 0] = coef_refit
+coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
