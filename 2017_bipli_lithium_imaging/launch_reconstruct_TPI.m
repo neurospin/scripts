@@ -2,7 +2,7 @@
    
     raw_subjdir=fullfile(projectdir,'Raw_Data',subjname,'twix7T');
     proc_subjdir=fullfile(projectdir,'Processed_Data',subjname);
-    reconstructfile=fullfile(codedir,'ReconstructionTPI','ProcessData.py');
+    reconstructfile=fullfile(codedir,'reconstructionTPI','ProcessData.py');
     
     if ~exist('subjectnumber','var')
         S = dir(raw_subjdir);
@@ -21,7 +21,7 @@
                 end
             end
         end
-    end               
+    end  
     
     fieldmap_file=fullfile(proc_subjdir,'Field_mapping','fieldmap_final.nii');
     if ~exist(fieldmap_file,'file')
@@ -48,7 +48,9 @@
             Reconstructpath=fullfile(char(ProcessedTPIpath),char(TPIresultname));
             codelaunch=strcat(pythonexe,{' '},reconstructfile,{' --i '},Tpifilepath,{' --fieldmap '}, fieldmap_file, {' --NSTPI --s --FISTA_CSV --o '},Reconstructpath);
             %system(codelaunch)
-            run_create_processfolders(fullfile(projectdir,'Processed_Data'),subjname)
-            run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
         end
     end
+    run_create_processfolders(fullfile(projectdir,'Processed_Data'),subjname)
+    run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
+    runBTK(proc_subjdir)
+    launch_calculate_all(proc_subjdir)    

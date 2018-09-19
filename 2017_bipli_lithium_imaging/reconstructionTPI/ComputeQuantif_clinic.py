@@ -37,6 +37,7 @@ if not args.i :
 if args.i :
     Img_path = args.i
     Img=nib.load(Img_path)
+    affine=Img.affine
     Img=Img.get_data()   
 if not args.deg: 
     print('Error    : Missing flip angle')
@@ -70,8 +71,8 @@ T1=3947000
 T2=63000
 T2star=12000
 #kvalSPGR=2.264665697646913e-06
-kvalSPGR=2.2113#e-06
-kvalSSFP=2.2621#e-06
+kvalSPGR=2.2113e-01#e-06
+kvalSSFP=2.2621e-01#e-06
 E2star=np.exp(-TE/T2star)
 E1=np.exp(-TR/T1)
 E2=np.exp(-TR/T2)
@@ -98,10 +99,10 @@ for i in range(Img.shape[0]):
 from nifty_funclib import SaveArrayAsNIfTI
 Hpath, Fname = os.path.split(str(outputnii))
 Fname = Fname.split('.')
-OutputPathrho_T1SPGR = os.path.join( Hpath + '\\' + Fname[0]+ "_rhoSPGR.nii")
-OutputPathrho_T1SSFP = os.path.join( Hpath + '\\' + Fname[0]+ "_rhoSSFP.nii")
+OutputPathrho_T1SPGR = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSPGR.nii")
+OutputPathrho_T1SSFP = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP.nii")
 
 if verbose:
     print((degval,T1,E1))
-SaveArrayAsNIfTI(rho_T1SSFP,res,res,res,OutputPathrho_T1SSFP) 
-SaveArrayAsNIfTI(rho_T1SPGR,res,res,res,OutputPathrho_T1SPGR) 
+SaveArrayAsNIfTI(rho_T1SSFP,affine,OutputPathrho_T1SSFP) 
+SaveArrayAsNIfTI(rho_T1SPGR,affine,OutputPathrho_T1SPGR) 

@@ -28,7 +28,7 @@ function run_create_processfolders(Processeddir,subject)
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'));
     end
     if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','06-MNIspace'),'dir')
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','02-Post-Quantif'));
+        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','02-PostQuantif'));
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','03-Filtered'));
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','04-7Tanatspace'));
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','05-3Tanatspace'));

@@ -9,7 +9,8 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,recons
     end
     
     projectdir='V:\projects\BIPLi7\ClinicalData';
-    raw_dir=fullfile(projectdir,'Raw_Data','2*');
+    projectdir='/neurospin/ciclops/projects/BIPLi7/ClinicalData';
+    raw_dir=fullfile(projectdir,'Raw_Data','2017_05_16*');
 %    reconstructfile=fullfile('/home/js247994/DocumentsN2/2017_bipli_lithium_imaging','ReconstructionTPI','ProcessData.py');
     listsubj=dir(raw_dir);
 
