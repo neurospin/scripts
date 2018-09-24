@@ -8,9 +8,9 @@ function transmat=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdi
         Anat7Tin3Tspm=Anat7Tspm;
         Anat7Tin3Tspm.mat=coregmat*Anat7Tspm.mat;
         [Anat7Tdir,Anat7Tfilename,ext]=fileparts(Anat7Tfile);
-        Anat7Tin3Tspm.fname=char(fullfile(Anat7Tdir,Anat7Tfilename+'_3Tspace'+ext));
+        Anat7Tin3Tspm.fname=char(fullfile(Anat7Tdir,string(Anat7Tfilename)+'_3Tspace'+ext));
         spm_write_vol(Anat7Tin3Tspm,spm_read_vols(Anat7Tspm));
-        deform_field=calculate_deform_field_03(Anat3Tfile,segmentfile,TPMfile,keepniifiles);   
+        deform_field=calculate_deform_field_03(string(Anat3Tfile),segmentfile,TPMfile,keepniifiles);   
         Currentfolder=pwd;
         if exist(fullfile(Currentfolder,'info_pipeline','normwritespm.mat'),'file')
             normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat'); %Later do a thing that finds it automatically;
@@ -21,6 +21,8 @@ function transmat=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdi
         for Lifile=Lifiles'
             Lispm=spm_vol(char(Lifile{1}));
             [~,filename,ext]=fileparts(Lifile{1});
+            filename=string(filename);
+            ext=string(ext);
             newLispm7T=Lispm;
             newLispm7T.mat=transmat;
             newLispm7T.fname=char(fullfile(Lioutputdir7T,filename+ext));

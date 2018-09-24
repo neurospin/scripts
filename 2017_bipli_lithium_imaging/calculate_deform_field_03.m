@@ -20,7 +20,7 @@ function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,ke
         matlabbatch(2).spm.util.imcalc.input=U.matlabbatch(2).spm.util.imcalc.input(1:3);
     elseif size(TPMfile,1)==1
         for i=1:6
-            matlabbatch{1,1}.spm.spatial.preproc.tissue(i).tpm={char(TPMfile+','+num2str(i))};
+            matlabbatch{1,1}.spm.spatial.preproc.tissue(i).tpm={char(string(TPMfile)+','+num2str(i))};
         end
     else
         error('Cannot read TPMfile')

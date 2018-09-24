@@ -22,7 +22,7 @@ function launch_calculate_all(subjectdir)
     %TPMfile='C:\Users\js247994\Documents\FidDependencies\spm12\tpm\TPM.nii'; 
     TPMfile=fullfile(splitfolder,'Masks','TPM.nii'); 
     if exist(fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'),'file')
-        segmentfile=fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'); %Later do a thing that finds it automatically;
+        segmentfile=fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'); %Later do a thing that writes the .mat files;
     elseif exist(fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.txt'),'file')
         movefile (fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.txt'),fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'))
         segmentfile=fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat');
