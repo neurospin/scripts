@@ -2160,5 +2160,20 @@ R:-0.0009
 L:-0.0009
 
 
-de Brouwer E.J.M., Kockelkoren R., Claus J.J., et al. "Hippocampal Calcifications: Risk Factors and Association with Cognitive Function.” Radiology, June 12, 2018. https://doi.org/10.1148/radiol.2018172588
+de Brouwer E.J.M., Kockelkoren R., Claus J.J., et al
+"Hippocampal Calcifications: Risk Factors and Association with Cognitive Function.”
+Radiology, June 12, 2018. https://doi.org/10.1148/radiol.2018172588
+
+convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[1] images/signature_glassview_refit.png
+convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[2] images/signature_glassview_agv5cv-thresh-sd.png
+convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[3] images/signature_axial_refit.png
+convert XTreatTivSite-clust1_enettv_0.1_0.1_0.8_5.pdf[4] images/signature_coronal_refit.png
+
+
+# General Neuroimaging biomarkers associated to response
+
+Fonseka TM, MacQueen GM and Kennedy SH (2017)
+Neuroimaging biomarkers as predictors of treatment outcome in major depressive disorder.
+Journal of Affective Disorders.
+
 """
