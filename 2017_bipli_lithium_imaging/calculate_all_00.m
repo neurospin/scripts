@@ -35,12 +35,17 @@ function transmat=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdi
         end
         for otherfile=other7Tfiles'
             otherfilespm=spm_vol(char(otherfile{1}));
-            [dir,filename,ext]=fileparts(otherfile{1});
-            newotherspm3T=otherfilespm;
-            newotherspm3T.mat=coregmat*otherfilespm.mat;
-            newotherspm3T.fname=char(fullfile(dir,filename+'_in3T'+ext));
-            spm_write_vol(newotherspm3T,spm_read_vols(otherfilespm));        
-            apply_deform_field_04(newotherspm3T.fname,dir,deform_field,normfile);
+            for i=1:size(otherfilespm,1)
+                [dir,filename,ext]=fileparts(otherfile{1});
+                if size(otherfilespm,1)>1
+                    ext="_"+int2str(i)+string(ext);
+                end
+                newotherspm3T=otherfilespm(i,1);
+                newotherspm3T.mat=coregmat*otherfilespm(i,1).mat;
+                newotherspm3T.fname=char(fullfile(dir,string(filename)+'_in3T'+string(ext)));
+                spm_write_vol(newotherspm3T,spm_read_vols(otherfilespm(i,1)));
+                apply_deform_field_04(newotherspm3T.fname,dir,deform_field,normfile)
+            end
         end
     else
         display('Empty subject folder, cannot launch process')

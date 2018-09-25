@@ -27,7 +27,8 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
         end
         if ~isempty(degloc)
             file1path=fullfile(filesdirin,file1.name);
-            deg1=file1.name(degloc-2:degloc-1);   
+            deg1=file1.name(degloc-2:degloc-1); 
+            deg1=int2str(90);
             if ~over   
                 for file2=filesnii'
                     VFA=~strcmp(file1.name,file2.name) && strcmp(file1.name(degloc:end),file2.name(degloc:end)); %If there is another file with the same name but a different degree value, it is treated as the second VFA file

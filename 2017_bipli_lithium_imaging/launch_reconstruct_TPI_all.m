@@ -1,17 +1,19 @@
-function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,reconstructfile,Pythonexe )
+function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedir,Pythonexe )
 
     %launch_reconstruct_TPI('C:\Users\js247994\Documents\Bipli2\Test8\Raw','C:\Users\js247994\Documents\Bipli2\Test8\Processed','C:\Users\js247994\Documents\Bipli2\BipliPipeline\scripts\2017_bipli_lithium_imaging\ReconstructionTPI','C:\Python27\python.exe')
-    if ~exist('Pythonexe','var')
+    if ~exist('pythonexe','var')
         pythonexe='python';
-        if ~exist('Codedir','var')
+        if ~exist('codedir','var')
             codedir=fullfile(char(pwd));
         end
     end
     
-    projectdir='V:\projects\BIPLi7\ClinicalData';
-    projectdir='/neurospin/ciclops/projects/BIPLi7/ClinicalData';
-    raw_dir=fullfile(projectdir,'Raw_Data','2017_05_16*');
-%    reconstructfile=fullfile('/home/js247994/DocumentsN2/2017_bipli_lithium_imaging','ReconstructionTPI','ProcessData.py');
+    %projectdir='V:\projects\BIPLi7\ClinicalData';
+    %projectdir='/neurospin/ciclops/projects/BIPLi7/Clinicaldata';
+    projectdir='/neurospin/ciclops/projects/SIMBA/Clinicaldata';
+    %projectdir="/neurospin/ciclops/projects/BIPLi7/Tests/TestsLi";
+    raw_dir=fullfile(projectdir,'Raw_Data','2*');
+%   reconstructfile=fullfile('/home/js247994/DocumentsN2/2017_bipli_lithium_imaging','ReconstructionTPI','ProcessData.py');
     listsubj=dir(raw_dir);
 
     excelT1s=fullfile(pwd,'info_pipeline','T1vals.xlsx');
@@ -48,7 +50,9 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,recons
         %maybe one day will be changed to actually include the value from
         %the file?
         T1val=3.947000;
-        launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber)
+        if i==2
+            launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber)
+        end
         %Check if the subject number of the patient is available, if not try to
         %count the order of patients to get the right number
 

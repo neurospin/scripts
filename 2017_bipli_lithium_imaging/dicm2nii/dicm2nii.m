@@ -1,4 +1,4 @@
-function varargout = dicm2nii(src, niiFolder, fmt)
+function varargout = dicm2nii(src, niiFolder, fmt, newname)
 % Convert dicom and more into nii or img/hdr files. 
 % 
 % DICM2NII(dcmSource, niiFolder, outFormat)
@@ -883,7 +883,9 @@ for i = 1:nRun
     
     nii = nii_tool('init', img); % create nii struct based on img
     fname = [niiFolder fnames{i}]; % name without ext
-
+    if exist('newname','var')
+        fname = [niiFolder newname '_' int2str(i)];
+    end
     % Compute bval & bvec in image reference for DTI series
     if s.isDTI, [h{i}, nii] = get_dti_para(h{i}, nii); end
     
@@ -923,7 +925,11 @@ for i = 1:nRun
 end
 
 h = cell2struct(h, fnames, 2); % convert into struct
-fname = [niiFolder 'dcmHeaders.mat'];
+if exist('newname','var')
+    fname = [niiFolder newname '_dcmHeaders.mat'];
+else
+    fname = [niiFolder 'dcmHeaders.mat'];
+end
 if exist(fname, 'file') % if file exists, we update fields only
     S = load(fname);
     for i = 1:numel(fnames), S.h.(fnames{i}) = h.(fnames{i}); end

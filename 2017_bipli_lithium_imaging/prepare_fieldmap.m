@@ -15,7 +15,9 @@ function prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im)
     fieldmap_folder= string(fullfile(proc_subjdir,'Field_mapping'));
     fieldmap_magdirproc=fullfile(proc_subjdir,'Field_mapping','Field_mapping_mag');
     fieldmap_phasedirproc=fullfile(proc_subjdir,'Field_mapping','Field_mapping_phase');
-    if ~exist(fullfile(proc_subjdir,'Field_mapping'),'dir')
+    magnit_file=fullfile(fieldmap_magdirproc,'field_mapping.nii');
+    phase_file=fullfile(fieldmap_phasedirproc,'field_mapping_phase.nii');
+    if ~exist(magnit_file,'file')
 
         mkdir(fieldmap_folder)
         mkdir(fieldmap_magdirproc)
@@ -25,8 +27,7 @@ function prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im)
         fieldmap_phasedirraw=fullfile(raw_subjdir,'DICOM7T','FIELD_MAPPING_2');
         dicm2nii(fieldmap_phasedirraw,fieldmap_phasedirproc,'.nii');
     end
-    magnit_file=fullfile(fieldmap_magdirproc,'field_mapping.nii');
-    phase_file=fullfile(fieldmap_phasedirproc,'field_mapping_phase.nii');
+
         
     bet_command= fullfile( fsladress, '/bin/fsl5.0-bet');
     fsl_prepare_command = fullfile( fsladress, '/bin/fsl5.0-fsl_prepare_fieldmap');

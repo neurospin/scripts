@@ -1,8 +1,10 @@
 function run_create_processfolders(Processeddir,subject)
 
+    Processeddir=string(Processeddir);
+    subject=string(subject);
     if ~exist(Processeddir,'dir')
-        mkdir(char(Processeddir))
-        mkdir(fullfile(char(Processeddir,subject)))
+        mkdir(string(Processeddir))
+        mkdir(fullfile(Processeddir,subject))
     else
         if ~exist(fullfile(char(Processeddir),char(subject)),'dir')
             mkdir(fullfile(char(Processeddir),char(subject)));
@@ -24,7 +26,7 @@ function run_create_processfolders(Processeddir,subject)
     if ~exist(fullfile(Subjectdirp,'Anatomy3T'),'dir')
         mkdir(fullfile(Subjectdirp,'Anatomy3T'));
     end
-    if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'),'dir');
+    if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'),'dir')
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'));
     end
     if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','06-MNIspace'),'dir')
@@ -33,8 +35,5 @@ function run_create_processfolders(Processeddir,subject)
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','04-7Tanatspace'));
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','05-3Tanatspace'));
         mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','06-MNIspace'));
-    end
-    if ~exist(fullfile(Subjectdirp,'Trufi'),'dir')
-        mkdir(char(fullfile(Subjectdirp,'Trufi')));
     end
 end

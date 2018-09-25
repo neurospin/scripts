@@ -19,6 +19,7 @@ function launch_calculate_all(subjectdir)
         splitfolder=strsplit(subjectdir,'\');
         splitfolder=strjoin(splitfolder(1:end-3),'\');
     end
+    subjectdir=string(subjectdir);
     %TPMfile='C:\Users\js247994\Documents\FidDependencies\spm12\tpm\TPM.nii'; 
     TPMfile=fullfile(splitfolder,'Masks','TPM.nii'); 
     if exist(fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'),'file')
@@ -34,7 +35,7 @@ function launch_calculate_all(subjectdir)
     Anat3Tfile=fullfile(subjectdir,'Anatomy3T','t1_weighted_sagittal_1_0iso.nii');
     Anat7Tfile=fullfile(subjectdir,'Anatomy7T','t1_mpr_tra_iso1_0mm.nii');
     LifilesS=dir(fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered','*nii'));
-    otherfilesS=dir(fullfile(subjectdir,'Trufi','*nii'));
+    TrufifilesS=dir(fullfile(subjectdir,'Trufi','*nii'));
     i=1;
     Lifiles=cell(size(LifilesS,1),1);
     for Lifile=LifilesS'
@@ -43,9 +44,23 @@ function launch_calculate_all(subjectdir)
     end
     i=1;
     otherfiles=[];
-    for otherfile=otherfilesS'
+    for otherfile=TrufifilesS'
         if ~contains(otherfile.name,'3T')
-            otherfiles{i}=fullfile(subjectdir,'Trufi',otherfile.name);
+            otherfiles{i,1}=fullfile(subjectdir,'Trufi',otherfile.name);
+            i=i+1;
+        end
+    end
+    if exist(fullfile(subjectdir,'Field_mapping'),'dir')
+        if exist(fullfile(subjectdir,'Field_mapping','field_mapping_rad.nii'),'file')
+            otherfiles{i,1}=fullfile(subjectdir,'Field_mapping','field_mapping_rad.nii');
+            i=i+1;
+        end
+        if exist(fullfile(subjectdir,'Field_mapping','Field_mapping_mag','field_mapping.nii'),'file')
+            otherfiles{i,1}=fullfile(subjectdir,'Field_mapping','Field_mapping_mag','field_mapping.nii');
+            i=i+1;
+        end
+        if exist(fullfile(subjectdir,'Field_mapping','Field_mapping_phase','field_mapping_phase.nii'),'file')
+            otherfiles{i,1}=fullfile(subjectdir,'Field_mapping','Field_mapping_phase','field_mapping_phase.nii');
             i=i+1;
         end
     end
