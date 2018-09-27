@@ -631,7 +631,7 @@ NOTHING
 """
 ###############################################################################
 # No Clustering / classifiy ImEnettv
-NFOLDS = 10 # ICI TEST
+NFOLDS = 5 # ICI TEST
 
 import nibabel
 import parsimony.algorithms as algorithms
@@ -730,7 +730,7 @@ import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
-NFOLDS = 10
+NFOLDS = 5
 # Data
 Xim = np.load(os.path.join(WD, IMADATASET + ".npy"))
 yorig = np.load(os.path.join(WD, "y.npy"))
@@ -970,7 +970,14 @@ auc_test_img_microavg = metrics.roc_auc_score(y, y_test_prob_pred_img)
 acc_test_img_microavg = metrics.accuracy_score(y, y_test_pred_img)
 
 print("#", auc_test_img_microavg, bacc_test_img_microavg, acc_test_img_microavg)
+print("#", auc_test_img)
+print("#", recalls_test_img)
+print("#", acc_test_img)
 # 0.697872340426 0.678014184397 0.58064516129
+# [0.56666666666666665, 0.80000000000000004, 0.55555555555555558, 0.92592592592592593, 0.62962962962962965]
+# [array([ 0.66666667,  0.6       ]), array([ 1. ,  0.5]), array([ 0.66666667,  0.44444444]), array([ 1.        ,  0.44444444]), array([ 1.        ,  0.44444444])]
+# [0.61538461538461542, 0.61538461538461542, 0.5, 0.58333333333333337, 0.58333333333333337]
+
 
 # Micro Avg Clin
 recall_test_clin_microavg = metrics.recall_score(y, y_test_pred_clin, average=None)
@@ -2041,6 +2048,7 @@ np.corrcoef(coef_cv.std(axis=0), coef_boot_img.std(axis=0))[0, 1])
 # 0.942233238632 0.824568882048 0.896801442198 0.759808244301
 # 0.942233238632 0.872093385138 0.940329152839 0.78211136126
 # 0.942233238632 0.86648106966 0.939997706992 0.782311038707
+#0.942233238632 0.867677242763 0.945523048513 0.797198890482
 
 
 """

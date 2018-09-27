@@ -43,10 +43,11 @@ WD = '/neurospin/psy/canbind'
 
 # Voxel size
 # vs = "1mm"
-vs = "1.5mm-s8mm"
-#vs = "1.5mm"
+#vs = "1.5mm-s8mm"
+vs = "1.5mm"
 
-OUTPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
+# OUTPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
+OUTPUT = os.path.join(WD, "models", "vbm-%s" % vs)
 
 
 #############################################################################
@@ -77,7 +78,7 @@ pop["respond_wk16_num"] = pop["respond_wk16"].map({"NonResponder":0, "Responder"
 
 #
 #pop_ = pd.read_csv(os.path.join(OUTPUT, "population.csv"))
-pop_orig = pd.read_csv(os.path.join(OUTPUT, "population.csv.bak"))
+#pop_orig = pd.read_csv(os.path.join(OUTPUT, "population.csv.bak"))
 #pop_.participant_id == pop.participant_id
 
 
@@ -186,22 +187,44 @@ XTotTivSitePca = XTotTivSiteCtr - np.dot(PC, pca.components_)
 
 #############################################################################
 # Keep only Resp/NoResp
-keep = pop.respond_wk16.notnull() & (pop.session == "ses-01")
-keep.sum()
-pop[keep].respond_wk16.describe()
+treat_ses01_mask = pop.respond_wk16.notnull() & (pop.session == "ses-01")
+treat_ses01_mask.sum()
+pop[treat_ses01_mask].respond_wk16.describe()
 # count           124
 # unique            2
 # top       Responder
 #freq             92
-pop = pop[keep]
-pop = pop.reset_index(drop=True)
-# Make sure that participants keepts the same order
+
+
+
+np.savez_compressed(os.path.join(OUTPUT, "XTotTivSiteCtr.npz"),
+                    participant_id = pop["participant_id"],
+                    site = pop["site"],
+                    session = pop["session"],
+                    age = pop["age"],
+                    treatment = pop["treatment"],
+                    treat_ses01_mask = treat_ses01_mask,
+                    XTotTivSiteCtr = XTotTivSiteCtr)
+
+pop.to_csv(os.path.join(OUTPUT, "population.csv"), index=False)
+
+# QC
+pop_= pd.read_csv(os.path.join(OUTPUT, "population.csv"))
+img = np.load(os.path.join(OUTPUT, "XTotTivSiteCtr.npz"))
+b_ = img['XTotTivSiteCtr'][img['treat_ses01_mask']]
+np.all(a_['participant_id'] ==pop_['participant_id'])
+b_.shape == (124, 397559)
+
+"""
+pop_treat_ses01 = pop[treat_ses01_mask]
+pop_treat_ses01 = pop_treat_ses01.reset_index(drop=True)
+# Make sure that participants treat_ses01_maskts the same order
 pop_orig = pd.read_csv(os.path.join(OUTPUT, "population.csv.bak"))
 assert np.all(pop_orig.participant_id == pop.participant_id)
 
-XTreatTivSite = XTotTivSite[keep, :]
-XTreatTivSitePca = XTotTivSitePca[keep, :]
-XTreat = XTot[keep, :]
+XTreatTivSite = XTotTivSite[treat_ses01_mask, :]
+XTreatTivSitePca = XTotTivSitePca[treat_ses01_mask, :]
+XTreat = XTot[treat_ses01_mask, :]
 
 np.save(os.path.join(OUTPUT, "XTreatTivSitePca.npy"), XTreatTivSitePca)
 np.save(os.path.join(OUTPUT, "XTreatTivSite.npy"), XTreatTivSite)
@@ -212,12 +235,18 @@ pop.to_csv(os.path.join(OUTPUT, "population.csv"), index=False)
 
 assert np.sum(pop['respond_wk16_num'] == 0) == 32
 assert np.sum(pop['respond_wk16_num'] == 1) == 92
+"""
+
+XTreatTivSite = XTotTivSite[treat_ses01_mask, :]
+XTreatTivSitePca = XTotTivSitePca[treat_ses01_mask, :]
+XTreat = XTot[treat_ses01_mask, :]
+pop_treat_ses01 = pop[treat_ses01_mask]
 
 #############################################################################
 # Univar stat Full model
 Zdf = pd.concat([
-        pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num', 'TIV_l']],
-        pd.get_dummies(pop[['site']])], axis=1)
+        pop_treat_ses01[['respond_wk16_num', 'age_onset', 'age', 'sex_num', 'TIV_l']],
+        pd.get_dummies(pop_treat_ses01[['site']])], axis=1)
 
 print(Zdf.isnull().sum())
 
@@ -242,10 +271,10 @@ pvals_arr[mask_arr] = -np.log10(pvals[0])
 tstat_arr[mask_arr] = tvals[0]
 
 pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
-pvals_img.to_filename(os.path.join(OUTPUT, "XTreat_fulllm_log10pvals.nii.gz"))
+pvals_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTreat_respNoResp_fulllm_log10pvals.nii.gz"))
 
 tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
-tstat_img.to_filename(os.path.join(OUTPUT, "XTreat_fulllm_tstat.nii.gz"))
+tstat_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTrea_respNoResp_fulllm_tstat.nii.gz"))
 
 threshold = 3
 fig = plt.figure(figsize=(13.33,  7.5 * 4))
@@ -264,12 +293,12 @@ plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=thr
 ax = fig.add_subplot(414)
 ax.set_title("T-stats T>%.2f" % threshold)
 plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
-plt.savefig(os.path.join(OUTPUT, "XTreat_fulllm_tstat.png"))
+plt.savefig(os.path.join(OUTPUT, "univ-stat", "XTreat_respNoResp_fulllm_tstat.png"))
 
 
 #############################################################################
 # Univar stat on data with site effect and TIV removed: use XTreatTivSite
-Zdf = pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
+Zdf = pop_treat_ses01[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
 
 print(Zdf.isnull().sum())
 
@@ -296,10 +325,10 @@ pvals_arr[mask_arr] = -np.log10(pvals[0])
 tstat_arr[mask_arr] = tvals[0]
 
 pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
-pvals_img.to_filename(os.path.join(OUTPUT, "XTreatTivSite_lm_log10pvals.nii.gz"))
+pvals_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTreatTivSite_lm_log10pvals.nii.gz"))
 
 tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
-tstat_img.to_filename(os.path.join(OUTPUT, "XTreatTivSite_lm_tstat.nii.gz"))
+tstat_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTreatTivSite_lm_tstat.nii.gz"))
 
 threshold = 3
 fig = plt.figure(figsize=(13.33,  7.5 * 4))
@@ -318,14 +347,14 @@ plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=thr
 ax = fig.add_subplot(414)
 ax.set_title("T-stats T>%.2f" % threshold)
 plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
-plt.savefig(os.path.join(OUTPUT, "XTreatTivSite_lm_tstat.png"))
+plt.savefig(os.path.join(OUTPUT, "univ-stat", "XTreatTivSite_lm_tstat.png"))
 
 # yeah !!!
 
 
 #############################################################################
 # Univar stat on data with site effect, TIV and Pca removed: use XTreatTivSitePca
-Zdf = pop[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
+Zdf = pop_treat_ses01[['respond_wk16_num', 'age_onset', 'age', 'sex_num']]
 
 print(Zdf.isnull().sum())
 
@@ -350,10 +379,10 @@ pvals_arr[mask_arr] = -np.log10(pvals[0])
 tstat_arr[mask_arr] = tvals[0]
 
 pvals_img = nibabel.Nifti1Image(pvals_arr, affine=mask_img.affine)
-pvals_img.to_filename(os.path.join(OUTPUT, "XTreatTivSitePca_lm_log10pvals.nii.gz"))
+pvals_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTreatTivSitePca_lm_log10pvals.nii.gz"))
 
 tstat_img = nibabel.Nifti1Image(tstat_arr, affine=mask_img.affine)
-tstat_img.to_filename(os.path.join(OUTPUT, "XTreatTivSitePca_lm_tstat.nii.gz"))
+tstat_img.to_filename(os.path.join(OUTPUT, "univ-stat", "XTreatTivSitePca_lm_tstat.nii.gz"))
 
 threshold = 3
 fig = plt.figure(figsize=(13.33,  7.5 * 4))
@@ -372,4 +401,6 @@ plotting.plot_stat_map(pvals_img, colorbar=True, draw_cross=False, threshold=thr
 ax = fig.add_subplot(414)
 ax.set_title("T-stats T>%.2f" % threshold)
 plotting.plot_stat_map(tstat_img, colorbar=True, draw_cross=False, threshold=threshold, figure=fig, axes=ax)
-plt.savefig(os.path.join(OUTPUT, "XTreatTivSitePca_lm_tstat.png"))
+plt.savefig(os.path.join(OUTPUT, "univ-stat", "XTreatTivSitePca_lm_tstat.png"))
+
+
