@@ -56,7 +56,7 @@
             spm_alignmentfile=fullfile(codedir,"info_pipeline","fieldmapwritespm.mat");
             %ref_im=dir(fullfile(projectdir,'*.nii'));
             %ref_im=fullfile(projectdir,string(ref_im.name));
-            ref_dir=(fullfile(processedTPIpath,TPIresultname+"*"));
+            ref_dir=(fullfile(processedTPIpath,TPIresultname+"*.nii"));
             ref_im=dir(ref_dir);
             if ~isempty(ref_im)
                 ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
@@ -73,10 +73,10 @@
          
         end
     end
-    %run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
-    %runBTK(proc_subjdir);
-    %raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');
-    %trufitoprocess(raw_dic,proc_subjdir);
-    %launch_calculate_all(proc_subjdir)
+    run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
+    runBTK(proc_subjdir);
+    raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');
+    trufitoprocess(raw_dic,proc_subjdir);
+    launch_calculate_all(proc_subjdir)
     
 

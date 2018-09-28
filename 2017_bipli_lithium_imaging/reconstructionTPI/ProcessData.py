@@ -228,62 +228,6 @@ if TPI :
 	print(KX.shape)
 	print(CPLX.shape)
 	print("----------------------------------")
-	# if str(parameters[7]) == '23Na': CPLX = CPLX[1:,:,:]
-	# if not os.path.isfile("TPI_Kspace_positions_values_31P_bouleFawziTubes_p075_40960proj_FA15_TE4_5.csv") :
-	if FISTA_CSV:
-		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 15)
-		print('INFO    : Writing CSV Files for FISTA')
-		print(CPLX.shape)
-		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
-		for echo in range(parameters[24]):
-			FISTApath = os.path.dirname(OutputPath)
-			OutputName= os.path.basename(OutputPath)
-			OutputName = os.path.splitext(OutputName)            
-			OutputName = OutputName[0]
-			#OutputPath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
-			#FISTApath = os.path.dirname(OutputPath)
-			#FISTApath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
-			FISTAPath = os.path.join( FISTApath, OutputName+'_KspaceVals_Echo{0}_TE_{1}.csv'.format(echo,parameters[25][echo]) )
-			#print 'Hello, this is FISTApath,',FISTApath[0]
-			if not os.path.isfile(FISTAPath) :
-				# f=open("TPI_Kspace_positions_values_31P_bouleFawziTubes_p075_40960proj_FA10_TE4_5.csv","w")
-				print('INFO    : Writing CSV file for echo ', echo+1)
-				f=open(FISTAPath,"w")
-				#####f.write(float(KX))
-				### en changeant l'incrément de la boucle on retourne plus ou moins de points de la trajectoire ! faire attention !!
-				# for i in range(0,KX.shape[0],100):
-				# echo = 0;
-				#print 'Hello, this is CPLX shape ,',CPLX.shape[0]  
-				#print 'Hello, this is KX shape 1,',KX.shape[0]  
-				#print 'Hello, this is KX shape 2,',KX.shape[1]  
-				#print 'Hello, this is an example of KX[0,0]',KX[0,0]  
-				#print 'Hello, this is an example of KY[0,0]',KY[0,0]
-				#print 'Hello, this is an example of KZ[0,0]',KZ[0,0]    
-				#print 'Hello, this is an example of np CPLX',CPLX[0,0,0,0]
-				print(KX.shape)
-				print(CPLX.shape)				
-				for coil in range(CPLX.shape[0]):
-				# for coil in range(1):
-					for i in range(0,KX.shape[0]):
-						# for j in range(0,KX.shape[1],10):
-						for j in range(0,KX.shape[1]):
-							f.write(str(coil))
-							f.write(',')
-							f.write(str(i))
-							f.write(',')
-							f.write(str(j))
-							f.write(',')
-							f.write(str(float(KX[i,j])))
-							f.write(',')
-							f.write(str(float(KY[i,j])))
-							f.write(',')
-							f.write(str(float(KZ[i,j])))
-							f.write(',')
-							f.write(str(np.real(CPLX[coil,i,echo,j])))
-							f.write(',')
-							f.write(str(np.imag(CPLX[coil,i,echo,j])))
-							f.write("\n")
-				f.close()
 		
 	# from scipy.spatial import Voronoi
 	# from scipy.spatial import Delaunay
@@ -406,63 +350,10 @@ if B0correct:
 #
     
     
-if TPI:
+if TPI:     
+        
 	if FISTA_CSV:
-		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 15)
-		print('INFO    : Writing CSV Files for FISTA')
-		print(CPLX.shape)
-		#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
-		for echo in range(parameters[24]):
-			FISTApath = os.path.dirname(OutputPath)
-			OutputName= os.path.basename(OutputPath)
-			OutputName = os.path.splitext(OutputName)            
-			OutputName = OutputName[0]
-			#OutputPath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
-			#FISTApath = os.path.dirname(OutputPath)
-			#FISTApath = os.path.join( FISTApath, 'FISTA_KspaceValues_Echo%s.csv' %echo )
-			FISTAPath = os.path.join( FISTApath, OutputName+'_KspaceVals_centerfreq_Echo{0}_TE_{1}.csv'.format(echo,parameters[25][echo]) )
-			#print 'Hello, this is FISTApath,',FISTApath[0]
-			if not os.path.isfile(FISTAPath) :
-				# f=open("TPI_Kspace_positions_values_31P_bouleFawziTubes_p075_40960proj_FA10_TE4_5.csv","w")
-				print('INFO    : Writing CSV file for echo ', echo+1)
-				f=open(FISTAPath,"w")
-				#####f.write(float(KX))
-				### en changeant l'incrément de la boucle on retourne plus ou moins de points de la trajectoire ! faire attention !!
-				# for i in range(0,KX.shape[0],100):
-				# echo = 0;
-				#print 'Hello, this is CPLX shape ,',CPLX.shape[0]  
-				#print 'Hello, this is KX shape 1,',KX.shape[0]  
-				#print 'Hello, this is KX shape 2,',KX.shape[1]  
-				#print 'Hello, this is an example of KX[0,0]',KX[0,0]  
-				#print 'Hello, this is an example of KY[0,0]',KY[0,0]
-				#print 'Hello, this is an example of KZ[0,0]',KZ[0,0]    
-				#print 'Hello, this is an example of np CPLX',CPLX[0,0,0,0]
-				print(KX.shape)
-				print(CPLX.shape)				
-				for coil in range(CPLX.shape[0]):
-				# for coil in range(1):
-					for i in range(0,KX.shape[0]):
-						# for j in range(0,KX.shape[1],10):
-						for j in range(0,KX.shape[1]):
-							f.write(str(coil))
-							f.write(',')
-							f.write(str(i))
-							f.write(',')
-							f.write(str(j))
-							f.write(',')
-							f.write(str(float(KX[i,j])))
-							f.write(',')
-							f.write(str(float(KY[i,j])))
-							f.write(',')
-							f.write(str(float(KZ[i,j])))
-							f.write(',')
-							f.write(str(np.real(CPLX[coil,i,echo,j])))
-							f.write(',')
-							f.write(str(np.imag(CPLX[coil,i,echo,j])))
-							f.write("\n")
-				f.close()        
-        
-        
+         
 		if B0correct:
 			deltaw = np.linspace(np.max(fieldmap_data), np.min(fieldmap_data), L)*2*np.pi
 			for freq in range(L): #for freq in range(L):
@@ -470,13 +361,15 @@ if TPI:
 				if (B1sensitivity): 
 				    sousech=0.95
 				else : sousech=0.0
-				if parameters[6] != "1H":
-				    coilstart=1
-				else :
+				if parameters[3]:
+					if parameters[6] != "1H":
+					    coilstart=1
+					else :
+					    coilstart=0
+				else:
 				    coilstart=0
-				DemoddedData=DemodData(CPLX,deltaw[L],Timesampling,coilstart,parameters[3],int(parameters[24]),parameters[18],parameters[1],parameters[5],sousech)
+				DemoddedData=DemodData(CPLX,deltaw[freq],Timesampling,coilstart,parameters[3],int(parameters[24]),parameters[18],parameters[1],parameters[25],parameters[5],sousech)
                 #(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFactor,Nucleus,MagneticField,SubSampling,Data,KX,KY,KZ,pval,resolution,FOV,verbose,PSF_ND,PSF_D,B1sensitivity,echoes,SaveKspace,field_map,Timesampling,L,recon_method,ba_gridding)
-                #KaiserBesselTPI_ME_B0(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace,fieldmap_data,Timesampling,L,recon_method,ba)
 				for echo in range(parameters[24]):
 				    FISTApath = os.path.dirname(OutputPath)
 				    OutputName= os.path.basename(OutputPath)

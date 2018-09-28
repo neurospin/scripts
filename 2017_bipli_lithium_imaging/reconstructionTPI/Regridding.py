@@ -1362,9 +1362,10 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
 	else : return final_image, Coil_Combined_Kspace_Phase, Abs_Sum_of_Regridded_kspace
     
     
-def DemodData(Data,deltaw,Timesampling,coilstart,NbCoils,echoes,NbProjections,NbPoints,OverSamplingFactor,sousech):
+def DemodData(Data,deltaw,Timesampling,coilstart,NbCoils,echoes,NbProjections,NbPoints,TEs,OverSamplingFactor,sousech):
     
     Demodded_Data = np.zeros(shape=np.shape(Data), dtype=np.complex64)
+    NbCoils=int(NbCoils+1)
     #deltaw = np.linspace(np.max(field_map), np.min(field_map), L)*2*np.pi
     time= np.linspace(0,Timesampling,NbPoints) 
     #dw_o_freq = deltaw[np.int(L/2)]    
@@ -1376,9 +1377,9 @@ def DemodData(Data,deltaw,Timesampling,coilstart,NbCoils,echoes,NbProjections,Nb
     #y= np.exp(1j* timesamples.getH() * interpolation_omegas) 
     for echo in range (echoes):
     		
-        print ('>> Griding echo ',echo)
+        print ('>> Demodulating echo ',echo)
         for i in range(coilstart,int(NbCoils)):
-            print ('   >> regridding coil', i+1)
+            print ('   >> demodulating coil', i+1)
             usedline=0
             for l in range(NbProjections):
                 # We generate a random value (Uniform Distribution (Gaussian ?)) and compare it with some threshold to remove the line
@@ -1392,6 +1393,6 @@ def DemodData(Data,deltaw,Timesampling,coilstart,NbCoils,echoes,NbProjections,Nb
                     else :
                         nbofpoints=NbPoints
                     for m in range(nbofpoints):
-                        Demodded_Data[i][l][echo][m]= Data[i][l][echo][m]* np.exp(-1j * deltaw * time[m])
+                        Demodded_Data[i][l][echo][m]= Data[i][l][echo][m]* np.exp(-1j * deltaw * (float(TEs[echo])/10**6+time[m]))
                         
     return(Demodded_Data)
