@@ -73,10 +73,10 @@
          
         end
     end
-    run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
-    runBTK(proc_subjdir);
-    raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');
-    trufitoprocess(raw_dic,proc_subjdir);
-    launch_calculate_all(proc_subjdir)
+    %run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
+    %runBTK(proc_subjdir);
+    %raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');
+    %trufitoprocess(raw_dic,proc_subjdir);
+    %launch_calculate_all(proc_subjdir)
     
 

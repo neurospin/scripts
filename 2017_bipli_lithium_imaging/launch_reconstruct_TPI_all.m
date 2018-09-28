@@ -50,9 +50,7 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedi
         %maybe one day will be changed to actually include the value from
         %the file?
         T1val=3.947000;
-        if i==2
-            launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber)
-        end
+        launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber)
         %Check if the subject number of the patient is available, if not try to
         %count the order of patients to get the right number
 

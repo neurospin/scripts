@@ -1087,6 +1087,9 @@ def ParseHeader(source_file):
 			
 			pattern30= 'sWiPMemBlock.alFree\[3\]                   = '
 			rx30 = re.compile(pattern30,re.IGNORECASE|re.MULTILINE|re.DOTALL)
+            
+			pattern31= 'sWiPMemBlock.alFree\[5\]                   = *'
+			rx31 = re.compile(pattern31,re.IGNORECASE|re.MULTILINE|re.DOTALL)            
 
 						
 			for a in rx1.findall(str(line)):
@@ -1201,7 +1204,12 @@ def ParseHeader(source_file):
 			for a in rx30.findall(str(line)):
 				line2=line.decode("utf-8")      
 				SpectralPulseDuration=line2.split('=') 
-				SpectralPulseDuration = float(SpectralPulseDuration[1])		
+				SpectralPulseDuration = float(SpectralPulseDuration[1])	
+                
+			for a in rx31.findall(str(line)):
+				line2=line.decode("utf-8")
+				DwellTime=([str(s) for s in line2.split()])
+				DwellTime=float(DwellTime[2])			                
 				
 			if not nbLines:
 				nbLines=nbLines_ICEOFF
@@ -1246,6 +1254,9 @@ def ParseHeader(source_file):
 		if LarmorHz :					print('INFO    : Larmor frequency = ', int(LarmorHz), 'Hz')
 		if OffsetPPM :					print('INFO    : Excitation frequency offset = ', int(OffsetPPM), 'ppm')
 		if SpectralPulseDuration :		print('INFO    : Spectral Pulse Duration = ', int(SpectralPulseDuration), 'ms')
+		if DwellTime :		          print('INFO    : Dwell Time = ', int(SpectralPulseDuration), 'us')  
+		if DwellTime and nbPoints :		print('INFO    : Sampling Time = ', int(DwellTime*nbPoints[0]/1000), 'ms')        
+        
 		
 		if (str(Orientation) == str('dTra')):
 			Orientation=str('Transverse')
@@ -1291,6 +1302,8 @@ def ParseHeader(source_file):
 		# ACQParams.append(3)
 		if Multiple_Echoes : ACQParams.append(Multiple_Echoes)
 		else  : ACQParams.append(None)
+		if DwellTime : ACQParams.append(float(DwellTime))
+		else : ACQParams.append(None)
 		
 	return ACQParams
 

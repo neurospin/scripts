@@ -1097,7 +1097,7 @@ def KaiserBesselTPI_ME(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFac
 	else : return Coil_Combined_Kspace_Module, Coil_Combined_Kspace_Phase, Abs_Sum_of_Regridded_kspace
 
 
-def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFactor,Nucleus,MagneticField,SubSampling,Data,KX,KY,KZ,pval,resolution,FOV,verbose,PSF_ND,PSF_D,B1sensitivity,echoes,SaveKspace,field_map,Timesampling,L,recon_method,ba_gridding):
+def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFactor,Nucleus,MagneticField,SubSampling,Data,KX,KY,KZ,pval,resolution,FOV,verbose,PSF_ND,PSF_D,B1sensitivity,echoes,TEs,SaveKspace,field_map,Timesampling,L,recon_method,ba_gridding):
 	NormalizedKernel, u, beta = CalculateKaiserBesselKernel(3,2,4)
 	NormalizedKernelflip=np.flipud(NormalizedKernel)
 	# print((NormalizedKernelflip))
@@ -1283,7 +1283,7 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
         						# y_current=np.round(KY[l][m]/np.amax(KY)*size/2)-size/2-1
         						# z_current=np.round(KZ[l][m]/np.amax(KZ)*size/2)-size/2-1
         						# Val=DataAvg[i][l][m]
-        						Demod_Data[i][l][echo][m][freq]= Data[i][l][echo][m]* np.exp(-1j * deltaw[freq] * time[m])
+        						Demod_Data[i][l][echo][m][freq]= Data[i][l][echo][m]* np.exp(-1j * deltaw[freq] * (float(TEs[echo])/10**6+time[m]) )
         						if (PSF_ND and not PSF_D) : Val=1
         						if (PSF_D and not PSF_ND)  : Val=decroissance[m]
         						elif (not PSF_ND and not PSF_D) : Val=Demod_Data[i][l][echo][m][freq]*DensityCompensationCoefficients[m]
@@ -1362,52 +1362,36 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
 	else : return final_image, Coil_Combined_Kspace_Phase, Abs_Sum_of_Regridded_kspace
     
     
-def KaiserBesselTPI_BO_testsaftergridding():
-	
-    #not to be taken into account for now
+def DemodData(Data,deltaw,Timesampling,coilstart,NbCoils,echoes,NbProjections,NbPoints,OverSamplingFactor,sousech):
     
-    print('hi')
-    #[h,w,l]= size(Regridded_kspace)
-	#phase_mask = np.zeros(h,w,l)
-	#for x in range (h):
-	#	for y in range(w):
-#			for z in range(l):
-#				tot_t=Timesampling
-#				max_d= w/2
-#				p = [x-max_d,y-max_d,z-max_d]
-#				d= np.sqrt( p[1]**2 + p[2]**2 + p[3]**2 )
-#				t = tot_t * (d/max_d)
-#				phase_mask[x,y,z] = np.exp( 1j * delta *t )
-    
-#	images = np.zeros(w)
-#	transf = gridded_data
-#	images[:,:,:,L/2+1] = transf
-#	for ii in range (1,np.int(L/2)+1):
-#		transf = transf * phase_mask
-#		images[:,:,:,L/2+ ii]= transf
- #   
-#	transf= gridded_data
-#	for ii in range(1, np.int(L/2)+1):
-#		transf = transf * np.conj(phase_mask)
-#		images[:,:,:,L/2- ii]= transf
-    
-#	for echo in range(echoes):
-#		for i in range(coilstart,int(NbCoils)):
-#			images[echo,:,:,:]= np.absolute(np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(np.squeeze(images[i][:][:])))))**2   
-    
-#	if recon_method=='fsc' or recon_method.find('fsc'):
-#		final_image = gridded_data
-#		for x in range(0,w):
-#			for y in range(0,h):
-#				px_freq= field_map[x,y]*2*pi
-				#[~,idx]= np.min(np.abs(deltaw-px_freq))
-#				final_image[x,y,z]= images(x,y,idx)
- #   
-#	elif recon_method=='mfi' or recond_method.find('mfi'):
-#		num_of_interp=1000
-#		tk=64
-#		timesamples=np.linspace(0,Timesampling,tk)
-#		interpolation_omegas= np.linspace(np.min(field_map), np.max(field_map), num_of_interp)*2*np.pi
-#		deltawi_tk=exp(1j * timesamples.getH() * deltaw)
-#		y= np.exp(1j* timesamples.getH() * interpolation_omegas)
-#		coeff_table = (deltawi_tk )
+    Demodded_Data = np.zeros(shape=np.shape(Data), dtype=np.complex64)
+    #deltaw = np.linspace(np.max(field_map), np.min(field_map), L)*2*np.pi
+    time= np.linspace(0,Timesampling,NbPoints) 
+    #dw_o_freq = deltaw[np.int(L/2)]    
+    #num_of_interp=1000
+    tk=64
+    #timesamples=np.linspace(0,Timesampling,tk)
+    #interpolation_omegas= np.linspace(np.min(field_map), np.max(field_map), num_of_interp)*2*np.pi
+    #deltawi_tk=np.exp(1j * np.conj(timesamples * deltaw) )
+    #y= np.exp(1j* timesamples.getH() * interpolation_omegas) 
+    for echo in range (echoes):
+    		
+        print ('>> Griding echo ',echo)
+        for i in range(coilstart,int(NbCoils)):
+            print ('   >> regridding coil', i+1)
+            usedline=0
+            for l in range(NbProjections):
+                # We generate a random value (Uniform Distribution (Gaussian ?)) and compare it with some threshold to remove the line
+                rand= np.random.rand(1)  				
+                if rand[0] > sousech : 
+                    usedline+=1
+                    # print (rand[0])
+                    rand2= np.random.rand(1)
+                    if rand2 >0 :
+                        nbofpoints=NbPoints*OverSamplingFactor
+                    else :
+                        nbofpoints=NbPoints
+                    for m in range(nbofpoints):
+                        Demodded_Data[i][l][echo][m]= Data[i][l][echo][m]* np.exp(-1j * deltaw * time[m])
+                        
+    return(Demodded_Data)
