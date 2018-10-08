@@ -4,6 +4,15 @@
 Created on Mon Sep 24 15:29:19 2018
 
 @author: ed203246
+
+laptop to desktop
+rsync -azvun /home/edouard/data/psy/canbind/models/clustering_v03/* ed203246@is234606.intra.cea.fr:/neurospin/psy/canbind/models/clustering_v03/
+
+desktop to laptop
+rsync -azvu ed203246@is234606.intra.cea.fr:/neurospin/psy/canbind/models/clustering_v03/* /home/edouard/data/psy/canbind/models/clustering_v03/
+
+WD = '/neurospin/psy/canbind'
+WD = '/home/edouard/data/psy/canbind'
 """
 
 import os
@@ -16,22 +25,33 @@ import shutil
 import mulm
 import sklearn
 import re
-from nilearn import plotting
+from nilearn import datasets, plotting, image
+
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import seaborn as sns
+
 import scipy, scipy.ndimage
 #import nilearn.plotting
-from nilearn import datasets, plotting, image
 
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_samples, silhouette_score
 from sklearn import preprocessing
 import sklearn.metrics as metrics
 
+import getpass
+
 # cookiecutter Directory structure
 # https://drivendata.github.io/cookiecutter-data-science/
+if getpass.getuser() == 'ed203246':
+    BASEDIR = '/neurospin/psy/canbind'
+elif getpass.getuser() == 'edouard':
+    BASEDIR = '/home/edouard/data/psy/canbind'
 
 # OUTPUT = os.path.join(WD, "models", "vbm_resp_%s" % vs)
-WD = os.path.join('/neurospin/psy/canbind/models/clustering_v03')
+#WD = os.path.join('/neurospin/psy/canbind/models/clustering_v03')
+WD = os.path.join(BASEDIR, "models", "clustering_v03")
+
 CLUST = 1
 
 ###############################################################################
@@ -48,12 +68,23 @@ mask_ctl = pop_tot.treatment == "Control"
 mask_ctl_ses01 = (pop_tot.treatment == "Control") & (pop_tot.session == "ses-01")
 mask_treat_ses01 = pop_tot.respond_wk16.notnull() & (pop_tot.session == "ses-01")
 
+###############################################################################
+# Graphics
+###############################################################################
+
+sns.set(style="whitegrid")
+
+palette_resp = {"NonResponder":sns.color_palette()[0],
+           "Responder":sns.color_palette()[2]}
+alphas_clust = {1:1, 0:.5}
 
 ###############################################################################
 # Clustering
 ###############################################################################
 
 cluster_tot = pd.read_csv(os.path.join(WD, "clusters.csv"))
+# cluster_tot = cluster_tot[cluster_tot.columns[:8]]
+
 assert np.all(cluster_tot['participant_id'] == pop_tot['participant_id'])
 
 centers = np.load(os.path.join(WD, "clusters_centers.npz"))
@@ -86,14 +117,13 @@ assert np.all(
 #######################
 # 1) Keep only subgroup
 
-if CLUST == 1:
-    Xim_g1 = img_tot['XTotTivSiteCtr'][mask_gp1]
-    assert Xim_g1.shape == (66, 397559)
-    y_g1 = np.array(pop_tot['respond_wk16_num'][mask_gp1], dtype=int)
-elif CLUST == 0:
-    Xim_g0 = img_tot['XTotTivSiteCtr'][mask_gp0]
-    assert Xim_g0.shape == (58, 397559)
-    y_g0 = np.array(pop_tot['respond_wk16_num'][mask_gp0], dtype=int)
+Xim_g1 = img_tot['XTotTivSiteCtr'][mask_gp1]
+assert Xim_g1.shape == (66, 397559)
+y_g1 = np.array(pop_tot['respond_wk16_num'][mask_gp1], dtype=int)
+
+Xim_g0 = img_tot['XTotTivSiteCtr'][mask_gp0]
+assert Xim_g0.shape == (58, 397559)
+y_g0 = np.array(pop_tot['respond_wk16_num'][mask_gp0], dtype=int)
 
 ###############################################################################
 # Clinical data: imput missing
@@ -155,12 +185,14 @@ democlin_g1 = democlin[mask_gp1_withintreat]
 # Drop participant_id & response with some QC
 assert np.all(democlin_g1.pop('participant_id').values == pop_tot['participant_id'][mask_gp1].values)
 assert np.all(democlin_g1.pop("respond_wk16").values == pop_tot['respond_wk16'][mask_gp1].values)
-
-democlin_g1.columns
-"""
-['age', 'sex_num', 'educ', 'age_onset', 'mde_num', 'madrs_Baseline', 'duration']
-"""
+# ['age', 'sex_num', 'educ', 'age_onset', 'mde_num', 'madrs_Baseline', 'duration']
 Xclin_g1 = np.asarray(democlin_g1)
+
+# Grp0
+democlin_g0 = democlin[mask_gp0_withintreat]
+assert np.all(democlin_g0.pop('participant_id').values == pop_tot['participant_id'][mask_gp0].values)
+assert np.all(democlin_g0.pop("respond_wk16").values == pop_tot['respond_wk16'][mask_gp0].values)
+Xclin_g0 = np.asarray(democlin_g0)
 
 ###############################################################################
 # ML
@@ -196,16 +228,19 @@ import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
+y_g1 = np.array(pop_tot['respond_wk16_num'][mask_gp1], dtype=int)
+y_g0 = np.array(pop_tot['respond_wk16_num'][mask_gp0], dtype=int)
+xgrps_g1 = cluster_tot["proj_XCtlSes1TivSiteCtr"][mask_gp1].values
+xgrps_g0 = cluster_tot["proj_XCtlSes1TivSiteCtr"][mask_gp0].values
 
 if CLUST == 1:
     assert Xim_g1.shape == (66, 397559)
-    y_g1 = np.array(pop_tot['respond_wk16_num'][mask_gp1], dtype=int)
     Xim, y = Xim_g1, y_g1
     Xclin = Xclin_g1
+    xgrps = xgrps_g1
     assert np.all(np.array([np.sum(lab==y) for lab in np.unique(y)]) == (16, 50))
 elif CLUST == 0:
     assert Xim_g0.shape == (58, 397559)
-    y_g0 = np.array(pop_tot['respond_wk16_num'][mask_gp0], dtype=int)
     X, y = Xim_g0, y_g0
 
 
@@ -252,7 +287,7 @@ y_test_pred_stck = np.zeros(len(y))
 y_test_prob_pred_stck = np.zeros(len(y))
 y_test_decfunc_pred_stck = np.zeros(len(y))
 y_train_pred_stck = np.zeros(len(y))
-coefs_cv_stck = np.zeros((NFOLDS, 2))
+coefs_cv_stck = np.zeros((NFOLDS, 3))
 auc_test_stck = list()
 recalls_test_stck = list()
 acc_test_stck = list()
@@ -264,11 +299,14 @@ for cv_i, (train, test) in enumerate(cv.split(Xim, y)):
     print(cv_i)
     X_train_img, X_test_img, y_train, y_test = Xim[train, :], Xim[test, :], y[train], y[test]
     X_train_clin, X_test_clin = Xclin[train, :], Xclin[test, :]
+    xgrps_train, xgrps_test = xgrps[train][:, None], xgrps[test][:, None]
 
     X_train_img = scaler.fit_transform(X_train_img)
     X_test_img = scaler.transform(X_test_img)
     X_train_clin = scaler.fit_transform(X_train_clin)
     X_test_clin = scaler.transform(X_test_clin)
+    xgrps_train = scaler.fit_transform(xgrps_train)
+    xgrps_test = scaler.transform(xgrps_test)
 
     # Im
     conesta = algorithms.proximal.CONESTA(max_iter=10000)
@@ -287,7 +325,9 @@ for cv_i, (train, test) in enumerate(cv.split(Xim, y)):
     coefs_cv_img[cv_i, :] = estimator_img.beta.ravel()
 
     # Clin
-    estimator_clin = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=C)
+    estimator_clin = lm.LogisticRegression(class_weight='balanced',
+                                           fit_intercept=True, C=1)
+#                                           fit_intercept=False, C=C)
     estimator_clin.fit(X_train_clin, y_train)
     y_test_pred_clin[test] = estimator_clin.predict(X_test_clin).ravel()
     y_test_prob_pred_clin[test] =  estimator_clin.predict_proba(X_test_clin)[:, 1]
@@ -302,15 +342,20 @@ for cv_i, (train, test) in enumerate(cv.split(Xim, y)):
     # Stacking
     X_train_stck = np.c_[
             np.dot(X_train_img, estimator_img.beta).ravel(),
-            estimator_clin.decision_function(X_train_clin).ravel()]
+            estimator_clin.decision_function(X_train_clin).ravel(),
+            xgrps_train
+            ]
     X_test_stck = np.c_[
             np.dot(X_test_img, estimator_img.beta).ravel(),
-            estimator_clin.decision_function(X_test_clin).ravel()]
+            estimator_clin.decision_function(X_test_clin).ravel(),
+            xgrps_test
+            ]
     X_train_stck = scaler.fit(X_train_stck).transform(X_train_stck)
     X_test_stck = scaler.transform(X_test_stck)
 
     #
-    estimator_stck = lm.LogisticRegression(class_weight='balanced', fit_intercept=False, C=100)
+    estimator_stck = lm.LogisticRegression(class_weight='balanced',
+                                           fit_intercept=True, C=1)
     estimator_stck.fit(X_train_stck, y_train)
     y_test_pred_stck[test] = estimator_stck.predict(X_test_stck).ravel()
     y_test_prob_pred_stck[test] =  estimator_stck.predict_proba(X_test_stck)[:, 1]
@@ -332,18 +377,12 @@ bacc_test_img_microavg = recall_test_img_microavg.mean()
 auc_test_img_microavg = metrics.roc_auc_score(y, y_test_prob_pred_img)
 acc_test_img_microavg = metrics.accuracy_score(y, y_test_pred_img)
 
-print("#", auc_test_img_microavg, bacc_test_img_microavg, acc_test_img_microavg)
+print("#", auc_test_img_microavg, bacc_test_img_microavg, acc_test_img_microavg, recall_test_img_microavg)
 print("#", auc_test_img)
 print("#", recalls_test_img)
 print("#", acc_test_img)
-# seed 42 + 1
-# 0.70625 0.66375 0.651515151515
-# [0.57499999999999996, 0.96666666666666679, 0.73333333333333339, 0.93333333333333335, 0.53333333333333344]
-# [array([ 0.5,  0.6]), array([ 1. ,  0.6]), array([ 0.66666667,  0.6       ]), array([ 1. ,  0.5]), array([ 0.33333333,  0.9       ])]
-# [0.5714285714285714, 0.69230769230769229, 0.61538461538461542, 0.61538461538461542, 0.76923076923076927]
 
-# Seed 24 : switch 42
-# 0.70375 0.66375 0.651515151515
+# 0.70375 0.6637500000000001 0.6515151515151515 [0.6875 0.64  ]
 # [0.625, 0.53333333333333344, 0.76666666666666672, 0.8666666666666667, 0.66666666666666674]
 # [array([ 0.75,  0.6 ]), array([ 0.33333333,  0.4       ]), array([ 0.66666667,  0.7       ]), array([ 1. ,  0.7]), array([ 0.66666667,  0.8       ])]
 # [0.6428571428571429, 0.38461538461538464, 0.69230769230769229, 0.76923076923076927, 0.76923076923076927]
@@ -355,9 +394,8 @@ bacc_test_clin_microavg = recall_test_clin_microavg.mean()
 auc_test_clin_microavg = metrics.roc_auc_score(y, y_test_prob_pred_clin)
 acc_test_clin_microavg = metrics.accuracy_score(y, y_test_pred_clin)
 
-print("#", auc_test_clin_microavg, bacc_test_clin_microavg, acc_test_clin_microavg)
-# 0.61375 0.60125 0.621212121212
-# 0.6375 0.61125 0.636363636364
+print("#", auc_test_clin_microavg, bacc_test_clin_microavg, acc_test_clin_microavg, recall_test_clin_microavg)
+# 0.6387499999999999 0.6 0.6515151515151515 [0.5 0.7]
 
 # Micro Avg Stacking
 recall_test_stck_microavg = metrics.recall_score(y, y_test_pred_stck, average=None)
@@ -366,22 +404,178 @@ bacc_test_stck_microavg = recall_test_stck_microavg.mean()
 auc_test_stck_microavg = metrics.roc_auc_score(y, y_test_prob_pred_stck)
 acc_test_stck_microavg = metrics.accuracy_score(y, y_test_pred_stck)
 
-print("#", auc_test_stck_microavg, bacc_test_stck_microavg, acc_test_stck_microavg)
-# 0.73 0.65375 0.636363636364
-# 0.72375 0.66375 0.651515151515
+print("#", auc_test_stck_microavg, bacc_test_stck_microavg, acc_test_stck_microavg, recall_test_stck_microavg)
+# 0.72625 0.7537499999999999 0.7878787878787878 [0.6875 0.82  ]
 
 """
 import json
 with open(os.path.join(WD, 'XCtlSes1TivSiteCtr-clust-Ctl-1_5cv.json'), "w") as outfile:
     json.dump(CV, outfile)
 """
+# Save test probabilities
+
+# Img
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp1] = y_test_pred_img
+cluster_tot["y_cv_test_pred_img"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_decfunc_pred_img
+cluster_tot["y_cv_test_decfunc_pred_img"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_prob_pred_img
+cluster_tot["y_cv_test_prob_pred_img"] = proj
+
+# Clin
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp1] = y_test_pred_clin
+cluster_tot["y_cv_test_pred_clin"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_prob_pred_clin
+cluster_tot["y_cv_test_prob_pred_clin"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_decfunc_pred_clin
+cluster_tot["y_cv_test_decfunc_pred_clin"] = proj
+
+# Stacked
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp1] = y_test_pred_stck
+cluster_tot["y_cv_test_pred_stck"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_prob_pred_stck
+cluster_tot["y_cv_test_prob_pred_stck"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp1] = y_test_decfunc_pred_stck
+cluster_tot["y_cv_test_decfunc_pred_stck"] = proj
+
+
+# Provide scores for other subjects that group 1: refitt on all group1
+# ----------------------------------------------------------
+assert np.all(y == y_g1)
+y_g0 = np.array(pop_tot['respond_wk16_num'][mask_gp0], dtype=int)
+
+# Img
+
+Xim_g1_sdtz = scaler.fit_transform(img_tot['XTotTivSiteCtr'][mask_gp1])
+Xim_g0_sdtz = scaler.transform(img_tot['XTotTivSiteCtr'][mask_gp0])
+
+coef_refit = np.load(os.path.join(WD, "rcv_gp1/rcv_000.npz"))['beta_refit'] # ['beta_cv', 'beta_refit', 'y_pred', 'y_true', 'proba_pred']
+estimator_img.beta = coef_refit[:, None]
+
+y_refitg1_g0_prob_pred_img = estimator_img.predict_probability(Xim_g0_sdtz).ravel()
+y_refitg1_g0_decfunc_pred_img = np.dot(Xim_g0_sdtz, estimator_img.beta).ravel()
+y_refitg1_g0_pred_img = estimator_img.predict(Xim_g0_sdtz).ravel()
+
+# Clin
+
+Xclin_g1_sdtz = scaler.fit_transform(Xclin_g1)
+Xclin_g0_sdtz = scaler.fit_transform(Xclin_g0)
+
+estimator_clin = lm.LogisticRegression(class_weight='balanced',
+                                           fit_intercept=True, C=1)
+estimator_clin.fit(Xclin_g1_sdtz, y_g1)
+
+y_refitg1_g0_prob_pred_clin = estimator_clin.predict_proba(Xclin_g0_sdtz)[:, 1]
+y_refitg1_g0_decfunc_pred_clin = estimator_clin.decision_function(Xclin_g0_sdtz)
+y_refitg1_g0_pred_clin = estimator_clin.predict(Xclin_g0_sdtz).ravel()
+
+
+# Stack
+X_g0_stck = np.c_[
+        np.dot(Xim_g0_sdtz, estimator_img.beta).ravel(),
+        estimator_clin.decision_function(Xclin_g0_sdtz).ravel(),
+        xgrps_g0
+        ]
+X_g0_stk_sdtz = scaler.fit_transform(X_g0_stck)
+
+X_g1_stck = np.c_[
+        np.dot(Xim_g1_sdtz, estimator_img.beta).ravel(),
+        estimator_clin.decision_function(Xclin_g1_sdtz).ravel(),
+        xgrps_g1
+        ]
+X_g1_stk_sdtz = scaler.fit_transform(X_g1_stck)
+
+estimator_stck = lm.LogisticRegression(class_weight='balanced', fit_intercept=True, C=1)
+estimator_stck.fit(X_g1_stk_sdtz, y_g1)
+
+y_refitg1_g0_prob_pred_stk = estimator_stck.predict_proba(X_g0_stk_sdtz)[:, 1]
+y_refitg1_g0_decfunc_pred_stk = estimator_stck.decision_function(X_g0_stk_sdtz)
+y_refitg1_g0_pred_stk = estimator_stck.predict(X_g0_stk_sdtz).ravel()
+
+print("# Refit G1 predict G0")
+print("# Imaging")
+print("# ", metrics.roc_auc_score(y_g0, y_refitg1_g0_prob_pred_img),
+      metrics.recall_score(y_g0, y_refitg1_g0_pred_img, average=None))
+
+print("# Clinic")
+print("# ", metrics.roc_auc_score(y_g0, y_refitg1_g0_prob_pred_clin),
+      metrics.recall_score(y_g0, y_refitg1_g0_pred_clin, average=None))
+
+print("# Stacked")
+print("# ", metrics.roc_auc_score(y_g0, y_refitg1_g0_prob_pred_stk),
+      metrics.recall_score(y_g0, y_refitg1_g0_pred_stk, average=None))
+
+# Refit G1 predict G0
+# Imaging
+#  0.42708333333333337 [0.6875     0.28571429]
+# Clinic
+#  0.46726190476190477 [0.3125     0.61904762]
+# Stacked
+#  0.43898809523809523 [0.3125     0.66666667]
+
+# Save test probabilities
+
+# Img
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp0] = y_refitg1_g0_pred_img
+cluster_tot["y_refitg1_g0_pred_img"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_prob_pred_img
+cluster_tot["y_refitg1_g0_prob_pred_img"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_decfunc_pred_img
+cluster_tot["y_refitg1_g0_decfunc_pred_img"] = proj
+
+# Clin
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp0] = y_refitg1_g0_pred_clin
+cluster_tot["y_refitg1_g0_pred_clin"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_prob_pred_clin
+cluster_tot["y_refitg1_g0_prob_pred_clin"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_decfunc_pred_clin
+cluster_tot["y_refitg1_g0_decfunc_pred_clin"] = proj
+
+# Stacked
+pred = np.full(cluster_tot.shape[0], np.nan)
+pred[mask_gp0] = y_refitg1_g0_pred_stk
+cluster_tot["y_refitg1_g0_pred_stk"] = pred
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_prob_pred_stk
+cluster_tot["y_refitg1_g0_prob_pred_stk"] = proj
+
+proj = np.full(cluster_tot.shape[0], np.nan)
+proj[mask_gp0] = y_refitg1_g0_decfunc_pred_stk
+cluster_tot["y_refitg1_g0_decfunc_pred_stk"] = proj
+
+cluster_tot.to_csv(os.path.join(WD, "clusters.csv"), index=False)
 
 ###############################################################################
 # Caracterize Cluster centers
 
 from nilearn import plotting, image
 import  nibabel
-from matplotlib.backends.backend_pdf import PdfPages
 
 
 scaler = preprocessing.StandardScaler()
@@ -396,23 +590,6 @@ c1 = cluster_centers[1, :]
 proj_c1c0  = np.dot(Xim_, c1 - c0)
 assert np.allclose(cluster_tot['proj_XCtlSes1TivSiteCtr'][mask_treat_ses01], proj_c1c0)
 
-
-"""
-df = imgscores.copy()
-df["respond_wk16"] = pop["respond_wk16"]
-df["sex"] = pop["sex"]
-df["age"] = pop["age"]
-
-plt.plot(imgscores.GMratio, imgscores.proj_c1c0, 'o')
-
-ICI
-sns.lmplot(x="GMratio", y="proj_c1c0", hue="respond_wk16" , data=df, fit_reg=False)
-sns.lmplot(x="GMratio", y="proj_c1c0", hue="cluster" , data=df, fit_reg=False)
-sns.lmplot(x="GMratio", y="proj_c1c0", hue="age" , data=df, fit_reg=False)
-sns.lmplot(x="GMratio", y="age", hue="cluster" , data=df, fit_reg=False)
-sns.lmplot(x="age", y="GMratio", hue="cluster" , data=df, fit_reg=False)
-sns.lmplot(x="age", y="proj_c1c0", hue="cluster" , data=df, fit_reg=False)
-"""
 
 n0 = np.sum(cluster_["cluster_XCtlSes1TivSiteCtr"] == 0)
 n1 = np.sum(cluster_["cluster_XCtlSes1TivSiteCtr"] == 1)
@@ -479,14 +656,14 @@ coef_img.to_filename(os.path.join(WD, "clusters_centers_zmap-diff.nii.gz"))
 
 """
 L/R Thalami (medial)
-*L/R Caudates, Putamen, Insular cortex
-*L/R Cingulate gyrus Anterior and posterior, Precuneus, anterior part Calcarine fissure
-*L/R Hypocampus, Amygdala, Fusiform, Lingual gyrus
+L/R Caudates, Putamen, Insular cortex
+L/R Cingulate gyrus Anterior and posterior, Precuneus, anterior part Calcarine fissure
+L/R Hypocampus, Amygdala, Fusiform, Lingual gyrus
 
-*L/R Cerebellum VI
+L/R Cerebellum VI
 
-*L/R Temporal pole
-*L/R Postcentral, Precentral
+L/R Temporal pole
+L/R Postcentral, Precentral
 
 """
 fig = plt.figure()
@@ -565,9 +742,9 @@ pdf.close()
 
 ###############################################################################
 # Signature
+
 from nilearn import plotting, image
 import  nibabel
-from matplotlib.backends.backend_pdf import PdfPages
 CLUST = 1
 
 modelscv = np.load(os.path.join(WD, "rcv_gp1/rcv_024.npz")) # ['beta_cv', 'beta_refit', 'y_pred', 'y_true', 'proba_pred']
@@ -782,3 +959,360 @@ Neuroimaging biomarkers as predictors of treatment outcome in major depressive d
 Journal of Affective Disorders.
 
 """
+###############################################################################
+# Caracterize Cluster Statistics
+
+# A) Cluster association with clinical variables
+import os
+import seaborn as sns
+#import pandas as pd
+import scipy.stats as stats
+
+#CLUST=1
+
+xls_filename = os.path.join(WD, "clusters_stats_demo-clin-vs-cluster.xlsx")
+
+# add cluster information
+#pop = pd.read_csv(os.path.join(WD, "population.csv"))
+#clust = pd.read_csv(os.path.join(WD,  IMADATASET+"-clust%i"%CLUST +"_img-scores.csv"))
+#pop = pd.merge(pop, clust[["participant_id", 'cluster']], on='participant_id')
+
+assert np.all(cluster_tot[mask_treat_ses01]['participant_id'] == pop_tot[mask_treat_ses01]['participant_id'])
+df = pd.merge(pop_tot[mask_treat_ses01], cluster_tot[mask_treat_ses01])#, on='participant_id')
+assert df.shape[0] == 124
+
+df["duration"] = df['age'] - df['age_onset']
+df["group"] = df['cluster_XCtlSes1TivSiteCtr']
+
+# cluster effect on dem/clinique
+"""
+['age', 'sex_num', 'educ']
+['age_onset', 'mde_num', 'madrs_Baseline', 'madrs_Screening']
+'respond_wk16'
+"""
+cols_ = ['age', 'educ', 'age_onset', "duration", 'mde_num', 'madrs_Baseline',
+         'GMratio', 'WMratio', 'TIV_l',
+         "group"]
+
+means = df[cols_].groupby(by="group").mean().T.reset_index()
+means.columns = ['var', 'mean_0', 'mean_1']
+
+stds = df[cols_].groupby(by="group").std().T.reset_index()
+stds.columns = ['var', 'std_0', 'std_1']
+desc = pd.merge(means, stds)
+
+stat_p = pd.DataFrame(
+[[col] + list(stats.ttest_ind(
+        df.loc[df.group==1, col],
+        df.loc[df.group==0, col],
+        equal_var=False, nan_policy='omit'))
+    for col in cols_], columns=['var', 'T', 'T-pval'])
+
+stat_clust_vs_var = pd.merge(desc, stat_p)
+
+
+stat_np = list()
+for col in cols_:
+    clust = df["group"][df[col].notnull()]
+    val = df.loc[df[col].notnull(), col]
+    auc = metrics.roc_auc_score(clust, val)
+    auc = max(auc, 1 - auc)
+    wilcox = stats.mannwhitneyu(*[val[clust == r] for r in np.unique(clust)])
+    stat_np.append([col, auc, wilcox.statistic, wilcox.pvalue])
+
+stat_np = pd.DataFrame(stat_np,  columns=['var', 'auc', 'Mann–Whitney-U', 'MW-U-pval'])
+
+stat_clust_vs_var = pd.merge(stat_clust_vs_var, stat_np)
+
+print(stat_clust_vs_var)
+"""
+              var     mean_0     mean_1      std_0     std_1          T  \
+0             age  41.580645  29.806452  12.277593  9.844427  -5.891231
+1            educ  17.000000  16.622951   2.522034  1.950760  -0.928299
+2       age_onset  23.779661  18.186441  11.365507  7.431236  -3.163806
+3        duration  17.762712  11.932203  14.392693  9.428249  -2.602892
+4         mde_num   4.047619   3.652174   2.251854  2.709796  -0.746835
+5  madrs_Baseline  30.083333  29.866667   5.790968  5.512595  -0.209911
+6         GMratio   0.459701   0.519362   0.031557  0.032438  10.380524
+7         WMratio   0.299968   0.296910   0.023441  0.022140  -0.746770
+8           TIV_l   1.503500   1.392831   0.155763  0.134993  -4.227700
+
+         T-pval       auc  Mann–Whitney-U     MW-U-pval
+0  3.796567e-08  0.774584           866.5  6.584649e-08
+1  3.552030e-01  0.569011          1630.0  8.997774e-02
+2  2.063409e-03  0.659868          1184.0  1.365327e-03
+3  1.064894e-02  0.599971          1392.5  3.055953e-02
+4  4.572176e-01  0.601190           770.5  4.942305e-02
+5  8.340998e-01  0.510417          1762.5  4.228655e-01
+6  1.788653e-18  0.901925           377.0  5.886210e-15
+7  4.566439e-01  0.551249          1725.0  1.630527e-01
+8  4.642436e-05  0.699272          1156.0  6.525133e-05
+
+Grp 1 are younger (6 years), earlier onset (3 years) and shorter duration
+"""
+
+
+# B) Effect of stratification to disantangle Resp/NoResp (ROC)
+df_ = df.copy()
+df_["group"] = "All"
+df = df.copy().append(df_)
+
+
+variables = ['age', 'educ'] +\
+    ['age_onset', 'mde_num', 'madrs_Baseline', 'madrs_Screening', "duration"]
+
+res = list()
+for var in variables:
+    for lab in df["group"].unique():
+        resp = df.loc[df.group == lab, "respond_wk16_num"]
+        val = df.loc[df.group == lab, var]
+        mask = val.notnull()
+        resp, val = resp[mask], val[mask]
+        auc = metrics.roc_auc_score(resp, val)
+        auc = max(auc, 1 - auc)
+        wilcox = stats.mannwhitneyu(*[val[resp == r] for r in np.unique(resp)])
+        res.append([var, lab, auc, wilcox.statistic, wilcox.pvalue])
+
+roc_clust_on_var = pd.DataFrame(res, columns=['var', 'clust', 'auc', 'Mann–Whitney-U', 'pval'])
+
+with pd.ExcelWriter(xls_filename) as writer:
+    stat_clust_vs_var.to_excel(writer, sheet_name='stat_clust_vs_var', index=False)
+    roc_clust_on_var.to_excel(writer, sheet_name='roc_clust_on_var', index=False)
+
+
+###############################################################################
+# Caracterize Cluster Plot
+import statsmodels.formula.api as smfrmla
+
+
+
+pdf_filename = os.path.join(WD, "clusters_plot_demo-clin-vs-cluster.pdf")
+
+df = pd.merge(pop_tot[mask_treat_ses01], cluster_tot[mask_treat_ses01])#, on='participant_id')
+assert df.shape[0] == 124
+
+df["duration"] = df['age'] - df['age_onset']
+df["group"] = [str(int(g)) for g in df['cluster_XCtlSes1TivSiteCtr']]
+
+
+pdf = PdfPages(pdf_filename)
+
+
+# Caracterize Cluster: GM ~ age + group
+
+model = smfrmla.ols("GMratio ~ group + age ", df).fit()
+print(model.summary())
+
+'''
+==============================================================================
+                 coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------
+Intercept      0.4879      0.011     43.216      0.000       0.466       0.510
+group          0.0519      0.006      8.246      0.000       0.039       0.064
+age           -0.0007      0.000     -2.896      0.004      -0.001      -0.000
+'''
+
+sns.lmplot(x="age", y="GMratio", hue="group", data=df)
+plt.ylabel("Gray matter / TIV")
+plt.savefig(os.path.join(WD, "clusters_plot_GM~grp+age.svg"))
+
+pdf.savefig(); plt.close()
+
+df["group"] = [int(g) for g in df['cluster_XCtlSes1TivSiteCtr']]
+
+# A) group association with clinical variables
+#f = pop.copy()
+
+xy_cols = [
+        ["age_onset", "GMratio"],
+        ["duration", "GMratio"],
+        ["age", "GMratio"]]
+
+for x_col, y_col in xy_cols:
+    print(x_col, y_col)
+    fig = plt.figure()
+    fig.suptitle('%s by %s' % (x_col, y_col))
+    for lab in df.group.unique():
+        resp = df.loc[df.group == lab, "respond_wk16"]
+        x = df.loc[df.group == lab, x_col]
+        y = df.loc[df.group == lab, y_col]
+        for r in resp.unique():
+            plt.plot(x[resp == r], y[resp == r], "o", markeredgewidth=int(lab), markeredgecolor='black', color=palette_resp[r],
+                     alpha=alphas_clust[lab], label="grp %i / %s" % (lab, r))
+    plt.xlabel(x_col)
+    plt.ylabel(y_col)
+    plt.legend()
+    pdf.savefig(); plt.close()
+
+
+# B) Effect of stratification to disantangle Resp/NoResp
+df_ = df.copy()
+df_.group = "All"
+df = df.copy().append(df_)
+
+fig = plt.figure()
+fig.suptitle('Duration, group and response ')
+ax = sns.violinplot(x="group", y="duration", hue="respond_wk16", data=df,
+               split=True, label="", legend_out = True, palette=palette_resp)
+handles, labels = ax.get_legend_handles_labels()
+ax = sns.swarmplot(x="group", y="duration", hue="respond_wk16", data=df,
+              dodge=True, linewidth=1, edgecolor='black', palette=palette_resp)
+ax.legend(handles, labels)
+pdf.savefig(); plt.close()
+
+
+fig = plt.figure()
+fig.suptitle('Age, group and response ')
+ax = sns.violinplot(x="group", y="age", hue="respond_wk16", data=df,
+               split=True, palette=palette_resp)
+handles, labels = ax.get_legend_handles_labels()
+ax = sns.swarmplot(x="group", y="age", hue="respond_wk16", data=df,
+              dodge=True, linewidth=1, edgecolor='black', palette=palette_resp)
+ax.legend(handles, labels)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+fig.suptitle('Age onset, group and response ')
+ax = sns.violinplot(x="group", y="age_onset", hue="respond_wk16", data=df,
+               split=True, palette=palette_resp)
+handles, labels = ax.get_legend_handles_labels()
+ax = sns.swarmplot(x="group", y="age_onset", hue="respond_wk16", data=df,
+              dodge=True, linewidth=1, edgecolor='black', palette=palette_resp)
+ax.legend(handles, labels)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+fig.suptitle('Grey matter, group and response ')
+ax = sns.violinplot(x="group", y="GMratio", hue="respond_wk16", data=df,
+               split=True, label=None, legend_out = True, palette=palette_resp)
+handles, labels = ax.get_legend_handles_labels()
+ax = sns.swarmplot(x="group", y="GMratio", hue="respond_wk16", data=df,
+              dodge=True, linewidth=1, edgecolor='black', palette=palette_resp)
+ax.legend(handles, labels)
+pdf.savefig(); plt.close()
+
+pdf.close()
+
+
+###############################################################################
+# Discriminative pattern: predicted probability
+
+df = pd.merge(pop_tot[mask_treat_ses01], cluster_tot[mask_treat_ses01])#, on='participant_id')
+assert df.shape[0] == 124
+df["duration"] = df['age'] - df['age_onset']
+df["group"] = df['cluster_XCtlSes1TivSiteCtr']
+# df["prob_img"] = df["y_tot-refit_prob_pred_img"]
+
+
+pdf = PdfPages(os.path.join(WD, "clusters_discrimative-scatter.pdf"))
+
+# --------------------------------
+# 1) discriminative = clinic + img
+
+# for group 1: stacked LR on the top of y_test_prob_pred_clin, y_test_prob_pred_img
+# logistic regression(y_test_prob_pred_clin, y_test_prob_pred_img)
+
+
+dfclust1 = df.loc[df["group"] == 1, ['y_cv_test_decfunc_pred_clin', 'y_cv_test_decfunc_pred_img', "respond_wk16"]]
+X = np.array(dfclust1[['y_cv_test_decfunc_pred_clin', 'y_cv_test_decfunc_pred_img']])
+y = np.array(dfclust1.respond_wk16.map({'NonResponder':0, 'Responder':1}))
+scaler = preprocessing.StandardScaler()
+X = scaler.fit(X).transform(X)
+estimator_stck = lm.LogisticRegression(class_weight='balanced', fit_intercept=True, C=1)
+estimator_stck.fit(X, y)
+
+recall_post_stck_microavg = metrics.recall_score(y, estimator_stck.predict(X), average=None)
+bacc_post_stck_microavg = recall_post_stck_microavg.mean()
+auc_post_stck_microavg = metrics.roc_auc_score(y, estimator_stck.predict_proba(X)[:, 1])
+acc_post_stck_microavg = metrics.accuracy_score(y,  estimator_stck.predict(X))
+
+print("#", auc_post_stck_microavg, bacc_post_stck_microavg, acc_post_stck_microavg, recall_post_stck_microavg)
+# 0.7462500000000001 0.70375 0.7121212121212122 [0.6875 0.72  ]
+
+print("# ", estimator_stck.coef_)
+#  [[0.3012868 0.7138052]]
+
+print("# ", estimator_stck.intercept_)
+#  [0.10000225]
+
+df.loc[df["group"] == 1, "y_post_decfunc_pred_stck"] = estimator_stck.decision_function(X)
+df.loc[df["group"] == 1, "y_post_prob_pred_stck"] = estimator_stck.predict_proba(X)[:, 1]
+
+
+# contour
+# https://matplotlib.org/1.3.0/examples/pylab_examples/contour_demo.html
+
+nx = ny = 100
+x = np.linspace(0.1, 0.7, num=nx)
+y = np.linspace(0.0, 0.9, num=ny)
+xx, yy = np.meshgrid(x, y)
+z_proba = estimator_stck.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1]
+z_proba = z_proba.reshape(xx.shape)
+
+fig = plt.figure()
+fig.suptitle('Discriminative pattern (Clinic+Imag.)')
+
+plt.scatter(df["y_cv_test_decfunc_pred_clin"], df["y_cv_test_decfunc_pred_img"], c=[palette[res] for res in df.respond_wk16])
+#sns.lmplot(x="y_test_prob_pred_clin", y="y_test_prob_pred_img", hue="respond_wk16" , data=df, fit_reg=False, palette=palette, axis=g.ax_joint)
+CS1 = plt.contour(xx, yy, z_proba, 6, levels=[0.5], colors='k')#, axis=g.ax_joint)
+CS2 = plt.contour(xx, yy, z_proba, 6, levels=[0.25, 0.75], linestyles="dashed", colors='grey')#, axis=g.ax_joint)
+plt.clabel(CS1, CS1.levels, fontsize=9, inline=1)
+plt.clabel(CS2, CS2.levels, fontsize=9, inline=1)
+plt.xlabel("Clinic desision function.")
+plt.ylabel("Imaging proba.")
+pdf.savefig(); plt.close()
+
+
+
+fig = plt.figure(figsize=(9, 8))
+ax1 = plt.subplot(211)
+fig.suptitle('Treatment response prediction')
+sns.kdeplot(df["y_cv_test_decfunc_pred_stck"][(df["group"] == 1) & (df["respond_wk16"] == "Responder")],
+            color=palette_resp["Responder"], shade=True, label="Responder")
+sns.kdeplot(df["y_cv_test_decfunc_pred_stck"][(df["group"] == 1) & (df["respond_wk16"] == "NonResponder")],
+            color=palette_resp["NonResponder"], shade=True, label="NonResponder")
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+"""
+sns.kdeplot(df["y_cv_test_prob_pred_stck"][(df["group"] == 1) & (df["respond_wk16"] == "Responder")],
+            color=palette["Responder"], shade=True, label="Responder")
+sns.kdeplot(df["y_cv_test_prob_pred_stck"][(df["group"] == 1) & (df["respond_wk16"] == "NonResponder")],
+            color=palette["NonResponder"], shade=True, label="NonResponder", clip=(0, 1))
+"""
+
+#clip
+#plt.xlim(0, 1)
+#pdf.savefig(); plt.close()
+
+
+# 2) inter group vs supervised
+#fig = plt.figure()
+#fig.suptitle('Inter group vs supervised prediction on imaging')
+
+ax2 = plt.subplot(212, sharex=ax1)
+df["prediction"] =  df["y_cv_test_decfunc_pred_stck"].copy()
+df.loc[df["prediction"].isnull(), "prediction"] = df.loc[df["prediction"].isnull(),
+       "y_refitg1_g0_decfunc_pred_stk"]
+
+#for (lab, resp), d in df.groupby(["group", "respond_wk16"]):
+for (lab, resp), d in df.sort_values(["group", "respond_wk16"], ascending=False).groupby(["group", "respond_wk16"], sort=False):
+    print(lab, resp)
+    plt.plot(
+            d["prediction"],
+            d["proj_XCtlSes1TivSiteCtr"], "o", markeredgewidth=int(lab), markeredgecolor='black', color=palette_resp[resp],
+                     alpha=alphas_clust[lab], label="grp %i / %s" % (lab, resp))
+
+#plt.xlim(0, 1)
+
+plt.axhline(y=0, ls='--', color="k")
+plt.plot([0., 0.], [0, df["proj_XCtlSes1TivSiteCtr"].max()], ls='--', color="k")
+
+plt.xlabel("Predicted decision function")
+plt.ylabel("Inter-group axis")
+
+plt.tight_layout()
+plt.savefig(os.path.join(WD, "clusters_discrimative-scatter.svg"))
+#plt.legend()
+pdf.savefig(); plt.close()
+
+pdf.close()
