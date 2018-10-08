@@ -30,10 +30,10 @@ args = parser.parse_args()
 if args.v: verbose=True
 else: verbose = False
 if not args.i :
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
-	print('ERROR   : Input file not specified')
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
-	sys.exit()
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
+    print('ERROR   : Input file not specified')
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
+    sys.exit()
 if args.i :
     Img_path = args.i
     Img=nib.load(Img_path)
@@ -73,6 +73,8 @@ T2star=12000
 #kvalSPGR=2.264665697646913e-06
 kvalSPGR=2.2113e-01#e-06
 kvalSSFP=2.2621e-01#e-06
+kvalSPGR=1.324034350849939      #SPGR value for 10^6 correction and B0 inhomogeneity
+kvalSSFP=1.351029427547505      #SSFP value for 10^6 correction and B0 inhomogeneity
 E2star=np.exp(-TE/T2star)
 E1=np.exp(-TR/T1)
 E2=np.exp(-TR/T2)

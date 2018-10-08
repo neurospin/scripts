@@ -419,7 +419,11 @@ elseif strcmpi(cmd, 'save')
         elseif n<len
             val(n+1:len) = 0; % pad 0, normally for char
         end
-        fwrite(fid, val, C0{i,3});
+         if strcmp(C0{i,3},'char*1')
+             fwrite(fid,val,'uchar')
+         else
+            fwrite(fid, val, C0{i,3});
+         end
     end
     
     % Write nii ext: extension is in hdr

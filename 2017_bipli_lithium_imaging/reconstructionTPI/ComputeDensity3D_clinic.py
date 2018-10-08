@@ -31,19 +31,19 @@ args = parser.parse_args()
 if args.v: verbose=True
 else: verbose = False
 if not args.i1 :
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
-	print('ERROR   : Input file not specified')
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
-	sys.exit()
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
+    print('ERROR   : Input file not specified')
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
+    sys.exit()
 if args.i1 :
     Img_FA1_path = args.i1
     Img_FA1=nib.load(Img_FA1_path)
     Img_FA1=Img_FA1.get_data()
 if not args.i2 :
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
-	print('ERROR   : Input file not specified')
-	#windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
-	sys.exit()
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 12)
+    print('ERROR   : Input file not specified')
+    #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 7)
+    sys.exit()
 if args.i2 :
     Img_FA2_path = args.i2
     Img_FA2 = nib.load(Img_FA2_path)
