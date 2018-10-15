@@ -45,15 +45,16 @@ def slicedisplay(inputdir,filename,title,sliceaxis,slicenum,cmap):
 GENDER_MAP = {'F': 0, 'M': 1}
 Lithresponse_MAP = {'Good': 1, 'Bad': 0}
 
-BASE_PATH = "C:/Users/js247994/Documents/Bipli2/"
+#BASE_PATH = "C:/Users/js247994/Documents/Bipli2/"
+BASE_PATH = "V:/projects/BIPLi7/Clinicaldata/Analysis"
 #INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_testnofilt.csv")
-INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_minus11.csv")
-
+#INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_minus11.csv")
+INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"BipLipop.csv")
 
 #INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Lithiumfiles_02_mask_b/")
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Analysisoutputs")
-INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing/ProcessingMay/Lithiumfiles_02_mask_b/")
-OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/ProcessingMay/Analysisoutputs")
+INPUT_FILES_DIR = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/Lithiumfiles_02_mask_b/")
+OUTPUT_DATA = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/Analysisoutputs")
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV_ICAAR)
@@ -70,7 +71,8 @@ for i, index in enumerate(pop.index):
     cur = pop[pop.index== index]
     #print(cur)
     imagefile_name = cur.path_VBM
-    imagefile_path = os.path.join(INPUT_FILES_DIR,imagefile_name.as_matrix()[0])
+    #imagefile_path = os.path.join(INPUT_FILES_DIR,imagefile_name.as_matrix()[0])
+    imagefile_path = os.path.join(INPUT_FILES_DIR,imagefile_name.values[0])
     babel_image = nibabel.load(imagefile_path)
     images.append(babel_image.get_data().ravel())
     Z[i, 1:] = np.asarray(cur[["age", "sex.num"]]).ravel()
@@ -85,7 +87,7 @@ shape = babel_image.get_data().shape
 # excluded from the analysis.
 Xtot = np.vstack(images)
 
-mask_ima = nibabel.load(os.path.join(BASE_PATH,"Processing", "ROIs", "Wholebrain.nii"))
+mask_ima = nibabel.load(os.path.join(BASE_PATH, "ROIs", "Wholebrain.nii"))
 mask_arr = mask_ima.get_data() != 0
 
 #############################################################################
@@ -121,7 +123,12 @@ DesignMat=Z
 
 muols = MUOLS(Y=X,X=DesignMat)
 muols.fit()
-tvals, pvals, dfs = muols.t_test(contrasts=[1, 0, 0], pval=True)
+tvals, pvals, df1 = muols.t_test(contrasts=[1, 0, 0], pval=True)
+tvals2, maxT, df2 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=True)
+#♣tvals3, minP, df3 = muols.t_test_minP(contrasts=np.array([1, 0, 0]), nperms=5, two_tailed=True)
+mhist, bins, patches= plt.hist([pvals[0,:],maxT[0,:]],
+                           color=['blue','red'],
+                           label=['pvals','maxT'])
 mycoefs=muols.coef[0,:]
 
 ##Wilcoxon Test
@@ -158,7 +165,7 @@ pvallogged=-np.log10(pvals[0])
 pd.Series(tvals.ravel()).describe()
 pd.Series(pvals.ravel()).describe()
 pd.Series(pvallogged.ravel()).describe()
-
+pd.Series(maxT.ravel()).describe()
 #check for multiple comparison, Bonferonni and/or False Discovery Rate
 
 #arr = np.zeros(mask_arr.shape); arr[mask_arr] = (Xmeannorm)
