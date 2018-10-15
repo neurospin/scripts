@@ -49,12 +49,12 @@ Lithresponse_MAP = {'Good': 1, 'Bad': 0}
 BASE_PATH = "V:/projects/BIPLi7/Clinicaldata/Analysis"
 #INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_testnofilt.csv")
 #INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_minus11.csv")
-INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"BipLipop.csv")
+INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"BipLipop_nofilt.csv")
 
 #INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Lithiumfiles_02_mask_b/")
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Analysisoutputs")
-INPUT_FILES_DIR = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/Lithiumfiles_02_mask_b/")
-OUTPUT_DATA = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/Analysisoutputs")
+INPUT_FILES_DIR = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_nofilt/Lithiumfiles_02_mask_b/")
+OUTPUT_DATA = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_nofilt/Analysisoutputs")
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV_ICAAR)
