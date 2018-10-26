@@ -42,10 +42,17 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                     end
                 end
             end
+            B0cor=strfind(file1.name,'B0cor');
+            noB0cor=strfind(file1.name,'no_B0cor');
+            if ~isempty(B0cor) && isempty(noB0cor)
+                B0corkval=(' --B0cor ');
+            else
+                B0corkval=('');
+            end
             %[~,filename,ext]=fileparts(file1.name);
             %Computedniipath=strcat(filesdir,filename,ext);
             Computedniipath=fullfile(filesdirout,file1.name);
-            codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
+            codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
             system(codelaunchQuant{1});
         end
     end

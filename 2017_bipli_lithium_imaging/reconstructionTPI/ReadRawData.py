@@ -1198,8 +1198,8 @@ def ParseHeader(source_file):
                 # print NbEchoes
                 
             for a in rx29.findall(str(line)):
-                OffsetPPM=line.split('=')
-                OffsetPPM = float(OffsetPPM[1])    
+                OffsetPPM=line.split()
+                OffsetPPM = float(OffsetPPM[2])    
                 
             for a in rx30.findall(str(line)):
                 line2=line.decode("utf-8")      

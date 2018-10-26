@@ -24,6 +24,7 @@ parser.add_argument("--o", type=str,help="Output file path and name (as NIfTI)")
 parser.add_argument("--m", type=str,help="Possible mask path")
 parser.add_argument("--t1", type=float, help="Overall T1 value (in seconds)")
 parser.add_argument("--B0map", type=str, help="Input B0 map path (if absent, set to 1 everywhere)")
+parser.add_argument("--B0cor", help="Do we take kvals for B0 correction or not (if present=>yes)", action = "store_true")
 
 args = parser.parse_args()
 
@@ -57,6 +58,15 @@ if not args.m:
 if args.o:
     outputnii=args.o
     
+if args.B0cor:
+    print('B0 acknowledged')
+    kvalSPGR=0.1931
+    kvalSSFP=0.197
+else:
+    print('B0 not acknowledged')
+    kvalSPGR=1.2137
+    kvalSSFP=1.2384
+    
 def rval(E1,alpha,E2):
     parray=1-E1*np.cos(alpha)-E2*E2*(E1-np.cos(alpha))
     qarray=E2*(1-E1)*(1+np.cos(alpha))
@@ -71,10 +81,10 @@ T1=3947000
 T2=63000
 T2star=12000
 #kvalSPGR=2.264665697646913e-06
-kvalSPGR=2.2113e-01#e-06
-kvalSSFP=2.2621e-01#e-06
-kvalSPGR=1.324034350849939      #SPGR value for 10^6 correction and B0 inhomogeneity
-kvalSSFP=1.351029427547505      #SSFP value for 10^6 correction and B0 inhomogeneity
+#kvalSPGR=2.2113e-01#e-06
+#kvalSSFP=2.2621e-01#e-06
+#kvalSPGR=1.324034350849939      #SPGR value for 10^6 correction and B0 inhomogeneity
+#kvalSSFP=1.351029427547505      #SSFP value for 10^6 correction and B0 inhomogeneity
 E2star=np.exp(-TE/T2star)
 E1=np.exp(-TR/T1)
 E2=np.exp(-TR/T2)
@@ -89,6 +99,8 @@ M0_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SSFP = np.zeros(shape=Img.shape)
 
+multiplier=(kvalSSFP*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2))))
+print('multiplier is : {0}'.format(multiplier))
 #T1hyp=4.56
 #E1hyp=np.exp(-TR/T1hyp)
 for i in range(Img.shape[0]):
