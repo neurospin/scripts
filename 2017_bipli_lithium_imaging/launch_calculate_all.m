@@ -35,21 +35,26 @@ function launch_calculate_all(subjectdir)
     Anat3Tfile=fullfile(subjectdir,'Anatomy3T','t1_weighted_sagittal_1_0iso.nii');
     Anat7Tfile=fullfile(subjectdir,'Anatomy7T','t1_mpr_tra_iso1_0mm.nii');
     LifilesS=dir(fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered','*nii'));
-    TrufifilesS=dir(fullfile(subjectdir,'Trufi','*nii'));
+    
     i=1;
     Lifiles=cell(size(LifilesS,1),1);
     for Lifile=LifilesS'
         Lifiles{i}=fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered',Lifile.name);
         i=i+1;
     end
+    
     i=1;
     otherfiles=[];
-    for otherfile=TrufifilesS'
-        if ~contains(otherfile.name,'3T')
-            otherfiles{i,1}=fullfile(subjectdir,'Trufi',otherfile.name);
+    trufifiles=[];
+    TrufifilesS=dir(fullfile(subjectdir,'Trufi','03-Filtered','*nii'));
+    for trufifile=TrufifilesS'
+        if ~contains(trufifile.name,'3T')
+            trufifiles{i,1}=fullfile(subjectdir,'Trufi',otherfile.name);
             i=i+1;
         end
-    end
+    end   
+    
+    i=1;
     if exist(fullfile(subjectdir,'Field_mapping'),'dir')
         if exist(fullfile(subjectdir,'Field_mapping','field_mapping_rad.nii'),'file')
             otherfiles{i,1}=fullfile(subjectdir,'Field_mapping','field_mapping_rad.nii');
@@ -65,4 +70,9 @@ function launch_calculate_all(subjectdir)
         end
     end
     
-    calculate_all_00(Lifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+    [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,trufifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+    if isempty(trufifiles)
+        trufioutput3T=fullfile(subjectdir,'Trufi','04-3Tanatspace',otherfile.name);
+        trufioutputMNI=fullfile(subjectdir,'Trufi','05-MNIspace',otherfile.name);
+        apply_transform_7TtoMNI(trufifiles,trufioutput3T,trufioutputMNI,coregmat,deform_field,normfile);
+    end

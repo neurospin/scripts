@@ -1,4 +1,4 @@
-function transmat=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
+function [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
        
     if ~isempty(Lifiles)
         transmat=calculate_translation_mat_01(Lifiles{1});%,Anat7Tfile,Litranslation);
@@ -50,5 +50,4 @@ function transmat=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdi
     else
         display('Empty subject folder, cannot launch process')
     end
-    
 end
