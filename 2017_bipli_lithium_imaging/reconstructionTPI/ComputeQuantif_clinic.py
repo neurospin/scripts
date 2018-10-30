@@ -58,14 +58,27 @@ if not args.m:
 if args.o:
     outputnii=args.o
     
-if args.B0cor:
-    print('B0 acknowledged')
-    kvalSPGR=0.1931
-    kvalSSFP=0.197
+if args.seq:
+    if args.seq=='trufi':
+        kval=1.0
+        TR=5.000    #in ms
+        TE=2.500    #in ms
+    elif args.seq=='TPI':
+        #kvalSPGR=2.2113e-06    kvalSSFP=2.2621e-06
+        if args.B0cor:
+            print('B0 acknowledged')
+            #kvalSPGR=0.1931
+            kval=0.197
+        else:
+            print('B0 not acknowledged')
+            #kvalSPGR=1.2137
+            kval=1.2384
+        TR=200.000    #in ms
+        TE=0.300
+        T2star=12.000
 else:
-    print('B0 not acknowledged')
-    kvalSPGR=1.2137
-    kvalSSFP=1.2384
+    print('sequence type not specified')
+    
     
 def rval(E1,alpha,E2):
     parray=1-E1*np.cos(alpha)-E2*E2*(E1-np.cos(alpha))
@@ -74,18 +87,16 @@ def rval(E1,alpha,E2):
    
 #values are displayed in micro-seconds (consistent with .dat values)    
     
-TR=200000 #Lithium
-TE=300 #Lithium
 res= 15 #Resolution in mm (isotropic)
-T1=3947000
-T2=63000
-T2star=12000
+T1=3947.000 #in ms
+T2=63.000
+#T2star=12.000
 #kvalSPGR=2.264665697646913e-06
 #kvalSPGR=2.2113e-01#e-06
 #kvalSSFP=2.2621e-01#e-06
 #kvalSPGR=1.324034350849939      #SPGR value for 10^6 correction and B0 inhomogeneity
 #kvalSSFP=1.351029427547505      #SSFP value for 10^6 correction and B0 inhomogeneity
-E2star=np.exp(-TE/T2star)
+#E2star=np.exp(-TE/T2star)
 E1=np.exp(-TR/T1)
 E2=np.exp(-TR/T2)
 
@@ -98,8 +109,9 @@ mask=np.squeeze(mask)
 M0_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SSFP = np.zeros(shape=Img.shape)
+rho_SSFP_test = np.zeros(shape=Img.shape)
 
-multiplier=(kvalSSFP*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2))))
+multiplier=(kval*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2))))
 print('multiplier is : {0}'.format(multiplier))
 #T1hyp=4.56
 #E1hyp=np.exp(-TR/T1hyp)
@@ -107,16 +119,19 @@ for i in range(Img.shape[0]):
     for j in range(Img.shape[1]):
         for k in range(Img.shape[2]):
             if mask[i,j,k]>0:
-                rho_T1SPGR[i,j,k]=Img[i,j,k]*((1-E1*E2-np.cos(FAMap[i,j,k])*(E1-E2))/(np.sin(FAMap[i,j,k])*(1-E1)))/kvalSPGR
-                rho_T1SSFP[i,j,k]=Img[i,j,k]/(kvalSSFP*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
+                #rho_T1SPGR[i,j,k]=Img[i,j,k]*((1-E1*E2-np.cos(FAMap[i,j,k])*(E1-E2))/(np.sin(FAMap[i,j,k])*(1-E1)))/kvalSPGR
+                rho_T1SSFP[i,j,k]=Img[i,j,k]/(kval*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
+                rho_SSFP_test[i,j,k]=Img[i,j,k]*(1-(E1-E2)*np.cos(FAMap[i,j,k])-E1*E2)/(kval*np.sqrt(E2)*(1-E1)*np.sin(FAMap[i,j,k]));
                 # 1/(kvalSSFP*(np.tan(degval/2)*(1-(E1spec-np.cos(degval))*rval(E1spec,degval,E2))))
 from nifty_funclib import SaveArrayAsNIfTI
 Hpath, Fname = os.path.split(str(outputnii))
 Fname = Fname.split('.')
-OutputPathrho_T1SPGR = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSPGR.nii")
+#OutputPathrho_T1SPGR = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSPGR.nii")
 OutputPathrho_T1SSFP = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP.nii")
+OutputPathrho_SSFP_test = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP_test.nii")
 
 if verbose:
     print((degval,T1,E1))
 SaveArrayAsNIfTI(rho_T1SSFP,affine,OutputPathrho_T1SSFP) 
-SaveArrayAsNIfTI(rho_T1SPGR,affine,OutputPathrho_T1SPGR) 
+SaveArrayAsNIfTI(rho_SSFP_test,affine,OutputPathrho_SSFP_test)
+#SaveArrayAsNIfTI(rho_T1SPGR,affine,OutputPathrho_T1SPGR) 
