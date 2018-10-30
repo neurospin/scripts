@@ -2,17 +2,17 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedi
 
     %launch_reconstruct_TPI('C:\Users\js247994\Documents\Bipli2\Test8\Raw','C:\Users\js247994\Documents\Bipli2\Test8\Processed','C:\Users\js247994\Documents\Bipli2\BipliPipeline\scripts\2017_bipli_lithium_imaging\ReconstructionTPI','C:\Python27\python.exe')
     if ~exist('pythonexe','var')
-        pythonexe='python';
+        pythonexe='python3';
         if ~exist('codedir','var')
             codedir=fullfile(char(pwd));
         end
     end
     
     %projectdir='V:\projects\BIPLi7\ClinicalData';
-    %projectdir='/neurospin/ciclops/projects/BIPLi7/Clinicaldata';
-    projectdir='/neurospin/ciclops/projects/SIMBA/Clinicaldata';
-    %projectdir="/neurospin/ciclops/projects/BIPLi7/Tests/TestsLi";
-    raw_dir=fullfile(projectdir,'Raw_Data','2*');
+    projectdir='/neurospin/ciclops/projects/BIPLi7/Clinicaldata';
+    %projectdir='/neurospin/ciclops/projects/SIMBA/Clinicaldata';
+    %projectdir="/neurospin/ciclops/projects/BIPLi7/Tests/";
+    raw_dir=fullfile(projectdir,'Raw_Data','2018_*');
 %   reconstructfile=fullfile('/home/js247994/DocumentsN2/2017_bipli_lithium_imaging','ReconstructionTPI','ProcessData.py');
     listsubj=dir(raw_dir);
 
@@ -32,8 +32,8 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedi
     end      
     %try to get T1 values from excel file  
     
-    for i = 1:numel(listsubj)
-        subjname=listsubj(i).name;    
+    for i = 12:12+numel(listsubj)
+        subjname=listsubj(i-11).name;    
         
         for l=subjstartl:size(raw,1)
             if strcmp(raw(l,subjcol),subjname)

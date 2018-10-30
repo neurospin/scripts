@@ -25,6 +25,7 @@ parser.add_argument("--m", type=str,help="Possible mask path")
 parser.add_argument("--t1", type=float, help="Overall T1 value (in seconds)")
 parser.add_argument("--B0map", type=str, help="Input B0 map path (if absent, set to 1 everywhere)")
 parser.add_argument("--B0cor", help="Do we take kvals for B0 correction or not (if present=>yes)", action = "store_true")
+parser.add_argument("--seq", help="Which sequence? (TPI or trufi)")
 
 args = parser.parse_args()
 
@@ -60,11 +61,13 @@ if args.o:
     
 if args.seq:
     if args.seq=='trufi':
+        print('sequence is trufi')
         kval=1.0
         TR=5.000    #in ms
         TE=2.500    #in ms
     elif args.seq=='TPI':
         #kvalSPGR=2.2113e-06    kvalSSFP=2.2621e-06
+        print('sequence is TPI')
         if args.B0cor:
             print('B0 acknowledged')
             #kvalSPGR=0.1931

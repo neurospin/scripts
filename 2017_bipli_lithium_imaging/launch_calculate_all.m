@@ -49,7 +49,7 @@ function launch_calculate_all(subjectdir)
     TrufifilesS=dir(fullfile(subjectdir,'Trufi','03-Filtered','*nii'));
     for trufifile=TrufifilesS'
         if ~contains(trufifile.name,'3T')
-            trufifiles{i,1}=fullfile(subjectdir,'Trufi',otherfile.name);
+            trufifiles{i,1}=fullfile(subjectdir,'Trufi',trufifile.name);
             i=i+1;
         end
     end   
@@ -70,7 +70,7 @@ function launch_calculate_all(subjectdir)
         end
     end
     
-    [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,trufifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+    [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
     if isempty(trufifiles)
         trufioutput3T=fullfile(subjectdir,'Trufi','04-3Tanatspace',otherfile.name);
         trufioutputMNI=fullfile(subjectdir,'Trufi','05-MNIspace',otherfile.name);

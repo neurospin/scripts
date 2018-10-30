@@ -15,7 +15,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
     ComputeVFAfile=fullfile(char(Codedir),'reconstructionTPI','ComputeDensity3D_clinic.py');
     ComputeQuantifile=fullfile(char(Codedir),'reconstructionTPI','ComputeQuantif_clinic.py');    
     
-    if exist(filesdirTPIin,'dir')
+    if ~exist(filesdirTPIin,'dir')
         filesTPInii=dir(fullfile(filesdirTPIin,'*.nii'));
         for file1=filesTPInii'
             degloc=strfind(file1.name,'deg');
@@ -30,7 +30,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                 deg1=file1.name(degloc-2:degloc-1); 
                 %deg1=int2str(90);
                 if ~over   
-                    for file2=filesnii'
+                    for file2=filesTPInii'
                         VFA=~strcmp(file1.name,file2.name) && strcmp(file1.name(degloc:end),file2.name(degloc:end)); %If there is another file with the same name but a different degree value, it is treated as the second VFA file
                         if VFA
                             deg2=file2.name(degloc-2:degloc-1);
@@ -52,19 +52,18 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                 %[~,filename,ext]=fileparts(file1.name);
                 %Computedniipath=strcat(filesdir,filename,ext);
                 Computedniipath=fullfile(filesdirTPIout,file1.name);
-                codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
+                codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --seq TPI '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
                 system(codelaunchQuant{1});
             end
         end
     else
-        display('warning, no TPI folder found at'+processedTPIpath);
+        display("warning, no TPI folder found at "+filesdirTPIin);
     end
     
-    filesdirtrufiin=fullfile(Subjectdirp,'trufi','Reconstruct_gridding','01-Raw');
-    filesdirtrufiout=fullfile(Subjectdirp,'trufi','Reconstruct_gridding','02-PostQuantif');
-    filesdone=[];
+    filesdirtrufiin=fullfile(Subjectdirp,'Trufi','01-Raw');
+    filesdirtrufiout=fullfile(Subjectdirp,'Trufi','02-PostQuantif');
     
-    if exist(filesdirtrufiin,'dir')
+    if ~exist(filesdirtrufiin,'dir')
         filestrufinii=dir(fullfile(filesdirtrufiin,'*.nii'));
         for file1=filestrufinii'
             
@@ -79,16 +78,16 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
             %Computedniipath=strcat(filesdir,filename,ext);
             
             B0corkval='';
-            
+            filepath=fullfile(filesdirtrufiin,file1.name);
             %%%%%% IMPORTANT! TO CHANGE SO AS TO INCLUDE REAL FLIP ANGLES
-            deg1=30;
+            deg1='30';
             %%%%%%%
             Computedniipath=fullfile(filesdirtrufiout,file1.name);
-            codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
+            codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},filepath,{' --deg '},deg1,B0corkval,{' --seq trufi '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
             system(codelaunchQuant{1});
         end
     else
-        display('warning, no TPI folder found at'+processedTPIpath);
+        display("warning, no TPI folder found at "+filesdirtrufiin);
     end    
     
 end
