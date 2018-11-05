@@ -129,6 +129,7 @@ print('t_test done')
 print('launching maxT test')
 tvals2, pvals_maxT, df2 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=False)
 print('maxT test done')
+tvals3, pvals_maxT_tt, df3 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=True)
 #♣tvals3, minP, df3 = muols.t_test_minP(contrasts=np.array([1, 0, 0]), nperms=5, two_tailed=True)
 mhist, bins, patches= plt.hist([pvals_ttest[0,:],pvals_maxT[0,:]],
                            color=['blue','red'],
@@ -150,6 +151,9 @@ print(stats.ttest_rel(bv0, bv1))
 print(stats.wilcoxon(bv0, bv1))
 
 
+
+#np.correlation
+#correlation test scipy test
 
 #import scipy.stats as stats
 #import matplotlib.pyplot as plt

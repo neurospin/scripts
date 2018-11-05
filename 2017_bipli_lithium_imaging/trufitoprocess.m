@@ -9,4 +9,4 @@ function trufitoprocess(raw_dic,proc_subjdir)
             end
             dicm2nii(fullfile(raw_dic,trufdir.name),proc_trufi,'.nii',trufdir.name);
         end
-        endv
+    end
