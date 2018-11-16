@@ -4,7 +4,10 @@ function runBTK(subjdir,btkdir)
 if ~exist('btkdir','var')
     if contains(subjdir,'/')
         btkdir=fullfile('/volatile','BTK-v1.5-Linux-x64');
+    else
+        btkdir='';
     end
+    
 end
 %Processeddir='/neurospin/ciclops/projects/BIPLi7/ClinicalData/temp/';
 btkfunc=fullfile(btkdir,'Applications','btkNLMDenoising');
@@ -39,8 +42,8 @@ if exist(subjdir,'dir')==7
     trufipathoutput=fullfile(subjdir,'Trufi','03-Filtered');  
     
     if exist(trufipathinput,'dir')
-        if ~exist(TPIpathoutput,'dir')
-            mkdir(TPIpathoutput)
+        if ~exist(trufipathoutput,'dir')
+            mkdir(trufipathoutput)
         end        
         T= dir(trufipathinput);
         T=T(~ismember({T.name},{'.','..'}));

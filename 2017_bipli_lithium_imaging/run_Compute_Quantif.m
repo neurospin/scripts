@@ -54,6 +54,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                 Computedniipath=fullfile(filesdirTPIout,file1.name);
                 codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --seq TPI '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
                 system(codelaunchQuant{1});
+                
             end
         end
     else
@@ -63,8 +64,11 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
     filesdirtrufiin=fullfile(Subjectdirp,'Trufi','01-Raw');
     filesdirtrufiout=fullfile(Subjectdirp,'Trufi','02-PostQuantif');
     
-    if ~exist(filesdirtrufiin,'dir')
+    if exist(filesdirtrufiin,'dir')
         filestrufinii=dir(fullfile(filesdirtrufiin,'*.nii'));
+        if ~exist(filesdirtrufiout,'dir')
+            mkdir(filesdirtrufiout);
+        end
         for file1=filestrufinii'
             
             %B0cor=strfind(file1.name,'B0cor');
@@ -85,6 +89,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
             Computedniipath=fullfile(filesdirtrufiout,file1.name);
             codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},filepath,{' --deg '},deg1,B0corkval,{' --seq trufi '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
             system(codelaunchQuant{1});
+            %display('hi');
         end
     else
         display("warning, no TPI folder found at "+filesdirtrufiin);

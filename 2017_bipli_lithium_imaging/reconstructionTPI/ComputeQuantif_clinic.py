@@ -15,6 +15,9 @@ import argparse,sys
 #from ComputeDensity3D_clinic import degtorad,rval
 #python ComputeQuantif_clinic.py --i V:\projects\BIPLi7\ClinicalData\Processed_Data\2018_06_01\TPI\Reconstruct_gridding\01-Raw\Patient...
 
+#--i F:\2018_data\2018_06_01\Trufi\01-Raw\trufi_1000.nii --deg 30 --seq trufi  --t1 3.947 --v --o F:\2018_data\2018_06_01\Trufi\02-PostQuantif\trufi_1000_test.nii
+#--i F:\2018_data\Processed_data\2018_06_01\TPI\Reconstruct_gridding\01-Raw\Patient12_21deg_MID717_B0cor_KBgrid_MODULE_Echo0_TE300.nii --deg 21 --seq TPI  --B0cor  --t1 3.947 --v --o F:\2018_data\Processed_data\2018_06_01\TPI\Reconstruct_gridding\02-PostQuantif\Patient12_21deg_mytest.nii
+
 parser = argparse.ArgumentParser(epilog="ComputeDensity version 1.0")
 
 parser.add_argument("--v","--verbose", help="output verbosity", action="store_true")
@@ -62,9 +65,14 @@ if args.o:
 if args.seq:
     if args.seq=='trufi':
         print('sequence is trufi')
-        kval=1.0
+        #kval=1.0
+        #kval=1.2054
+        #kval=2.7301
+        kval=2.2802
         TR=5.000    #in ms
         TE=2.500    #in ms
+        kval=kval*1000
+        seq='trufi'
     elif args.seq=='TPI':
         #kvalSPGR=2.2113e-06    kvalSSFP=2.2621e-06
         print('sequence is TPI')
@@ -79,6 +87,9 @@ if args.seq:
         TR=200.000    #in ms
         TE=0.300
         T2star=12.000
+        seq='TPI'
+    else:
+        print('sequence type not recognized')
 else:
     print('sequence type not specified')
     
@@ -112,7 +123,7 @@ mask=np.squeeze(mask)
 M0_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SSFP = np.zeros(shape=Img.shape)
-rho_SSFP_test = np.zeros(shape=Img.shape)
+rho_SSFP = np.zeros(shape=Img.shape)
 
 multiplier=(kval*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2))))
 print('multiplier is : {0}'.format(multiplier))
@@ -123,18 +134,26 @@ for i in range(Img.shape[0]):
         for k in range(Img.shape[2]):
             if mask[i,j,k]>0:
                 #rho_T1SPGR[i,j,k]=Img[i,j,k]*((1-E1*E2-np.cos(FAMap[i,j,k])*(E1-E2))/(np.sin(FAMap[i,j,k])*(1-E1)))/kvalSPGR
-                rho_T1SSFP[i,j,k]=Img[i,j,k]/(kval*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
-                rho_SSFP_test[i,j,k]=Img[i,j,k]*(1-(E1-E2)*np.cos(FAMap[i,j,k])-E1*E2)/(kval*np.sqrt(E2)*(1-E1)*np.sin(FAMap[i,j,k]));
+                #rho_T1SSFP[i,j,k]=Img[i,j,k]/(kval*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
+                if seq=='trufi':
+                    rho_SSFP[i,j,k]=Img[i,j,k]*(1-(E1-E2)*np.cos(FAMap[i,j,k])-E1*E2)/(kval*np.sqrt(E2)*(1-E1)*np.sin(FAMap[i,j,k]));
+                elif seq=='TPI':
+                    rho_SSFP[i,j,k]=Img[i,j,k]/(kval*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
+                else:
+                    print('error')
+                #rho_SSFP[i,j,k]=Img[i,j,k]/(kval*(np.tan(FAMap[i,j,k]/2)*(1-(E1-np.cos(FAMap[i,j,k]))*rval(E1,FAMap[i,j,k],E2))));
                 # 1/(kvalSSFP*(np.tan(degval/2)*(1-(E1spec-np.cos(degval))*rval(E1spec,degval,E2))))
 from nifty_funclib import SaveArrayAsNIfTI
 Hpath, Fname = os.path.split(str(outputnii))
 Fname = Fname.split('.')
 #OutputPathrho_T1SPGR = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSPGR.nii")
-OutputPathrho_T1SSFP = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP.nii")
-OutputPathrho_SSFP_test = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP_test.nii")
-
+#OutputPathrho_T1SSFP = os.path.join( Hpath + '/' + Fname[0]+ "_rhoSSFP.nii")
+if seq=='trufi':
+    OutputPathrho_SSFP_test = os.path.join( Hpath + '/' + Fname[0]+ "_rho_bSSFP.nii")
+elif seq=='TPI':
+    OutputPathrho_SSFP_test = os.path.join( Hpath + '/' + Fname[0]+ "_rho_SSFP.nii")
 if verbose:
     print((degval,T1,E1))
-SaveArrayAsNIfTI(rho_T1SSFP,affine,OutputPathrho_T1SSFP) 
-SaveArrayAsNIfTI(rho_SSFP_test,affine,OutputPathrho_SSFP_test)
+#SaveArrayAsNIfTI(rho_T1SSFP,affine,OutputPathrho_T1SSFP) 
+SaveArrayAsNIfTI(rho_SSFP,affine,OutputPathrho_SSFP_test)
 #SaveArrayAsNIfTI(rho_T1SPGR,affine,OutputPathrho_T1SPGR) 
