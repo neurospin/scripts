@@ -1,4 +1,4 @@
-function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,keepniifiles)%Greyfile,Whitefile,CSFfile)
+function [deformfield,deformfield_inv]=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,keepniifiles)%Greyfile,Whitefile,CSFfile)
 
     %U=load('C:\Users\js247994\Documents\Bipli2\Processing\Batch\Segment2spm_OneSubject.mat');
     %keepniifiles=0=> then erase everything
@@ -42,8 +42,9 @@ function deformfield=calculate_deform_field_03(anat3Tfile,segmentfile,TPMfile,ke
     
     tempsegfile=fullfile(dirsegment,'tempmatseg.mat');
     save(tempsegfile,'matlabbatch');
-    spm_jobman('run',tempsegfile);
+    %spm_jobman('run',tempsegfile);
     delete(tempsegfile);
     deformfield=fullfile(subjectdir,strcat('y_',filename,ext));
+    deformfield_inv=fullfile(subjectdir,strcat('iy_',filename,ext));
     
 end

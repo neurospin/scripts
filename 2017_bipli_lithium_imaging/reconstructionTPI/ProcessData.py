@@ -11,7 +11,7 @@ import argparse
 import numpy as np
 from ReadRawData import ReadSiemensSpectro, ReadFastSiemensRAD, ReadFastSiemensTPI_MIA_MonoEcho, ReadFastSiemensTPI_MultiEcho
 from Regridding import KaiserBesselRegridding, KaiserBesselTPI, KaiserBesselTPI_ME, Direct_Reconstruction_2D, Direct_Reconstruction_3D, KaiserBesselTPI_ME_B0, Conjuguate_Phase_DemodData, Conjuguate_Phase_combine, Display_info
-from ProcessCorrections import Fieldmap_to_Source_space, Fieldmap_get
+from ProcessCorrections import Fieldmap_to_Source_space, Fieldmap_get, T2starestimate
 from nifty_funclib import SaveArrayAsNIfTI
 #from nipy import save_image
 #from ctypes import *
@@ -25,6 +25,8 @@ from nifty_funclib import SaveArrayAsNIfTI
 #--i /neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data/2017_02_21/twix7T/meas_MID203_7Li_TPI_fisp_TR200_20deg_P05_FID6746.dat --NSTPI --s --FISTA_CSV --fieldmap /neurospin/ciclops/projects/BIPLi7/ClinicalData/Processed_Data/2017_02_21/Field_mapping_2/rfield_mapping_phase.nii --o /neurospin/ciclops/people/Jacques/Bipli/B0Map_inhomogeneity_testzone/2017_02_21/reconstructsTPItests/reconstruc_fieldmap_test1.nii
 #--i /neurospin/ciclops/projects/SIMBA/Clinicaldata/Raw_Data/2018_08_01/twix7T/meas_MID162_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID6447.dat --NSTPI --s --FISTA_CSV --o /neurospin/ciclops/projects/SIMBA/Clinicaldata/Processed_Data/2018_08_01/TPI/Reconstruct_gridding/01-Raw/meas162.nii
 #--i /neurospin/ciclops/projects/SIMBA/Clinicaldata/Raw_Data/2018_08_01/twix7T/meas_MID165_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID6450.dat --NSTPI --s --FISTA_CSV --o /neurospin/ciclops/projects/SIMBA/Clinicaldata/Processed_Data/2018_08_01/TPI/Reconstruct_gridding/01-Raw/meas165.nii
+#--i V:\projects\BIPLi7\QC\twix\2018_11_20\meas_MID138_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID2760.dat --FISTA_CSV --s --o V:\projects\BIPLi7\QC\dicom\2018_11_20\TPI\QC_TPI.nii
+#--i V:\projects\BIPLi7\Tests\2018_10_25\meas_MID159_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID684.dat --FISTA_CSV --s --o V:\projects\BIPLi7\Tests\2018_10_25\QC_TPI.nii
 
 import time
 
@@ -228,7 +230,11 @@ if TPI :
     print(KX.shape)
     print(CPLX.shape)
     print("----------------------------------")
-        
+    
+T2calc=1
+if T2calc:
+    T2starestimate(CPLX,parameters[25])
+    
 #windll.Kernel32.SetConsoleTextAttribute(std_output_hdl, 10)
 if HeaderOnly : print('Header Information Extracted')
 else : 

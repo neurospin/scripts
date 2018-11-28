@@ -1,8 +1,13 @@
-function kval_bSSFP_val = kval_bSSFP(Sigdivrho,alpha,TR,T1,T2)
+function kval_bSSFP_val = kval_bSSFP(Sigdivrho,alpha,TR,TE,T1,T2,TEinclud)
     alpharad=alpha*pi/180;
     E1=exp(-TR/T1);
     E2=exp(-TR/T2);
-    kval_bSSFP_val=(Sigdivrho*(1-(E1-E2)*cos(alpharad)-E1*E2))/(sqrt(E2*(1-E1)*sin(alpharad)));
+    E22=exp(-TE/T2);
+    if TEinclud
+        kval_bSSFP_val=(Sigdivrho*(1-(E1-E2)*cos(alpharad)-E1*E2))/(sqrt(E2*(1-E1)*sin(alpharad))*E22);
+    else
+        kval_bSSFP_val=(Sigdivrho*(1-(E1-E2)*cos(alpharad)-E1*E2))/(sqrt(E2*(1-E1)*sin(alpharad)));
+    end
 end
 
 %kvalSPGR=((Sigdivrho)*(1-(E1-E2)*cos(alpharad)-E1*E2))/((1-E1)*sin(alpharad));

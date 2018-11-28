@@ -1,4 +1,4 @@
-function [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
+function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
        
     if ~isempty(Lifiles)
         transmat=calculate_translation_mat_01(Lifiles{1});%,Anat7Tfile,Litranslation);
@@ -10,7 +10,7 @@ function [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,othe
         [Anat7Tdir,Anat7Tfilename,ext]=fileparts(Anat7Tfile);
         Anat7Tin3Tspm.fname=char(fullfile(Anat7Tdir,string(Anat7Tfilename)+'_3Tspace'+ext));
         spm_write_vol(Anat7Tin3Tspm,spm_read_vols(Anat7Tspm));
-        deform_field=calculate_deform_field_03(string(Anat3Tfile),segmentfile,TPMfile,keepniifiles);   
+        [deform_field,deform_field_inv]=calculate_deform_field_03(string(Anat3Tfile),segmentfile,TPMfile,keepniifiles);   
         Currentfolder=pwd;
         if exist(fullfile(Currentfolder,'info_pipeline','normwritespm.mat'),'file')
             normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat'); %Later do a thing that finds it automatically;
@@ -29,9 +29,9 @@ function [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,othe
             newLispm3T=Lispm;
             newLispm3T.mat=Li3Tmat;
             newLispm3T.fname=char(fullfile(Lioutputdir3T,filename+ext));
-            spm_write_vol(newLispm7T,spm_read_vols(Lispm));
-            spm_write_vol(newLispm3T,spm_read_vols(Lispm));        
-            apply_deform_field_04(newLispm3T.fname,Lioutputdirmni,deform_field,normfile);
+            %spm_write_vol(newLispm7T,spm_read_vols(Lispm));
+            %spm_write_vol(newLispm3T,spm_read_vols(Lispm));        
+            %apply_deform_field_04(newLispm3T.fname,Lioutputdirmni,deform_field,normfile);
         end
         for otherfile=other7Tfiles'
             otherfilespm=spm_vol(char(otherfile{1}));
@@ -43,8 +43,8 @@ function [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,othe
                 newotherspm3T=otherfilespm(i,1);
                 newotherspm3T.mat=coregmat*otherfilespm(i,1).mat;
                 newotherspm3T.fname=char(fullfile(dir,string(filename)+'_in3T'+string(ext)));
-                spm_write_vol(newotherspm3T,spm_read_vols(otherfilespm(i,1)));
-                apply_deform_field_04(newotherspm3T.fname,dir,deform_field,normfile)
+                %spm_write_vol(newotherspm3T,spm_read_vols(otherfilespm(i,1)));
+                %apply_deform_field_04(newotherspm3T.fname,dir,deform_field,normfile)
             end
         end
     else

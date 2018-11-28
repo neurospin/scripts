@@ -32,8 +32,10 @@ function launch_calculate_all(subjectdir)
     Lioutputdir7T=fullfile(subjectdir,'TPI','Reconstruct_gridding','04-7Tanatspace');
     Lioutputdir3T=fullfile(subjectdir,'TPI','Reconstruct_gridding','05-3Tanatspace');    
     %Litranslation=strcat(subjectdir,'\Anatomy7T\1H_TO_Li_f.trm');
-    Anat3Tfile=fullfile(subjectdir,'Anatomy3T','t1_weighted_sagittal_1_0iso.nii');
-    Anat7Tfile=fullfile(subjectdir,'Anatomy7T','t1_mpr_tra_iso1_0mm.nii');
+    Anat3Tdir=fullfile(subjectdir,'Anatomy3T');
+    Anat3Tfile=fullfile(Anat3Tdir,'t1_weighted_sagittal_1_0iso.nii');
+    Anat7Tdir=fullfile(subjectdir,'Anatomy7T');
+    Anat7Tfile=fullfile(Anat7Tdir,'t1_mpr_tra_iso1_0mm.nii');
     LifilesS=dir(fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered','*nii'));
     
     i=1;
@@ -70,9 +72,29 @@ function launch_calculate_all(subjectdir)
         end
     end
     
-    [transmat,coregmat,deform_field,normfile]=calculate_all_00(Lifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+    [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,otherfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
     if ~isempty(trufifiles)
         trufioutput3T=fullfile(subjectdir,'Trufi','04-3Tanatspace');
         trufioutputMNI=fullfile(subjectdir,'Trufi','05-MNIspace');
-        apply_transform_7TtoMNI(trufifiles,trufioutput3T,trufioutputMNI,coregmat,deform_field,normfile);
+        %apply_transform_7TtoMNI(trufifiles,trufioutput3T,trufioutputMNI,coregmat,deform_field,normfile);
+    end
+    makeQuantifMasks=1;
+    if makeQuantifMasks
+        QuantifMasks=fullfile(splitfolder,'Masks','Quantifmaps'); 
+        i=1;
+        maskslist=dir(fullfile(QuantifMasks,'*nii'));
+        MNImasks=cell(size(maskslist));
+        Anat3Tmaskdir=fullfile(Anat3Tdir,'Masks');
+        if ~exist(Anat3Tmaskdir,'dir')
+            mkdir(Anat3Tmaskdir);
+        end
+        Anat7Tmaskdir=fullfile(Anat7Tdir,'Masks');
+        if ~exist(Anat7Tmaskdir,'dir')
+            mkdir(Anat7Tmaskdir);
+        end
+        for maskfile=maskslist'
+            MNImasks{i,1}=fullfile(QuantifMasks,maskfile.name);
+            i=i+1;
+        end   
+        apply_transform_MNI_to7T(MNImasks,Anat3Tmaskdir,Anat7Tmaskdir,coregmat,deform_field_inv,normfile);
     end
