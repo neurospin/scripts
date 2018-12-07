@@ -6,7 +6,8 @@ function trufitoprocess(raw_dic,proc_subjdir)
             proc_trufi=fullfile(proc_subjdir,'Trufi','01-Raw');
             if ~exist(proc_trufi,'dir')
                 mkdir(proc_trufi)
+                dicm2nii(fullfile(raw_dic,trufdir.name),proc_trufi,'.nii',trufdir.name);
             end
-            dicm2nii(fullfile(raw_dic,trufdir.name),proc_trufi,'.nii',trufdir.name);
+            
         end
     end

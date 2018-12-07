@@ -1,4 +1,4 @@
-function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calculate_all(subjectdir,makeQuantif)    
+function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forcestart)    
 
     %Lifile='C:\Users\js247994\Documents\Bipli2\Test2\TPI\Reconstruct_gridding\03-Concentration\Patient01_KBgrid_MODULE_Echo0_filtered.nii';
     %Anat7Tfile='C:\Users\js247994\Documents\Bipli2\Test2\Anatomy7T\t1_mpr_tra_iso1_0mm.nii';
@@ -10,6 +10,12 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calcu
     
     %addpath("/volatile/spm12")
     %addpath("/volatile/DISTANCE")
+    
+    if ~exist('forcestart','var')
+        forcestart=0; % just in case I want it to guarantee to recalculate everything again
+        %will probably never be used
+    end
+    
     keepniifiles=3;
     Currentfolder=pwd;
     if contains(subjectdir,'/')
@@ -22,6 +28,7 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calcu
     subjectdir=string(subjectdir);
     %TPMfile='C:\Users\js247994\Documents\FidDependencies\spm12\tpm\TPM.nii'; 
     TPMfile=fullfile(splitfolder,'Masks','TPM.nii'); 
+    MNI_brain_ref=fullfile(splitfolder,'Masks','MNI_brain_ref.nii'); 
     if exist(fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'),'file')
         segmentfile=fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.mat'); %Later do a thing that writes the .mat files;
     elseif exist(fullfile(Currentfolder,'info_pipeline','segmentsubjectspm.txt'),'file')
@@ -44,7 +51,8 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calcu
     end    
     
     trufifiles=[];
-    TrufifilesS=dir(fullfile(subjectdir,'Trufi','01-Raw','*nii'));
+    Trufifolder=fullfile(subjectdir,'Trufi');
+    TrufifilesS=dir(fullfile(Trufifolder,'01-Raw','*nii'));
     i=1;
     for trufifile=TrufifilesS'
         trufifiles{i,1}=fullfile(subjectdir,'Trufi','01-Raw',trufifile.name);
@@ -52,18 +60,19 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calcu
     end       
     
     transfoparam_file=fullfile(Anat7Tdir,'transfovariables.mat');
-    if ~exist(transfoparam_file,'file')
+    if ~exist(transfoparam_file,'file') || forcestart
         [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
         save(char(transfoparam_file),'transmat','coregmat','deform_field','deform_field_inv','normfile');
+        clear('transmat','deform_field');
     else
-        load(transfoparam_file,'transmat','coregmat','deform_field','deform_field_inv','normfile');
+        load(transfoparam_file,'coregmat','deform_field_inv','normfile');
     end
     
     if ~exist('makeQuantif','var')
         makeQuantif=0;
     end
     
-    if makeQuantif
+    if makeQuantif || forcestart
         %convertMasks3TtoMNI(splitfolder,Anat7Tdir,Anat3Tdir,coregmat,deform_field_inv,normfile);
         QuantifMasks=fullfile(splitfolder,'Masks','Quantifmaps'); 
         i=1;
@@ -73,27 +82,50 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=launch_calcu
         if ~exist(Anat3Tmaskdir,'dir')
             mkdir(Anat3Tmaskdir);
         end
+        
         Anat7Tmaskdir=fullfile(Anat7Tdir,'Masks');
         if ~exist(Anat7Tmaskdir,'dir')
             mkdir(Anat7Tmaskdir);
         end
+        
+        Quantif_subj_masks=fullfile(subjectdir,"Quantif_masks");
+        if ~exist(Quantif_subj_masks,'dir')
+            mkdir(Quantif_subj_masks);
+        end
+        
+        masksdone=1;
         for maskfile=maskslist'
             MNImasks{i,1}=fullfile(QuantifMasks,maskfile.name);
+            
+            if ~exist(fullfile(Anat7Tmaskdir,maskfile.name),'file')
+                masksdone=0;
+            end
+            outputpathMNI=fullfile(Quantif_subj_masks,"MNI_"+maskfile.name);
+            if ~exist(outputpathMNI,'file') || forcestart
+                convertreso_spm(MNI_brain_ref,MNImasks{i,1},outputpathMNI);
+            end
             i=i+1;
         end
         
-        apply_transform_MNI_to7T(MNImasks,Anat3Tmaskdir,Anat7Tmaskdir,coregmat,deform_field_inv,normfile);
-        Quantif_masks=fullfile(subjectdir,"Quantif_masks");
-        if ~exist(Quantif_masks,'dir')
-            mkdir(Quantif_masks);
+        if masksdone==0 || forcestart
+            apply_transform_MNI_to7T(MNImasks,Anat3Tmaskdir,Anat7Tmaskdir,coregmat,deform_field_inv,normfile);
+        end
+        
+        if ~exist(Quantif_subj_masks,'dir')
+            mkdir(Quantif_subj_masks);
         end
         newmaskslist=dir(fullfile(Anat7Tmaskdir,'*nii'));
         for maskfile=newmaskslist'
             maskpath=fullfile(Anat7Tmaskdir,maskfile.name);
-            outputpathTPI=fullfile(Quantif_masks,"TPI_"+maskfile.name);
-            outputpathtrufi=fullfile(Quantif_masks,"Trufi_"+maskfile.name);
-            convertreso_spm(Lifiles{1},maskpath,outputpathTPI);
-            convertreso_spm(trufifiles{1},maskpath,outputpathtrufi);
+            outputpathTPI=fullfile(Quantif_subj_masks,"TPI_"+maskfile.name);
+            outputpathtrufi=fullfile(Quantif_subj_masks,"Trufi_"+maskfile.name);
+
+            if ~exist(outputpathTPI,'file') || forcestart
+                convertreso_spm(Lifiles{1},maskpath,outputpathTPI);
+            end
+            if (~exist(outputpathtrufi,'file') || forcestart) && exist(Trufifolder,'dir')
+                convertreso_spm(trufifiles{1},maskpath,outputpathtrufi);
+            end
         end
         
     end

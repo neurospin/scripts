@@ -60,7 +60,7 @@
             ref_im=dir(ref_dir);
             if ~isempty(ref_im)
                 ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
-                %prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);
+                prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);
             else
                 display('warning, could not find reference image for fieldmap');
             end
@@ -68,15 +68,19 @@
             TPIresultfname=("Patient"+(subjectnumber)+"_"+degval+"deg_MID"+MIDval+"_B0cor.nii");
             Reconstructfpath=fullfile(processedTPIpath,TPIresultfname);
             codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --fieldmap "+fieldmap_file+" --NSTPI --s --FISTA_CSV --o "+Reconstructfpath;
-            %system(codelaunch)
+            system(codelaunch)
             %system(codelaunch{1,1})
          
         end
     end
     raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');  
-    %trufitoprocess(raw_dic,proc_subjdir);
-    run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
+    trufitoprocess(raw_dic,proc_subjdir);
+    makeQuantif=1;
+    transfoparam_file=launch_transform_calc(proc_subjdir,makeQuantif);
+    run_Compute_Quantif_2(fullfile(projectdir,'Processed_Data'),subjname,T1val)
     runBTK(proc_subjdir);
-    launch_calculate_all(proc_subjdir)
+    launch_applytransforms(proc_subjdir,transfoparam_file)
+    run_Compute_Quantif_3(fullfile(projectdir,'Processed_Data'),subjname,T1val)
+    %
     
 

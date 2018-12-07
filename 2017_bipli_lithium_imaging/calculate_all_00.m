@@ -1,4 +1,4 @@
-function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,other7Tfiles,Lioutputdir7T,Lioutputdir3T,Lioutputdirmni,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
+function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
        
     if ~isempty(Lifiles)
         transmat=calculate_translation_mat_01(Lifiles{1});%,Anat7Tfile,Litranslation);
@@ -17,35 +17,6 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_al
         elseif exist(fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),'file')
             movefile (fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),fullfile(Currentfolder,'info_pipeline','normwritespm.mat'))
             normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat');
-        end
-        for Lifile=Lifiles'
-            Lispm=spm_vol(char(Lifile{1}));
-            [~,filename,ext]=fileparts(Lifile{1});
-            filename=string(filename);
-            ext=string(ext);
-            newLispm7T=Lispm;
-            newLispm7T.mat=transmat;
-            newLispm7T.fname=char(fullfile(Lioutputdir7T,filename+ext));
-            newLispm3T=Lispm;
-            newLispm3T.mat=Li3Tmat;
-            newLispm3T.fname=char(fullfile(Lioutputdir3T,filename+ext));
-            %spm_write_vol(newLispm7T,spm_read_vols(Lispm));
-            %spm_write_vol(newLispm3T,spm_read_vols(Lispm));        
-            %apply_deform_field_04(newLispm3T.fname,Lioutputdirmni,deform_field,normfile);
-        end
-        for otherfile=other7Tfiles'
-            otherfilespm=spm_vol(char(otherfile{1}));
-            for i=1:size(otherfilespm,1)
-                [dir,filename,ext]=fileparts(otherfile{1});
-                if size(otherfilespm,1)>1
-                    ext="_"+int2str(i)+string(ext);
-                end
-                newotherspm3T=otherfilespm(i,1);
-                newotherspm3T.mat=coregmat*otherfilespm(i,1).mat;
-                newotherspm3T.fname=char(fullfile(dir,string(filename)+'_in3T'+string(ext)));
-                %spm_write_vol(newotherspm3T,spm_read_vols(otherfilespm(i,1)));
-                %apply_deform_field_04(newotherspm3T.fname,dir,deform_field,normfile)
-            end
         end
     else
         display('Empty subject folder, cannot launch process')
