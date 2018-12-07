@@ -15,7 +15,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
     ComputeVFAfile=fullfile(char(Codedir),'reconstructionTPI','ComputeDensity3D_clinic.py');
     ComputeQuantifile=fullfile(char(Codedir),'reconstructionTPI','ComputeQuantif_clinic.py');    
     
-    if ~exist(filesdirTPIin,'dir')
+    if exist(filesdirTPIin,'dir')
         filesTPInii=dir(fullfile(filesdirTPIin,'*.nii'));
         for file1=filesTPInii'
             degloc=strfind(file1.name,'deg');
@@ -37,7 +37,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                             Computedniipath=fullfile(filesdirTPIout,strcat(file1.name(1:degloc-3),file1.name(degloc+4:end)));
                             file2path=fullfile(filesdirTPIin,file2.name);
                             codelaunchVFA=strcat({'"'},Pythonexe,{'" '},ComputeVFAfile,{' --i1 '},file1path,{' --i2 '},file2path,{' --deg1 '},deg1,{' --deg2 '},deg2,{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
-                            system(codelaunchVFA{1});
+                            %system(codelaunchVFA{1});
                             filesdone=[filesdone;string(file1.name);string(file2.name)];
                         end
                     end
@@ -53,7 +53,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
                 %Computedniipath=strcat(filesdir,filename,ext);
                 Computedniipath=fullfile(filesdirTPIout,file1.name);
                 codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},file1path,{' --deg '},deg1,B0corkval,{' --seq TPI '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
-                system(codelaunchQuant{1});
+                %system(codelaunchQuant{1});
                 
             end
         end
@@ -88,7 +88,7 @@ function run_Compute_Quantif(Processeddir,subject,T1val,Codedir,Pythonexe)
             %%%%%%%
             Computedniipath=fullfile(filesdirtrufiout,file1.name);
             codelaunchQuant=strcat({'"'},Pythonexe,{'" '},ComputeQuantifile,{' --i '},filepath,{' --deg '},deg1,B0corkval,{' --seq trufi '},{' --t1 '}, num2str(T1val), {' --v --o '},Computedniipath);
-            system(codelaunchQuant{1});
+            %system(codelaunchQuant{1});
             %display('hi');
         end
     else

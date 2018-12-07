@@ -1,4 +1,4 @@
-function apply_transform_7TtoMNI(files7T,output3T,outputMNI,coregmat,deform_field,normfile)
+function apply_transform_7TtoMNI(files7T,output3T,outputMNI,coregmat,deform_field,normfile,MNIprefix)
     for file7T=files7T'
         spm_7T=spm_vol(char(file7T{1}));
         for i=1:size(spm_7T,1)
@@ -17,6 +17,6 @@ function apply_transform_7TtoMNI(files7T,output3T,outputMNI,coregmat,deform_fiel
                 mkdir(outputMNI);
             end
             spm_write_vol(spm_3T,spm_read_vols(spm_7T));        
-            apply_deform_field_04(spm_3T.fname,outputMNI,deform_field,normfile);
+            apply_deform_field_04(spm_3T.fname,outputMNI,deform_field,normfile,MNIprefix);
         end
     end    

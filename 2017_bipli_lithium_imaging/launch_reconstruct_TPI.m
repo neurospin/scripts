@@ -75,9 +75,14 @@
         end
     end
     raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');  
-    %trufitoprocess(raw_dic,proc_subjdir);
-    %run_Compute_Quantif(fullfile(projectdir,'Processed_Data'),subjname,T1val,codedir,pythonexe)
-    %runBTK(proc_subjdir);
-    %launch_calculate_all(proc_subjdir)
+    trufitoprocess(raw_dic,proc_subjdir);
+    makeQuantif=1;
+    transfoparam_file=launch_transform_calc(proc_subjdir,makeQuantif);
+    run_Compute_Quantif_2(fullfile(projectdir,'Processed_Data'),subjname,T1val)
+    runBTK(proc_subjdir);
+    launch_applytransforms(proc_subjdir,transfoparam_file)
+    run_Compute_Quantif_3(fullfile(projectdir,'Processed_Data'),subjname,T1val)
+    %
+
     
 

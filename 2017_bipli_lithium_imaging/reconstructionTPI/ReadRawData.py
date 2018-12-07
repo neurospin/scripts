@@ -1381,7 +1381,7 @@ def ReadKline (source_file, position, nbPoints, oversamplingFactor, NbCoils,Nucl
         KspaceLine = np.zeros(shape=(int(nbPoints)*int(oversamplingFactor)),dtype=np.complex64)
         # A line in K space is acquired by each coil and composed of (IM,RE)*NbPts*Oversampling*32bits
         DataLineLength=(nbPoints)*2*int(oversamplingFactor)*32
-        Kline=source.read((DataLineLength/8+(128)))        # we read a line (for a single coil)
+        Kline=source.read(int(DataLineLength/8+(128)))        # we read a line (for a single coil)
         hdr=Kline[0:127]
         signal=Kline[128:]
         dec=False

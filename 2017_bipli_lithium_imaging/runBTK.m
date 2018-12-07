@@ -16,11 +16,11 @@ if exist(subjdir,'dir')==7
     TPIpathinput=fullfile(subjdir,'TPI','Reconstruct_gridding','02-PostQuantif');
     TPIpathoutput=fullfile(subjdir,'TPI','Reconstruct_gridding','03-Filtered');  
     
-    if ~exist(TPIpathinput,'dir')
+    if exist(TPIpathinput,'dir')
         if ~exist(TPIpathoutput,'dir')
             mkdir(TPIpathoutput)
         end        
-        T= dir(TPIpathinput);
+        T= dir(fullfile(TPIpathinput,'*nii'));
         T=T(~ismember({T.name},{'.','..'}));
         for file=T'
             filename=(file.name);
@@ -31,8 +31,10 @@ if exist(subjdir,'dir')==7
                 filepath=fullfile(TPIpathinput,filename);
                 newfilepath=fullfile(TPIpathoutput,string(filename(1:dotf-1))+'.nii');
                 newfilepath_filt=fullfile(TPIpathoutput,string(filename(1:dotf-1))+'_filt.nii');
-                codelaunch=strcat(btkfunc,{' '},'-i',{' '},filepath,{' '},'-o',{' '},newfilepath_filt);
-                system(codelaunch{1});
+                if exist(btkfunc,'dir')
+                    codelaunch=strcat(btkfunc,{' '},'-i',{' '},filepath,{' '},'-o',{' '},newfilepath_filt);
+                    system(codelaunch{1});
+                end
                 copyfile(filepath,newfilepath)
             end
         end
@@ -45,7 +47,7 @@ if exist(subjdir,'dir')==7
         if ~exist(trufipathoutput,'dir')
             mkdir(trufipathoutput)
         end        
-        T= dir(trufipathinput);
+        T= dir(fullfile(trufipathinput,'*nii*'));
         T=T(~ismember({T.name},{'.','..'}));
         for file=T'
             filename=(file.name);
@@ -54,8 +56,10 @@ if exist(subjdir,'dir')==7
                 filepath=fullfile(trufipathinput,filename);
                 newfilepath=fullfile(trufipathoutput,string(filename(1:dotf-1))+'.nii');
                 newfilepath_filt=fullfile(trufipathoutput,string(filename(1:dotf-1))+'_filt.nii');
-                codelaunch=strcat(btkfunc,{' '},'-i',{' '},filepath,{' '},'-o',{' '},newfilepath_filt);
-                system(codelaunch{1});
+                if exist(btkfunc,'dir')
+                    codelaunch=strcat(btkfunc,{' '},'-i',{' '},filepath,{' '},'-o',{' '},newfilepath_filt);
+                    system(codelaunch{1});
+                end
                 copyfile(filepath,newfilepath)
             end
         end    

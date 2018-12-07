@@ -9,8 +9,13 @@ Created on Tue Aug 28 15:59:02 2018
 import nibabel as nib
 from nibabel.affines import apply_affine
 import numpy as np
-
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from lmfit import Model
+
+def funcT2(x, a, b,c):
+    return (a * (np.exp(-b * x)) + c)
+
 def show_slices(slices):
    """ Function to display row of image slices """
    fig, axes = plt.subplots(1, len(slices))
@@ -47,3 +52,32 @@ def Fieldmap_get(fieldmap_file):
     fieldmap_img = nib.load(fieldmap_file)
     fieldmap_img_data= fieldmap_img.get_data()
     return(fieldmap_img_data)
+    
+def T2starestimate(datamat,echoes):
+    data_amp=np.sqrt(datamat.real**2+datamat.imag**2)
+    datasorted=np.partition(data_amp.flatten(), -2)
+    numechoes=np.size(echoes)
+    Sigvals=np.zeros(numechoes)
+    numtests=1
+    for i in range(numtests):
+        maxival=datasorted[-(i+1)];
+        maxiind=np.where(data_amp==maxival)
+        for numecho in range(numechoes):
+            Sigvals[numecho]=data_amp[maxiind[0],maxiind[1],numecho,maxiind[3]]
+            
+        xdata=echoes
+        ydata=Sigvals  
+        y_test = funcT2(xdata, float(200), 1/62, 0)
+        #np.random.seed(1729)
+        #y_noise = 0.2 * np.random.normal(size=xdata.size)
+        #ydata_test = y_test + y_noise
+        plt.plot(xdata, ydata, 'b-', label='data')
+        plt.plot(xdata,y_test,'r-', label='data')
+        popt, pcov = curve_fit(funcT2, xdata, ydata)
+            
+        #maxind=data_amp.argmax();
+        #maxindarray=np.unravel_index([maxind],data.shape);
+    
+    #maxcompreal = arr[arr.real.argmax()]  # complex value with maximum real part
+#maxcomp = arr.max()  # complex value with maximum real part, same as above
+#maxcompimag = arr[arr.imag.argmax()]

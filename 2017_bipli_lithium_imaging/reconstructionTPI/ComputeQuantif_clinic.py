@@ -17,6 +17,8 @@ import argparse,sys
 
 #--i F:\2018_data\2018_06_01\Trufi\01-Raw\trufi_1000.nii --deg 30 --seq trufi  --t1 3.947 --v --o F:\2018_data\2018_06_01\Trufi\02-PostQuantif\trufi_1000_test.nii
 #--i F:\2018_data\Processed_data\2018_06_01\TPI\Reconstruct_gridding\01-Raw\Patient12_21deg_MID717_B0cor_KBgrid_MODULE_Echo0_TE300.nii --deg 21 --seq TPI  --B0cor  --t1 3.947 --v --o F:\2018_data\Processed_data\2018_06_01\TPI\Reconstruct_gridding\02-PostQuantif\Patient12_21deg_mytest.nii
+#--i V:\projects\BIPLi7\ClinicalData\Processed_Data\2018_06_01\TPI\Reconstruct_gridding\01-Raw\Patient12_21deg_MID717_B0cor_KBgrid_MODULE_Echo0_TE300.nii --deg 21 --B0cor --seq TPI  --t1 3.947 --v --o V:\projects\BIPLi7\ClinicalData\Processed_Data\2018_06_01\TPI\Reconstruct_gridding\02-PostQuantif\Patient12_21deg_MID717_B0cor_KBgrid_MODULE_Echo0_TE300.nii
+#--i V:\projects\BIPLi7\ClinicalData\Processed_Data\2018_06_01\Trufi\01-Raw\trufi_1000.nii --deg 30 --seq trufi  --t1 3.947 --v --o V:\projects\BIPLi7\ClinicalData\Processed_Data\2018_06_01\Trufi\02-PostQuantif\trufi_1000.nii
 
 parser = argparse.ArgumentParser(epilog="ComputeDensity version 1.0")
 
@@ -124,8 +126,12 @@ M0_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SPGR = np.zeros(shape=Img.shape)
 rho_T1SSFP = np.zeros(shape=Img.shape)
 rho_SSFP = np.zeros(shape=Img.shape)
-
-multiplier=(kval*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2))))
+if seq=='TPI':
+    multiplier=1/((kval*(np.tan(FAMap[0,0,0]/2)*(1-(E1-np.cos(FAMap[0,0,0]))*rval(E1,FAMap[0,0,0],E2)))))
+elif seq=='trufi':
+    multiplier=1/((kval*np.sqrt(E2)*(1-E1)*np.sin(FAMap[0,0,0]))/(1-(E1-E2)*np.cos(FAMap[0,0,0])-E1*E2));
+else:
+    print('error')
 print('multiplier is : {0}'.format(multiplier))
 #T1hyp=4.56
 #E1hyp=np.exp(-TR/T1hyp)
