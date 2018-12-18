@@ -151,12 +151,33 @@ tobet=false
 toflirt=false
 tofugue=false
 todtifit=false
+
+fullsort=false
+if ${fullsort}; then
+	preparefield_map=true
+	tosort=true;
+	toeddy=true;
+	tobet=true;
+	#toflirt=true;
+	tofugue=true;
+	todtifit=true;
+fi
 #paramrunbet="paramrunbet.txt"
 #parambetdwi="parambetdwi.txt"
 #parambett1="parambett1.txt"
 #Aligns the T1 to the ICBM Atlas (provided by John Hopkins University, 1mm resolution)
+
+
 totbss=false
-valuecheck=true
+valuecheck=false
+ROIextract=true
+
+fulltbss=false
+if ${fulltbss}; then
+	totbss=true
+	valuecheck=true
+	ROIextract=true
+fi
 #bdpaddress="~/Documents/BrainSuite15c/bdp/bdp.sh"
 bdpaddress="../BrainSuite15c/bdp/bdp.sh"
 
@@ -170,22 +191,22 @@ bdpaddress="../BrainSuite15c/bdp/bdp.sh"
 #By default, the input folder is "sandbox"
 
 if [ $# -lt 1 ]; then
-	raw_dir="/neurospin/ciclops/projects/BIPLi7/ClinicalData/Raw_Data"
-	sorted_dir="/neurospin/ciclops/projects/BIPLi7/ClinicalData/Processed_Data"
+	raw_dir="/neurospin/ciclops/projects/BIPLi7/Clinicaldata/Raw_Data"
+	sorted_dir="/neurospin/ciclops/projects/BIPLi7/Clinicaldata/Processed_Data"
 else
 	raw_dir=$1/Raw_Data
 	sorted_dir=$1/Processed_Data
 fi
 
 if [ $# -lt 2 ]; then
-	analysisdir="/neurospin/ciclops/projects/BIPLi7/ClinicalData/Analysis/"
+	analysisdir="/neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/"
 else
 	sorted_dir=$2
 fi
 
 if [ $# -lt 3 ]; then
-	specificdir="2*"
-	#specificdir="2017_06_13"
+	#specificdir="2*"
+	specificdir="2018_12_07"
 else
 	specificdir=$3
 fi
@@ -217,7 +238,7 @@ if $tosort; then
 
 
 	#Sort for Bipli
-	for subjpath in ${raw_dir}/${specificdir}*/; do
+	for subjpath in ${raw_dir}/${specificdir}/; do
 		
 		subjname=`basename $subjpath`
 		
@@ -234,24 +255,35 @@ if $tosort; then
 		
 		if $convertIMAtonii; then
 		
-			diff_name=cmrr_diff_b1500_60dir_TE67
-			diff_folder=DICOM3T/${diff_name}
-			
-			mkcdir ${sorted_dir}/${subjname}/${rawfolder}
-			rcm ${sorted_dir}/${subjname}/${rawfolder}
-			#echo "Running dcm2nii in ${subjpath}${diff_folder}/*"
-			cp ${subjpath}/${diff_folder}/* ${sorted_dir}/${subjname}/Diffusion/IMAfiles
-			#echo ${sorted_dir}/${newdirname}/Diffusion/IMAfiles
-		
-			dcm2nii -4 ${subjpath}/${diff_folder}/*
-			#echo ${subjpath}/${diff_folder}/*
-			#echo ${subjpath}/${diff_folder}/
-			
-			mv ${subjpath}/${diff_folder}/*nii.gz* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
-			mv ${subjpath}/${diff_folder}/*bval* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bval
-			mv ${subjpath}/${diff_folder}/*bvec* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bvec
-			
-			fslreorient2std ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
+			diff_sname=${subjpath}/DICOM3T/cmrr*
+			diff_bname=${subjpath}/DICOM3T/CMRR*
+			#diff_folder=DICOM3T/${diff_name}
+			for diff_folder in ${diff_sname}*/ ${diff_bname}*/; do 
+				echo ${diff_folder}
+				if [ -d "$diff_folder" ]; then
+					mkcdir ${sorted_dir}/${subjname}/${rawfolder}
+					rcm ${sorted_dir}/${subjname}/${rawfolder}
+					#echo "Running dcm2nii in ${subjpath}${diff_folder}/*"
+					cp ${diff_folder}/* ${sorted_dir}/${subjname}/Diffusion/IMAfiles
+					#echo ${sorted_dir}/${newdirname}/Diffusion/IMAfiles
+				
+					#dcm2nii -4 ${diff_folder}/*
+					dcm2nii -4 ${sorted_dir}/${subjname}/Diffusion/IMAfiles/*
+					
+					#mv ${diff_folder}/*nii.gz* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
+					#mv ${diff_folder}/*bval* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bval
+					#mv ${diff_folder}/*bval* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bvec
+					diff_name=`basename $diff_folder`
+					#echo ${sorted_dir}/${subjname}/Diffusion/IMAfiles/*nii.gz*
+					#echo ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
+					mv ${sorted_dir}/${subjname}/Diffusion/IMAfiles/*nii.gz* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
+					mv ${sorted_dir}/${subjname}/Diffusion/IMAfiles/*bval* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bval
+					mv ${sorted_dir}/${subjname}/Diffusion/IMAfiles/*bvec* ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.bvec
+					
+					fslreorient2std ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz ${sorted_dir}/${subjname}/${rawfolder}/${diff_name}.nii.gz
+				fi; 
+			done
+
 			
 		fi
 	done
@@ -406,9 +438,9 @@ fi
 
 if $totbss; then
 
-	FSLPATH="/volatile/fsl/"
+	#FSLPATH="/volatile/fsl/"
 	Cingfile=$FSLDIR/data/standard/LowerCingulum_1mm
-	part1=false
+	part1=true
 	if $part1; then
 		echo "Running TBSS"
 		previousdir=${PWD}
@@ -417,7 +449,7 @@ if $totbss; then
 		tbss_2_reg -t ${analysisdir}/ENIGMA_targets/ENIGMA_DTI_FA.nii.gz
 		tbss_3_postreg -S
 		mkcdir ${analysisdir}/ENIGMA_targets_edited/
-		rcm E${analysisdir}/ENIGMA_targets_edited/
+		rcm ${analysisdir}/ENIGMA_targets_edited/
 		fslmerge -t ./all_FA_QC ./FA/*FA_to_target.nii.gz
 		fslmaths ./all_FA_QC -bin -Tmean -thr 0.9 ${analysisdir}/ENIGMA_targets_edited/mean_FA_mask.nii.gz
 		fslmaths ${analysisdir}/ENIGMA_targets/ENIGMA_DTI_FA.nii.gz -mas ${analysisdir}/ENIGMA_targets_edited/mean_FA_mask.nii.gz ${analysisdir}/ENIGMA_targets_edited/mean_FA.nii.gz
@@ -516,4 +548,70 @@ if $valuecheck; then
 	 
 		echo "file $Tout done"
     done
+fi
+
+if $ROIextract; then
+	
+	maindir=${analysisdir}/run_tbss/
+	csvoutputdir1=${maindir}ENIGMA_ROI_part1
+	part1=false
+	if ${part1}; then
+		#make an output directory for all files
+		maindir=${analysisdir}/run_tbss/
+		csvoutputdir1=${maindir}ENIGMA_ROI_part1
+		mkcdir ${csvoutputdir1}
+		statsdir=${maindir}stats/
+		ENIGMAdir=${analysisdir}/ENIGMA_targets_edited/
+
+		for subjectpath in ${maindir}/FA_individ/2*/
+		do
+			subjectname=`basename $subjectpath`
+			./singleSubjROI_exe ENIGMA_look_up_table.txt ${statsdir}/mean_FA_skeleton.nii.gz ${ENIGMAdir}/JHU-ICBM-labels-1mm.nii.gz ${csvoutputdir1}/${subjectname}_ROIout ${maindir}/skeletons/${subjectname}_masked_FAskel.nii.gz
+		done
+	fi
+	part2=false
+	if ${part2}; then
+		#######
+		## part 2 - loop through all subjects to create ROI file 
+		##			removing ROIs not of interest and averaging others
+		#######
+
+		#make an output directory for all files
+		csvoutputdir2=${maindir}/ENIGMA_ROI_part2
+		mkcdir ${csvoutputdir2}
+
+		# you may want to automatically create a subjectList file 
+		#    in which case delete the old one
+		#    and 'echo' the output files into a new name
+		rm ${maindir}/subjectList.csv
+
+		for subjectpath in ${maindir}/FA_individ/2*/
+		do
+			subjectname=`basename $subjectpath`
+			./averageSubjectTracts_exe ${csvoutputdir1}/${subjectname}_ROIout.csv ${csvoutputdir2}/${subjectname}_ROIout_avg.csv
+			# can create subject list here for part 3!
+			#echo ${csvoutputdir1}/${subjectname}_ROIout.csv ${csvoutputdir2}/${subjectname}_ROIout_avg.csv
+			echo ${subjectname},${csvoutputdir2}/${subjectname}_ROIout_avg.csv >> ${maindir}/subjectList.csv
+		done
+	fi
+	part3=true
+	if ${part3}; then
+		#######
+		## part 3 - combine all 
+		#######
+		Table=${maindir}/ALL_Subject_Info.txt
+		subjectIDcol=DateAcq
+		subjectList=${maindir}/subjectList.csv
+		outTable=${maindir}/combinedROItable.csv
+		Ncov=2
+		covariates="Age;Sex"
+		Nroi="all" #2
+		rois="IC;EC"
+
+		#location of R binary 
+		Rbin=R
+
+		#Run the R code
+		${Rbin} --no-save --slave --args ${Table} ${subjectIDcol} ${subjectList} ${outTable} ${Ncov} ${covariates} ${Nroi} ${rois} <  ./combine_subject_tables.R  
+	fi
 fi

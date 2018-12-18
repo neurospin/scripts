@@ -231,7 +231,7 @@ if TPI :
     print(CPLX.shape)
     print("----------------------------------")
     
-T2calc=1
+T2calc=0
 if T2calc:
     T2starestimate(CPLX,parameters[25])
     
