@@ -31,8 +31,10 @@ import re
 from nilearn import plotting
 import matplotlib.pyplot as plt
 import scipy, scipy.ndimage
+
 #import nilearn.plotting
 from nilearn import datasets, plotting, image
+import brainomics.image_atlas
 
 # cookiecutter Directory structure
 # https://drivendata.github.io/cookiecutter-data-science/
@@ -108,18 +110,45 @@ mask_arr = (np.mean(XTot, axis=0) >= 0.1) & (np.std(XTot, axis=0) >= 1e-6)
 mask_arr = mask_arr.reshape(shape)
 
 #nibabel.Nifti1Image(np.min(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "min_all.nii.gz"))
-nibabel.Nifti1Image(np.mean(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "mean.nii.gz"))
-nibabel.Nifti1Image(np.std(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "std.nii.gz"))
+# nibabel.Nifti1Image(np.mean(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "mean.nii.gz"))
+# nibabel.Nifti1Image(np.std(XTot, axis=0).reshape(shape).astype(float), affine=img.affine).to_filename(os.path.join(OUTPUT, "std.nii.gz"))
 
+
+
+#############################################################################
+# atlas: make sure we are within atlas
+
+atlas = brainomics.image_atlas.resample_atlas_harvard_oxford(
+    ref=pop.loc[0, "path"],
+    output=os.path.join(OUTPUT, "atlas_harvard_oxford.nii.gz"))
+
+cereb = brainomics.image_atlas.resample_atlas_bangor_cerebellar(
+    ref=pop.loc[0, "path"],
+    output=os.path.join(OUTPUT, "atlas_cerebellar.nii.gz"))
+
+mask_arr = ((atlas.get_data() + cereb.get_data()) != 0) & mask_arr
+#np.sum(mask_arr) 395383
+
+#############################################################################
+# Remove small branches
+
+mask_arr = scipy.ndimage.binary_opening(mask_arr)
+# mask_arr.sum() 391822
+
+#############################################################################
 # Avoid isolated clusters: remove all cluster smaller that 5
+
 mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
 print([[lab, np.sum(mask_clustlabels_arr == lab)] for lab in  np.unique(mask_clustlabels_arr)[1:]])
+# 1.5mm
+# [[1, 391801], [2, 7], [3, 7], [4, 7]]
+
 # 1.5mm
 # [[1, 397559], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 2], [11, 1], [12, 2], [13, 1], [14, 1], [15, 1], [16, 1], [17, 1], [18, 1], [19, 1], [20, 1], [21, 1], [22, 1], [23, 1], [24, 1], [25, 1], [26, 1], [27, 1], [28, 1], [29, 1], [30, 1], [31, 1], [32, 2], [33, 2], [34, 1], [35, 2], [36, 2], [37, 4], [38, 2], [39, 2], [40, 1], [41, 4], [42, 2], [43, 1], [44, 1], [45, 1], [46, 1], [47, 1], [48, 1], [49, 1], [50, 1], [51, 2], [52, 1], [53, 1], [54, 1], [55, 1], [56, 1], [57, 1], [58, 1], [59, 2], [60, 1], [61, 2], [62, 2], [63, 1], [64, 1], [65, 1], [66, 2], [67, 2], [68, 1], [69, 1], [70, 1], [71, 1], [72, 1], [73, 1], [74, 2], [75, 1], [76, 1], [77, 1], [78, 2], [79, 1]]
 # 1.5mm-s8mm
 # [[1, 528502]]
 
-clust_size_thres = 5
+clust_size_thres = 10
 labels = np.unique(mask_clustlabels_arr)[1:]
 for lab in labels:
     clust_size = np.sum(mask_clustlabels_arr == lab)
@@ -132,16 +161,18 @@ labels = np.unique(mask_clustlabels_arr)[1:]
 
 print([[lab, np.sum(mask_clustlabels_arr == lab)] for lab in labels])
 # [[1, 1308898]] 1mm3
-# [[1, 397559]] 1.5mm3
+# [[1, 391801]] 1.5mm3 # [[1, 397559]] 1.5mm3
 # [[1, 528502]] 1.5mm-s8mm
+
 if vs == "1.5mm":
-    assert mask_arr.sum() == 397559
+    assert mask_arr.sum() == 391801#395322#397559
 # 1.5mm-s8mm
 if vs == "1.5mm-s8mm":
     assert mask_arr.sum() == 528502
 
+
 nibabel.Nifti1Image(mask_arr.astype(int), affine=img.affine).to_filename(os.path.join(OUTPUT, "mask.nii.gz"))
-np.save(os.path.join(OUTPUT, "mask.npy"), mask_arr)
+#np.save(os.path.join(OUTPUT, "mask.npy"), mask_arr)
 
 
 # Plot mask
