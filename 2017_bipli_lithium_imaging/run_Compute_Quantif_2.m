@@ -117,7 +117,7 @@ function run_Compute_Quantif_2(Processeddir,subject,T1val)
             copyfile(filepath,Computedniipath_noquantif);
         end
     else
-        display("warning, no TPI folder found at "+filesdirtrufiin);
+        display("warning, no trufi folder found at "+filesdirtrufiin);
     end    
     
 end
