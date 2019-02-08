@@ -1035,7 +1035,7 @@ def KaiserBesselTPI_ME(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFac
         Data=np.sum(Data[:,:,:,:,:],0)
     print (Data.shape)
     
-    for echo in range (echoes):
+    for echo in range (1): #(echoes)
         
         print ('>> Griding echo ',echo)
         for i in range(coilstart,int(NbCoils)):
@@ -1077,18 +1077,22 @@ def KaiserBesselTPI_ME(NbProjections,NbPoints,NbAverages,NbCoils,OverSamplingFac
                                     Regridded_kspace[i][Kzloc[(l*NbPoints)+m+a]][Kyloc[(l*NbPoints)+m+b]][Kxloc[(l*NbPoints)+m+c]]=Regridded_kspace[i][Kzloc[(l*NbPoints)+m+a]][Kyloc[(l*NbPoints)+m+b]][Kxloc[(l*NbPoints)+m+c]]+Val*NormalizedKernel[c+1]
                         # Regridded_kspace[i][Kzloc[(l*NbPoints)+m]][Kyloc[(l*NbPoints)+m]][Kxloc[(l*NbPoints)+m]]=Regridded_kspace[i][Kzloc[(l*NbPoints)+m]][Kyloc[(l*NbPoints)+m]][Kxloc[(l*NbPoints)+m]]+Val
             Sum_of_Regridded_kspace[:,:,:] = Sum_of_Regridded_kspace[:,:,:] + Regridded_kspace[:,:,:]        
-            Coil_Combined_Kspace_Module[echo,:,:,:]=Coil_Combined_Kspace_Module[echo,:,:,:]+np.absolute(np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(np.squeeze(Regridded_kspace[i][:][:])))))**2
-            Coil_Combined_Kspace_Phase[echo,:,:,:]=Coil_Combined_Kspace_Phase[echo,:,:,:]+np.angle(np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(np.squeeze(Regridded_kspace[i][:][:])))))**2
+            Coil_Combined_Kspace_Module[echo,:,:,:]=Coil_Combined_Kspace_Module[echo,:,:,:]+np.absolute(np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(np.squeeze(Regridded_kspace[i][:][:]))))) #**2
+            Coil_Combined_Kspace_Phase[echo,:,:,:]=Coil_Combined_Kspace_Phase[echo,:,:,:]+np.angle(np.fft.fftshift(np.fft.ifftn(np.fft.fftshift(np.squeeze(Regridded_kspace[i][:][:])))))
             Regridded_kspace = np.zeros(shape=(int(NbCoils),Kx_size,Ky_size,Kz_size), dtype=np.complex64)        #Jacques edit test
             
             print ('   >> Projections = ', float(int(usedline)/int(NbProjections))*100, '%')
-        Coil_Combined_Kspace_Module[echo,:,:,:]=np.sqrt((Coil_Combined_Kspace_Module[echo,:,:,:]))
+        #Coil_Combined_Kspace_Module[echo,:,:,:]=np.sqrt((Coil_Combined_Kspace_Module[echo,:,:,:]))
         #### Image Reorientation to Scanner DICOM anatomical Images
         ## First we swap axes to bring the axial plane correctly opened in Anatomist compared to Anatomy
         ## Second we rotate of 180\B0 to fix the left/Right and Antero Posterior Orientation vs Anatomy
         Coil_Combined_Kspace_Module[echo,:,:,:]=np.swapaxes(Coil_Combined_Kspace_Module[echo,:,:,:],0,2)
         Coil_Combined_Kspace_Module[echo,:,:,:]=np.swapaxes(Coil_Combined_Kspace_Module[echo,:,:,:],0,1)
         Coil_Combined_Kspace_Module[echo,:,:,:]=np.rot90(Coil_Combined_Kspace_Module[echo,:,:,:],2)
+        Coil_Combined_Kspace_Phase[echo,:,:,:]=np.swapaxes(Coil_Combined_Kspace_Phase[echo,:,:,:],0,2)
+        Coil_Combined_Kspace_Phase[echo,:,:,:]=np.swapaxes(Coil_Combined_Kspace_Phase[echo,:,:,:],0,1)
+        Coil_Combined_Kspace_Phase[echo,:,:,:]=np.rot90(Coil_Combined_Kspace_Phase[echo,:,:,:],2)      
+        Coil_Combined_Kspace_Phase[echo,:,:,:]=((Coil_Combined_Kspace_Phase[echo,:,:,:])*180.0)/(np.pi)
     print ('[done]')
     # PlotImgMag(np.absolute((Regridded_kspace[4][:][:])))
     # return Regridded_kspace[0]
@@ -1259,8 +1263,7 @@ def KaiserBesselTPI_ME_B0(NbProjections,NbPoints,NbAverages,NbCoils,OverSampling
     
     for freq in range(L): #for freq in range(L):
         print(freq)
-        for echo in range (echoes):
-                
+        for echo in range (echoes):                
                 print ('>> Griding echo ',echo)
                 for i in range(coilstart,int(NbCoils)):
                     print ('   >> regridding coil', i+1)
@@ -1448,6 +1451,7 @@ def Conjuguate_Phase_combine(Coil_Combined_Kspace_Module,echoes,field_map,L,size
                 
     fh,fw,fl = np.shape(field_map)  
     final_image= np.zeros(shape=(echoes,fh,fw,fl))
+    loca_freq = np.zeros(shape=(echoes,fh,fw,fl))
     
     for echo in range (echoes):                     
         if (recon_method=='fsc'):
@@ -1458,6 +1462,7 @@ def Conjuguate_Phase_combine(Coil_Combined_Kspace_Module,echoes,field_map,L,size
                             idx=np.argmin(abs(deltaw-px_freq))
                             try:                            
                                 final_image[echo,x,y,z] = Coil_Combined_Kspace_Module[echo,x,y,z,idx]
+                                loca_freq[echo,x,y,z] = idx
                             except:
                                 print('hi')                        
     
@@ -1479,8 +1484,11 @@ def Conjuguate_Phase_combine(Coil_Combined_Kspace_Module,echoes,field_map,L,size
                             px_omega=field_map[x,y,z]*2*np.pi
                             idx=np.argmin(abs(interpolation_omegas-px_omega))
                             #final_image[echo,x,y,z] = coeff_table[idx,:] * images[y,:,x]
+                            
+            Coil_Combined_Kspace_Phase[j]=np.angle(np.fft.fftshift(np.fft.ifft2((np.squeeze(Coil_Combined_Kspace[j])))))
+        PlotReconstructedImage(Coil_Combined_Kspace_Phase[j])
         
-    return final_image
+    return final_image, loca_freq
     
     
     
@@ -1573,7 +1581,7 @@ def Conjuguate_Phase_DemodData(NbProjections,NbPoints,NbAverages,NbCoils,OverSam
     #interpolation_omegas= np.linspace(np.min(field_map), np.max(field_map), num_of_interp)*2*np.pi
     #deltawi_tk=np.exp(1j * np.conj(timesamples * deltaw) )
     #y= np.exp(1j* timesamples.getH() * interpolation_omegas) 
-    for echo in range (echoes):
+    for echo in range (1): # range(echoes)
             
         print ('>> Demodulating echo ',echo)
         for i in range(coilstart,int(NbCoils)):
