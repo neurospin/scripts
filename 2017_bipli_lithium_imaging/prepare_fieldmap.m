@@ -15,9 +15,13 @@ function prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im)
     fieldmap_folder= string(fullfile(proc_subjdir,'Field_mapping'));
     fieldmap_magdirproc=fullfile(proc_subjdir,'Field_mapping','Field_mapping_mag');
     fieldmap_phasedirproc=fullfile(proc_subjdir,'Field_mapping','Field_mapping_phase');
-    magnit_file=fullfile(fieldmap_magdirproc,'field_mapping.nii');
-    phase_file=fullfile(fieldmap_phasedirproc,'field_mapping_phase.nii');
-    if ~exist(magnit_file,'file')
+    magnit_file=dir(fullfile(fieldmap_magdirproc,'*nii'));
+    magnit_file=fullfile(fieldmap_magdirproc,magnit_file.name);
+    %magnit_file=fullfile(fieldmap_magdirproc,'field_mapping.nii');
+    phase_file=dir(fullfile(fieldmap_phasedirproc,'*nii'));
+    phase_file=fullfile(fieldmap_phasedirproc,phase_file.name);
+    %phase_file=fullfile(fieldmap_phasedirproc,'field_mapping_phase.nii');
+    if ~exist(magnit_file,'file') || exist(magnit_file,'file')==7
 
         mkdir(fieldmap_folder)
         mkdir(fieldmap_magdirproc)
@@ -26,6 +30,10 @@ function prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im)
         dicm2nii(fieldmap_magdirraw,fieldmap_magdirproc,'.nii');
         fieldmap_phasedirraw=fullfile(raw_subjdir,'DICOM7T','FIELD_MAPPING_2');
         dicm2nii(fieldmap_phasedirraw,fieldmap_phasedirproc,'.nii');
+        magnit_file=dir(fullfile(fieldmap_magdirproc,'*nii'));
+        magnit_file=fullfile(fieldmap_magdirproc,magnit_file.name);
+        phase_file=dir(fullfile(fieldmap_phasedirproc,'*nii'));
+        phase_file=fullfile(fieldmap_phasedirproc,phase_file.name);
     end
 
         
@@ -53,8 +61,8 @@ function prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im)
     matlabbatch{1,1}.spm.util.imcalc.input{2}=char(fieldmap_prepared + ',1');
     matlabbatch{1,1}.spm.util.imcalc.outdir={char(fieldmap_folder)};
     matlabbatch{1,2}.spm.util.imcalc.outdir={char(fieldmap_folder)};
-    tempfile=fullfile('temp.mat');
-    save(tempfile,'matlabbatch');
-    spm_jobman('run',tempfile);
-    delete(tempfile);
+    %tempfile=fullfile('temp.mat');
+    %save(tempfile,'matlabbatch');
+    spm_jobman('run',matlabbatch);
+    %delete(tempfile);
 end

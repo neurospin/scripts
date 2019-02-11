@@ -1,4 +1,4 @@
-function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forcestart)    
+function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forcestart,reconstruct_type)    
 
     %Lifile='C:\Users\js247994\Documents\Bipli2\Test2\TPI\Reconstruct_gridding\03-Concentration\Patient01_KBgrid_MODULE_Echo0_filtered.nii';
     %Anat7Tfile='C:\Users\js247994\Documents\Bipli2\Test2\Anatomy7T\t1_mpr_tra_iso1_0mm.nii';
@@ -10,11 +10,16 @@ function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forces
     
     %addpath("/volatile/spm12")
     %addpath("/volatile/DISTANCE")
-    
     if ~exist('forcestart','var')
         forcestart=0; % just in case I want it to guarantee to recalculate everything again
         %will probably never be used
-    end
+    end    
+    
+    if ~exist('reconstruct_type','var')
+        reconstruct_type='Reconstruct_gridding';
+    end    
+    
+
     
     keepniifiles=3;
     Currentfolder=pwd;
@@ -40,13 +45,13 @@ function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forces
     Anat3Tfile=fullfile(Anat3Tdir,'t1_weighted_sagittal_1_0iso.nii');
     Anat7Tdir=fullfile(subjectdir,'Anatomy7T');
     Anat7Tfile=fullfile(Anat7Tdir,'t1_mpr_tra_iso1_0mm.nii');
-    LifilesS=dir(fullfile(subjectdir,'TPI','Reconstruct_gridding','01-Raw','*nii'));
+    LifilesS=dir(fullfile(subjectdir,'TPI',reconstruct_type,'01-Raw','*nii'));
     
     i=1;
     Lifiles=cell(size(LifilesS,1),1);
 
     for Lifile=LifilesS'
-        Lifiles{i}=fullfile(subjectdir,'TPI','Reconstruct_gridding','01-Raw',Lifile.name);
+        Lifiles{i}=fullfile(subjectdir,'TPI',reconstruct_type,'01-Raw',Lifile.name);
         i=i+1;
     end    
     
@@ -61,12 +66,15 @@ function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forces
     
     transfoparam_file=fullfile(Anat7Tdir,'transfovariables.mat');
     if ~exist(transfoparam_file,'file') || forcestart
-        [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
-        save(char(transfoparam_file),'transmat','coregmat','deform_field','deform_field_inv','normfile');
+        [transmat,coregmat,deform_field,deform_field_inv]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles);
+        save(char(transfoparam_file),'transmat','coregmat','deform_field','deform_field_inv');
         clear('transmat','deform_field');
     else
-        load(transfoparam_file,'coregmat','deform_field_inv','normfile');
+        load(transfoparam_file,'coregmat','deform_field_inv');
     end
+    
+    deform_field_inv=fullfile(Anat3Tdir,deform_field_inv);
+    normfile=fullfile(pwd,'info_pipeline','normwritespm.mat');
     
     if ~exist('makeQuantif','var')
         makeQuantif=0;
@@ -123,7 +131,7 @@ function [transfoparam_file]=launch_transform_calc(subjectdir,makeQuantif,forces
             if ~exist(outputpathTPI,'file') || forcestart
                 convertreso_spm(Lifiles{1},maskpath,outputpathTPI);
             end
-            if (~exist(outputpathtrufi,'file') || forcestart) && exist(Trufifolder,'dir')
+            if (~exist(outputpathtrufi,'file') || forcestart) && exist(Trufifolder,'dir') && size(trufifiles,1)>0
                 convertreso_spm(trufifiles{1},maskpath,outputpathtrufi);
             end
         end

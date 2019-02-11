@@ -2,20 +2,30 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedi
 
     %launch_reconstruct_TPI('C:\Users\js247994\Documents\Bipli2\Test8\Raw','C:\Users\js247994\Documents\Bipli2\Test8\Processed','C:\Users\js247994\Documents\Bipli2\BipliPipeline\scripts\2017_bipli_lithium_imaging\ReconstructionTPI','C:\Python27\python.exe')
     if ~exist('pythonexe','var')
-        pythonexe='python';
+        pythonexe='python3';
         if ~exist('codedir','var')
             codedir=fullfile(char(pwd));
         end
     end
     
-    projectdir='V:\projects\BIPLi7\ClinicalData';
+    %projectdir='V:\projects\BIPLi7\ClinicalData';
     %projectdir='F:\2018_data';
     %projectdir='/neurospin/ciclops/projects/BIPLi7/Clinicaldata';
     %projectdir='/neurospin/ciclops/projects/SIMBA/Clinicaldata';
     %projectdir="/neurospin/ciclops/projects/BIPLi7/Tests/";
+    
+    addpath(fullfile(codedir,'kval_calc'));
+    projectdir='/neurospin/ciclops/projects/SIMBA/Clinicaldata';
     raw_dir=fullfile(projectdir,'Raw_Data','2*');
 %   reconstructfile=fullfile('/home/js247994/DocumentsN2/2017_bipli_lithium_imaging','ReconstructionTPI','ProcessData.py');
     listsubj=dir(raw_dir);
+    
+    reconstruct_type='Reconstruct_gridding';
+    
+    if strcmp(reconstruct_type,'Reconstruct_sandro')
+        recon_folder=fullfile(pwd,'reconTPI-master');
+        addpath(genpath(fullfile(recon_folder)));
+    end
 
     excelT1s=fullfile(pwd,'info_pipeline','T1vals.xlsx');
     if exist(excelT1s,'file')
@@ -44,15 +54,20 @@ function launch_reconstruct_TPI_all(projectdir)%,subjectdir,subjectnumber,codedi
         end
         
         if i<10
-            subjectnumber=strcat('0',int2str(i));
+            if i>4
+                subjectnumber=strcat('0',int2str(i+1));
+            else    
+                subjectnumber=strcat('0',int2str(i));
+            end
         elseif i>=10
-            subjectnumber=int2str(i);
+            subjectnumber=int2str(i+1);
         end       
         %maybe one day will be changed to actually include the value from
         %the file?
         T1val=3.947000;
-        if i>11
-            launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber)
+        if i>0
+            display(subjname)
+            launch_reconstruct_TPI(projectdir,subjname,codedir,T1val,pythonexe,subjectnumber,reconstruct_type)
         end
         %Check if the subject number of the patient is available, if not try to
         %count the order of patients to get the right number

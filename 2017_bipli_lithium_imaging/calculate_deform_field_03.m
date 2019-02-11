@@ -40,8 +40,8 @@ function [deformfield,deformfield_inv]=calculate_deform_field_03(anat3Tfile,segm
         end
     end  
     
-    deformfield=fullfile(subjectdir,strcat('y_',filename,ext));
-    deformfield_inv=fullfile(subjectdir,strcat('iy_',filename,ext));
+    deformfield=fullfile(strcat('y_',filename,ext));
+    deformfield_inv=fullfile(strcat('iy_',filename,ext));
     if ~exist(deformfield,'file') || ~exist(deformfield_inv,'file')
         spm_jobman('run',matlabbatch');
     end

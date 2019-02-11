@@ -1,13 +1,17 @@
-function launch_applytransforms(subjectdir,transfoparam_file)
+function launch_applytransforms(subjectdir,transfoparam_file,reconstruct_type)
 
     if ~exist(transfoparam_file,'file')
         disp('Error, param file of transformations not found');
     else
-        load(transfoparam_file,'transmat','coregmat','deform_field','deform_field_inv','normfile');
+        load(transfoparam_file,'transmat','coregmat','deform_field','deform_field_inv');
+        deform_field=fullfile(subjectdir,'Anatomy3T',deform_field);
+        normfile=fullfile(pwd,'info_pipeline','normwritespm.mat');        
     end
-
-    TPIoutputdirmni=fullfile(subjectdir,'TPI','Reconstruct_gridding','05-MNIspace');
-    TPIoutputdir3T=fullfile(subjectdir,'TPI','Reconstruct_gridding','04-3Tanatspace');  
+    if ~exist('reconstruct_type','var')
+        reconstruct_type='Reconstruct_gridding';
+    end
+    TPIoutputdirmni=fullfile(subjectdir,'TPI',reconstruct_type,'05-MNIspace');
+    TPIoutputdir3T=fullfile(subjectdir,'TPI',reconstruct_type,'04-3Tanatspace');  
     trufioutput3T=fullfile(subjectdir,'Trufi','04-3Tanatspace');
     trufioutputMNI=fullfile(subjectdir,'Trufi','05-MNIspace');
     if ~exist(TPIoutputdirmni,'dir')
@@ -18,11 +22,11 @@ function launch_applytransforms(subjectdir,transfoparam_file)
     end    
     
     i=1;
-    TPIfilesS=dir(fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered','*nii'));
+    TPIfilesS=dir(fullfile(subjectdir,'TPI',reconstruct_type,'03-Filtered','*nii'));
     TPIfiles=cell(size(TPIfilesS,1),1);
     
     for TPIfile=TPIfilesS'
-        TPIfiles{i}=fullfile(subjectdir,'TPI','Reconstruct_gridding','03-Filtered',TPIfile.name);
+        TPIfiles{i}=fullfile(subjectdir,'TPI',reconstruct_type,'03-Filtered',TPIfile.name);
         i=i+1;
     end
     
@@ -75,8 +79,10 @@ function launch_applytransforms(subjectdir,transfoparam_file)
         end
         i=i+1;
     end
+    %deform_field=fullfile(Anat3Tdir,deform_field);
+    normfile=fullfile(pwd,'info_pipeline','normwritespm.mat');
     
-    if runTPIfiles    
+    if runTPIfiles || forcestart   
         apply_transform_7TtoMNI(TPIfiles,TPIoutputdir3T,TPIoutputdirmni,coregmat,deform_field,normfile,"MNI_");
     end
     Anat3Tdir=fullfile(subjectdir,'Anatomy3T');
