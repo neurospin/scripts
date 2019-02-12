@@ -7,7 +7,10 @@ function ComputeSignaltoQuantif(filepath,alpha,Computedniipath,seq,mask_liquid,m
         if B0cor
             %kval=0.1971;
             %kval=0.2562;
-            kval=0.202;
+            %kval=0.202; This was the value for the old B0 correction with
+            %second line
+            kval=1.4197; % This is the value for the NEW B0 correction with the first line for 
+            % Decompensation Coefficients
         else
             kval=1.7036;
         end

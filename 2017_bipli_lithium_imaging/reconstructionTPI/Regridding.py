@@ -1420,8 +1420,11 @@ def Display_info(NbProjections,NbPoints,NbAverages,NbCoils,Nucleus,MagneticField
     return(coilstart)
     
 def Conjuguate_Phase_combine(Coil_Combined_Kspace_Module,echoes,field_map,L,size,recon_method,Timesampling,ba_gridding):
-
-    deltaw = np.linspace(np.max(field_map), np.min(field_map), L)*2*np.pi
+   
+    diff_freq=np.max(field_map)-np.min(field_map)    
+    step=diff_freq/L  
+    deltaw=np.concatenate((np.flip(np.arange(0,np.min(field_map),-step)),np.arange(step,np.max(field_map),step)))*2*np.pi    
+    #deltaw = np.linspace(np.max(field_map), np.min(field_map), L)*2*np.pi
     
     #dw_o_freq = deltaw[np.int(L/2)]    
     num_of_interp=1000
@@ -1486,7 +1489,7 @@ def Conjuguate_Phase_combine(Coil_Combined_Kspace_Module,echoes,field_map,L,size
                             #final_image[echo,x,y,z] = coeff_table[idx,:] * images[y,:,x]
                             
             Coil_Combined_Kspace_Phase[j]=np.angle(np.fft.fftshift(np.fft.ifft2((np.squeeze(Coil_Combined_Kspace[j])))))
-        PlotReconstructedImage(Coil_Combined_Kspace_Phase[j])
+        #PlotReconstructedImage(Coil_Combined_Kspace_Phase[j])
         
     return final_image, loca_freq
     
@@ -1571,7 +1574,7 @@ def Conjuguate_Phase_DemodData(NbProjections,NbPoints,NbAverages,NbCoils,OverSam
     DensityCompensationCoefficients = np.zeros(NbPoints,dtype=float)
     for i in range (len(DensityCompensationCoefficients)):
         DensityCompensationCoefficients[i]=np.sqrt((KX[i+1]-KX[i])**2 + (KY[i+1]-KY[i])**2 + (KZ[i+1]-KZ[i])**2)*np.sqrt((KX[i]/np.amax(KX))**2 + (KY[i]/np.amax(KY))**2 + (KZ[i]/np.amax(KZ))**2)**2        
-        DensityCompensationCoefficients[i]=(np.sqrt((KX[i+1]-KX[i])**2 + (KY[i+1]-KY[i])**2 + (KZ[i+1]-KZ[i])**2)*np.sqrt((KX[i]/np.amax(KX))**2 + (KY[i]/np.amax(KY))**2 + (KZ[i]/np.amax(KZ))**2))**2        
+        #DensityCompensationCoefficients[i]=(np.sqrt((KX[i+1]-KX[i])**2 + (KY[i+1]-KY[i])**2 + (KZ[i+1]-KZ[i])**2)*np.sqrt((KX[i]/np.amax(KX))**2 + (KY[i]/np.amax(KY))**2 + (KZ[i]/np.amax(KZ))**2))**2        
     
     DensityCompensationCoefficients[int(NbPoints-1)]=DensityCompensationCoefficients[int(NbPoints-2)]
     DensityCompensationCoefficients[0]=DensityCompensationCoefficients[3]
