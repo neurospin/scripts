@@ -59,6 +59,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_seg', action='store_true', help='Save segmented images of tissues.')
     parser.add_argument('--nslices', help='Number of slices (default %f)'% nslices,
         default=nslices, type=float)
+    parser.add_argument('--dry', action='store_true', help='Dry run list input files')
 
     options = parser.parse_args()
 
@@ -102,6 +103,14 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     assert len(gm_filenames) == len(wm_filenames), "GM and WM list are not of the same length"
+
+    df = pd.DataFrame(dict(gm=gm_filenames, wm=wm_filenames, t1=t1_filenames, csf=csf_filenames))
+    df.to_csv(os.path.join(output_dir, "spmsegment_files.csv"), index=False)
+    print(df.shape)
+    print(df)
+
+    if options.dry:
+        raise SystemExit("Dry run")
 
     def filename_to_key(filename):
         import re

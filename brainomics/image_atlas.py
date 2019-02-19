@@ -29,7 +29,6 @@ def dilation_labels(arr, size=(3, 3, 3)):
     arr = scipy.ndimage.generic_filter(arr, func, size=size)
     return arr
 
-
 def resample_atlas_harvard_oxford(ref, output,
         atlas_base_dir="/usr/share/data/harvard-oxford-atlases/HarvardOxford",
         fsl_cmd = ['fsl5.0-applywarp', '-i', '%s', '-r', '%s', '-o', '%s', '--interp=nn'],
@@ -79,7 +78,7 @@ def resample_atlas_harvard_oxford(ref, output,
 
     if smooth_size is not None:  # smooth labels
         atlas_arr = smooth_labels(atlas_arr, size=smooth_size)
-        atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.get_affine())
+        atlas_im = nib.Nifti1Image(atlas_arr, affine=cort_image.affine)
         atlas_im.to_filename("/tmp/atlas_smoothed.nii.gz")
 
     if dilation_size is not None:  # dilate labels
@@ -94,9 +93,55 @@ def resample_atlas_harvard_oxford(ref, output,
 
     atlas_arr_int = atlas_arr.astype('int16')
     assert np.all(atlas_arr_int == atlas_arr)
-    atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.get_affine())
+    atlas_im = nib.Nifti1Image(atlas_arr_int, affine=cort_image.affine)
     atlas_im.to_filename(output)
     print("Watch if everything is OK:")
     print("fslview %s %s" % (output, ref))
     return atlas_im
 
+def resample_atlas_bangor_cerebellar(ref, output,
+        atlas_base_dir="/usr/share/data/bangor-cerebellar-atlas/Cerebellum",
+        fsl_cmd = ['fsl5.0-applywarp', '-i', '%s', '-r', '%s', '-o', '%s', '--interp=nn'],
+        smooth_size=(3, 3, 3), dilation_size=(3, 3, 3),
+        fill_wm=True):
+    """Resample HarvardOxford atlas (cortical and subcortical) into reference
+    space. Add sub-cortical GM to cortical GM. Add 100 to sub label to avoid
+    confusion. Smooth and dilate all those GM structures. At the end, voxel
+    with no labels that correspond to WM (in sub atlas) are labeled WM
+    (1+100, 12+100). Smoothing and dilation may take a while. This should prevent
+    to remove too many voxels towoard ventriculus for instance.
+
+    Example
+    -------
+    from brainomics.image_atlas import resample_atlas_harvard_oxford
+    im = resample_atlas_harvard_oxford(ref="mwrc1Test_Sbj1.nii.gz", output="atlas.nii.gz")
+    im = resample_atlas_harvard_oxford(ref="vol0000.nii.gz", output="atlas.nii.gz")
+    im = resample_atlas_harvard_oxford(ref="swrLil1_DasDa_Presto_0655.nii", output="atlas.nii.gz", dilation_size=None, fill_wm=False)
+    """
+    atlas_filename = os.path.join(atlas_base_dir, "Cerebellum-MNIfnirt-maxprob-thr0-1mm.nii.gz")
+
+    #sub_image.to_filename("/tmp/sub.nii.gz")
+    # resamp cortical
+    #cmd = fsl_cmd % (atlas_filename, ref, "/tmp/cort")
+    fsl_cmd[2], fsl_cmd[4], fsl_cmd[6] = atlas_filename, ref, "/tmp/cerebellar"
+    print("".join(fsl_cmd))
+    subprocess.call(fsl_cmd)
+    #os.system(fsl_cmd % (atlas_filename, ref, "/tmp/cort"))
+    atlas_image = nib.load("/tmp/cerebellar.nii.gz")
+    atlas_arr = atlas_image.get_data()
+
+    if smooth_size is not None:  # smooth labels
+        atlas_arr = smooth_labels(atlas_arr, size=smooth_size)
+        atlas_im = nib.Nifti1Image(atlas_arr, affine=atlas_image.affine)
+        atlas_im.to_filename("/tmp/cerebellar_smoothed.nii.gz")
+
+    if dilation_size is not None:  # dilate labels
+        atlas_arr = dilation_labels(atlas_arr, size=dilation_size)
+
+    atlas_arr_int = atlas_arr.astype('int16')
+    assert np.all(atlas_arr_int == atlas_arr)
+    atlas_im = nib.Nifti1Image(atlas_arr_int, affine=atlas_image.affine)
+    atlas_im.to_filename(output)
+    print("Watch if everything is OK:")
+    print("fslview %s %s" % (output, ref))
+    return atlas_im
