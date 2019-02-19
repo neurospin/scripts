@@ -1,4 +1,4 @@
-function runBTK(subjdir,btkdir)
+function runBTK(subjdir,reconstruct_type,btkdir)
 
 %btkdir="/home/js247994/DocumentsN2/Test2/fbrain-build";
 if ~exist('btkdir','var')
@@ -9,12 +9,17 @@ if ~exist('btkdir','var')
     end
     
 end
+
+if ~exist('reconstruct_type','var')
+    reconstruct_type='Reconstruct_gridding';
+end
+
 %Processeddir='/neurospin/ciclops/projects/BIPLi7/ClinicalData/temp/';
 btkfunc=fullfile(btkdir,'Applications','btkNLMDenoising');
 
 if exist(subjdir,'dir')==7
-    TPIpathinput=fullfile(subjdir,'TPI','Reconstruct_gridding','02-PostQuantif');
-    TPIpathoutput=fullfile(subjdir,'TPI','Reconstruct_gridding','03-Filtered');  
+    TPIpathinput=fullfile(subjdir,'TPI',reconstruct_type,'02-PostQuantif');
+    TPIpathoutput=fullfile(subjdir,'TPI',reconstruct_type,'03-Filtered');  
     
     if exist(TPIpathinput,'dir')
         if ~exist(TPIpathoutput,'dir')
@@ -31,7 +36,7 @@ if exist(subjdir,'dir')==7
                 filepath=fullfile(TPIpathinput,filename);
                 newfilepath=fullfile(TPIpathoutput,string(filename(1:dotf-1))+'.nii');
                 newfilepath_filt=fullfile(TPIpathoutput,string(filename(1:dotf-1))+'_filt.nii');
-                if exist(btkfunc,'dir')
+                if exist(btkfunc,'file')
                     codelaunch=strcat(btkfunc,{' '},'-i',{' '},filepath,{' '},'-o',{' '},newfilepath_filt);
                     system(codelaunch{1});
                 end

@@ -1,4 +1,4 @@
-function run_Compute_Quantif_3(Processeddir,subject,T1val)
+function run_Compute_Quantif_3(Processeddir,subject,T1val,reconstruct_type)
     % run_Compute_Quantif('C:\Users\js247994\Documents\Bipli2\Biplisubjects','C:\Users\js247994\Documents\ReconstructionTPI','C:\Program Files (x86)\Python36-32\python.exe')
 
     %Launch the reconstruction of the dat files found in raw to the processed
@@ -7,6 +7,10 @@ function run_Compute_Quantif_3(Processeddir,subject,T1val)
     %reconstructfile=fullfile(char(Codedir),'ProcessData.py');
     %launch_reconstruct_TPI(Subjectdirtwix,Subjectdirresult,subjectnumber,reconstructfile,Pythonexe );
 
+    if ~exist('reconstruct_type','var')
+        reconstruct_type='Reconstruct_gridding';
+    end    
+    
     relax_params.liquid.T1=14000;
     relax_params.liquid.T2=1670;
     relax_params.liquid.T2star=5;
@@ -18,8 +22,8 @@ function run_Compute_Quantif_3(Processeddir,subject,T1val)
     Subjectdirp=fullfile(Processeddir,subject);
     
     maskfolder=fullfile(Subjectdirp,'Quantif_masks');
-    filesdirTPIin=fullfile(Subjectdirp,'TPI','Reconstruct_gridding','05-MNIspace');
-    filesdirTPIout=fullfile(Subjectdirp,'TPI','Reconstruct_gridding','06-postQuantif-MNIspace');
+    filesdirTPIin=fullfile(Subjectdirp,'TPI',reconstruct_type,'05-MNIspace');
+    filesdirTPIout=fullfile(Subjectdirp,'TPI',reconstruct_type,'06-postQuantif-MNIspace');
     if ~exist(filesdirTPIout,'dir')
         mkdir(filesdirTPIout);
     end

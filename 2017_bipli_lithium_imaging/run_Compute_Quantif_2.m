@@ -1,4 +1,4 @@
-function run_Compute_Quantif_2(Processeddir,subject,T1val)
+function run_Compute_Quantif_2(Processeddir,subject,T1val,reconstruct_type)
     % run_Compute_Quantif('C:\Users\js247994\Documents\Bipli2\Biplisubjects','C:\Users\js247994\Documents\ReconstructionTPI','C:\Program Files (x86)\Python36-32\python.exe')
 
     %Launch the reconstruction of the dat files found in raw to the processed
@@ -6,7 +6,10 @@ function run_Compute_Quantif_2(Processeddir,subject,T1val)
     %updated to also include FISTA?
     %reconstructfile=fullfile(char(Codedir),'ProcessData.py');
     %launch_reconstruct_TPI(Subjectdirtwix,Subjectdirresult,subjectnumber,reconstructfile,Pythonexe );
-
+    if ~exist('reconstruct_type','var')
+        reconstruct_type='Reconstruct_gridding';
+    end
+    
     %relax_params.liquid.T1=14000;
     relax_params.liquid.T1=5000;
     %relax_params.liquid.T2=1670;
@@ -20,8 +23,8 @@ function run_Compute_Quantif_2(Processeddir,subject,T1val)
     Subjectdirp=fullfile(Processeddir,subject);
     
     maskfolder=fullfile(Subjectdirp,'Quantif_masks');
-    filesdirTPIin=fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw');
-    filesdirTPIout=fullfile(Subjectdirp,'TPI','Reconstruct_gridding','02-PostQuantif');
+    filesdirTPIin=fullfile(Subjectdirp,'TPI',reconstruct_type,'01-Raw');
+    filesdirTPIout=fullfile(Subjectdirp,'TPI',reconstruct_type,'02-PostQuantif');
     filesdone=[];
     %ComputeVFAfile=fullfile(char(Codedir),'reconstructionTPI','ComputeDensity3D_clinic.py');
     %ComputeQuantifile=fullfile(char(Codedir),'reconstructionTPI','ComputeQuantif_clinic.py');    

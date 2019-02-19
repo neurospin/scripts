@@ -1792,7 +1792,7 @@ def ReadFastSiemensTPI_MultiEcho(Source,HeaderOnly,NS_TPI):
         nbLines=5000
     
     coils=int(coils+1)
-    CplxDataFrame = np.zeros(shape=(1,coils,nbLines,nbEchoes,nbPoints*int(oversamplingFactor)), dtype=np.complex64)
+    CplxDataFrame = np.zeros(shape=(averages,coils,nbLines,nbEchoes,nbPoints*int(oversamplingFactor)), dtype=np.complex64)
     KXarray = np.zeros(shape=(nbLines,nbPoints*int(oversamplingFactor)), dtype=np.float32)    
     KYarray = np.zeros(shape=(nbLines,nbPoints*int(oversamplingFactor)), dtype=np.float32)    
     KZarray = np.zeros(shape=(nbLines,nbPoints*int(oversamplingFactor)), dtype=np.float32)    
@@ -1805,7 +1805,7 @@ def ReadFastSiemensTPI_MultiEcho(Source,HeaderOnly,NS_TPI):
             # print 'Reading Projection ', y
             for echo in range(int(nbEchoes)):
                 for coil in range(coils):
-                    CplxDataFrame[0][coil][y][echo]=CplxDataFrame[0][coil][y][echo]+Cplxline[(echo*coils*nbPoints*int(oversamplingFactor))+coil*nbPoints*int(oversamplingFactor):(echo*coils*nbPoints*int(oversamplingFactor))+(coil+1)*nbPoints*int(oversamplingFactor)]
+                    CplxDataFrame[av][coil][y][echo]=CplxDataFrame[av][coil][y][echo]+Cplxline[(echo*coils*nbPoints*int(oversamplingFactor))+coil*nbPoints*int(oversamplingFactor):(echo*coils*nbPoints*int(oversamplingFactor))+(coil+1)*nbPoints*int(oversamplingFactor)]
             try:
                 KXarray[y,:] = np.array(KX[0:nbPoints*int(oversamplingFactor)]).T
                 KYarray[y,:] = np.array(KY[0:nbPoints*int(oversamplingFactor)]).T
@@ -1859,9 +1859,9 @@ def Read_NS_ME_TPIBlock(source_file, position, nbPoints, oversamplingFactor,coil
         KSpace_hdr1=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128):(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+HDRlength-4]
         Kx=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+HDRlength-4:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+HDRlength+PosLength-4]
         KSpace_hdr2=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+HDRlength+PosLength-4:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength+PosLength-8]
-        Ky=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength+PosLength-8:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength+2*PosLength-8]
+        Ky=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength+PosLength-4:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength+2*PosLength-4]
         KSpace_hdr3=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+2*HDRlength-8+2*PosLength:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+3*HDRlength+2*PosLength-12]
-        Kz=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+3*HDRlength+2*PosLength-12:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+3*HDRlength+3*PosLength-12]
+        Kz=Kline[(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+3*HDRlength+2*PosLength-4:(echoes)*(coils)*(DataLinediv)+((echoes)*(coils)*128)+3*HDRlength+3*PosLength-4]
         
         # print echoes, coils
         for e in range(echoes):

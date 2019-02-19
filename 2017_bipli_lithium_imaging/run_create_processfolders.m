@@ -1,4 +1,4 @@
-function run_create_processfolders(Processeddir,subject)
+function run_create_processfolders(Processeddir,subject,reconstruct_type)
 
     Processeddir=string(Processeddir);
     subject=string(subject);
@@ -9,6 +9,9 @@ function run_create_processfolders(Processeddir,subject)
         if ~exist(fullfile(char(Processeddir),char(subject)),'dir')
             mkdir(fullfile(char(Processeddir),char(subject)));
         end
+    end
+    if ~exist('reconstruct_type','var')
+        reconstruct_type='Reconstruct_gridding';
     end
 
  %   Subjectdirr=fullfile(char(Rawdatdir),char(subject));
@@ -26,13 +29,13 @@ function run_create_processfolders(Processeddir,subject)
     if ~exist(fullfile(Subjectdirp,'Anatomy3T'),'dir')
         mkdir(fullfile(Subjectdirp,'Anatomy3T'));
     end
-    if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'),'dir')
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','01-Raw'));
+    if ~exist(fullfile(Subjectdirp,'TPI',reconstruct_type,'01-Raw'),'dir')
+        mkdir(fullfile(Subjectdirp,'TPI',reconstruct_type,'01-Raw'));
     end
-    if ~exist(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','05-MNIspace'),'dir')
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','02-PostQuantif'));
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','03-Filtered'));
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','04-3Tanatspace'));
-        mkdir(fullfile(Subjectdirp,'TPI','Reconstruct_gridding','05-MNIspace'));
+    if ~exist(fullfile(Subjectdirp,'TPI',reconstruct_type,'05-MNIspace'),'dir')
+        mkdir(fullfile(Subjectdirp,'TPI',reconstruct_type,'02-PostQuantif'));
+        mkdir(fullfile(Subjectdirp,'TPI',reconstruct_type,'03-Filtered'));
+        mkdir(fullfile(Subjectdirp,'TPI',reconstruct_type,'04-3Tanatspace'));
+        mkdir(fullfile(Subjectdirp,'TPI',reconstruct_type,'05-MNIspace'));
     end
 end

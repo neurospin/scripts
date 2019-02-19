@@ -1,4 +1,4 @@
-function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
+function [transmat,coregmat,deform_field,deform_field_inv]=calculate_all_00(Lifiles,Anat7Tfile,Anat3Tfile,TPMfile,segmentfile,keepniifiles)
        
     if ~isempty(Lifiles)
         transmat=calculate_translation_mat_01(Lifiles{1});%,Anat7Tfile,Litranslation);
@@ -11,14 +11,14 @@ function [transmat,coregmat,deform_field,deform_field_inv,normfile]=calculate_al
         Anat7Tin3Tspm.fname=char(fullfile(Anat7Tdir,string(Anat7Tfilename)+'_3Tspace'+ext));
         spm_write_vol(Anat7Tin3Tspm,spm_read_vols(Anat7Tspm));
         [deform_field,deform_field_inv]=calculate_deform_field_03(string(Anat3Tfile),segmentfile,TPMfile,keepniifiles);   
-        Currentfolder=pwd;
-        if exist(fullfile(Currentfolder,'info_pipeline','normwritespm.mat'),'file')
-            normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat'); %Later do a thing that finds it automatically;
-        elseif exist(fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),'file')
-            movefile (fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),fullfile(Currentfolder,'info_pipeline','normwritespm.mat'))
-            normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat');
-        end
+        %Currentfolder=pwd;
+        %if exist(fullfile(Currentfolder,'info_pipeline','normwritespm.mat'),'file')
+        %    normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat'); %Later do a thing that finds it automatically;
+        %elseif exist(fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),'file')
+        %    movefile (fullfile(Currentfolder,'info_pipeline','normwritespm.txt'),fullfile(Currentfolder,'info_pipeline','normwritespm.mat'))
+        %    normfile=fullfile(Currentfolder,'info_pipeline','normwritespm.mat');
+        %end
     else
-        display('Empty subject folder, cannot launch process')
+        disp('Empty subject folder, cannot launch process')
     end
 end
