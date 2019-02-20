@@ -17,9 +17,9 @@ import scipy.io
 import scipy.linalg
 
 #BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects'
-BASE_PATH = '/neurospin/psy/schizConnect/studies/predict_status_vbm'
+BASE_PATH = '/neurospin/psy/schizConnect/studies/2019_predict_status_vbm'
 INPUT_CLINIC_FILENAME =  '/neurospin/brainomics/2016_schizConnect/completed_schizconnect_metaData_1829.csv'
-OUTPUT_CSV = os.path.join(BASE_PATH,"population.csv")
+OUTPUT_CSV = os.path.join(BASE_PATH,"participants.tsv")
 
 
 INPUT_CSV_COBRE = "/neurospin/brainomics/2016_schizConnect/analysis/COBRE/VBM/population.csv"
@@ -32,18 +32,20 @@ clinic_COBRE = pd.read_csv(INPUT_CSV_COBRE)
 clinic_NMorphCH = pd.read_csv(INPUT_CSV_NMorphCH)
 clinic_NUSDAST = pd.read_csv(INPUT_CSV_NUSDAST)
 clinic_VIP = pd.read_csv(INPUT_CSV_VIP)
+pop = pd.concat([clinic_COBRE, clinic_NMorphCH, clinic_NUSDAST], axis=0)
+pop = pop[['subjectid', 'path','sex_num','dx_num','site','age']]
 
 #Since VIP is not a SchizConnect database, need to reorganise some infos
-clinic_VIP = clinic_VIP[['path_VBM','sex_code','dx','age']]
+clinic_VIP = clinic_VIP[['path','sex_code','dx','age']]
 clinic_VIP["site"] = "vip"
 clinic_VIP["sex_num"] = clinic_VIP["sex_code"]
 clinic_VIP["dx_num"] = clinic_VIP["dx"]
-clinic_VIP = clinic_VIP[['path_VBM','sex_num','dx_num','site','age']]
-clinic_VIP['subjectid'] = [os.path.splitext(os.path.basename(p))[0].replace('mwc1', '') for p in clinic_VIP['path_VBM']]
+clinic_VIP['subjectid'] = [os.path.splitext(os.path.basename(p))[0].replace('mwc1', '') for p in clinic_VIP['path']]
+clinic_VIP = clinic_VIP[['subjectid', 'path','sex_num','dx_num','site','age']]
 
-all_clinic = [clinic_COBRE, clinic_NMorphCH, clinic_NUSDAST,clinic_VIP]
-pop = pd.concat(all_clinic)
-pop = pop[['subjectid',"dx_num","path_VBM","sex_num","site","age"]]
+
+pop = pd.concat([pop, clinic_VIP], axis=0)
+pop = pop[['subjectid',"dx_num","path","sex_num","site","age"]]
 assert pop.shape == (606, 6)
 
 #pop.site.unique()
@@ -60,8 +62,8 @@ assert sum(pop.dx_num.values==1) == 276
 
 assert sum(pop.sex_num.values==0) == 374
 assert sum(pop.sex_num.values==1) == 232
-pop.reset_index(inplace=True)
-
+pop.reset_index(drop=True, inplace=True)
+pop.columns = ['participant_id', 'dx_num', 'path', 'sex_num', 'site', 'age', 'site_num']
 #pop[pop.site_num==4].age.mean()
 #Out[116]: 34.37954139368672
 #
@@ -80,11 +82,11 @@ pop.reset_index(inplace=True)
 tissues_vol = list()
 
 for row in pop.itertuples():
-    row.path_VBM
+    row.path
     # Load an threshold map, load t1
-    gm_filename = row.path_VBM.replace("mwc1", "c1")
-    wm_filename = row.path_VBM.replace("mwc1", "c2")
-    csf_filename = row.path_VBM.replace("mwc1", "c3")
+    gm_filename = row.path.replace("mwc1", "c1")
+    wm_filename = row.path.replace("mwc1", "c2")
+    csf_filename = row.path.replace("mwc1", "c3")
 
     gm_img = nib.load(gm_filename)
     voxsize = np.asarray(gm_img.header.get_zooms())
@@ -100,25 +102,25 @@ for row in pop.itertuples():
     csf_arr = csf_img.get_data().squeeze()
     csf_vol = csf_arr.sum() * voxvol / (10 ** 6) # l
 
-    mgm_img = nib.load(row.path_VBM)
+    mgm_img = nib.load(row.path)
     voxsize = np.asarray(mgm_img.header.get_zooms())
     voxvol = voxsize.prod()  # mm3
     mgm_arr = mgm_img.get_data().squeeze()
     mgm_vol = mgm_arr.sum() * voxvol / (10 ** 6) # l
 
     # Get global scaling from linear transfo
-    mat = scipy.io.loadmat(row.path_VBM.replace("mwc1", "").replace(".nii", "_seg8.mat"))
+    mat = scipy.io.loadmat(row.path.replace("mwc1", "").replace(".nii", "_seg8.mat"))
     det = scipy.linalg.det(mat['Affine'][:3, :3])
 
-    tissues_vol.append([row.subjectid, gm_vol, wm_vol, csf_vol, mgm_vol, det])
+    tissues_vol.append([row.participant_id, gm_vol, wm_vol, csf_vol, mgm_vol, det])
 
-tissues_vol = pd.DataFrame(tissues_vol, columns = ["subjectid", "GMvol_l", "WMvol_l", "CSFvol_l", "mwGMvol_l", "gscaling"])
+tissues_vol = pd.DataFrame(tissues_vol, columns = ["participant_id", "GMvol_l", "WMvol_l", "CSFvol_l", "mwGMvol_l", "gscaling"])
 tissues_vol["TIV_l"] = tissues_vol[["GMvol_l", "WMvol_l", "CSFvol_l"]].sum(axis=1)
 tissues_vol["GMratio"] = tissues_vol["GMvol_l"] / tissues_vol["TIV_l"]
 tissues_vol["WMratio"] = tissues_vol["WMvol_l"] / tissues_vol["TIV_l"]
 tissues_vol["CSFratio"] = tissues_vol["CSFvol_l"] / tissues_vol["TIV_l"]
-assert np.all(tissues_vol.subjectid == pop.subjectid)
-tissues_vol.pop('subjectid')
+assert np.all(tissues_vol.participant_id == pop.participant_id)
+tissues_vol.pop('participant_id')
 pop = pd.concat([pop, tissues_vol], axis=1)
 
 # Remove outliers
@@ -148,4 +150,5 @@ max    269.000000    1.000000    1.000000   66.000000    4.000000     ...       
 """
 pop = pop_
 # Save population information
-pop.to_csv(OUTPUT_CSV, index=False)
+#pop.to_csv(OUTPUT_CSV, index=False)
+pop.to_csv(OUTPUT_CSV, sep='\t', index=False)
