@@ -17,7 +17,7 @@ import scipy.io
 import scipy.linalg
 
 #BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects'
-BASE_PATH = '/neurospin/psy/schizConnect/studies/2019_predict_status_vbm'
+BASE_PATH = '/neurospin/brainomics/2016_schizConnect/2019_analysis/all_studies+VIP/VBM/all_subjects/results/Leave_One_Site_Out/LOSO_enet_centered_by_site_all'
 INPUT_CLINIC_FILENAME =  '/neurospin/brainomics/2016_schizConnect/completed_schizconnect_metaData_1829.csv'
 OUTPUT_CSV = os.path.join(BASE_PATH,"participants.tsv")
 
@@ -33,19 +33,19 @@ clinic_NMorphCH = pd.read_csv(INPUT_CSV_NMorphCH)
 clinic_NUSDAST = pd.read_csv(INPUT_CSV_NUSDAST)
 clinic_VIP = pd.read_csv(INPUT_CSV_VIP)
 pop = pd.concat([clinic_COBRE, clinic_NMorphCH, clinic_NUSDAST], axis=0)
-pop = pop[['subjectid', 'path','sex_num','dx_num','site','age']]
+pop = pop[['subjectid', 'path_VBM','sex_num','dx_num','site','age']]
 
 #Since VIP is not a SchizConnect database, need to reorganise some infos
-clinic_VIP = clinic_VIP[['path','sex_code','dx','age']]
+clinic_VIP = clinic_VIP[['path_VBM','sex_code','dx','age']]
 clinic_VIP["site"] = "vip"
 clinic_VIP["sex_num"] = clinic_VIP["sex_code"]
 clinic_VIP["dx_num"] = clinic_VIP["dx"]
-clinic_VIP['subjectid'] = [os.path.splitext(os.path.basename(p))[0].replace('mwc1', '') for p in clinic_VIP['path']]
-clinic_VIP = clinic_VIP[['subjectid', 'path','sex_num','dx_num','site','age']]
+clinic_VIP['subjectid'] = [os.path.splitext(os.path.basename(p))[0].replace('mwc1', '') for p in clinic_VIP['path_VBM']]
+clinic_VIP = clinic_VIP[['subjectid', 'path_VBM','sex_num','dx_num','site','age']]
 
 
 pop = pd.concat([pop, clinic_VIP], axis=0)
-pop = pop[['subjectid',"dx_num","path","sex_num","site","age"]]
+pop = pop[['subjectid',"dx_num","path_VBM","sex_num","site","age"]]
 assert pop.shape == (606, 6)
 
 #pop.site.unique()
@@ -82,7 +82,7 @@ pop.columns = ['participant_id', 'dx_num', 'path', 'sex_num', 'site', 'age', 'si
 tissues_vol = list()
 
 for row in pop.itertuples():
-    row.path
+    print(row.path)
     # Load an threshold map, load t1
     gm_filename = row.path.replace("mwc1", "c1")
     wm_filename = row.path.replace("mwc1", "c2")

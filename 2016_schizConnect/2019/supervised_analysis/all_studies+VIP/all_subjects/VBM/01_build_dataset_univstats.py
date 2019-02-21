@@ -16,6 +16,16 @@ OUTPUT:
 - mask.nii
 - y.npy
 - X.npy = Age + Gender + Voxels
+
+
+Amicie previous works:
+
+Scripts
+/home/ed203246/git/scripts/2016_schizConnect/supervised_analysis/all_studies+VIP/all_subjects/VBM
+
+Data
+/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects/results/Leave_One_Site_Out/LOSO_enet_centered_by_site_all
+
 """
 
 import os
@@ -42,7 +52,7 @@ from parsimony.utils.linalgs import LinearOperatorNesterov
 # cookiecutter Directory structure
 # https://drivendata.github.io/cookiecutter-data-science/
 
-WD = '/neurospin/psy/schizConnect/studies/2019_predict_status_vbm'
+WD = '/neurospin/brainomics/2016_schizConnect/2019_analysis/all_studies+VIP/VBM/all_subjects/results/Leave_One_Site_Out/LOSO_enet_centered_by_site_all'
 #BASE_PATH = '/neurospin/brainomics/2018_euaims_leap_predict_vbm/results/VBM/1.5mm'
 
 
@@ -53,6 +63,7 @@ WD = '/neurospin/psy/schizConnect/studies/2019_predict_status_vbm'
 CONF = dict(voxsize=1.5, smoothing=0, target="dx_num") # Voxel size, smoothing
 
 OUTPUT = os.path.join(WD, "schizConnect_vbm_vs%.1f-s%i" % (CONF["voxsize"], CONF["smoothing"]))
+os.makedirs(OUTPUT, exist_ok=True)
 #OUTPUT = /neurospin/psy/schizConnect/studies/2019_predict_status_vbm
 
 
@@ -137,7 +148,7 @@ mask_arr = ((atlas.get_data() + cereb.get_data()) != 0) & mask_arr
 mask_arr = scipy.ndimage.binary_opening(mask_arr)
 
 #############################################################################
-# Avoid isolated clusters: remove all cluster smaller that 5
+# Avoid isolated clusters: remove all cluster smaller that 10
 
 mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
 print([[lab, np.sum(mask_clustlabels_arr == lab)] for lab in  np.unique(mask_clustlabels_arr)[1:]])
@@ -218,9 +229,6 @@ XTotTivSitePca = XTotTivSiteCtr - np.dot(PC, pca.components_)
 
 
 assert np.all(pop[CONF["target"]].value_counts() == (330, 273))
-
-
-
 
 
 #############################################################################
@@ -376,7 +384,7 @@ np.savez_compressed(os.path.join(OUTPUT, "XTotSite.npz"),
                     #session = pop["session"],
                     age = pop["age"],
                     target = pop[CONF["target"]],
-                    XTotSite = XTotSite)
+                    X = XTotSite)
 
 
 pop.to_csv(os.path.join(OUTPUT, "participants.csv"), index=False)
@@ -387,13 +395,13 @@ arxiv = np.load(os.path.join(OUTPUT, "XTotSite.npz"))
 
 assert np.all(arxiv['participant_id'] == pop_['participant_id'])
 
-if tuple(CONF.values()) == (1.5, 0):
-    arxiv['XTotSite'] == (603, 396422)
+if tuple(CONF.values()) == (1.5, 0, 'dx_num'):
+    assert arxiv['X'].shape == (603, 396422)
 
 ###############################################################################
 # precompute linearoperator
 arxiv = np.load(os.path.join(OUTPUT, "XTotSite.npz"))
-X = arxiv['XTotSite']
+X = arxiv['X']
 y = arxiv['target']
 
 mask = nibabel.load(os.path.join(OUTPUT, "mask.nii.gz"))
