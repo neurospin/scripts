@@ -17,7 +17,7 @@ import scipy.io
 import scipy.linalg
 
 #BASE_PATH = '/neurospin/brainomics/2016_schizConnect/analysis/all_studies+VIP/VBM/all_subjects'
-BASE_PATH = '/neurospin/brainomics/2016_schizConnect/2019_analysis/all_studies+VIP/VBM/all_subjects/results/Leave_One_Site_Out/LOSO_enet_centered_by_site_all'
+BASE_PATH = '/neurospin/brainomics/2016_schizConnect/2019_analysis/all_studies+VIP/VBM/all_subjects/data' #'/results/Leave_One_Site_Out/LOSO_enet_centered_by_site_all'
 INPUT_CLINIC_FILENAME =  '/neurospin/brainomics/2016_schizConnect/completed_schizconnect_metaData_1829.csv'
 OUTPUT_CSV = os.path.join(BASE_PATH,"participants.tsv")
 
