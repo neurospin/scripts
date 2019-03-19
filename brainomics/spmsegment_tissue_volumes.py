@@ -48,10 +48,7 @@ if __name__ == "__main__":
     parser.add_argument('--gm', help='list of grey matter proba images (c1)', nargs='+', type=str)
     parser.add_argument('--wm', help='list of white matter proba map images (c2)', nargs='+', type=str)
     parser.add_argument('--csf', help='list of csf proba map images (c3) (optional)', nargs='+', type=str)
-    parser.add_argument('--t1', help='list of T1w anatomical images (optional)', nargs='+', type=str)
     parser.add_argument('-o', '--output', help='Output csv file', type=str)
-    parser.add_argument('--thresh', help='Threshold (default %f)'% threshold,
-        default=threshold, type=float)
 
     options = parser.parse_args()
 
@@ -60,7 +57,6 @@ if __name__ == "__main__":
     options.gm = ["/neurospin/psy/hbn/derivatives/spmsegment/sub-NDARLU606ZDD/c1usub-NDARLU606ZDD_acq-HCP_T1w.nii.gz"]
     options.wm = ["/neurospin/psy/hbn/derivatives/spmsegment/sub-NDARLU606ZDD/c2usub-NDARLU606ZDD_acq-HCP_T1w.nii.gz"]
     options.csf = ["/neurospin/psy/hbn/derivatives/spmsegment/sub-NDARLU606ZDD/c3usub-NDARLU606ZDD_acq-HCP_T1w.nii.gz"]
-    options.t1 = ["data/sub-NDARAM873GAC/usub-NDARAM873GAC_acq-VNav_T1w.nii"]
 
     options.output = "/neurospin/psy/hbn/analysis/2019_hbn_vbm_predict-ari/data/tissues_volume.csv"
 
@@ -83,7 +79,10 @@ if __name__ == "__main__":
         raise SystemExit("Error: white matter proba images are missing")
     wm_filenames = options.wm
 
-    t1_filenames = options.t1
+    if options.csf is None:
+        parser.print_help()
+        raise SystemExit("Error: csf proba images are missing")
+
     csf_filenames = options.csf
 
     assert len(gm_filenames) == len(wm_filenames), "GM and WM list are not of the same length"
@@ -117,7 +116,7 @@ if __name__ == "__main__":
 
         # Load an threshold map, load t1
         gm_img = nib.load(gm_filenames[i])
-        voxsize = np.asarray(gm_img.get_header().get_zooms())
+        voxsize = np.asarray(gm_img.header.get_zooms())
         voxvol = voxsize.prod()  # mm3
         gm_vol = gm_img.get_data().sum() * voxvol / (10 ** 6) # l
         wm_vol = nib.load(wm_filenames[i]).get_data().sum() * voxvol / (10 ** 6) # l
