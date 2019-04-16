@@ -33,8 +33,8 @@
     run_create_processfolders(fullfile(projectdir,'Processed_Data'),subjname,reconstruct_type)
     listdat=dir(raw_subjdir);
     
-    launch_reconstruct=1;
-    launch_post_process=0;
+    launch_reconstruct=0;
+    launch_post_process=1;
     
     if launch_reconstruct
         for j=1:numel(listdat)
@@ -83,7 +83,7 @@
                 if ~exist(fieldmap_file,'file') || forcefieldmap
                     if ~isempty(ref_im)
                         ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
-                        %prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);   
+                        prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);   
                     else
                         disp('warning, could not find reference image for fieldmap');
                     end
@@ -114,26 +114,30 @@
         raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');  
 
         trufiproc=0;
-        Quantifproc=1;
+        quantifproc=1;
         BTKproc=1;
-        forcestart=1;
+        force_regcalc=0; %Keep this at 0 unless you want it do recalculate the segmentation fo rno reason
+        forcestart=1; %some/most of the code does not write files if it notices they already exist. Putting this to one forces it to run anyway
+        %if workontpi and/or workontrufi are also turned on
+        workontpi=0;
+        workontrufi=1;
 
         if trufiproc==1
             trufitoprocess(raw_dic,proc_subjdir);
         end
 
-        transfoparam_file=launch_transform_calc(proc_subjdir,Quantifproc,forcestart,reconstruct_type);
-        if Quantifproc==1
-            run_Compute_Quantif_2(fullfile(projectdir,'Processed_Data'),subjname,T1val,reconstruct_type)
+        transfoparam_file=launch_transform_calc(proc_subjdir,quantifproc,force_regcalc,reconstruct_type);
+        if quantifproc==1
+            trufiexcel=fullfile(projectdir,'Analysis','TPI_trufi_compare.xlsx');
+            run_Compute_Quantif_2(fullfile(projectdir,'Processed_Data'),subjname,T1val,reconstruct_type,workontpi,workontrufi,trufiexcel)
         end
         if BTKproc==1
-            runBTK(proc_subjdir,reconstruct_type);
+            runBTK(proc_subjdir,reconstruct_type,workontpi,workontrufi);
         end
-        launch_applytransforms(proc_subjdir,transfoparam_file,reconstruct_type)
-        if Quantifproc==1
+        launch_applytransforms(proc_subjdir,transfoparam_file,reconstruct_type,forcestart,workontpi,workontrufi)
+        if quantifproc==1
             %run_Compute_Quantif_3(fullfile(projectdir,'Processed_Data'),subjname,T1val,reconstruct_type)
         end
-        %
     end
     
 

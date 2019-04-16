@@ -1,4 +1,4 @@
-function launch_applytransforms(subjectdir,transfoparam_file,reconstruct_type)
+function launch_applytransforms(subjectdir,transfoparam_file,reconstruct_type,forcestart,launchtpi,launchtrufi)
 
     if ~exist(transfoparam_file,'file')
         disp('Error, param file of transformations not found');
@@ -82,7 +82,7 @@ function launch_applytransforms(subjectdir,transfoparam_file,reconstruct_type)
     %deform_field=fullfile(Anat3Tdir,deform_field);
     normfile=fullfile(pwd,'info_pipeline','normwritespm.mat');
     
-    if runTPIfiles || forcestart   
+    if (runTPIfiles || forcestart) && launchtpi   
         apply_transform_7TtoMNI(TPIfiles,TPIoutputdir3T,TPIoutputdirmni,coregmat,deform_field,normfile,"MNI_");
     end
     Anat3Tdir=fullfile(subjectdir,'Anatomy3T');
@@ -92,6 +92,6 @@ function launch_applytransforms(subjectdir,transfoparam_file,reconstruct_type)
     end
     %if everneeded, add another apply_transform for any other list of 7T
     %files to transfer to MNI space
-    if ~isempty(trufifiles) && runtrufifiles
+    if ~isempty(trufifiles) && (runtrufifiles || forcestart) && launchtrufi
         apply_transform_7TtoMNI(trufifiles,trufioutput3T,trufioutputMNI,coregmat,deform_field,normfile,"MNI_");
     end
