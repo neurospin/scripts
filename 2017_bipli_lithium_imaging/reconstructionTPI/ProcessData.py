@@ -34,6 +34,8 @@ from nifty_funclib import SaveArrayAsNIfTI
 #--i V:\projects\SIMBA\Clinicaldata\Raw_Data\2018_08_01\twix7T\meas_MID162_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID6447.dat --NSTPI --s --FISTA_CSV --o V:\projects\SIMBA\Clinicaldata\Processed_Data\2018_08_01\TPI\Reconstruct_gridding\01-Raw_retest\meas162.nii
 #--fieldmap V:\projects\BIPLi7\Tests\Processed_Data\2018_10_25\Field_mapping\fieldmap_final.nii
 #--i V:\projects\BIPLi7\Tests\Raw_Data\2018_10_25\twix7T\meas_MID159_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID684.dat --NSTPI --s --SavePhase --o V:\projects\BIPLi7\Tests\Processed_Data\2018_10_25\TPI\Reconstruct_gridding_2\phantomLi.nii
+#--i V:\projects\SIMBA\Tests\2019_01_18\meas_MID234_23Na_TPI_TR120_FA90_P05_4mm_4echoes_FID5601.dat --NSTPI --s --SavePhase --o V:\projects\SIMBA\Tests\2019_01_18\meas234\sodium_test.nii
+#--i V:\projects\BIPLi7\Tests\Raw_Data\2018_10_25\twix7T\meas_MID159_7Li_TPI_fisp_TR200_21deg_P05_5echos_FID684.dat --fieldmap V:\projects\BIPLi7\Tests\Processed_Data\2018_10_25\Field_mapping\fieldmap_final.nii --NSTPI --s --SavePhase --o V:\projects\BIPLi7\Tests\Processed_Data\2018_10_25\TPI\Reconstruct_gridding_2\phantomLi.nii
 
 import time
 
@@ -309,9 +311,11 @@ if B0correct:
     #select optimal L => L=findL(minL,diff_freq)
     recon_method='fsc'
     ba='before'
-    L=16 #because that causes deltaw to have a value close to 0, will have to mess with that down the line
-   
-    deltaw = np.linspace(np.max(fieldmap_data), np.min(fieldmap_data), L)*2*np.pi
+    L=64 #because that causes deltaw to have a value close to 0, will have to mess with that down the line
+    step=diff_freq/L  
+    deltaw=np.concatenate((np.flip(np.arange(0,np.min(fieldmap_data),-step)),np.arange(step,np.max(fieldmap_data),step)))*2*np.pi
+    
+    #deltaw = np.linspace(np.max(fieldmap_data), np.min(fieldmap_data), L)*2*np.pi
     #NbProjections=parameters[18] NbPoints=parameters[1] NbAverages=parameters[2] 
     #NbCoils=parameters[3] OverSamplingFactor=parameters[5]
     #Nucleus=parameters[6] MagneticField=parameters[7] SubSampling=False 
@@ -324,8 +328,11 @@ if B0correct:
     Images_L=np.zeros(shape=(parameters[24],size,size,size,L),dtype=np.complex64)
     
     
+    #Img_example, Phase, Abs_Sum_of_Regridded_kspace=KaiserBesselTPI_ME(parameters[18],parameters[1],parameters[2],parameters[3],parameters[5],parameters[6],parameters[7],False,CPLX,KX,KY,KZ,parameters[20],parameters[21],parameters[8],verbose,PSF_ND,PSF_D,B1sensitivity,int(parameters[24]),SaveKspace)
+    writefreq=0
     for freq in range(L): #for freq in range(L):
-        print(freq)
+        #freq=1
+        #print(freq)
         if (B1sensitivity): 
             sousech=0.95
         else : sousech=0.0
@@ -400,17 +407,19 @@ if B0correct:
             Images_L[echo,:,:,:,freq]=ReconstructedImg_freq[echo,:,:,:]
     #size=round (FOV/resolution)
             Hpath, Fname = os.path.split(str(OutputPath))
-            Fname = Fname.split('.')    
-            OutputPath1 = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}_freq{2}.nii".format(echo,parameters[25][echo],freq ))
-            SaveArrayAsNIfTI(np.abs(Images_L[echo,:,:,:,freq]),affine,OutputPath1)                
+            if writefreq==1:
+                Fname = Fname.split('.')    
+                OutputPath1 = os.path.join( Hpath + '/' + Fname[0] + "_KBgrid_MODULE_Echo{0}_TE{1}_freq{2}.nii".format(echo,parameters[25][echo],freq ))
+                SaveArrayAsNIfTI(np.abs(Images_L[echo,:,:,:,freq]),affine,OutputPath1)                
     
     if not HeaderOnly:
         ReconstructedImg,loca_freqImg=Conjuguate_Phase_combine(Images_L,int(parameters[24]),fieldmap_data,L,size,recon_method,Timesampling,ba)
-        for echo in range(parameters[24]):
-            Hpath, Fname = os.path.split(str(OutputPath))
-            Fname = Fname.split('.')    
-            OutputPath1 = os.path.join( Hpath + '/' + Fname[0] + "_freq_map_Echo_{0}_TE{1}.nii".format(echo,parameters[25][echo],freq ))
-            SaveArrayAsNIfTI(np.abs(loca_freqImg[echo,:,:,:]),affine,OutputPath1)     
+        if writefreq==1:
+            for echo in range(parameters[24]):
+                Hpath, Fname = os.path.split(str(OutputPath))
+                Fname = Fname.split('.')    
+                OutputPath1 = os.path.join( Hpath + '/' + Fname[0] + "_freq_map_Echo_{0}_TE{1}.nii".format(echo,parameters[25][echo],freq ))
+                SaveArrayAsNIfTI(np.abs(loca_freqImg[echo,:,:,:]),affine,OutputPath1)     
             
 else: 
 
