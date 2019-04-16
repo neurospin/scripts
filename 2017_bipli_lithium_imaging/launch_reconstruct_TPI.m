@@ -32,24 +32,31 @@
     
     run_create_processfolders(fullfile(projectdir,'Processed_Data'),subjname,reconstruct_type)
     listdat=dir(raw_subjdir);
-    for j=1:numel(listdat)
-        ok=strfind(listdat(j).name,'TPI');
-        if ~isempty(ok)
-            processedTPIpath=fullfile(proc_subjdir,"TPI",strcat(reconstruct_type,""),"01-Raw");
-            if ~exist(processedTPIpath,'dir')
-                mkdir(processedTPIpath)
-            end
-            Tpifilename=listdat(j).name;
-            Tpifilepath=fullfile(raw_subjdir,char(Tpifilename));
-            deg=strfind(Tpifilename,'deg');
-            degval=(Tpifilename(deg-2:deg-1));
-            MID=strfind(Tpifilename,'MID');
-            %MIDval=Tpifilename(MID+3:MID+6);%*isstrprop(Tpifilename(MID+3:MID+5),'alphanum');
-            MIDval="";
-            for l=MID+3:MID+6
-                if isstrprop(Tpifilename(l),'alphanum')
-                    MIDval=MIDval+Tpifilename(l);
+    
+    launch_reconstruct=1;
+    launch_post_process=0;
+    
+    if launch_reconstruct
+        for j=1:numel(listdat)
+            ok=strfind(listdat(j).name,'TPI');
+            if ~isempty(ok)
+                processedTPIpath=fullfile(proc_subjdir,"TPI",strcat(reconstruct_type,""),"01-Raw");
+                if ~exist(processedTPIpath,'dir')
+                    mkdir(processedTPIpath)
                 end
+                Tpifilename=listdat(j).name;
+                Tpifilepath=fullfile(raw_subjdir,char(Tpifilename));
+                deg=strfind(Tpifilename,'deg');
+                degval=(Tpifilename(deg-2:deg-1));
+                MID=strfind(Tpifilename,'MID');
+                %MIDval=Tpifilename(MID+3:MID+6);%*isstrprop(Tpifilename(MID+3:MID+5),'alphanum');
+                MIDval="";
+                for l=MID+3:MID+6
+                    if isstrprop(Tpifilename(l),'alphanum')
+                        MIDval=MIDval+Tpifilename(l);
+                    end
+                end
+<<<<<<< HEAD
             end
                     
             TPIresultname=strcat("Patient",(subjectnumber),"_",degval,"deg_MID",MIDval);
@@ -78,11 +85,57 @@
                 if ~isempty(ref_im)
                     ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
                     prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);   
-                else
-                    disp('warning, could not find reference image for fieldmap');
-                end
-            end
+=======
 
+                TPIresultname=strcat("Patient",(subjectnumber),"_",degval,"deg_MID",MIDval);
+                Reconstructpath=fullfile(processedTPIpath,(TPIresultname+".nii"));
+                if strcmp(reconstruct_type,'Reconstruct_gridding')
+                    codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --NSTPI --s --FISTA_CSV --o "+Reconstructpath;
+                    system(codelaunch);
+                elseif contains(reconstruct_type,'Reconstruct_sandro')
+                    filter=check_reconstruct_type(reconstruct_type);
+                    reconTPI(voxres, filter, Tpifilepath, Reconstructpath);
+                            %reconTPI(voxres, 'none', Tpifilepath, processedTPIpath);
+>>>>>>> 8e42503c713943869396be7e7e82b44471d2798c
+                else
+                    disp('reconstruct type unrecognized');
+                    raise error
+                end
+
+                %system(codelaunch{1,1})
+
+                fieldmap_file=fullfile(proc_subjdir,"Field_mapping","fieldmap_final.nii");
+                spm_alignmentfile=fullfile(codedir,"info_pipeline","fieldmapwritespm.mat");
+                %ref_im=dir(fullfile(projectdir,'*.nii'));
+                %ref_im=fullfile(projectdir,string(ref_im.name));
+                ref_dir=(fullfile(processedTPIpath,TPIresultname+"*.nii"));
+                ref_im=dir(ref_dir);
+                forcefieldmap=1;
+                if ~exist(fieldmap_file,'file') || forcefieldmap
+                    if ~isempty(ref_im)
+                        ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
+                        %prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);   
+                    else
+                        disp('warning, could not find reference image for fieldmap');
+                    end
+                end
+
+                TPIresultfname=("Patient"+(subjectnumber)+"_"+degval+"deg_MID"+MIDval+"_B0cor.nii");
+                Reconstructfpath=fullfile(processedTPIpath,TPIresultfname);
+                if strcmp(reconstruct_type,'Reconstruct_gridding')
+                    %codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --fieldmap "+fieldmap_file+" --NSTPI --s --FISTA_CSV --o "+Reconstructfpath;
+                    codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --fieldmap "+fieldmap_file+" --NSTPI --s --o "+Reconstructfpath;
+                    %system(codelaunch)
+                    disp('hi');
+                elseif contains(reconstruct_type,'Reconstruct_sandro')
+                    filter=check_reconstruct_type(reconstruct_type);
+                    reconTPI_B0cor(voxres,filter,Tpifilepath,fieldmap_file,Reconstructfpath,'fsc',128); %128               
+                else
+                    disp('reconstruct type unrecognized');
+                    raise error
+                end
+
+<<<<<<< HEAD
             TPIresultfname=("Patient"+(subjectnumber)+"_"+degval+"deg_MID"+MIDval+"_B0cor.nii");
             Reconstructfpath=fullfile(processedTPIpath,TPIresultfname);
             if contains(reconstruct_type,'Reconstruct_gridding')
@@ -93,12 +146,14 @@
             else
                 disp('reconstruct type unrecognized');
                 raise error
+=======
+                %system(codelaunch{1,1})
+
+>>>>>>> 8e42503c713943869396be7e7e82b44471d2798c
             end
-                
-            %system(codelaunch{1,1})
-         
         end
     end
+<<<<<<< HEAD
     fullstudy=0;
     if fullstudy
 
@@ -106,6 +161,14 @@
 
         trufiproc=0;
         Quantifproc=0;
+=======
+    
+    if launch_post_process
+        raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');  
+
+        trufiproc=0;
+        Quantifproc=1;
+>>>>>>> 8e42503c713943869396be7e7e82b44471d2798c
         BTKproc=1;
         forcestart=1;
 
@@ -126,6 +189,10 @@
         end
         %
     end
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 8e42503c713943869396be7e7e82b44471d2798c
 
 
 

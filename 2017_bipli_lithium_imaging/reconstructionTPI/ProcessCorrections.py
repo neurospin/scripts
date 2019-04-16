@@ -11,7 +11,7 @@ from nibabel.affines import apply_affine
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from lmfit import Model
+#from lmfit import Model
 
 def funcT2(x, a, b,c):
     return (a * (np.exp(-b * x)) + c)
