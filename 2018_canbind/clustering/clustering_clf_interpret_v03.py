@@ -5,6 +5,13 @@ Created on Mon Sep 24 15:29:19 2018
 
 @author: ed203246
 
+cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/XTreatTivSite.npy /neurospin/psy/canbind/models/clustering_v02/
+cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/XTreatTivSitePca.npy /neurospin/psy/canbind/models/clustering_v02/
+cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/population.csv /neurospin/psy/canbind/models/clustering_v02/
+cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/mask.nii.gz /neurospin/psy/canbind/models/clustering_v02/
+cp /neurospin/psy/canbind/models/vbm_resp_1.5mm/y.npy /neurospin/psy/canbind/models/clustering_v02/
+
+
 laptop to desktop
 rsync -azvun /home/edouard/data/psy/canbind/models/clustering_v03/* ed203246@is234606.intra.cea.fr:/neurospin/psy/canbind/models/clustering_v03/
 
@@ -749,13 +756,14 @@ CLUST = 1
 
 modelscv = np.load(os.path.join(WD, "rcv_gp1/rcv_024.npz")) # ['beta_cv', 'beta_refit', 'y_pred', 'y_true', 'proba_pred']
 
-coef_refit = np.load(os.path.join(WD, "rcv_gp1/rcv_000.npz"))['beta_refit'] # ['beta_cv', 'beta_refit', 'y_pred', 'y_true', 'proba_pred']
-
+#coef_refit = np.load(os.path.join(WD, "rcv_gp1/rcv_024.npz"))['beta_refit'] # ['beta_cv', 'beta_refit', 'y_pred', 'y_true', 'proba_pred']
+coef_refit = modelscv['beta_refit']
+"""
 if "beta_refit" in modelscv:
     np.sum((modelscv["beta_refit"] - coef_refit) ** 2) / np.sum(modelscv["beta_refit"] ** 2)
     plt.plot(modelscv["beta_refit"], coef_refit)
     np.corrcoef(modelscv["beta_refit"], coef_refit)[0, 1] # 0.99972945758044729
-
+"""
 # CV
 # --
 
@@ -800,8 +808,8 @@ min      0.000000e+00
 max      6.788251e-02
 """
 
-# Bootstrap
-# ---------
+# RCV
+# ---
 
 import glob
 
@@ -810,42 +818,45 @@ coef_boot_img = [np.load(f)["beta_cv"] for f in glob.glob(os.path.join(WD, "rcv_
 coef_boot_img = np.concatenate(coef_boot_img)
 
 print(coef_boot_img.shape)
-# (735, 397559)
-# (825, 397559)
-# (940, 397559)
+# (500, 397559)
 
-# 0.970044675253 0.979496828144 0.985384311961 0.836103443538
-# 0.970044675253 0.979400439765 0.985496055984 0.835362864937
-# 0.970044675253 0.979532698861 0.985607539235 0.833696216845
-
-# old
-# 0.942233238632 0.745839768565 0.806542301258 0.73123706908
-# 0.942233238632 0.755023156032 0.834868776487 0.742830307793
-# 0.942233238632 0.797933102049 0.878795596685 0.721951036469
-# 0.942233238632 0.824568882048 0.896801442198 0.759808244301
-# 0.942233238632 0.872093385138 0.940329152839 0.78211136126
-# 0.942233238632 0.86648106966 0.939997706992 0.782311038707
-#0.942233238632 0.867677242763 0.945523048513 0.797198890482
-
-prefix_filename = os.path.join(WD,  "coeffs-map-clust%i"%CLUST +"_enettv_0.1_0.1_0.8_5")
+prefix_filename = os.path.join(WD,  "coeffs-map-clust%i"%CLUST +"_enettv_0.1_0.1_0.8")
 pdf = PdfPages(prefix_filename+".pdf")
 
 mask_img = nibabel.load(os.path.join(WD, "mask.nii.gz"))
 coef_arr = np.zeros(mask_img.get_data().shape)
 
-# Boot
+# RCV
 fig = plt.figure()
 coef_boot_img_avg = coef_boot_img.mean(axis=0)
 coef_boot_img_std = coef_boot_img.std(axis=0)
 
 coef_boot_img_avg[np.abs(coef_boot_img_avg) < 1 * coef_boot_img_std] = 0
 coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg
+
 #coef_arr[mask_img.get_data() != 0] = coef_boot_img_avg / coef_boot_img_std
 coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
+coef_img.to_filename(prefix_filename + "_rcv-mean-sup-std.nii.gz")
 plotting.plot_glass_brain(coef_img,  vmax=5e-4, cmap=plt.cm.bwr, colorbar=True, plot_abs=False,
-                          title='Signature avg boot where avg > sd')#, figure=fig, axes=ax)
+                          title='Signature avg where avg > sd')#, figure=fig, axes=ax)
 pdf.savefig(); plt.close()
-coef_img.to_filename(prefix_filename + "_boot-mean-sup-std.nii.gz")
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+pdf.savefig(); plt.close()
+
+fig = plt.figure()
+plotting.plot_stat_map(coef_img, display_mode='x', cut_coords=7,
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+pdf.savefig(); plt.close()
+
+
 
 # Refit all
 coef_arr[mask_img.get_data() != 0] = coef_refit
@@ -876,18 +887,17 @@ coef_img = nibabel.Nifti1Image(coef_arr, affine=mask_img.affine)
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='z', cut_coords=7,
-                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='y', cut_coords=7,
-                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 pdf.savefig(); plt.close()
 
 fig = plt.figure()
 plotting.plot_stat_map(coef_img, display_mode='x', cut_coords=7,
-                       title='Signature',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
-
+                       title='Signature refit',  vmax=1e-4, colorbar=True, cmap=plt.cm.bwr, threshold=1e-6)
 pdf.savefig(); plt.close()
 
 pdf.close()

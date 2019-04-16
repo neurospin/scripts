@@ -70,38 +70,72 @@ def mse(imageA, imageB):
 #TPI_test='V:/projects/BIPLi7/Clinicaldata/Processed_Data/2018_06_01/TPI/Reconstruct_gridding/06-MNIspace/MNI_Patient18_21deg_MID417_B0cor_KBgrid_MODULE_Echo0_TE300_rhoSSFP_filt.nii'
 #Trufi_test='V:/projects/BIPLi7/Clinicaldata/Processed_Data/2018_06_01/Trufi/05-MNIspace/MNI_trufi_10000_rhoSSFP_test_filt.nii'
     
-TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_masked\TPI_Lithiumfiles_01'
-Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_masked\Trufi_Lithiumfiles_01'
 
-#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\TPI_Lithiumfiles_01'
-#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\Trufi_Lithiumfiles_01'
 
 #TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember\Processing_December_quantif\TPI_Lithiumfiles_01'
 #Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember\Processing_December_quantif\Trufi_Lithiumfiles_01'
 
-TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\TPI_Lithiumfiles_01'
-Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\Trufi_Lithiumfiles_01'
 
-TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\Trufi_Lithiumfiles_01'
-Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\Trufi_Lithiumfiles_01'
 
-TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\TPI_Lithiumfiles_01'
-Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\TPI_Lithiumfiles_01'
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\Trufi_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\TPI_Lithiumfiles_01'
+
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_masked\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_masked\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_quantif\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\ProcessingDecember_2\Processing_December_uniform\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_uniform\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_quantif\Trufi_Lithium_uniquantif_01'
+
+num_patients=11
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_uniform\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_uniform\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_sfrmbm_quantif\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_sfrmbm_quantif\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_uniform_tpi_trufi_compare\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_uniform_tpi_trufi_compare\Trufi_Lithiumfiles_01'
+
+#TPI_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_var\TPI_Lithiumfiles_01'
+#Trufi_dir='V:\projects\BIPLi7\Clinicaldata\Analysis\Processing_February_2019\Reconstruct_gridding\Processing_var\Trufi_Lithiumfiles_01'
+
+TPI_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\Processing_uniform\TPI_Lithiumfiles_01'
+#TPI_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\\Processing_sfrmbm_quantif\TPI_Lithiumfiles_01'
+TPI_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\\Processing_var\TPI_Lithiumfiles_01'
+
+Trufi_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\Processing_uniform\Trufi_Lithiumfiles_01'
+Trufi_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\Processing_eye_quantif\Trufi_Lithiumfiles_01'
+#☺Trufi_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\Processing_sfrmbm_quantif\Trufi_Lithiumfiles_01'
+Trufi_dir='F:\WorkCEA\Processing_February_2019\Reconstruct_gridding\\Processing_var\Trufi_Lithiumfiles_01'
+
 
 TPI_files=os.listdir(TPI_dir)
 TPI_files=sorted(TPI_files)
-TPI_files=TPI_files[10:]
+TPI_files=TPI_files[10:10+num_patients]
+TPI_files=TPI_files[:num_patients]
 
 Trufi_files=os.listdir(Trufi_dir)
 Trufi_files=sorted(Trufi_files)
-Trufi_files=Trufi_files[10:]
+Trufi_files=Trufi_files[:num_patients]
 
 Masks_dir='V:\projects\BIPLi7\Masks\Regionmaps'
+Masks_dir='F:\\WorkCEA\\randominterestingdata\\Regionmaps'
 Masks_files=os.listdir(Masks_dir)
 Masks_files=sorted(Masks_files)
 num_masks=np.size(Masks_files)
 num_patients=np.size(Trufi_files)
-num_patients=9
+
 x=np.zeros(num_patients,)
 y=np.zeros(num_patients,)
 X=np.zeros(num_masks*num_patients,)
@@ -193,7 +227,7 @@ print(slope, intercept, r_value, p_value, std_err)
 x=np.arange(0,0.6,0.1)
 #y=x*slope+intercept
 #intercept=0
-#slope=0.83
+#slope=1.4
 y=x*slope+intercept  #for uniform quantif
 #y=x*1.02699+0.02536
 #y=x*0.78  # Trufi uniform vs trufi region
@@ -203,13 +237,18 @@ plt.plot(x,y,'r--')
 x=np.arange(0,0.6,0.1)
 #y=x*slope+intercept
 y=x*1+0   #for uniform quantif
-#○plt.plot(x,y,'b:')
+plt.plot(x,y,'b:')
 plt.grid(True)
 plt.xlabel('[Li]* SSFP with uniform quantif (in mmol/L)')
-plt.ylabel('[Li]* SSFP with regional quantif (in mmol/L)')
+plt.ylabel('[Li]* bSSFP with uniform quantif (in mmol/L)')
 slopecut="%.2f" % slope
 plottext=r'slope='+str(slopecut)
 plt.text(0.10,0.42,plottext)
 ax.set_xlim([0,0.6])
 ax.set_ylim([0,0.6])
+plt.gca().set_aspect('equal', adjustable='box')
 plt.show()
+
+
+#ytest=x*slope+intercept
+#plt.plot(x,ytest,'b:')

@@ -45,17 +45,20 @@ def slicedisplay(inputdir,filename,title,sliceaxis,slicenum,cmap):
 GENDER_MAP = {'F': 0, 'M': 1}
 Lithresponse_MAP = {'Good': 1, 'Bad': 0}
 
-#BASE_PATH = "C:/Users/js247994/Documents/Bipli2/"
 BASE_PATH = "V:/projects/BIPLi7/Clinicaldata/Analysis"
+#BASE_PATH = "/neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis
+
+
 #INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_testnofilt.csv")
 #INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"Processing","BipLipop_minus11.csv")
-INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"BipLipop_filt.csv")
+INPUT_CSV_ICAAR = os.path.join(BASE_PATH,"BipLipop_analysis.csv")
 
 #INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Lithiumfiles_02_mask_b/")
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Analysisoutputs")
-INPUT_FILES_DIR = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/TPI_Lithiumfiles_02_mask_b/")
-OUTPUT_DATA = os.path.join(BASE_PATH,"ProcessingNovember/ProcessingNovember_filt/TPI_Analysisoutputs")
-
+INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b")
+OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs")
+Norm_file=os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_03_norm_b/mean_norm.nii")
+os.path.isfile(Norm_file)
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV_ICAAR)
 pop['sex.num'] = pop["sex"].map(GENDER_MAP)
@@ -70,7 +73,7 @@ images = list()
 for i, index in enumerate(pop.index):
     cur = pop[pop.index== index]
     #print(cur)
-    imagefile_name = cur.path_VBM
+    imagefile_name = cur.path_VBM + ".nii"
     #imagefile_path = os.path.join(INPUT_FILES_DIR,imagefile_name.as_matrix()[0])
     imagefile_path = os.path.join(INPUT_FILES_DIR,imagefile_name.values[0])
     babel_image = nibabel.load(imagefile_path)
@@ -114,6 +117,7 @@ Z = np.load(os.path.join(OUTPUT_DATA, "Z.npy"))
 #X=X[0:9,:]
 #X=X*1000
 X = X - X.mean(axis=1)[:, np.newaxis]
+X = X / X.std(axis=1)[:, np.newaxis]
 
 #Xn=np.copy(X)
 #Xn1 -= X.mean(axis=0)
@@ -125,11 +129,12 @@ muols = MUOLS(Y=X,X=DesignMat)
 muols.fit()
 print('launching the t_test')
 tvals, pvals_ttest, df1 = muols.t_test(contrasts=[1, 0, 0], pval=True)
+#%time tvals, pvals_ttest, df1 = muols.t_test(contrasts=[1, 0, 0], pval=True)
 print('t_test done')
 print('launching maxT test')
-tvals2, pvals_maxT, df2 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=False)
-print('maxT test done')
-tvals3, pvals_maxT_tt, df3 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=True)
+#tvals2, pvals_maxT, df2 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=False)
+#print('maxT test done')
+tvals, pvals_maxT, df3 = muols.t_test_maxT(contrasts=np.array([1, 0, 0]), nperms=1000, two_tailed=True)
 #♣tvals3, minP, df3 = muols.t_test_minP(contrasts=np.array([1, 0, 0]), nperms=5, two_tailed=True)
 mhist, bins, patches= plt.hist([pvals_ttest[0,:],pvals_maxT[0,:]],
                            color=['blue','red'],
@@ -185,13 +190,14 @@ pd.Series(pvallog_maxT.ravel()).describe()
 #out_im = nibabel.Nifti1Image(arr, affine=mask_ima.get_affine())
 
 save=True
-display=False
+display=True
 sliceaxis="allsave"
 slicenum=10
 slicenum=[-60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60]
 predict=False
 
 varname=''
+varname='stdchange_'
 
 if predict:
     
@@ -221,13 +227,15 @@ if save:
 
     #Saving the thresholded values of the log10 of pvals of the ttest
     pvallog_ttest_threshold = np.zeros(mask_arr.shape);
-    pvallog_ttest_threshold[mask_arr]=pvallog_ttest>3
+    #pvallog_ttest_threshold[mask_arr]=pvallog_ttest>3
+    pvallog_ttest_threshold[mask_arr]=pvallog_ttest>1
     out_impval = nibabel.Nifti1Image(pvallog_ttest_threshold, affine=mask_ima.get_affine())
     out_impval.to_filename(os.path.join(OUTPUT_DATA,varname+"p_vals_ttest_threshold_log10.nii.gz"))    
 
     #Saving the thresholded values of the log10 of pvals of the maxT test
     pvallog_maxT_threshold=np.zeros(mask_arr.shape);
-    pvallog_maxT_threshold[mask_arr]=pvallog_maxT>3;
+    #pvallog_maxT_threshold[mask_arr]=pvallog_maxT>3;
+    pvallog_maxT_threshold[mask_arr]=pvallog_maxT>1;
     out_impval = nibabel.Nifti1Image(pvallog_maxT_threshold, affine=mask_ima.get_affine())
     out_impval.to_filename(os.path.join(OUTPUT_DATA,varname+"p_vals_maxT_threshold_log10.nii.gz"))        
     
@@ -242,7 +250,7 @@ if save:
     out_impval.to_filename(os.path.join(OUTPUT_DATA,varname+"p_vals_maxT.nii.gz"))    
     
     #Saving the tvals of the MaxT test
-    arrtval = np.zeros(mask_arr.shape); arrtval[mask_arr] = tvals2[0]
+    arrtval = np.zeros(mask_arr.shape); arrtval[mask_arr] = tvals[0]
     out_imtval = nibabel.Nifti1Image(arrtval, affine=mask_ima.get_affine())
     out_imtval.to_filename(os.path.join(OUTPUT_DATA,varname+"t_vals.nii.gz"))
     
@@ -267,15 +275,31 @@ if save:
     coefvalmeanthreshold= arrcoefmeanval*pvallog_maxT_threshold
     out_imtval = nibabel.Nifti1Image(coefvalmeanthreshold, affine=mask_ima.get_affine())
     out_imtval.to_filename(os.path.join(OUTPUT_DATA,varname+"coef_vals_threshold_mean.nii.gz"))    
+    
+    if os.path.isfile(Norm_file):
+        norm_vals=nibabel.load(Norm_file)
+        highnorm = np.zeros(mask_arr.shape);
+        highnorm=norm_vals.get_data()>1.2
+        highnorm_highpval=highnorm*pvallog_ttest_threshold
+        normvals_highpval=norm_vals.get_data()*pvallog_ttest_threshold
+
+        out_imtval = nibabel.Nifti1Image(highnorm_highpval, affine=mask_ima.get_affine())
+        out_imtval.to_filename(os.path.join(OUTPUT_DATA,varname+"highnorm_highpvals.nii.gz"))  
+
+        out_imtval = nibabel.Nifti1Image(normvals_highpval, affine=mask_ima.get_affine())       
+        out_imtval.to_filename(os.path.join(OUTPUT_DATA,varname+"normvals_highpvals.nii.gz"))      
         
     
 if display:
-
+    N = 21
+    import scipy.stats
+    threspval = 2 * 10 ** -3
+    threstval = np.abs(scipy.stats.t.ppf(threspval / 2, df=N-3)) 
     filename = os.path.join(OUTPUT_DATA,varname+"p_vals_ttest_log10.nii.gz")
-    nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic pvals_ttest log10 map",cmap=plt.cm.bwr,vmax=3)
+    nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "pvals (-log10) map",cmap=plt.cm.bwr,threshold=-np.log10(threspval))
         
     filename = os.path.join(OUTPUT_DATA,varname+"t_vals.nii.gz")
-    nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic Tvals map")
+    nilearn.plotting.plot_glass_brain(filename,colorbar=True,plot_abs=False,title = "T-statistic map",threshold=threstval)
     ##################################################################################
     #slicedisplay(OUTPUT_DATA,varname+"p_vals_subj_log10threshold.nii.gz","T-statistic pvals_ttest significant map", sliceaxis,slicenum)
     #filename = os.path.join(OUTPUT_DATA,varname+"t_vals_threshold.nii.gz")
@@ -304,28 +328,28 @@ elif sliceaxis=='all':
         
 elif sliceaxis=='allsave':
         
-    pdffilepath=os.path.join(OUTPUT_DATA,"alldata.pdf")
+    pdffilepath=os.path.join(OUTPUT_DATA,varname+"alldata.pdf")
     pdf = PdfPages(pdffilepath)
     for sliceaxis in ['x','y','z']:
 
         slicedisplay(OUTPUT_DATA,varname+"p_vals_maxT_log10.nii.gz","T-statistic pvals_ttest log10 map",sliceaxis,slicenum,'cold_hot')
-        plt.savefig(os.path.join(OUTPUT_DATA,"pvals_ttest_log10_"+sliceaxis+".pdf"))
+        plt.savefig(os.path.join(OUTPUT_DATA,varname+"pvals_ttest_log10_"+sliceaxis+".pdf"))
         pdf.savefig()
         #slicedisplay(OUTPUT_DATA,varname+"p_vals_threshold_log10.nii.gz","T-statistic pvals_ttest map",sliceaxis,slicenum,'cold_hot')
         #plt.savefig(os.path.join(OUTPUT_DATA,"pvals_ttest_threshold_log10_"+sliceaxis+".pdf"))
         #pdf.savefig()
         slicedisplay(OUTPUT_DATA,varname+"t_vals_threshold.nii.gz","T-statistic Tvals map", sliceaxis,slicenum,'bwr')
-        plt.savefig(os.path.join(OUTPUT_DATA,"tvals_"+sliceaxis+".pdf"))
+        plt.savefig(os.path.join(OUTPUT_DATA,varname+"tvals_"+sliceaxis+".pdf"))
         pdf.savefig()
         #slicedisplay(OUTPUT_DATA,varname+"p_vals_base.nii.gz","T-statistic pvals_ttest significant map", sliceaxis,slicenum,'Oranges')
         slicedisplay(OUTPUT_DATA,varname+"coef_vals.nii.gz","T-statistic coef map", sliceaxis,slicenum,'bwr')
-        plt.savefig(os.path.join(OUTPUT_DATA,"coef_vals_"+sliceaxis+".pdf"))
+        plt.savefig(os.path.join(OUTPUT_DATA,varname+"coef_vals_"+sliceaxis+".pdf"))
         pdf.savefig()
         slicedisplay(OUTPUT_DATA,varname+"coef_vals_threshold.nii.gz","T-statistic coef significant map", sliceaxis,slicenum,'bwr')
-        plt.savefig(os.path.join(OUTPUT_DATA,"coef_vals_threshold_"+sliceaxis+".pdf"))
+        plt.savefig(os.path.join(OUTPUT_DATA,varname+"coef_vals_threshold_"+sliceaxis+".pdf"))
         pdf.savefig()
         slicedisplay(OUTPUT_DATA,varname+"coef_vals_mean.nii.gz","T-statistic coef mean map", sliceaxis,slicenum,'bwr')
-        plt.savefig(os.path.join(OUTPUT_DATA,"coef_vals_mean_"+sliceaxis+".pdf"))
+        plt.savefig(os.path.join(OUTPUT_DATA,varname+"coef_vals_mean_"+sliceaxis+".pdf"))
         pdf.savefig()
         #slicedisplay(OUTPUT_DATA,varname+"coef_vals_threshold_mean.nii.gz","T-statistic coef mean significant map", sliceaxis,slicenum,'bwr')
         #plt.savefig(os.path.join(OUTPUT_DATA,"coef_vals_threshold_mean_"+sliceaxis+".pdf"))

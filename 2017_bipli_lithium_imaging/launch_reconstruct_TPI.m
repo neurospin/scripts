@@ -56,16 +56,35 @@
                         MIDval=MIDval+Tpifilename(l);
                     end
                 end
+            end
+                    
+            TPIresultname=strcat("Patient",(subjectnumber),"_",degval,"deg_MID",MIDval);
+            Reconstructpath=fullfile(processedTPIpath,(TPIresultname+".nii"));
+            if contains(reconstruct_type,'Reconstruct_gridding')
+                codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --NSTPI --s --o "+Reconstructpath;
+                system(codelaunch);
+            elseif contains(reconstruct_type,'Reconstruct_sandro')
+                reconTPI(voxres, 'none', Tpifilepath, Reconstructpath);
+                        %reconTPI(voxres, 'none', Tpifilepath, processedTPIpath);
+            else
+                disp('reconstruct type unrecognized');
+                raise error
+            end
+                
+            %system(codelaunch{1,1})
 
-                TPIresultname=strcat("Patient",(subjectnumber),"_",degval,"deg_MID",MIDval);
-                Reconstructpath=fullfile(processedTPIpath,(TPIresultname+".nii"));
-                if strcmp(reconstruct_type,'Reconstruct_gridding')
-                    codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --NSTPI --s --FISTA_CSV --o "+Reconstructpath;
-                    system(codelaunch);
-                elseif contains(reconstruct_type,'Reconstruct_sandro')
-                    filter=check_reconstruct_type(reconstruct_type);
-                    reconTPI(voxres, filter, Tpifilepath, Reconstructpath);
-                            %reconTPI(voxres, 'none', Tpifilepath, processedTPIpath);
+            fieldmap_file=fullfile(proc_subjdir,"Field_mapping","fieldmap_final.nii");
+            spm_alignmentfile=fullfile(codedir,"info_pipeline","fieldmapwritespm.mat");
+            %ref_im=dir(fullfile(projectdir,'*.nii'));
+            %ref_im=fullfile(projectdir,string(ref_im.name));
+            ref_dir=(fullfile(processedTPIpath,TPIresultname+"*.nii"));
+            ref_im=dir(ref_dir);
+            forcefieldmap=0;
+            if ~exist(fieldmap_file,'file') || forcefieldmap
+                if ~isempty(ref_im)
+                    ref_im=string(fullfile(processedTPIpath,ref_im(1).name));
+                    prepare_fieldmap(projectdir,subjname,spm_alignmentfile,ref_im);   
+
                 else
                     disp('reconstruct type unrecognized');
                     raise error
@@ -104,11 +123,25 @@
                     raise error
                 end
 
+            TPIresultfname=("Patient"+(subjectnumber)+"_"+degval+"deg_MID"+MIDval+"_B0cor.nii");
+            Reconstructfpath=fullfile(processedTPIpath,TPIresultfname);
+            if contains(reconstruct_type,'Reconstruct_gridding')
+                codelaunch=pythonexe+" "+reconstructfile+" --i "+Tpifilepath+" --fieldmap "+fieldmap_file+" --NSTPI --s --o "+Reconstructfpath;
+                system(codelaunch)
+            elseif contains(reconstruct_type,'Reconstruct_sandro')
+                reconTPI_B0cor(voxres,'none',Tpifilepath,fieldmap_file,Reconstructfpath,'fsc',16); %128               
+            else
+                disp('reconstruct type unrecognized');
+                raise error
                 %system(codelaunch{1,1})
 
             end
         end
     end
+    fullstudy=0;
+    if fullstudy
+
+        raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T'); 
     
     if launch_post_process
         raw_dic=fullfile(projectdir,'Raw_Data',subjname,'DICOM7T');  
@@ -139,7 +172,6 @@
             %run_Compute_Quantif_3(fullfile(projectdir,'Processed_Data'),subjname,T1val,reconstruct_type)
         end
     end
-    
 
-    
+
 
