@@ -126,8 +126,8 @@ if __name__ == "__main__":
 
     tissues_vol = pd.DataFrame(tissues_vol, columns = ["participant_id", "gm_vol_l", "wm_vol_l", "csf_vol_l"])
     tissues_vol["tiv_l"] = tissues_vol[["gm_vol_l", "wm_vol_l", "csf_vol_l"]].sum(axis=1)
-    tissues_vol["GMratio"] = tissues_vol["gm_vol_l"] / tissues_vol["tiv_l"]
-    tissues_vol["WMratio"] = tissues_vol["wm_vol_l"] / tissues_vol["tiv_l"]
-    tissues_vol["CSFratio"] = tissues_vol["csf_vol_l"] / tissues_vol["tiv_l"]
+    tissues_vol["gm_ratio"] = tissues_vol["gm_vol_l"] / tissues_vol["tiv_l"]
+    tissues_vol["wm_ratio"] = tissues_vol["wm_vol_l"] / tissues_vol["tiv_l"]
+    tissues_vol["csf_ratio"] = tissues_vol["csf_vol_l"] / tissues_vol["tiv_l"]
 
     tissues_vol.to_csv(options.output, index=False)
