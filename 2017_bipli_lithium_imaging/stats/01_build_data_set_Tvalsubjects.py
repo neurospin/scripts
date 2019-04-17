@@ -59,6 +59,7 @@ INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_g
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs")
 OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl")
 
+OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5")
 
 Norm_file=os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_03_norm_b/mean_norm.nii")
 os.path.isfile(Norm_file)
@@ -255,6 +256,8 @@ cmd = ["fsl5.0-randomise", '-i', os.path.join(OUTPUT_DATA, "ALLcs.nii.gz"), "-m"
 print(" ".join(cmd))
 """
 fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_smallmask/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_smallmask/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_smallmask/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_smallmask/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_smallmask/li~1+age+sex_contrast.mat -T -n 2000 -C 3
+
+fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex_contrast.mat -T -n 2000 -C 3.5
 """
 
 ###############################################################################
