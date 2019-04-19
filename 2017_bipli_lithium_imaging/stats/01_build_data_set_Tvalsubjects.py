@@ -57,12 +57,9 @@ INPUT_CSV = os.path.join(BASE_PATH,"BipLipop_Analysis.csv")
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Analysisoutputs")
 INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b")
 #OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs")
-OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl")
-
-<<<<<<< HEAD
-OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5")
-=======
->>>>>>> 63ab4e0695a11933c3b2655dc1f60ac97a272b34
+#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl")
+#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5")
+OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4")
 
 Norm_file=os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_03_norm_b/mean_norm.nii")
 os.path.isfile(Norm_file)
@@ -90,6 +87,7 @@ for i, index in enumerate(pop.index):
     Y[i, 0] = cur["Lithresp.num"]
 
 ref_img = images[0]
+assert ref_img.header.get_zooms() == (2.0, 2.0, 2.0)
 
 shape = ref_img.get_data().shape
 
@@ -254,7 +252,7 @@ os.remove(prefix +'_contrast.txt')
 cmd = ["fsl5.0-randomise", '-i', os.path.join(OUTPUT_DATA, "ALLcs.nii.gz"), "-m",  os.path.join(OUTPUT_DATA, "mask.nii.gz"),
  "-o", prefix,
  '-d', prefix +'_design.mat',
- '-t', prefix +'_contrast.mat', '-T', '-n', '2000', "-C", "3.5"]
+ '-t', prefix +'_contrast.mat', '-T', '-n', '2000', "-C", "4"]
 
 print(" ".join(cmd))
 """
@@ -262,9 +260,15 @@ fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Pro
 
 fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5/li~1+age+sex_contrast.mat -T -n 2000 -C 3.5
 
-"""
 
+fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres4/li~1+age+sex_contrast.mat -T -n 2000 -C 4
+"""
 ###############################################################################
+"""
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py li~1+age+sex_tstat1.nii.gz -o li~1+age+sex_tstat1 --thresh_neg_low 0 --thresh_neg_high 0 --thresh_pos_low 3 --thresh_size 10
+"""
+###############################################################################
+## OLDIES
 
 muols = MUOLS(Y=X,X=DesignMat)
 muols.fit()

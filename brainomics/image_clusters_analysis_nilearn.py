@@ -303,10 +303,10 @@ if __name__ == "__main__":
 
     # Glass brain
     fig = plt.figure(figsize=(11.69, 8.27))
-    nilearn.plotting.plot_glass_brain(output_clusters_values_filename,
+    plotting.plot_glass_brain(output_clusters_values_filename,
                                       colorbar=True, plot_abs=False,
                                       cmap=plt.cm.bwr,
-                                      #threshold = t,
+                                      threshold = max(thresh_pos_low, abs(thresh_neg_high)),
                                       vmax=abs(vmax), vmin =-abs(vmax))
     pdf.savefig()
     plt.close(fig)
@@ -325,7 +325,7 @@ if __name__ == "__main__":
             title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_pos'], row['ROI_sub_peak_pos'])
             cut_coords = row[['x_max_mni', 'y_max_mni', 'z_max_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
-                                   cmap=plt.cm.bwr,
+                                   cmap=plt.cm.bwr, threshold=thresh_pos_low,
                                    cut_coords=cut_coords, figure=fig,axes=ax,#(0, 0, 100, 100),
                                    title=title)
 
@@ -341,7 +341,7 @@ if __name__ == "__main__":
             title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_neg'], row['ROI_sub_peak_neg'])
             cut_coords = row[['x_min_mni', 'y_min_mni', 'z_min_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
-                                   cmap=plt.cm.bwr,
+                                   cmap=plt.cm.bwr, threshold=abs(thresh_neg_high),
                                    cut_coords=cut_coords, figure=fig,axes=ax,#(0, 0, 100, 100),
                                    title=title)
 
