@@ -195,8 +195,8 @@ if __name__ == "__main__":
     #trm_ijk_to_mni = ima_get_trm_ijk_to_mni(map_img)
     map_arr = map_img.get_data()
     if len(map_arr.shape) > 3:
-        print("input image is more thant 3D split them first using")
-        print('fsl5.0-fslsplit %s ./%s -t' % (map_filename, output))
+        print("input image is more than 3D split them first using")
+        print('fsl5.0-fslsplit %s ./%s -t' % (map_filename, "output.nii.gz"))
         sys.exit(0)
 
     map_filename = options.input
@@ -217,12 +217,12 @@ if __name__ == "__main__":
 
     atlascort_img = nilearn.image.resample_to_img(source_img=atlascort.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
     atlascort_arr, atlascort_labels = atlascort_img.get_data(), atlascort.labels
-    assert len(np.unique(atlascort_arr)) == len(atlascort_labels), "Atlas %s : array lablels must match labels table" %  options.atlas
+    assert len(np.unique(atlascort_arr)) == len(atlascort_labels), "Atlas %s : array labels must match labels table" %  options.atlas
 
     atlassub_img = nilearn.image.resample_to_img(source_img=atlassub.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
     atlassub_arr, atlassub_labels = atlassub_img.get_data(), atlassub.labels
     atlassub_arr = atlassub_arr.astype(int)
-    assert len(np.unique(atlassub_arr)) == len(atlassub_labels), "Atlas %s : array lablels must match labels table" %  options.atlas
+    assert len(np.unique(atlassub_arr)) == len(atlassub_labels), "Atlas %s : array labels must match labels table" %  options.atlas
 
     assert np.all((map_img.affine == atlassub_img.affine) & (map_img.affine == atlascort_img.affine))
     ##########################################################################

@@ -4,12 +4,13 @@ Created on Thu May 29 20:31:01 2014
 
 @author: edouard.duchesnay@cea.fr
 """
-from __future__ import print_function
 import os
 import numpy as np
 import scipy.ndimage
 import nibabel as nib
 import subprocess
+import nilearn
+import pandas as pd
 
 def smooth_labels(arr, size=(3, 3, 3)):
     def func(buffer):
@@ -145,3 +146,66 @@ def resample_atlas_bangor_cerebellar(ref, output,
     print("Watch if everything is OK:")
     print("fslview %s %s" % (output, ref))
     return atlas_im
+
+
+def roi_average(maps_img, atlas="harvard_oxford", mask_img=None):
+    """
+    :param maps_img: List of 3D Nifti images
+    :param atlas:
+    :mask_img: Mask Nifti images
+    :return: DataFrames average value over atlase ROI on Cortical ROI and Subcortical ROI
+    """
+    ref_img = maps_img[0]
+    assert np.all([(ref_img.affine == maps_img[i].affine) for i in range(len(maps_img))])
+    maps_arr = [maps_img[i].get_data() for i in range(len(maps_img))]
+    if mask_img:
+        mask_arr = mask_img.get_data() != 0
+    else:
+        mask_arr = np.ones(ref_img.get_data().shape) != 0
+    # Fetch atlases
+    if atlas == "harvard_oxford":
+        atlascort = nilearn.datasets.fetch_atlas_harvard_oxford("cort-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
+        atlassub = nilearn.datasets.fetch_atlas_harvard_oxford("sub-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
+        # FIX bug nilearn.datasets.fetch_atlas_harvard_oxford: Errors in HarvardOxford.tgz / sub-maxprob-thr0-1mm
+        atlassub.maps = os.path.join('/usr/share/data/harvard-oxford-atlases/HarvardOxford', os.path.basename(atlassub.maps))
+    else:
+        raise Exception('Undefined atlas')
+
+    atlascort_img = nilearn.image.resample_to_img(source_img=atlascort.maps, target_img=ref_img, interpolation='nearest', copy=True, order='F')
+    atlascort_arr, atlascort_labels = atlascort_img.get_data(), atlascort.labels
+    assert len(np.unique(atlascort_arr)) == len(atlascort_labels), "Atlas %s : array labels must match labels table" %  atlas
+
+    atlassub_img = nilearn.image.resample_to_img(source_img=atlassub.maps, target_img=ref_img, interpolation='nearest', copy=True, order='F')
+    atlassub_arr, atlassub_labels = atlassub_img.get_data(), atlassub.labels
+    atlassub_arr = atlassub_arr.astype(int)
+    assert len(np.unique(atlassub_arr)) == len(atlassub_labels), "Atlas %s : array labels must match labels table" %  atlas
+
+    assert np.all((ref_img.affine == atlassub_img.affine) & (ref_img.affine == atlascort_img.affine))
+    # roi_cort_df = pd.DataFrame([[np.mean(maps_img[i].get_data()[(atlascort_arr == lab) & mask_arr]) for lab in np.unique(atlascort_arr)]
+    #               for i in range(len(maps_img))], columns=atlascort_labels)
+    #
+    # roi_sub_df = pd.DataFrame([[np.mean(maps_img[i].get_data()[(atlassub_arr == lab) & mask_arr]) for lab in np.unique(atlassub_arr)]
+    #               for i in range(len(maps_img))], columns=atlassub_labels)
+    def stats_rois(maps_img, atlas_arr, atlas_labels):
+        rois_stats = dict()
+        rois_labels = dict()
+        for lab in np.unique(atlas_arr):
+            #lab = 9
+            rois_labels[atlas_labels[lab]] = int(lab)
+            roi_mask = (atlas_arr == lab)
+            rois_val =[maps_img[i].get_data()[roi_mask] for i in range(len(maps_img))]
+            rois_stats[atlas_labels[lab] + "_mean"] = [np.mean(v) for v in rois_val]
+            rois_stats[atlas_labels[lab] + "_std"] = [np.std(v, ddof=1) for v in rois_val]
+            rois_stats[atlas_labels[lab] + "_med"] = [np.median(v) for v in rois_val]
+        return(pd.DataFrame(rois_stats), rois_labels)
+
+    atlassub_arr[~mask_arr] = 0
+    atlascort_arr[~mask_arr] = 0
+
+    rois_sub_stats, rois_sub_labels = stats_rois(maps_img, atlas_arr=atlassub_arr, atlas_labels=atlassub_labels)
+    rois_cort_stats, rois_cort_labels = stats_rois(maps_img, atlas_arr=atlascort_arr, atlas_labels=atlascort_labels)
+
+    atlas_sub_img = nib.Nifti1Image(atlassub_arr, affine=ref_img.affine)
+    atlas_cort_img = nib.Nifti1Image(atlascort_arr, affine=ref_img.affine)
+
+    return(rois_sub_stats, rois_cort_stats, atlas_sub_img, atlas_cort_img, rois_sub_labels, rois_cort_labels)
