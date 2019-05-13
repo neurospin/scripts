@@ -35,6 +35,10 @@ import re
 import glob
 import json
 
+import matplotlib.pylab as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from nilearn import plotting
+
 def slicedisplay(inputdir,filename,title,sliceaxis,slicenum,cmap):
     #filename = os.path.join(OUTPUT_DATA,varname+"p_vals_subj_log10.nii.gz")
     #plotting.plot_stat_map(filename, display_mode=sliceaxis, cut_coords=slicenum,
@@ -54,12 +58,17 @@ BASE_PATH = "/neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis"
 #INPUT_CSV = os.path.join(BASE_PATH,"Processing","BipLipop_minus11.csv")
 INPUT_CSV = os.path.join(BASE_PATH,"BipLipop_Analysis.csv")
 
-#INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Lithiumfiles_02_mask_b/")
-#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing/Processingtestnofilter/Analysisoutputs")
-INPUT_FILES_DIR = os.path.join(BASE_PATH, "Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01")
-#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs")
-#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl")
-#OUTPUT_DATA = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Analysisoutputs_fsl-thres3.5")
+
+########################################################################################################################
+# Remove images with artefact low SNR
+# patient 01, le patient 16, et le patient 19, sachant que c’était eux qui ont le plus bas SNR à plusieurs niveaux et
+# qui avaient eues des complication d’acquisition. Après, vu le bas SNR de quasiment toutes les images impliqués
+#INPUT_FILES_DIR = os.path.join(BASE_PATH, "Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01")
+
+########################################################################################################################
+# all images
+INPUT_FILES_DIR = os.path.join(BASE_PATH,"Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b")
+
 OUTPUT_DATA = os.path.join(INPUT_FILES_DIR,"stats")
 WD = OUTPUT_DATA
 os.makedirs(OUTPUT_DATA, exist_ok=True)
@@ -71,6 +80,7 @@ os.path.isfile(Norm_file)
 pop = pd.read_csv(INPUT_CSV)
 pop['sex.num'] = pop["sex"].map(GENDER_MAP)
 pop['Lithresp.num']=pop["lithresponse"].map(Lithresponse_MAP)
+assert pop.shape == (21, 7)
 
 ########################################################################################################################
 # Select subset of participants
@@ -171,7 +181,7 @@ with open(os.path.join(OUTPUT_DATA, 'atlas_harvard_oxford_cort_labels.json'), 'w
 ########################################################################################################################
 # Center scale image by individual brain mean/std
 Xbrain = Xtot[:, mask_arr.ravel()]
-assert Xbrain.shape == (18, 261622)
+assert Xbrain.shape[1] == 261622
 
 glob_measures = pd.DataFrame(dict(
     glob_mean = Xbrain.mean(axis=1),
@@ -298,19 +308,12 @@ cmd = ["fsl5.0-randomise", '-i', os.path.join(OUTPUT_DATA, "ALLcs.nii.gz"), "-m"
 
 print(" ".join(cmd))
 """
-fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 4
+# All subjects
+fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif/TPI_Lithiumfiles_02_mask_b/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 3
 
-# 3
+# Remove 3 subject with low snr
 fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 3
 
-# 2.5
-fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 2.5
-
-# 3.5
-fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 3.5
-
-# 3.7
-fsl5.0-randomise -i /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/ALLcs.nii.gz -m /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/mask.nii.gz -o /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex -d /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_design.mat -t /neurospin/ciclops/projects/BIPLi7/Clinicaldata/Analysis/Processing_February_2019/Reconstruct_gridding/Processing_quantif_minartefact/TPI_Lithiumfiles_01/stats/li~1+age+sex_contrast.mat -T -n 2000 -C 3.7
 
 ~/git/scripts/brainomics/image_clusters_analysis_nilearn.py li~1+age+sex_tstat1.nii.gz -o li~1+age+sex_tstat1 --thresh_neg_low 0 --thresh_neg_high 0 --thresh_pos_low 3 --thresh_size 10
 """
@@ -375,7 +378,7 @@ def do_stat_rois(df, pop, glob_measures):
     return(stats)
 
 
-roi_sub_stats = do_stat_rois(rois_cs_cort_stats.copy(), pop, glob_measures)
+roi_cort_stats = do_stat_rois(rois_cs_cort_stats.copy(), pop, glob_measures)
 roi_sub_stats = do_stat_rois(rois_cs_sub_stats.copy(), pop, glob_measures)
 
 
@@ -383,3 +386,119 @@ with pd.ExcelWriter(os.path.join(OUTPUT_DATA, "roi_stats.xlsx")) as writer:
     roi_sub_stats.to_excel(writer, sheet_name='roi_sub_stats', index=False)
     roi_cort_stats.to_excel(writer, sheet_name='roi_cort_stats', index=False)
 
+########################################################################################################################
+# Make nice images
+"""
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py li~1+age+sex_tstat1.nii.gz -o li~1+age+sex_tstat1 --thresh_neg_low 0 --thresh_neg_high 0 --thresh_pos_low 3 --thresh_size 8
+
+"""
+import scipy
+
+map_img = nibabel.load(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1.nii.gz"))
+map_arr = map_img.get_data()
+map_arr[map_arr < 0] = 0
+
+
+########################################################################################################################
+# Build a mask of stat > 2 with intersection with significant ROIs
+
+atlas_sub_img = nibabel.load(os.path.join(OUTPUT_DATA, "atlas_harvard_oxford_sub.nii.gz"))
+atlas_sub_arr = atlas_sub_img.get_data()
+atlas_sub_msk = (atlas_sub_arr == 9) | (atlas_sub_arr == 19) | (atlas_sub_arr == 7) | (atlas_sub_arr == 18)
+atlas_Hippocampus_msk_arr = (atlas_sub_arr == 9)# | (atlas_sub_arr == 19)
+atlas_Hippocampus_msk_img = nibabel.Nifti1Image(atlas_Hippocampus_msk_arr.astype(int), map_img.affine)
+atlas_Pallidum_msk_arr = (atlas_sub_arr == 18)# | (atlas_sub_arr == 19)
+atlas_Pallidum_msk_img = nibabel.Nifti1Image(atlas_Pallidum_msk_arr.astype(int), map_img.affine)
+
+# "Left Hippocampus": 9
+# "Right Hippocampus": 19
+# "Left Pallidum": 7
+#  "Right Pallidum": 18
+
+threstval = 3
+#
+map_labels, n_clusts = scipy.ndimage.label(map_arr > threstval)
+print([[lab, np.sum(map_labels == lab)] for lab in  np.unique(map_labels)[1:]])
+# [[1, 96], [2, 266], [3, 14], [4, 33], [5, 86], [6, 133], [7, 108], [8, 553], [9, 41], [10, 14], [11, 123]]
+# intersection ROI stat > 3
+map_labels_in_roi = np.unique(map_labels[atlas_sub_msk & (map_labels != 0)])
+mask_map_in_roi = np.zeros(map_arr.shape, dtype=bool)
+for lab in map_labels_in_roi:
+    mask_map_in_roi[map_labels == lab] = True
+
+map_arr[~mask_map_in_roi] = 0
+map_img = nibabel.Nifti1Image(map_arr, map_img.affine)
+
+########################################################################################################################
+# Color map
+# value stating from 0 for
+# From hot
+# cmap = plt.cm.hot_r # higher -> dark red
+# cmap = plt.cm.hot
+
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+whitten = 0.12698399999999999 / 2
+saturate = 0.31746050000000003 / 2
+center_width = 0.1
+
+cold_blue_ = {'green':
+ [(0.0, 1.0, 1.0),
+  (whitten, 1.0, 1.0),
+  (saturate, 0.0, 0.0),
+  (0.5-center_width, 0.0, 0.0),
+  (0.5+center_width, 0.0, 0.0),
+  (1-saturate, 0.0, 0.0),
+  (1-whitten, 1.0, 1.0),
+  (1.0, 1.0, 1.0)],
+ 'blue':
+ [(0.0, 1.0, 1.0),
+  (saturate, 1.0, 1.0),
+  (0.5-center_width, 0.0416, 0.0416),
+  (0.5+center_width, 0.0, 0.0),
+  (1-whitten, 0.0, 0.0),
+  (1.0, 1.0, 1.0)],
+ 'red':
+ [(0.0, 1.0, 1.0),
+  (whitten, 0.0, 0.0),
+  (0.5-center_width, 0.0, 0.0),
+  (0.5+center_width, 0.0416, 0.0416),
+  (1-saturate, 1.0, 1.0),
+  (1.0, 1.0, 1.0)]}
+
+cold_blue = LinearSegmentedColormap(segmentdata=cold_blue_, name="cold_blue")
+
+########################################################################################################################
+#
+pdf = PdfPages(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_glassview.pdf"))
+fig = plt.figure(figsize=(13.33, 4 * 1))
+#ax = fig.add_subplot(111)
+#ax.set_title("T-stats T>%.2f" %  tstats_thres)
+#plotting.plot_glass_brain(map_img, colorbar=True, cmap=whot, threshold=threstval)#, vmin=3, vmax=5, figure=fig, axes=ax)
+plotting.plot_glass_brain(map_img, colorbar=True, cmap=cold_blue, figure=fig)#, threshold=threstval)#, vmin=3, vmax=5, figure=fig, axes=ax)
+plt.savefig(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_glassview.png"))
+pdf.savefig()
+plt.close(fig)
+pdf.close()
+
+
+# "Left Hippocampus": 9
+pdf = PdfPages(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_slice_Left_Hippocampus.pdf"))
+fig = plt.figure(figsize=(13.33, 4 * 1))
+display = plotting.plot_stat_map(map_img, colorbar=True, draw_cross=True,  cut_coords=[-26, -22, -14], symmetric_cbar=False, cmap=cold_blue)#, threshold=3,)#, figure=fig, axes=ax)
+display.add_contours(atlas_Hippocampus_msk_img, colors='b', linewidths=0.3)
+plt.savefig(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_slice_Left_Hippocampus.png"))
+pdf.savefig()
+plt.close(fig)
+pdf.close()
+
+
+# Right Pallidum
+pdf = PdfPages(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_slice_Right_Pallidum.pdf"))
+fig = plt.figure(figsize=(13.33, 4 * 1))
+display = plotting.plot_stat_map(map_img, colorbar=True, draw_cross=True,  cut_coords=[16, -4, 0], symmetric_cbar=False, cmap=cold_blue)#, threshold=3,)#, figure=fig, axes=ax)
+display.add_contours(atlas_Pallidum_msk_img, colors='b', linewidths=0.3)
+plt.savefig(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_slice_Right_Pallidum.png"))
+pdf.savefig()
+plt.close(fig)
+pdf.close()

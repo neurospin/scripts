@@ -325,7 +325,8 @@ if __name__ == "__main__":
             title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_pos'], row['ROI_sub_peak_pos'])
             cut_coords = row[['x_max_mni', 'y_max_mni', 'z_max_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
-                                   cmap=plt.cm.bwr, threshold=thresh_pos_low,
+                                   cmap=plt.cm.bwr,
+                                   threshold=thresh_pos_low,
                                    cut_coords=cut_coords, figure=fig,axes=ax,#(0, 0, 100, 100),
                                    title=title)
 
