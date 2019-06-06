@@ -39,13 +39,6 @@ import matplotlib.pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from nilearn import plotting
 
-def slicedisplay(inputdir,filename,title,sliceaxis,slicenum,cmap):
-    #filename = os.path.join(OUTPUT_DATA,varname+"p_vals_subj_log10.nii.gz")
-    #plotting.plot_stat_map(filename, display_mode=sliceaxis, cut_coords=slicenum,
-    #                  title="display_mode='"+sliceaxis+"', cut_coords="+str(slicenum))
-    filename = os.path.join(inputdir,filename)
-    plotting.plot_stat_map(filename, display_mode=sliceaxis, cut_coords=slicenum,
-                      title=title+", display_mode='"+sliceaxis+"', cut_coords="+str(slicenum),cmap=cmap)
 
 GENDER_MAP = {'F': 0, 'M': 1}
 Lithresponse_MAP = {'Good': 1, 'Bad': 0}
@@ -398,6 +391,9 @@ map_img = nibabel.load(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1.nii.gz"))
 map_arr = map_img.get_data()
 map_arr[map_arr < 0] = 0
 
+logpval_img = nibabel.load(os.path.join(OUTPUT_DATA, "li~1+age+sex_vox_p_tstat-mulm_log10.nii.gz"))
+mask_pval = logpval_img.get_data() > 2.8
+map_arr[~mask_pval] = 0
 
 ########################################################################################################################
 # Build a mask of stat > 2 with intersection with significant ROIs
@@ -415,9 +411,9 @@ atlas_Pallidum_msk_img = nibabel.Nifti1Image(atlas_Pallidum_msk_arr.astype(int),
 # "Left Pallidum": 7
 #  "Right Pallidum": 18
 
-threstval = 3
+#threstval = 3
 #
-map_labels, n_clusts = scipy.ndimage.label(map_arr > threstval)
+map_labels, n_clusts = scipy.ndimage.label(map_arr > 0)
 print([[lab, np.sum(map_labels == lab)] for lab in  np.unique(map_labels)[1:]])
 # [[1, 96], [2, 266], [3, 14], [4, 33], [5, 86], [6, 133], [7, 108], [8, 553], [9, 41], [10, 14], [11, 123]]
 # intersection ROI stat > 3
@@ -438,9 +434,9 @@ map_img = nibabel.Nifti1Image(map_arr, map_img.affine)
 
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-whitten = 0.12698399999999999 / 2
-saturate = 0.31746050000000003 / 2
-center_width = 0.1
+whitten = 0.12698399999999999 / 4
+saturate = 0.31746050000000003 / 4
+center_width = 0.3
 
 cold_blue_ = {'green':
  [(0.0, 1.0, 1.0),
@@ -502,3 +498,13 @@ plt.savefig(os.path.join(OUTPUT_DATA, "li~1+age+sex_tstat1_slice_Right_Pallidum.
 pdf.savefig()
 plt.close(fig)
 pdf.close()
+
+
+########################################################################################################################
+def slicedisplay(inputdir,filename,title,sliceaxis,slicenum,cmap):
+    #filename = os.path.join(OUTPUT_DATA,varname+"p_vals_subj_log10.nii.gz")
+    #plotting.plot_stat_map(filename, display_mode=sliceaxis, cut_coords=slicenum,
+    #                  title="display_mode='"+sliceaxis+"', cut_coords="+str(slicenum))
+    filename = os.path.join(inputdir,filename)
+    plotting.plot_stat_map(filename, display_mode=sliceaxis, cut_coords=slicenum,
+                      title=title+", display_mode='"+sliceaxis+"', cut_coords="+str(slicenum),cmap=cmap)
