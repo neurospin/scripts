@@ -46,6 +46,7 @@ function ComputeSignaltoQuantif(filepath,alpha,Computedniipath,seq,mask_liquid,m
     %E2=exp(-TR/T2);
     
     TEinclud=0;
+    alpha=str2num(alpha);
     if strcmp(seq,'TPI')
         multiplier_brainmatter=Im_to_rho_SSFP(kval,alpha,TR,TE,relax_params.brainmatter.T1,relax_params.brainmatter.T2,relax_params.brainmatter.T2star);
         multiplier_liquid=Im_to_rho_SSFP(kval,alpha,TR,TE,relax_params.liquid.T1,relax_params.liquid.T2,relax_params.brainmatter.T2star);

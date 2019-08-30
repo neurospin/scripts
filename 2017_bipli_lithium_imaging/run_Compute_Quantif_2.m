@@ -1,4 +1,4 @@
-function run_Compute_Quantif_2(Processeddir,subject,T1val,reconstruct_type)
+function run_Compute_Quantif_2(Processeddir,subject,T1val,reconstruct_type,workontpi,workontrufi)
     % run_Compute_Quantif('C:\Users\js247994\Documents\Bipli2\Biplisubjects','C:\Users\js247994\Documents\ReconstructionTPI','C:\Program Files (x86)\Python36-32\python.exe')
 
     %Launch the reconstruction of the dat files found in raw to the processed
@@ -29,7 +29,7 @@ function run_Compute_Quantif_2(Processeddir,subject,T1val,reconstruct_type)
     %ComputeVFAfile=fullfile(char(Codedir),'reconstructionTPI','ComputeDensity3D_clinic.py');
     %ComputeQuantifile=fullfile(char(Codedir),'reconstructionTPI','ComputeQuantif_clinic.py');    
     
-    if exist(filesdirTPIin,'dir')
+    if exist(filesdirTPIin,'dir') && workontpi
         filesTPInii=dir(fullfile(filesdirTPIin,'*.nii'));
         for file1=filesTPInii'
             degloc=strfind(file1.name,'deg');
@@ -86,7 +86,7 @@ function run_Compute_Quantif_2(Processeddir,subject,T1val,reconstruct_type)
     filesdirtrufiin=fullfile(Subjectdirp,'Trufi','01-Raw');
     filesdirtrufiout=fullfile(Subjectdirp,'Trufi','02-PostQuantif');
     
-    if exist(filesdirtrufiin,'dir')
+    if exist(filesdirtrufiin,'dir') && workontrufi
         filestrufinii=dir(fullfile(filesdirtrufiin,'*.nii'));
         if ~exist(filesdirtrufiout,'dir')
             mkdir(filesdirtrufiout);
