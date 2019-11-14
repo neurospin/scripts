@@ -25,6 +25,7 @@ import nilearn.datasets
 import matplotlib.pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from nilearn import plotting
+import xml.etree.ElementTree as ET
 
 
 def ijk_to_mni(affine, ijk):
@@ -34,7 +35,7 @@ def ijk_to_mni(affine, ijk):
 
 
 def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
-                 affine_ijk2mm, atlascort_arr, atlascort_labels, atlassub_arr, atlassub_labels):
+                 affine_ijk2mm, atlas1_arr, atlas1_labels, atlas2_arr, atlas2_labels, atlas):
     """Compute Information about cluster: label, size, mean, max, min,
     min_coord_mni, max_coord_mni, center_coord_mni, regions_involved"""
     centers = np.asarray(centers)
@@ -47,42 +48,42 @@ def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
         center_ijk = centers[i]
         center_mni = np.round(np.asarray(ijk_to_mni(affine_ijk2mm, center_ijk)),
                              3)
-        atlassub_clust = atlassub_arr[mask]
-        atlascort_clust = atlascort_arr[mask]
+        atlas2_clust = atlas2_arr[mask]
+        atlas1_clust = atlas1_arr[mask]
 
         # Cluster overlapp with atlases ROIs
         def dict_sort_by_value_to_str(d):
             s = sorted(d.items(), key=lambda x:x[1], reverse=True)
             return " ".join(["%s:%.0f" % (x[0], x[1]) for x in s])
 
-        regions_cort_atlas = {}
-        regions_sub_atlas = {}
-        regions_cort_atlas_weight = {}
-        regions_sub_atlas_weight = {}
-        # subcortical atlas
-        for atlas_lab in np.unique(atlassub_clust):
+        regions_atlas1 = {}
+        regions_atlas2 = {}
+        regions_atlas1_weight = {}
+        regions_atlas2_weight = {}
+        # atlas2 (subcortical atlas)
+        for atlas_lab in np.unique(atlas2_clust):
             #atlas_lab = 16
-            lab_cluster = map_arr[np.logical_and(mask, atlassub_arr == atlas_lab)]
-            ROI_name = atlassub_labels[atlas_lab]
-            regions_sub_atlas[ROI_name] = int(np.round(
-                                      np.sum(atlassub_clust == atlas_lab) \
+            lab_cluster = map_arr[np.logical_and(mask, atlas2_arr == atlas_lab)]
+            ROI_name = atlas2_labels[atlas_lab]
+            regions_atlas2[ROI_name] = int(np.round(
+                                      np.sum(atlas2_clust == atlas_lab) \
                                         / float(clust_sizes[i]) * 100))
-            regions_sub_atlas_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
+            regions_atlas2_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
                                                 / float(LA.norm(map_arr[mask])) * 100))
-        # cortical atlas
-        for atlas_lab in np.unique(atlascort_clust):
-            lab_cluster = map_arr[np.logical_and(mask, atlascort_arr == atlas_lab)]
-            ROI_name = atlascort_labels[atlas_lab]
-            regions_cort_atlas[ROI_name] = int(np.round(
-                                      np.sum(atlascort_clust == atlas_lab) / \
+        # atlas21 (cortical atlas)
+        for atlas_lab in np.unique(atlas1_clust):
+            lab_cluster = map_arr[np.logical_and(mask, atlas1_arr == atlas_lab)]
+            ROI_name = atlas1_labels[atlas_lab]
+            regions_atlas1[ROI_name] = int(np.round(
+                                      np.sum(atlas1_clust == atlas_lab) / \
                                         float(clust_sizes[i]) * 100))
-            regions_cort_atlas_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
+            regions_atlas1_weight[ROI_name] = int(np.round(LA.norm(lab_cluster) \
                                                 / float(LA.norm(map_arr[mask])) * 100))
 
-        regions_cort_atlas = dict_sort_by_value_to_str(regions_cort_atlas)
-        regions_sub_atlas = dict_sort_by_value_to_str(regions_sub_atlas)
-        regions_cort_atlas_weight = dict_sort_by_value_to_str(regions_cort_atlas_weight)
-        regions_sub_atlas_weight = dict_sort_by_value_to_str(regions_sub_atlas_weight)
+        regions_atlas1 = dict_sort_by_value_to_str(regions_atlas1)
+        regions_atlas2 = dict_sort_by_value_to_str(regions_atlas2)
+        regions_atlas1_weight = dict_sort_by_value_to_str(regions_atlas1_weight)
+        regions_atlas2_weight = dict_sort_by_value_to_str(regions_atlas2_weight)
 
         # Min, Max
         max_val, max_idx = np.max(map_arr[mask]), np.argmax(map_arr[mask])
@@ -100,24 +101,24 @@ def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
         if min_val >= 0:
             region_cort_peak_neg, region_sub_peak_neg = None, None
         else:
-            atlas_lab = atlascort_clust[min_idx]
-            region_cort_peak_neg = atlascort_labels[atlas_lab]
-            atlas_lab = atlassub_clust[min_idx]
-            region_sub_peak_neg = atlassub_labels[atlas_lab]
+            atlas_lab = atlas1_clust[min_idx]
+            region_cort_peak_neg = atlas1_labels[atlas_lab]
+            atlas_lab = atlas2_clust[min_idx]
+            region_sub_peak_neg = atlas2_labels[atlas_lab]
         # positive peak (cortical and subcortical atlases)
         if max_val <= 0:
             region_cort_peak_pos, region_sub_peak_pos = None, None
         else:
-            atlas_lab = atlascort_clust[max_idx]
-            region_cort_peak_pos = atlascort_labels[atlas_lab]
-            atlas_lab = atlassub_clust[max_idx]
-            region_sub_peak_pos = atlassub_labels[atlas_lab]
+            atlas_lab = atlas1_clust[max_idx]
+            region_cort_peak_pos = atlas1_labels[atlas_lab]
+            atlas_lab = atlas2_clust[max_idx]
+            region_sub_peak_pos = atlas2_labels[atlas_lab]
 
         info = [labels[i], clust_sizes[i], prop_norm2_weight] + \
         max_mni[0, :].tolist() + min_mni[0, :].tolist() + center_mni.tolist() + \
         [mean_val, max_val, min_val,
-         regions_cort_atlas, regions_cort_atlas_weight, region_cort_peak_pos,
-         region_cort_peak_neg, regions_sub_atlas, regions_sub_atlas_weight,
+         regions_atlas1, regions_atlas1_weight, region_cort_peak_pos,
+         region_cort_peak_neg, regions_atlas2, regions_atlas2_weight,
          region_sub_peak_pos, region_sub_peak_neg]
         clusters_info.append(info)
 
@@ -126,17 +127,15 @@ def clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
               "x_min_mni",  "y_min_mni",  "z_min_mni",
               "x_center_mni",  "y_center_mni", "z_center_mni",
               "mean", "max", "min",
-              "ROIs_cort_prop (%)", "ROIs_cort_weight_prop (%)",
-              "ROI_cort_peak_pos", "ROI_cort_peak_neg",
-              "ROIs_sub_prop (%)", "ROIs_sub_weight_prop (%)",
-              "ROI_sub_peak_pos", "ROI_sub_peak_neg"
+              "ROIs_{sn}-{a1}_prop (%)".format(**atlas), "ROIs_{sn}-{a1}_weight_prop (%)".format(**atlas),
+              "ROI_{sn}-{a1}_peak_pos".format(**atlas), "ROI_{sn}-{a1}_peak_neg".format(**atlas),
+              "ROIs_{sn}-{a2}_prop (%)".format(**atlas), "ROIs_{sn}-{a2}_weight_prop (%)".format(**atlas),
+              "ROI_{sn}-{a2}_peak_pos".format(**atlas), "ROI_{sn}-{a2}_peak_neg".format(**atlas)
               ]
 
     df = pd.DataFrame(clusters_info, columns=header_info)
     df = df.sort_values(by="prop_norm2_weight", ascending=False)
     return df
-
-
 
 if __name__ == "__main__":
     # Set default values to parameters
@@ -147,8 +146,9 @@ if __name__ == "__main__":
     thresh_pos_high = np.inf
     thresh_norm_ratio = 1.
     vmax = 0.001
-    MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
-    atlas =  "harvard_oxford"
+    # MNI152_T1_1mm_brain_filename = "/usr/share/data/fsl-mni152-templates/MNI152_T1_1mm_brain.nii.gz"
+
+    atlas =  dict(name="harvard_oxford", sn="HO" , a1="cort", a2="sub") # atlas name, short-name, atlas 1 and 2 names
     #atlas_cort_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz'
     #atlas_sub_filename = '/usr/share/data/harvard-oxford-atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz'
 
@@ -176,9 +176,15 @@ if __name__ == "__main__":
     parser.add_argument('--thresh_pos_high',
         help='Positive upper bound threshold (default %f)' % thresh_pos_high, default=thresh_pos_high, type=float)
     parser.add_argument('--atlas',
-        help='Atlas (default %s)' % atlas,
+        help='Atlas in harvard_oxford (CM cortical and subcortical) JHU for (dti WM and track) (default %s) ' % atlas["name"],
         default=atlas, type=str)
+
+    # To debug: manually set command line
+    # argv_ = ['/neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000350_1.000_0.001/components-brain-maps_PC0000.nii.gz']
+    # options = parser.parse_args(argv_)
+
     options = parser.parse_args()
+
     #print __doc__
     if options.input is None:
         #print("Error: Input is missing.")
@@ -186,17 +192,17 @@ if __name__ == "__main__":
         raise SystemExit("Error: Input is missing.")
 
     map_filename = options.input
+
     ##########################################################################
     # Read volume
     import nibabel as nib
     map_img = nib.load(map_filename)
-    #map_img = aims.read(map_filename)
 
     #trm_ijk_to_mni = ima_get_trm_ijk_to_mni(map_img)
     map_arr = map_img.get_data()
     if len(map_arr.shape) > 3:
         print("input image is more than 3D split them first using")
-        print('fsl5.0-fslsplit %s ./%s -t' % (map_filename, "output.nii.gz"))
+        print('fsl5.0-fslsplit %s ./%s -t' % (map_filename, "prefix"))
         sys.exit(0)
 
     map_filename = options.input
@@ -210,21 +216,36 @@ if __name__ == "__main__":
 
     # Fetch atlases
     if options.atlas == "harvard_oxford":
-        atlascort = nilearn.datasets.fetch_atlas_harvard_oxford("cort-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
-        atlassub = nilearn.datasets.fetch_atlas_harvard_oxford("sub-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
+        atlas1 = nilearn.datasets.fetch_atlas_harvard_oxford("cort-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
+        atlas1_labels = atlas1.labels
+        atlas1_filename = atlas1.maps
+        atlas2 = nilearn.datasets.fetch_atlas_harvard_oxford("sub-maxprob-thr0-1mm", data_dir=None, symmetric_split=False, resume=True, verbose=1)
+        atlas2_labels = atlas2.labels
+        atlas2_filename = atlas2.maps
+        atlas = dict(name="harvard_oxford", sn="HO", a1="cort", a2="sub")  # atlas name, short-name, atlas 1 and 2 names
         # FIX bug nilearn.datasets.fetch_atlas_harvard_oxford: Errors in HarvardOxford.tgz / sub-maxprob-thr0-1mm
-        atlassub.maps = os.path.join('/usr/share/data/harvard-oxford-atlases/HarvardOxford', os.path.basename(atlassub.maps))
+        # atlas2.maps = os.path.join('/usr/share/data/harvard-oxford-atlases/HarvardOxford', os.path.basename(atlas2.maps))
+    elif options.atlas == 'JHU':
+        atlas1_filename = "/usr/share/data/jhu-dti-whitematter-atlas/JHU/JHU-ICBM-labels-1mm.nii.gz"
+        atlas2_filename = "/usr/share/data/jhu-dti-whitematter-atlas/JHU/JHU-ICBM-tracts-maxprob-thr0-1mm.nii.gz"
+        # Read xml, get label and name and make sure order is ok
+        tree = ET.parse("/usr/share/data/jhu-dti-whitematter-atlas/JHU-labels.xml")
+        atlas1_labels = [str(name) for name in pd.DataFrame([[int(item.attrib['index']), item.text] for item in tree.getroot()[1]], columns=["lab", "name"]).sort_values("lab")["name"]]
+        tree = ET.parse("/usr/share/data/jhu-dti-whitematter-atlas/JHU-tracts.xml")
+        atlas2_labels = [str(name) for name in pd.DataFrame([[int(item.attrib['index']), item.text] for item in tree.getroot()[1]], columns=["lab", "name"]).sort_values("lab")["name"]]
+        # In JHU-tracts.xml index="0" => Anterior thalamic radiation L but in image atlsas it is 1 add item 0 as being 'Unclassified'
+        atlas2_labels += ['Unclassified']
+        atlas = dict(name="JHU", sn="JHU", a1="wm-icbm-dti-81", a2="wm-tracts")  # atlas name, short-name, atlas 1 and 2 names
 
-    atlascort_img = nilearn.image.resample_to_img(source_img=atlascort.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
-    atlascort_arr, atlascort_labels = atlascort_img.get_data(), atlascort.labels
-    assert len(np.unique(atlascort_arr)) == len(atlascort_labels), "Atlas %s : array labels must match labels table" %  options.atlas
+    atlas1_img = nilearn.image.resample_to_img(source_img=atlas1_filename, target_img=map_filename, interpolation='nearest', copy=True, order='F')
+    atlas1_arr  = atlas1_img.get_data().astype(int)
+    assert len(np.unique(atlas1_arr)) == len(atlas1_labels), "Atlas %s : array labels must match labels table" %  options.atlas
 
-    atlassub_img = nilearn.image.resample_to_img(source_img=atlassub.maps, target_img=map_filename, interpolation='nearest', copy=True, order='F')
-    atlassub_arr, atlassub_labels = atlassub_img.get_data(), atlassub.labels
-    atlassub_arr = atlassub_arr.astype(int)
-    assert len(np.unique(atlassub_arr)) == len(atlassub_labels), "Atlas %s : array labels must match labels table" %  options.atlas
+    atlas2_img = nilearn.image.resample_to_img(source_img=atlas2_filename, target_img=map_filename, interpolation='nearest', copy=True, order='F')
+    atlas2_arr = atlas2_img.get_data().astype(int)
+    assert len(np.unique(atlas2_arr)) == len(atlas2_labels), "Atlas %s : array labels must match labels table" %  options.atlas
 
-    assert np.all((map_img.affine == atlassub_img.affine) & (map_img.affine == atlascort_img.affine))
+    assert np.all((map_img.affine == atlas2_img.affine) & (map_img.affine == atlas1_img.affine))
     ##########################################################################
     map_basename, ext = os.path.splitext(map_filename)
     if ext == ".gz":
@@ -275,8 +296,9 @@ if __name__ == "__main__":
     affine_ijk2mm = map_img.affine
     df =  clusters_info(map_arr, map_clustlabels_arr, clust_sizes, labels, centers,
                   affine_ijk2mm,
-                  atlascort_arr, atlascort_labels,
-                  atlassub_arr, atlassub_labels)
+                  atlas1_arr, atlas1_labels,
+                  atlas2_arr, atlas2_labels,
+                  atlas)
 
 
     df.to_csv(output_csv_clusters_info_filename, index=False)
@@ -289,14 +311,14 @@ if __name__ == "__main__":
         ax.text(0, 1-j/nrow, "max[%i,%i,%i]: %.2E" % (row['x_max_mni'], row['y_max_mni'], row['z_max_mni'], row['max']), fontsize=8); j += 1
         ax.text(0, 1-j/nrow, "min[%i,%i,%i]: %.2E" % (row['x_min_mni'], row['y_min_mni'], row['z_min_mni'], row['min']), fontsize=8); j += 1
         ax.text(0, 1-j/nrow, "center[%i,%i,%i], mean: %.2E" % (row['x_center_mni'], row['y_center_mni'], row['z_center_mni'], row['mean']), fontsize=8); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROI_cort_peak_pos', str(row['ROI_cort_peak_pos'])), fontsize=8); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROI_cort_peak_neg', str(row['ROI_cort_peak_neg'])), fontsize=8); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROIs_cort_prop (%)', str(row['ROIs_cort_prop (%)'])), fontsize=6); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROIs_cort_weight_prop (%)', str(row['ROIs_cort_weight_prop (%)'])), fontsize=6); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROI_sub_peak_pos', str(row['ROI_sub_peak_pos'])), fontsize=8); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROI_sub_peak_neg', str(row['ROI_sub_peak_neg'])), fontsize=8); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROIs_sub_prop (%)', str(row['ROIs_sub_prop (%)'])), fontsize=6); j += 1
-        ax.text(0, 1-j/nrow, "%s: %s" % ('ROIs_sub_weight_prop (%)', str(row['ROIs_sub_weight_prop (%)'])), fontsize=6); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROI_{sn}-{a1}_peak_pos".format(**atlas), str(row["ROI_{sn}-{a1}_peak_pos".format(**atlas)])), fontsize=8); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROI_{sn}-{a1}_peak_neg".format(**atlas), str(row["ROI_{sn}-{a1}_peak_neg".format(**atlas)])), fontsize=8); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROIs_{sn}-{a1}_prop (%)".format(**atlas), str(row["ROIs_{sn}-{a1}_prop (%)".format(**atlas)])), fontsize=6); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROIs_{sn}-{a1}_weight_prop (%)".format(**atlas), str(row["ROIs_{sn}-{a1}_weight_prop (%)".format(**atlas)])), fontsize=6); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROI_{sn}-{a2}_peak_pos".format(**atlas), str(row["ROI_{sn}-{a2}_peak_pos".format(**atlas)])), fontsize=8); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROI_{sn}-{a2}_peak_neg".format(**atlas), str(row["ROI_{sn}-{a2}_peak_neg".format(**atlas)])), fontsize=8); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROIs_{sn}-{a2}_prop (%)".format(**atlas), str(row["ROIs_{sn}-{a2}_prop (%)".format(**atlas)])), fontsize=6); j += 1
+        ax.text(0, 1-j/nrow, "%s: %s" % ("ROIs_{sn}-{a2}_weight_prop (%)".format(**atlas), str(row["ROIs_{sn}-{a2}_weight_prop (%)".format(**atlas)])), fontsize=6); j += 1
         ax2.axis('off')
 
     pdf = PdfPages(output_figure_filename)
@@ -319,10 +341,10 @@ if __name__ == "__main__":
         # A cluster have at least a negative pek or a positive one, but it
         # can have both
         # positive peak
-        if row['ROI_cort_peak_pos']:
+        if row["ROI_{sn}-{a1}_peak_pos".format(**atlas)]:
             fig = plt.figure(figsize=(11.69, 8.27))
             ax = fig.add_subplot(211)
-            title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_pos'], row['ROI_sub_peak_pos'])
+            title = "%i %s/%s" % (row["label"], row["ROI_{sn}-{a1}_peak_pos".format(**atlas)], row["ROI_{sn}-{a2}_peak_pos".format(**atlas)])
             cut_coords = row[['x_max_mni', 'y_max_mni', 'z_max_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
                                    cmap=plt.cm.bwr,
@@ -336,10 +358,10 @@ if __name__ == "__main__":
             plt.close(fig)
 
         # Negative peak
-        if row['ROI_cort_peak_neg']:
+        if row["ROI_{sn}-{a1}_peak_neg".format(**atlas)]:
             fig = plt.figure(figsize=(11.69, 8.27))
             ax = fig.add_subplot(211)
-            title = "%i %s/%s" % (row["label"], row['ROI_cort_peak_neg'], row['ROI_sub_peak_neg'])
+            title = "%i %s/%s" % (row["label"], row["ROI_{sn}-{a1}_peak_neg".format(**atlas)], row["ROI_{sn}-{a2}_peak_neg".format(**atlas)])
             cut_coords = row[['x_min_mni', 'y_min_mni', 'z_min_mni']]
             m = plotting.plot_stat_map(output_clusters_values_filename, display_mode='ortho', vmax=vmax,
                                    cmap=plt.cm.bwr, threshold=abs(thresh_neg_high),

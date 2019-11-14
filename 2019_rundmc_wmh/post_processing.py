@@ -30,11 +30,12 @@ from brainomics import array_utils
 STUDY_PATH = '/neurospin/brainomics/2019_rundmc_wmh'
 DATA_PATH = os.path.join(STUDY_PATH, 'sourcedata', 'wmhmask')
 
-ANALYSIS_PATH = os.path.join(STUDY_PATH, 'analysis', '201905_rundmc_wmh_pca')
+#ANALYSIS_PATH = os.path.join(STUDY_PATH, 'analysis', '201905_rundmc_wmh_pca')
+ANALYSIS_PATH = os.path.join(STUDY_PATH, 'analyses', '201909_rundmc_wmh_pca')
 ANALYSIS_DATA_PATH = os.path.join(ANALYSIS_PATH, "data")
 ANALYSIS_MODELS_PATH = os.path.join(ANALYSIS_PATH, "models")
 
-OUTPUT_DIR = os.path.join(ANALYSIS_MODELS_PATH, '201905_rundmc_wmh_pca', '{key}')
+OUTPUT_DIR = os.path.join(ANALYSIS_MODELS_PATH, '{key}')
 
 
 ########################################################################################################################
@@ -43,12 +44,14 @@ mask_img = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "mask.nii.gz"))
 mask_arr = mask_img.get_data() == 1
 shape = mask_arr.shape
 
-assert mask_arr.sum() == 51637
-WMH = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "WMH.nii.gz"))
+#assert mask_arr.sum() == 51637
+assert mask_arr.sum() == 371278
+
+WMH = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "WMH_2006.nii.gz"))
 WMH_flat = WMH.get_data()[mask_arr].T
 X = WMH_flat - WMH_flat.mean(axis=0)
 
-assert X.shape == (503, 51637)
+assert X.shape == (267, 371278)
 assert mask_arr.sum() == X.shape[1]
 assert np.allclose(X.mean(axis=0), 0)
 
@@ -62,8 +65,16 @@ info = pd.concat([pd.read_csv(os.path.join(dirname, "info.csv")) for dirname in 
 info = info.sort_values(by=['comp', 'rsquared'], ascending=False)
 
 #k = 'pca_enettv_0.0000_1.000_0.100'
+
+########################################################################################################################
+# Compare models group them in 4 groups by computing correlation between contactenate projectors
+# Useless here since we only have 4 models
+
+# Global correlation between concateneted projectors
 Vs_arr = np.hstack((mods[k]['V'] - mods[k]['V'].mean(axis=0))[:, :2].T.ravel()[:, np.newaxis] for k in mods)
 PC_arr = np.hstack((mods[k]['PC'] - mods[k]['PC'].mean(axis=0))[:, :2].T.ravel()[:, np.newaxis] for k in mods)
+
+#k = 'pca_enettv_0.000035_1.000_0.005'
 
 df = pd.DataFrame(Vs_arr, columns=mods.keys())
 #df = pd.DataFrame(PC_arr, columns=mods.keys())
@@ -99,54 +110,7 @@ f, ax = plt.subplots(figsize=(5.5, 4.5))
 _ = sns.heatmap(R, mask=None, cmap=cmap, vmax=1, center=0.5,
 square=True, linewidths=.5, cbar_kws={"shrink": .5})
 
-"""
-Base on V : 4 clusters
 
-TV >=0.5 : cluster 1
-TV <= 0.01, l1 <= 0.01, cluster 2 like PCA
-TV == 0.1 cluster 3
-pca cluster 4
-
-[['pca_enettv_0.0000_1.000_1.000',
-  'pca_enettv_0.0456_1.000_0.500',
-  'pca_enettv_0.0046_1.000_1.000',
-  'pca_enettv_0.0456_1.000_1.000',
-  'pca_enettv_0.0046_1.000_0.500',
-  'pca_enettv_0.0005_1.000_1.000',
-  'pca_enettv_0.0005_1.000_0.500'],
-  
- ['pca_enettv_0.0000_1.000_0.010',
-  'pca_enettv_0.0000_1.000_0.001',
-  'pca_enettv_0.0000_1.000_0.000'],
-  
- ['pca_enettv_0.0000_1.000_0.100',
-  'pca_enettv_0.0005_1.000_0.100',
-  'pca_enettv_0.0456_1.000_0.100',
-  'pca_enettv_0.0046_1.000_0.100'],
- 
- ['pca']]
-
-Based on PCs 3 clusters
-no L1 small/no TV
-
-pca
-
-
-[['pca_enettv_0.0000_1.000_0.001', 'pca_enettv_0.0000_1.000_0.000'],
- ['pca'],
- ['pca_enettv_0.0000_1.000_0.100',
-  'pca_enettv_0.0000_1.000_0.010',
-  'pca_enettv_0.0000_1.000_1.000',
-  'pca_enettv_0.0456_1.000_0.500',
-  'pca_enettv_0.0046_1.000_1.000',
-  'pca_enettv_0.0005_1.000_0.100',
-  'pca_enettv_0.0456_1.000_1.000',
-  'pca_enettv_0.0456_1.000_0.100',
-  'pca_enettv_0.0046_1.000_0.500',
-  'pca_enettv_0.0005_1.000_1.000',
-  'pca_enettv_0.0005_1.000_0.500',
-  'pca_enettv_0.0046_1.000_0.100']]
-"""
 
 # Select best rsquared in each cluster
 info_pc2 = info[info.comp == "PC2"]
@@ -159,46 +123,43 @@ for k in range(len(clusters)):
 
 best_r2
 """
-[key               pca_enettv_0.0005_1.000_0.500
- comp                                        PC2
- rsquared                               0.413727
- rsquared_ratio                       0.00511588
- v_max                                 0.0154899
- v_min                              -3.20613e-07
- v_abs_mean                          0.000675874
- v_prop_nonnull                         0.881248
- time                                    1690.73
- 
- key               pca_enettv_0.0000_1.000_0.000
- comp                                        PC2
- rsquared                               0.986604
- rsquared_ratio                       0.00259148
- v_max                                0.00828734
- v_min                               -0.00202959
- v_abs_mean                          0.000925844
- v_prop_nonnull                         0.362628
- time                                    16.3457
- 
- key               pca_enettv_0.0046_1.000_0.100
- comp                                        PC2
- rsquared                               0.836672
- rsquared_ratio                        0.0175312
- v_max                                 0.0256441
- v_min                              -0.000602655
- v_abs_mean                          0.000432196
- v_prop_nonnull                        0.0194047
- time                                    1579.91
- Name: 0, dtype: object,
- 
- key                      pca
- comp                     PC2
- rsquared            0.986604
- rsquared_ratio    0.00259148
- v_max              0.0229645
- v_min            -0.00562382
- v_abs_mean        0.00256523
- v_prop_nonnull      0.361717
- time                 1.78688
+[key                       pca
+ comp                      PC2
+ rsquared             0.237925
+ rsquared_ratio      0.0424806
+ v_max               0.0127184
+ v_min              -0.0114102
+ v_abs_mean        0.000795718
+ v_prop_nonnull       0.252056
+ time                  6.95859
+ Name: 0, dtype: object, key               pca_enettv_0.000350_1.000_0.001
+ comp                                          PC2
+ rsquared                                 0.225811
+ rsquared_ratio                          0.0352804
+ v_max                                  0.00534634
+ v_min                                  -0.0045806
+ v_abs_mean                            0.000243292
+ v_prop_nonnull                           0.143951
+ time                                      15492.6
+ Name: 0, dtype: object, key               pca_enettv_0.000035_1.000_0.005
+ comp                                          PC2
+ rsquared                                 0.200193
+ rsquared_ratio                          0.0224507
+ v_max                                  0.00200296
+ v_min                                 -0.00234016
+ v_abs_mean                            0.000264132
+ v_prop_nonnull                           0.526121
+ time                                      6511.46
+ Name: 0, dtype: object, key               pca_enettv_0.000001_1.000_0.000
+ comp                                          PC2
+ rsquared                                 0.237922
+ rsquared_ratio                          0.0424779
+ v_max                                  0.00715963
+ v_min                                 -0.00640329
+ v_abs_mean                            0.000446674
+ v_prop_nonnull                           0.250481
+ time                                      317.351
+ Name: 0, dtype: object]
 """
 
 # Select best rsquared_ratio in each cluster
@@ -213,65 +174,67 @@ for k in range(len(clusters)):
 best_r2_ratio
 
 """
-[key               pca_enettv_0.0046_1.000_1.000
- comp                                        PC2
- rsquared                                0.35724
- rsquared_ratio                        0.0126917
- v_max                                 0.0223584
- v_min                              -4.01883e-06
- v_abs_mean                          6.92472e-05
- v_prop_nonnull                        0.0114453
- time                                    1666.15
- 
- key               pca_enettv_0.0000_1.000_0.000
- comp                                        PC2
- rsquared                               0.986604
- rsquared_ratio                       0.00259148
- v_max                                0.00828734
- v_min                               -0.00202959
- v_abs_mean                          0.000925844
- v_prop_nonnull                         0.362628
- time                                    16.3457
- 
- key               pca_enettv_0.0000_1.000_0.100
- comp                                        PC2
- rsquared                                0.83558
- rsquared_ratio                        0.0179982
- v_max                                  0.029446
- v_min                              -0.000374288
- v_abs_mean                           0.00118221
- v_prop_nonnull                          0.45448
- time                                     2482.3
- 
- key                      pca
- comp                     PC2
- rsquared            0.986604
- rsquared_ratio    0.00259148
- v_max              0.0229645
- v_min            -0.00562382
- v_abs_mean        0.00256523
- v_prop_nonnull      0.361717
- time                 1.78688
+[key                       pca
+ comp                      PC2
+ rsquared             0.237925
+ rsquared_ratio      0.0424806
+ v_max               0.0127184
+ v_min              -0.0114102
+ v_abs_mean        0.000795718
+ v_prop_nonnull       0.252056
+ time                  6.95859
+ Name: 0, dtype: object, key               pca_enettv_0.000350_1.000_0.001
+ comp                                          PC2
+ rsquared                                 0.225811
+ rsquared_ratio                          0.0352804
+ v_max                                  0.00534634
+ v_min                                  -0.0045806
+ v_abs_mean                            0.000243292
+ v_prop_nonnull                           0.143951
+ time                                      15492.6
+ Name: 0, dtype: object, key               pca_enettv_0.000035_1.000_0.005
+ comp                                          PC2
+ rsquared                                 0.200193
+ rsquared_ratio                          0.0224507
+ v_max                                  0.00200296
+ v_min                                 -0.00234016
+ v_abs_mean                            0.000264132
+ v_prop_nonnull                           0.526121
+ time                                      6511.46
+ Name: 0, dtype: object, key               pca_enettv_0.000001_1.000_0.000
+ comp                                          PC2
+ rsquared                                 0.237922
+ rsquared_ratio                          0.0424779
+ v_max                                  0.00715963
+ v_min                                 -0.00640329
+ v_abs_mean                            0.000446674
+ v_prop_nonnull                           0.250481
+ time                                      317.351
  Name: 0, dtype: object]
 """
-pop = pd.read_csv(os.path.join(ANALYSIS_PATH, "participants.csv"))
+pop = pd.read_csv(os.path.join(ANALYSIS_DATA_PATH, "WMH_2006_participants.csv"))
 
 ##############################################################################################################
 # Save results
 
-models =  ["pca_enettv_0.0046_1.000_1.000", "pca_enettv_0.0000_1.000_0.100", "pca"]
+mask_img = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "mask.nii.gz"))
+from nilearn.datasets import load_mni152_template
+mni152_resamp = nilearn.image.resample_to_img(source_img=load_mni152_template(), target_img=mask_img, interpolation='continuous')
+mni152_resamp.to_filename(OUTPUT_DIR.format(key="mni152.nii.gz"))
 
-mod_str = ["pcatv_largeTV", "pca_enettv_0.0046_1.000_1.000"]
-mod_str = ["pcatv_mediumTV", "pca_enettv_0.0000_1.000_0.100"]
-mod_str = ["pca", "pca"]
 
+models =  ['pca_enettv_0.000035_1.000_0.005', 'pca_enettv_0.000001_1.000_0.000', 'pca_enettv_0.000350_1.000_0.001', 'pca']
+#mod_str = ["pcatv_small-tv", 'pca_enettv_0.000350_1.000_0.001']
+mod_str = ["pcatv_medium-tv", 'pca_enettv_0.000035_1.000_0.005']
+#mod_str = ["pca", "pca"]
 
-prefix = OUTPUT_DIR.format(key=mod_str[0])
+prefix = OUTPUT_DIR.format(key=mod_str[1]) + "/postproc_"
 mod = mods[mod_str[1]]
 
 ##############################################################################################################
 # Save components
-xls_filename = prefix+"_components.xlsx"
+
+xls_filename = prefix+"components.xlsx"
 
 PC_df = pd.DataFrame(mod["PC"], columns=["PC%i" % (i+1) for i in range(mod["PC"].shape[1])])
 PCcor = PC_df.corr()
@@ -281,8 +244,6 @@ PC_df = pd.concat([pop, PC_df], axis=1)
 V_df = pd.DataFrame(mod["V"], columns=["v%i" % (i+1) for i in range(mod["V"].shape[1])])
 V_df.corr()
 
-
-info[info.key == mod_str[1]]
 
 with pd.ExcelWriter(xls_filename) as writer:
     PC_df.to_excel(writer, sheet_name='Components', index=False)
@@ -296,16 +257,21 @@ import nilearn.plotting.cm as cmnl
 U, d, V, PC, explained_variance = mod["U"], mod["d"], mod["V"], mod["PC"], mod["explained_variance"]
 explained_variance_ratio = np.concatenate([[explained_variance[0]], np.ediff1d(explained_variance)])
 
+# Some small thresholding
 from brainomics.array_utils import arr_get_threshold_from_norm2_ratio
 thresholds = np.array([arr_get_threshold_from_norm2_ratio(V[: ,k], ratio=.99) for k in range(V.shape[1])])
 V[V < thresholds] = 0
 
+# Save loadings as 4D image
+map_arr = np.zeros(list(shape) + [V.shape[1]])
+map_arr[mask_arr] = V
+map_img = nibabel.Nifti1Image(map_arr, mask_img.affine)
+map_img.to_filename(prefix+"components-brain-maps.nii.gz")
+map_img_l = nibabel.four_to_three(map_img)
 
-
-mask_img = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "mask.nii.gz"))
 #V = pca.components_.T
 
-pdf = PdfPages(prefix+"_components-brain-maps.pdf")
+pdf = PdfPages(prefix+"components-brain-maps.pdf")
 
 fig = plt.figure(figsize=(13.33, 10 * U.shape[1]))
 fig.suptitle(mod_str[0])
@@ -314,9 +280,7 @@ axis = fig.subplots(nrows=U.shape[1] * 2, ncols=1)
 for k in range(U.shape[1]):
     #k = 0
     idx = 2 * k
-    map_arr = np.zeros(shape)
-    map_arr[mask_arr] = V[:, k]# * 100
-    map_img = nibabel.Nifti1Image(map_arr, mask_img.affine)
+    map_img = map_img_l[k]
 
     #ax = fig.add_subplot(111)
     #ax.set_title("T-stats T>%.2f" %  tstats_thres)
@@ -333,3 +297,18 @@ pdf.savefig()
 plt.savefig(prefix+"_components-brain-maps.png")
 plt.close(fig)
 pdf.close()
+
+########################################################################################################################
+cd /neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000350_1.000_0.001
+fsl5.0-fslsplit components-brain-maps.nii.gz ./components-brain-maps_PC -t
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py /neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000350_1.000_0.001/components-brain-maps_PC0000.nii.gz --atlas JHU --thresh_size 10
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py /neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000350_1.000_0.001/components-brain-maps_PC0001.nii.gz --atlas JHU --thresh_size 10
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py /neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000350_1.000_0.001/components-brain-maps_PC0002.nii.gz --atlas JHU --thresh_size 10
+
+#
+cd /neurospin/brainomics/2019_rundmc_wmh/analyses/201909_rundmc_wmh_pca/models/pca_enettv_0.000035_1.000_0.005
+fsl5.0-fslsplit components-brain-maps.nii.gz ./components-brain-maps_PC -t
+
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py components-brain-maps_PC0000.nii.gz --atlas JHU --thresh_size 10
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py components-brain-maps_PC0001.nii.gz --atlas JHU --thresh_size 10
+~/git/scripts/brainomics/image_clusters_analysis_nilearn.py components-brain-maps_PC0002.nii.gz --atlas JHU --thresh_size 10

@@ -1,3 +1,49 @@
+"""
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo pca --penalties -1 -1 -1
+-------------------
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.000001 1 0.000001
+
+# =======================================================================
+# very very low l1
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.001
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.005
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.01
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.05
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.1
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.00001 1 0.5
+
+# very low l1
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.001
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.005
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.01
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.05
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.1
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.0001 1 0.5
+
+# low l1
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.001
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.005
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.01
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.05
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.1
+
+python /home/ed203246/git/scripts/2017_memento_wmh/analysis/WMH/02_pcatv.py --algo enettv --penalties 0.001 1 0.5
+
+"""
 import sys
 import os
 import time
@@ -9,7 +55,7 @@ import matplotlib.pylab as plt
 import nilearn
 from nilearn import plotting
 import argparse
-
+import time
 from matplotlib.backends.backend_pdf import PdfPages
 
 
@@ -26,14 +72,12 @@ from brainomics import array_utils
 #import parsimony.utils.check_arrays as check_arrays
 
 ########################################################################################################################
-STUDY_PATH = '/neurospin/brainomics/2019_rundmc_wmh'
-DATA_PATH = os.path.join(STUDY_PATH, 'sourcedata', 'wmhmask')
+ANALYSIS_PATH = "/neurospin/brainomics/2017_memento/analysis/WMH"
 
-ANALYSIS_PATH = os.path.join(STUDY_PATH, 'analyses', '201909_rundmc_wmh_pca')
 ANALYSIS_DATA_PATH = os.path.join(ANALYSIS_PATH, "data")
 ANALYSIS_MODELS_PATH = os.path.join(ANALYSIS_PATH, "models")
 
-CONF = dict(clust_size_thres = 20, NI="WMH_2006", vs=1, shape=(181, 217, 181))
+CONF = dict(clust_size_thres=20, NI="WMH", vs=1.5, shape=(121, 145, 121))
 # nii_filenames = glob.glob(os.path.join(DATA_PATH, "*", "Stdt1wSubjTempl_RUNDMC_*_WMH_to_T1_*.nii.gz"))
 
 # match_filename_re = re.compile("Stdt1wSubjTempl_RUNDMC_([0-9]+)_WMH_to_T1_(20[0-9]+).nii.gz")
@@ -48,6 +92,8 @@ parser.add_argument("--algo", help='enettv, pca, ica', type=str)
 parser.add_argument("--penalties", help='l1, l2, tv penalties. ', nargs='+', type=float)
 
 options = parser.parse_args()
+# argv = ['--algo', 'enettv', '--penalties', '0.000001', '1', '0.000001']
+# options = parser.parse_args(argv)
 
 if options.algo is None :
     parser.print_help()
@@ -61,26 +107,37 @@ if options.penalties:
 
 ########################################################################################################################
 # Read Data
+print("Load data")
+current_time = time.time()
 mask_img = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "mask.nii.gz"))
 mask_arr = mask_img.get_data() == 1
+assert mask_arr.sum() == 116037
+
 pop = pd.read_csv(os.path.join(ANALYSIS_DATA_PATH, "%s_participants.csv" % CONF["NI"]))
+"""
 NI = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "%s.nii.gz" % CONF["NI"]))
 NI_arr =  NI.get_data()
+assert NI_arr.shape == (121, 145, 121, 1755)
 NI_arr_msk = NI.get_data()[mask_arr].T
-
-# Check shape
-assert NI_arr.shape == tuple(list(CONF["shape"]) + [pop.shape[0]])
-assert NI_arr_msk.shape == (pop.shape[0], mask_arr.sum())
 assert mask_arr.shape == CONF["shape"]
 del NI_arr
 del NI
+"""
+NI_arr_msk = np.load(os.path.join(ANALYSIS_DATA_PATH, "%s_arr_msk.npy" % CONF["NI"]))
+assert NI_arr_msk.shape == (1755, 116037)
+
+print("time elapsed={:.2f}s".format(time.time() - current_time))
+
+# Check shape
+#assert NI_arr.shape == tuple(list(CONF["shape"]) + [pop.shape[0]])
+assert NI_arr_msk.shape == (pop.shape[0], mask_arr.sum())
+
 X = NI_arr_msk - NI_arr_msk.mean(axis=0)
 del NI_arr_msk
 
-assert mask_arr.sum() == 371278
 
 # assert X.shape == (503, 51637)
-assert X.shape == (267, 371278)
+assert X.shape == (1755, 116037)
 assert mask_arr.sum() == X.shape[1]
 assert np.allclose(X.mean(axis=0), 0)
 
@@ -101,7 +158,7 @@ if options.algo == 'ica':#(ll1, ll2, ltv) == (-1, -1, -1):
     print("Time TOT(s)", _time)
     print(ica.explained_variance_ratio_)
     # [9.84012749e-01 2.59148416e-03 7.08952491e-04 4.14767146e-04
-    assert ica.components_.shape == (N_COMP, 371278)
+    assert ica.components_.shape == (N_COMP, 116037)
     PC = ica.transform(X)
     #U = pca.transform(X)
     d = np.array([0] * N_COMP)
@@ -125,7 +182,7 @@ if options.algo == 'pca':#(ll1, ll2, ltv) == (-1, -1, -1):
     print("Time TOT(s)", _time)
     print(pca.explained_variance_ratio_)
     # [0.19778403 0.04279359 0.03579749]
-    assert pca.components_.shape == (N_COMP, 371278)
+    assert pca.components_.shape == (N_COMP, 116037)
     PC = pca.transform(X)
     #U = pca.transform(X)
     d = pca.singular_values_
@@ -141,33 +198,12 @@ if options.algo == 'enettv':
     #mask_img = nibabel.Nifti1Image(mask_arr.astype(float), affine=ref_img.affine)
     Atv = LinearOperatorNesterov(filename=os.path.join(ANALYSIS_DATA_PATH, "Atv.npz"))
     #assert Atv.get_singular_values(0) == Atv_.get_singular_values(0)
-    assert np.allclose(Atv.get_singular_values(0), 11.974760295502465)
+    assert np.allclose(Atv.get_singular_values(0), 11.951989954638236)
 
     inner_max_iter = int(1e3)
-    l1max = pca_tv.PCAL1L2TV.l1_max(X) * .9 # 0.03899665773990707
-    assert np.allclose(l1max, 0.03509699196591636)
-
-    if False:  # Not to bad, TV too low
-        # ll1 < 0.01 * l1max,  tv = 0.01 * 1/3
-        ll1, ll2, ltv = 0.01 * l1max, 1, 0.01
-        key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
-        # Corr with old PC[-0.99966211718252285, -0.99004655401439967, -0.74332811780676245]
-
-
-    if False:# Too much l1, not enough tv
-        ll1, ll2, ltv = 0.05 * l1max, 1, 0.001
-        key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
-        CHOICE = key_pca_enettv
-        # pending: for 10 PCs
-        #Corr with old PC[0.99999222883809447, 0.9994293857297728, -0.99247826586372279]
-        #Explained variance:[ 0.19876024  0.22844359  0.24310107  0.25474415  0.26392774]
-
-
-    if False:  # Parameters settings 7: Almost but too much TV
-        # ll1 < 0.01 * l1max,  tv = 0.01 * 1/3
-        ll1, ll2, ltv = 0.01 * l1max, 1, 0.1
-        key_pca_enettv = "pca_enettv_%.4f_%.3f_%.3f" % (ll1, ll2, ltv)
-        # Corr with old PC[-0.99966211718252285, -0.99004655401439967, -0.74332811780676245]
+    l1max = pca_tv.PCAL1L2TV.l1_max(X) * .9 # 0.010741721364318285
+    print("l1max=",l1max)
+    #assert np.allclose(l1max, 0.010741721364318285)
 
     ## key_pca_enettv = CHOICE
     key = "pca_enettv_%.6f_%.3f_%.3f" % (ll1, ll2, ltv)
