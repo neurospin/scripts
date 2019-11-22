@@ -183,3 +183,60 @@ def center_by_site(NI_arr, site, in_place=False):
         NI_arr[m] -= NI_arr[m, :].mean(axis=0)
 
     return NI_arr
+
+
+def compute_brain_mask(NI_arr, target_img, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10, verbose=1):
+    """
+    Compute brain mask:
+        (1) Implicit mask threshold `mean >= mask_thres_mean` and `std >= mask_thres_std`
+        (2) Use brain mask from `nilearn.masking.compute_gray_matter_mask(target_img)`
+        (3) mask = Implicit mask & brain mask
+        (4) Remove small branches with `scipy.ndimage.binary_opening`
+        (5) Avoid isolated clusters: remove clusters (of connected voxels) smaller that `clust_size_thres`
+
+    Parameters
+    ----------
+    NI_arr :  ndarray, of shape (n_subjects, 1, image_shape).
+    target_img : image.
+    mask_thres_mean : Implicit mask threshold `mean >= mask_thres_mean`
+    mask_thres_std : Implicit mask threshold `std >= mask_thres_std`
+    clust_size_thres : remove clusters (of connected voxels) smaller that `clust_size_thres`
+    verbose : int. verbosity level
+
+    Returns
+    -------
+    image of mask
+
+    """
+    import scipy
+    import nilearn
+    import nilearn.masking
+
+    # (1) Implicit mask
+    mask_arr = ((np.abs(np.mean(NI_arr, axis=0)) >= mask_thres_mean) & (np.std(NI_arr, axis=0) >= mask_thres_std)).squeeze()
+
+    # (2) Brain mask
+    mask_img = nilearn.masking.compute_gray_matter_mask(target_img)
+
+    # (3) mask = Implicit mask & brain mask
+    mask_arr = (mask_img.get_data() == 1) & mask_arr
+
+    # (4) Remove small branches
+    mask_arr = scipy.ndimage.binary_opening(mask_arr)
+
+    # (5) Avoid isolated clusters: remove all cluster smaller that clust_size_thres
+    mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
+
+    labels = np.unique(mask_clustlabels_arr)[1:]
+    for lab in labels:
+        clust_size = np.sum(mask_clustlabels_arr == lab)
+        if clust_size <= clust_size_thres:
+            mask_arr[mask_clustlabels_arr == lab] = False
+
+    if verbose >= 1:
+        mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
+        labels = np.unique(mask_clustlabels_arr)[1:]
+        print("Clusters of connected voxels #%i, sizes=" % len(labels),
+              [np.sum(mask_clustlabels_arr == lab) for lab in labels])
+
+    return nilearn.image.new_img_like(target_img, mask_arr)
