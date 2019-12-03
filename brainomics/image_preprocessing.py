@@ -213,7 +213,11 @@ def compute_brain_mask(NI_arr, target_img, mask_thres_mean=0.1, mask_thres_std=1
     import nilearn.masking
 
     # (1) Implicit mask
-    mask_arr = ((np.abs(np.mean(NI_arr, axis=0)) >= mask_thres_mean) & (np.std(NI_arr, axis=0) >= mask_thres_std)).squeeze()
+    mask_arr = np.ones(NI_arr.shape[1:], dtype=bool).squeeze()
+    if mask_thres_mean is not None:
+        mask_arr = mask_arr & (np.abs(np.mean(NI_arr, axis=0)) >= mask_thres_mean).squeeze()
+    if mask_thres_std is not None:
+        mask_arr = mask_arr & (np.std(NI_arr, axis=0) >= mask_thres_std).squeeze()
 
     # (2) Brain mask
     mask_img = nilearn.masking.compute_gray_matter_mask(target_img)
