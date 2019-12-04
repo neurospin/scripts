@@ -5,6 +5,9 @@ Created on Thu Nov 14 12:08:41 CET 2019
 
 @author: edouard.duchesnay
 
+
+nohup python ~/git/scripts/2019_psy_datasets/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/make_dataset_cat12-vbm.py &
+
 float 64 vs float 32
 https://en.wikipedia.org/wiki/IEEE_754
 
@@ -46,6 +49,8 @@ import shutil
 # import re
 # from nilearn import plotting
 import nilearn.image
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # import scipy, scipy.ndimage
 #import xml.etree.ElementTree as ET
@@ -69,7 +74,7 @@ PHENOTYPE_CSV = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsn
 
 
 # 3) Output
-OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/{dataset}_{modality}_{tags}_{type}.{ext}'
+OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/{dataset}_{modality}{tags}_{type}.{ext}'
 # OUTPUT_PATH.format(dataset='', modality='mwp1', tags='', type='', ext='')
 # OUTPUT_PATH.format(dataset='icaar-start', modality='mwp1', tags='gs', type='mask', ext='nii.gz')
 
@@ -219,7 +224,7 @@ datasets = {
     'biobd': dict(ni_filenames = ni_biobd_filenames)}
 
 # On triscotte
-datasets = {
+datasets_ = {
     #'icaar-start': dict(ni_filenames = ni_icaar_filenames),
     #'schizconnect-vip': dict(ni_filenames = ni_schizconnect_filenames),
     'bsnip': dict(ni_filenames = ni_bsnip_filenames),
@@ -243,6 +248,7 @@ for dataset in datasets:
     tag = 'raw'
     NI_arr, NI_participants_df, ref_img = preproc.load_images(NI_filenames, check=dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)))
     NI_arr, NI_participants_df = preproc.merge_ni_df(NI_arr, NI_participants_df, participants_df)
+    NI_participants_df.to_csv(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='participants', ext='csv'), index=False)
 
     mask_arr = preproc.compute_brain_mask(NI_arr, ref_img, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10, verbose=1).get_data() > 0
     # mask_img = nilearn.image.new_img_like(ref_img, mask_arr)
@@ -257,6 +263,9 @@ for dataset in datasets:
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
+    # Save
+    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
+
     ########################################################################################################################
     print("# 2) Global scaling")
     tag = 'g'
@@ -269,6 +278,9 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+
+    # Save
+    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
 
     ########################################################################################################################
     print("# 3) Center by site")
@@ -286,26 +298,17 @@ for dataset in datasets:
 
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
-    #ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
-    # DEBUG
-
-    NI_arr = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-32', ext='npy'))
-    ml_age_32, ml_sex_32, ml_dx_32 = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
-
-    NI_arr = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-64', ext='npy'))
-    ml_age_64, ml_sex_64, ml_dx_64 = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
-
-    #ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-
-    ########################################################################################################################
     # Save
     np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
-    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-32', ext='npy'), NI_arr.astype('float32'))
-    NI_participants_df.to_csv(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='participants', ext='csv'), index=False)
+    # np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-32', ext='npy'), NI_arr.astype('float32'))
 
+
+    ########################################################################################################################
+    # Save Mask and ML stats
     mask_img = nilearn.image.new_img_like(ref_img, mask_arr)
-    mask_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='mask', ext='nii.gz')
+    mask_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='mask', ext='nii.gz')
     mask_img.to_filename(mask_filename)
     print("Check mask: fslview %s &" % mask_filename)
 
@@ -313,7 +316,7 @@ for dataset in datasets:
     ml_age_df = pd.concat(ml_age_l)
     ml_sex_df = pd.concat(ml_sex_l)
     ml_dx_df = pd.concat(ml_dx_l)
-    xls_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='ml', ext='xlsx')
+    xls_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='ml', ext='xlsx')
     with pd.ExcelWriter(xls_filename) as writer:
         ml_age_df.to_excel(writer, sheet_name='age', index=False)
         ml_sex_df.to_excel(writer, sheet_name='sex', index=False)
@@ -324,13 +327,15 @@ for dataset in datasets:
     # x64 = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-64', ext='npy'))
     # assert np.max(np.abs(NI_arr - x64)) == 0
     # del x64
+    if False:
+        x32 = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-32', ext='npy'))
+        print("x32= %.2f GB; x64=%.2f GB" % (x32.nbytes / 1e9, NI_arr.nbytes / 1e9))
+        print(np.max(np.abs(NI_arr[:, :, mask_arr] - x32[:, :, mask_arr])))
+        #np.min(np.abs(NI_arr[:, :, mask_arr]))
+        # schizconnect 1.160547182799121e-07
+        del x32
 
-    x32 = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-32', ext='npy'))
-    print("x32= %.2f GB; x64=%.2f GB" % (x32.nbytes / 1e9, NI_arr.nbytes / 1e9))
-    print(np.max(np.abs(NI_arr[:, :, mask_arr] - x32[:, :, mask_arr])))
-    #np.min(np.abs(NI_arr[:, :, mask_arr]))
-    # schizconnect 1.160547182799121e-07
-    del NI_arr, x32
+    del NI_arr
 
 
 
@@ -432,7 +437,7 @@ x32= 5.92 GB; x64=11.84 GB
 ########################################################################################################################
 # 
 
-
+"""
 
 datasets = {
     'icaar-start': ni_icaar_filenames,
@@ -465,4 +470,4 @@ NI_arr = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs',
 # provide CV and score
 
 
-
+"""
