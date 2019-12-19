@@ -33,6 +33,8 @@ df_tr = df[df.study.isin(['SCHIZCONNECT-VIP', 'PRAGUE', 'BIOBD'])]
 df_val = df[df.study.isin(['BSNIP'])]
 70 from 5 site
 
+Debug
+os.chdir("/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/")
 """
 
 import os
@@ -42,7 +44,7 @@ import pandas as pd
 import nibabel
 # import brainomics.image_atlas
 import brainomics.image_preprocessing as preproc
-from brainomics.image_statistics import univariate_statistics, ml_predictions
+from brainomics.image_statistics import univ_stats, plot_univ_stats, residualize, ml_predictions
 import shutil
 # import mulm
 # import sklearn
@@ -71,12 +73,27 @@ PHENOTYPE_CSV = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsn
 #INPUT_CSV_schizconnect = '/neurospin/psy/schizconnect-vip-prague/participants_schizconnect-vip.tsv'
 #INPUT_CSV_prague = '/neurospin/psy/schizconnect-vip-prague/participants_prague.tsv'
 
-
-
 # 3) Output
-OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/{dataset}_{modality}{tags}_{type}.{ext}'
-# OUTPUT_PATH.format(dataset='', modality='mwp1', tags='', type='', ext='')
-# OUTPUT_PATH.format(dataset='icaar-start', modality='mwp1', tags='gs', type='mask', ext='nii.gz')
+OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
+
+def OUTPUT(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None, type=None, ext=None):
+    # scaling: global scaling? in "raw", "gs"
+    # harmo (harmonization): in [raw, ctrsite, ressite, adjsite]
+    # type data64, or data32
+    return os.path.join(OUTPUT_PATH, dataset + "_" + modality+ "_" + mri_preproc +
+                 ("" if scaling is None else "_" + scaling) +
+                 ("" if harmo is None else "-" + harmo) +
+                 ("" if type is None else "_" + type) + "." + ext)
+
+"""
+OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv")
+OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz")
+OUTPUT(dataset, scaling='raw', harmo='raw', type="data64", ext="npy")
+OUTPUT(dataset, scaling='gs', harmo='raw', type="data64", ext="npy")
+OUTPUT(dataset, scaling='gs', harmo='ctrsite', type="data64", ext="npy")
+OUTPUT(dataset, scaling='gs', harmo='ressite', type="data64", ext="npy")
+OUTPUT(dataset, scaling='gs', harmo='adjsite', type="data64", ext="npy")
+"""
 
 ########################################################################################################################
 # Read phenotypes
@@ -245,73 +262,142 @@ for dataset in datasets:
 
     ########################################################################################################################
     print("# 1) Read images")
-    tag = 'raw'
+    scaling, harmo = 'raw', 'raw'
+
     NI_arr, NI_participants_df, ref_img = preproc.load_images(NI_filenames, check=dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)))
     NI_arr, NI_participants_df = preproc.merge_ni_df(NI_arr, NI_participants_df, participants_df)
-    NI_participants_df.to_csv(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='participants', ext='csv'), index=False)
+    NI_participants_df.to_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
+    # Save (reload data in memory mapping)
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
 
-    mask_arr = preproc.compute_brain_mask(NI_arr, ref_img, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10, verbose=1).get_data() > 0
-    # mask_img = nilearn.image.new_img_like(ref_img, mask_arr)
-    # mask_img.to_filename("/tmp/msk.nii")
+    """
+    #NI_arr = np.load(OUTPUT(dataset, scaling='raw', harmo='raw', type="data64", ext="npy"))
+    NI_arr = np.load(OUTPUT(dataset, scaling='raw', harmo='raw', type="data64", ext="npy"), mmap_mode='r')
 
-    # Univariate stats
-    pdf_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='stats', ext='pdf')
-    design_mat = NI_participants_df[["age", "sex", "tiv", "site"]]  #  Design matrix for Univariate statistics
-    vars, mask_arr = univariate_statistics(NI_arr=NI_arr, ref_img=ref_img, design_mat=design_mat, pdf_filename=pdf_filename, mask_arr=mask_arr, thres_nlpval=3)
+    NI_participants_df = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
+    ref_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    """
 
-    # ML
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-
-    # Save
-    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
+    # Compute mask
+    mask_img = preproc.compute_brain_mask(NI_arr, ref_img, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10,
+                               verbose=1)
+    mask_arr = mask_img.get_data() > 0
+    mask_img.to_filename(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
 
     ########################################################################################################################
-    print("# 2) Global scaling")
-    tag = 'g'
+    print("# 2) Raw data")
+    # Univariate stats
+
+    # design matrix: Set missing diagnosis to 'unknown' to avoid missing data(do it once)
+    dmat_df = NI_participants_df[['age', 'sex', 'diagnosis', 'tiv', 'site']]
+    dmat_df.loc[:, "sex"] = dmat_df.sex.astype(int).astype('object')
+    dmat_df.loc[dmat_df.diagnosis.isnull(), 'diagnosis'] = 'unknown'
+    assert np.all(dmat_df.isnull().sum() == 0)
+
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    # %time univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
+
+    # ML
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+
+
+    ########################################################################################################################
+    print("# 3) Global scaling")
+    scaling, harmo = 'gs', 'raw'
+
     NI_arr = preproc.global_scaling(NI_arr, axis0_values=np.array(NI_participants_df.tiv), target=1500)
+    # Save
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
 
     # Univariate stats
-    pdf_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='stats', ext='pdf')
-    vars, mask_arr = univariate_statistics(NI_arr=NI_arr, ref_img=ref_img, design_mat=design_mat, pdf_filename=pdf_filename, mask_arr=mask_arr, thres_nlpval=3)
-
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
     # ML
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
-    # Save
-    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
+    # Keep reference on this mmmaped data
+    NI_arr_gs = NI_arr
 
     ########################################################################################################################
-    print("# 3) Center by site")
-    tag = 'gs'
-    NI_arr = preproc.center_by_site(NI_arr, site=NI_participants_df.site)
+    print("# 4) Site-harmonization Center by site")
+    scaling, harmo = 'gs', 'ctrsite'
 
-    mask_arr_ = mask_arr & (np.std(NI_arr, axis=0) >= 1e-6).squeeze()
-    print("Mask BEFORE Global scaling and Center by site", mask_arr.sum())
-    print("Mask AFTER Global scaling and Center by site", mask_arr_.sum())
-    mask_arr = mask_arr_
-
-    # Univariate stats
-    pdf_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='stats', ext='pdf')
-    vars, mask_arr = univariate_statistics(NI_arr=NI_arr, ref_img=ref_img, design_mat=design_mat, pdf_filename=pdf_filename, mask_arr=mask_arr, thres_nlpval=3)
-
-    # ML
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=tag, dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    NI_arr = preproc.center_by_site(NI_arr_gs, site=NI_participants_df.site)
 
     # Save
-    np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-64', ext='npy'), NI_arr)
-    # np.save(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags=tag, type='data-32', ext='npy'), NI_arr.astype('float32'))
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
 
+    # Univariate stats
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
+    # ML
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
+    ########################################################################################################################
+    print("# 5) Site-harmonization residualize on site")
+    scaling, harmo = 'gs', 'ressite'
+
+    Yres = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df)
+    #Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="age + sex + diagnosis + site")
+    NI_arr = np.zeros(NI_arr_gs.shape)
+    NI_arr[:, 0, mask_arr] = Yres
+    del Yres
+
+    # Save
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+
+    # Univariate stats
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
+    # ML
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+
+    ########################################################################################################################
+    print("# 6) Site-harmonization adjusted (age+sex+diag) residualize on site")
+    scaling, harmo = 'gs', 'adjsite(age+sex+diag)'
+
+    Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="age + sex + diagnosis + site")
+    NI_arr = np.zeros(NI_arr_gs.shape)
+    NI_arr[:, 0, mask_arr] = Yadj
+    del Yadj
+
+    # Save
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo='adjsite(age+sex+diag)', type="data64", ext="npy"), mmap_mode='r')
+
+    # Univariate stats
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
+    # ML
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     ########################################################################################################################
     # Save Mask and ML stats
+    """
     mask_img = nilearn.image.new_img_like(ref_img, mask_arr)
     mask_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='mask', ext='nii.gz')
     mask_img.to_filename(mask_filename)
     print("Check mask: fslview %s &" % mask_filename)
-
+    """
     # Save ML
     ml_age_df = pd.concat(ml_age_l)
     ml_sex_df = pd.concat(ml_sex_l)

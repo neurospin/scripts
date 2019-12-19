@@ -78,7 +78,7 @@ max      33.000000
 """
 
 # Add intercept
-inter= pd.DataFrame([1.]*Xd.shape[0], columns=["inter"])
+inter = pd.DataFrame([1.]*Xd.shape[0], columns=["inter"])
 Xd = pd.concat((inter, Xd), axis=1)
 
 if DATASET == "full":
@@ -182,12 +182,21 @@ SCORES_CVGRID.to_csv(os.path.join(OUTPUT, "enet_param-selection_10cv__20170926.c
 ## 10 CV with parameters scores + AUC and ROC
 ############################################################################
 
-y_pred = list()
-y_true = list()
-y_prob_pred = list()
+y_pred = np.zeros(len(y))
+y_true = np.zeros(len(y))
+y_prob_pred = np.zeros(len(y))
+y_idx = np.zeros(len(y))
+
+y_pred_ = list()
+y_true_ = list()
+y_prob_pred_ = list()
+y_idx_ = list()
+
 Coefs = list()
+res_cv = list()
 
 for fold, (train, test) in enumerate(utils.CV10):
+    # train, test = utils.CV10[4]
     Xtr = X[train, :]
     Xte = X[test, :]
     ytr = y[train, :]
@@ -196,19 +205,75 @@ for fold, (train, test) in enumerate(utils.CV10):
     mod = ElasticNetLogisticRegression(l=L1_PROP, alpha=ALPHA, penalty_start=1,
                                        class_weight="auto")
     mod.fit(Xtr, ytr)
-    y_pred.append(mod.predict(Xte).ravel())
-    y_prob_pred.append(mod.predict_probability(Xte).ravel())
-    y_true.append(yte.ravel())
+
+    y_pred[test]= mod.predict(Xte).ravel()
+    y_prob_pred[test] = mod.predict_probability(Xte).ravel()
+    y_true[test] = yte.ravel()
+    y_idx[test] = test
+
+    """
+    y_pred_.append(mod.predict(Xte).ravel())
+    y_prob_pred_.append(mod.predict_probability(Xte).ravel())
+    y_true_.append(yte.ravel())
+    y_idx_.append(test)
+    """
+
     Coefs.append(mod.beta.copy().ravel())
+    # Macro scores
+    bacc, pval_bacc, auc, r0, pval_r0, r1, pval_r1, acc, pval_acc = scores(yte, mod.predict(Xte).ravel(), mod.predict_probability(Xte).ravel())
+    res_cv.append([bacc, r0, r1, auc])
     #print mod.predict(Xte).ravel() == yte.ravel()
     #if fold == 4: break
-y_pred = np.concatenate(y_pred)
-y_true = np.concatenate(y_true)
-prob_pred = np.concatenate(y_prob_pred)
 
+assert np.all(y_true == y.ravel())
+
+# SCORE_COLUMNS = ["bacc", "pval_bacc", "auc", "r0", "pval_r0", "r1", "pval_r1", "acc", "pval_acc"]
+
+# Micro performances
+"""
+y_pred_ = np.concatenate(y_pred_)
+y_true_ = np.concatenate(y_true_)
+y_prob_pred_ = np.concatenate(y_prob_pred_)
+y_idx_ = np.concatenate(y_idx_)
+scores(y_true_, y_pred_, y_prob_pred_)
+roc_auc_score(y_true_, y_prob_pred_)
+"""
+
+scores(y_true, y_pred, y_prob_pred)
+roc_auc_score(y_true, y_prob_pred)
+
+preds = pd.DataFrame(dict(y_idx=y_idx, y_true=y_true, y_pred=y_pred, y_prob_pred=y_prob_pred))
 SCORES_CV = pd.DataFrame([scores(y_true, y_pred, prob_pred)], columns=SCORE_COLUMNS)
 SCORES_CV = SCORES_CV.append(np.round(SCORES_CV * 100, 2))
+pd.options.display.float_format = '{:,.2f}'.format
 print(SCORES_CV)
+"""
+   bacc  pval_bacc   auc    r0  pval_r0    r1  pval_r1   acc  pval_acc
+0  0.88       0.00  0.65  0.94     0.00  0.82     0.01  0.89      0.00
+0 87.78       0.00 64.77 93.75     0.39 81.82     1.00 88.89      0.00
+"""
+
+# Macro performances
+
+res_cv = pd.DataFrame(res_cv, columns=["bacc", "r0", "r1", "auc"])
+# Mean and std-Err
+print(res_cv.mean(axis=0))
+print(res_cv.std(axis=0) / np.sqrt(res_cv.shape[0]))
+"""
+Mean
+bacc    0.875
+r0      0.950
+r1      0.800
+auc     0.850
+
+Std-err
+bacc    0.067185
+r0      0.050000
+r1      0.133333
+auc     0.076376
+"""
+
+# Coefs
 
 CoefsCv = pd.DataFrame(Coefs, columns=Xd.columns)
 COEFS_CV = CoefsCv.describe(percentiles=[.99, .95, .9, .5, .1, .05, 0.01])
@@ -218,6 +283,24 @@ COEFS_CV.ix[:, "count"] = np.sum(CoefsCv != 0, axis=0)
 COEFS_CV_SELECTED = COEFS_CV.ix[COEFS_CV.ix[:, "count"]  != 0, :]
 
 print(COEFS_CV_SELECTED.round(2))
+
+
+
+# SEXE vs Err
+df.SEXE
+err = y_true != y_pred
+import pandas as pd
+import scipy.stats as stats
+
+crosstab = pd.crosstab(err, df.SEXE.values, rownames=['err'], colnames=['sex'])
+
+print("Observed table:")
+print("---------------")
+print(crosstab)
+chi2, pval, dof, expected = stats.chi2_contingency(crosstab)
+
+
+
 """
 # FULL
 

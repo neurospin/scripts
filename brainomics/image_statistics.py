@@ -7,7 +7,6 @@ Created on 11/22/19
 """
 import numpy as np
 import pandas as pd
-import brainomics.image_preprocessing as preproc
 import matplotlib.pyplot as plt
 import seaborn as sns
 import collections
@@ -20,102 +19,61 @@ import time
 import sklearn.metrics as metrics
 from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.preprocessing import StandardScaler
+from collections import OrderedDict
 
-def univariate_statistics(NI_arr, ref_img, design_mat, pdf_filename, mask_arr=None, thres_nlpval=3):
+def univ_stats(Y, formula, data):
     """
-    Perform univariate statistics
+    Parameters
+    ----------
+    Y: array (n_subjects, n_features)
+    formula: str eg. "age + sex + site"
+    data: DataFrame, containing value of formula terms
+
+    """
+    X, t_contrasts, f_contrasts = mulm.design_matrix(formula=formula, data=data)
+    mod_mulm = mulm.MUOLS(Y, X).fit()
+    aov_mulm = OrderedDict((term, mod_mulm.f_test(f_contrasts[term], pval=True)) for term in f_contrasts)
+
+    return mod_mulm, aov_mulm
+
+def plot_univ_stats(univstats, mask_img, data=None, grand_mean=None, pdf_filename=None, thres_nlpval=3, skip_intercept=True):
+    """
 
     Parameters
     ----------
-    NI_arr :  ndarray, of shape (n_subjects, 1, image_shape).
-    ref_img : image
-    design_mat : DataFrame of the design matrix
-    pdf_filename : str output pdf filename
-    pdf : PdfPages(pdf_filename), optional
-    mask_arr : ndarray of image_shape, if None use `preproc.compute_brain_mask(NI_arr, ref_img).get_data() > 0`
-    thres_nlpval : float, threshold of neg log p-values
+    univstats: dict(indendant_variable:[[fstats], [pvalues]], ...)
+    mask_img: mask image, such that sum(mask_img.get_data() > 0) == stat[iv][0].shape[0]
+    data: DataFrame (n_variables, n_subjects) used to build the design matrix. Variables are ploted against grand mean
+    grand_mean: array (n_subjects, ) subject grand mean
+    pdf_filename: str,
+    thres_nlpval: Threshold -log pvalue (default 3)
 
     Returns
     -------
-        dict : of variables, where each variable is a dict of 'stat' and 'pval' computed on `mask_arr`.
-            Use as `NI_arr[:, :, mask_arr].squeeze()`
-        mask_arr : ndarray, the mask
-    """
 
-    pdf = PdfPages(pdf_filename)
+    """
+    if pdf_filename:
+        pdf = PdfPages(pdf_filename)
     fig_title = os.path.splitext(os.path.basename(pdf_filename))[0]
 
-    if mask_arr is None:
-        mask_arr = preproc.compute_brain_mask(NI_arr, ref_img).get_data() > 0
+    if skip_intercept:
+        univstats = univstats.copy()
+        univstats.pop("Intercept")
 
-    Y = NI_arr[:, :, mask_arr].squeeze()
-    Y -= Y.mean(axis=0) # center Y to avoid capturing intercept
-
-    ####################################################################################################################
-    # build a variable dict with all required information, contrast for both numerical ad categorical variables
-
-    #columns = X_df.columns
-    Xdf_num = design_mat.select_dtypes('float')
-    Xdf_cat = design_mat.select_dtypes('object')
-
-    variables = collections.OrderedDict()
-    i = 0
-    for var in Xdf_num:
-        variables[var] = dict(x=Xdf_num[var], idx=i, len=1, type='num')
-        i += 1
-
-    for var in Xdf_cat:
-        x = pd.get_dummies(Xdf_cat[var])
-        variables[var] = dict(x=x, idx=i, len=x.shape[1], type='cat')
-        i += x.shape[1]
-
-    # Design matrix concat numerical and categorical variables
-    Xdf_dummy = pd.concat([variables[v]['x'] for v in variables], axis=1)
-
-    if Xdf_cat.shape[1] > 0: # if not categorical variable, append intercept
-        Xdf_dummy.assign(inter=1)
-
-    for var in Xdf_num.columns:
-        # print(var)
-        con = np.zeros(Xdf_dummy.shape[1])
-        con[variables[var]['idx']] = 1
-        variables[var]['contrast'] = con
-
-    for var in Xdf_cat.columns:
-        # print(var)
-        con = np.zeros((Xdf_dummy.shape[1], Xdf_dummy.shape[1]))
-        indices = np.arange(variables[var]['idx'], variables[var]['idx'] + variables[var]['len'])
-        con[indices, indices] = 1
-        variables[var]['contrast'] = con
-
-    X = np.asarray(Xdf_dummy)
-    mod = mulm.MUOLS(Y, X)
-    mod.fit()
-
-    for var in Xdf_num.columns:
-        # print(var)
-        tvals, pvals, dof = mod.t_test(variables[var]['contrast'], pval=True, two_tailed=True)
-        variables[var]['stat'] = tvals.squeeze()
-        variables[var]['pval'] = pvals.squeeze()
-
-    for var in Xdf_cat.columns:
-        # print(var)
-        fvals, pvals = mod.f_test(variables[var]['contrast'], pval=True)
-        variables[var]['stat'] = fvals.squeeze()
-        variables[var]['pval'] = pvals.squeeze()
-
+    mask_arr = mask_img.get_data() > 0
     ####################################################################################################################
     # Plots
 
     # Plot brain maps
-    fig, ax = plt.subplots(nrows=len(variables), ncols=1, figsize=(8.27, 11.69))
+    fig, ax = plt.subplots(nrows=len(univstats), ncols=1, figsize=(8.27, 11.69))
     fig.suptitle(fig_title)
-    for cpt, var in enumerate(variables):
-        # print(cpt, var)
-        ax_title = "%s: -log p-value (y~%s)" % (var ,"+".join(design_mat.columns))
+    for cpt, var in enumerate(univstats):
+        # print(cpt, var)
+        #ax_title = "%s: -log p-value (y~%s)" % (var ,"+".join(design_mat.columns))
+        ax_title = "%s: -log p-value" % var
         map_arr = np.zeros(mask_arr.shape)
-        map_arr[mask_arr] = -np.log10(variables[var]['pval'])
-        map_img = nilearn.image.new_img_like(ref_img, map_arr)
+        map_arr[mask_arr] = -np.log10(univstats[var][1])
+        map_img = nilearn.image.new_img_like(mask_img, map_arr)
         nilearn.plotting.plot_glass_brain(map_img, colorbar=True, threshold=thres_nlpval, title=ax_title,
                                           figure=fig, axes=ax[cpt])
 
@@ -124,46 +82,85 @@ def univariate_statistics(NI_arr, ref_img, design_mat, pdf_filename, mask_arr=No
     plt.close(fig)
 
     # Plot p-value histo
-    fig, ax = plt.subplots(nrows=len(variables), ncols=1, figsize=(8.27, 11.69))
+    fig, ax = plt.subplots(nrows=len(univstats), ncols=1, figsize=(8.27, 11.69))
     fig.suptitle(fig_title)
-    for cpt, var in enumerate(variables):
+    for cpt, var in enumerate(univstats):
         # print(cpt, var)
-        ax_title = "%s: histo p-value (y~%s)" % (var, "+".join(design_mat.columns))
-        ax[cpt].hist(variables[var]['pval'], bins=100)
+        # ax_title = "%s: histo p-value (y~%s)" % (var, "+".join(design_mat.columns))
+        ax_title = "%s: histo p-value" % var
+        ax[cpt].hist(univstats[var][1], bins=100)
         ax[cpt].set_title(ax_title)
 
-    if pdf:
+    plt.tight_layout()
+
+    if pdf_filename:
         pdf.savefig()
     plt.close(fig)
 
-    df = design_mat.copy()
-    df["gd_mean"] = Y.mean(axis=1)
-
-    # variable x subject grand mean
-    fig, ax = plt.subplots(nrows=len(variables), ncols=1, figsize=(8.27, 11.69))
-    fig.suptitle(fig_title)
-    for cpt, var in enumerate(variables):
-        # print(cpt, var)
-        if (variables[var]['type'] == 'cat') or (len(df[var].unique()) <= 2):
-            if "sex" in df and False:
-                sns.violinplot(x=var, y="gd_mean", hue="sex", data=df, ax=ax[cpt])
+    # data variables vs subject grand mean
+    if data is not None and grand_mean is not None:
+        df = data.copy()
+        df["grand_mean"] = grand_mean
+        categoricals = df.select_dtypes(exclude=['int', 'float']).columns
+        fig, ax = plt.subplots(nrows=data.shape[1], ncols=1, figsize=(8.27, 11.69))
+        fig.suptitle(fig_title)
+        for cpt, var in enumerate(data.columns):
+            # cpt, var = 2, 'diagnosis'
+            print(cpt, var, var in categoricals)
+            if (var in categoricals) or (len(df[var].unique()) <= 2):
+                # keep only levels with at least 5 samples
+                levels_count = df[var].value_counts()
+                levels_keep = levels_count[levels_count > 5].index
+                df_ = df[df[var].isin(levels_keep)]
+                sns.violinplot(x=var, y="grand_mean", data=df_, ax=ax[cpt])
             else:
-                sns.violinplot(x=var, y="gd_mean", data=df, ax=ax[cpt])
-        else:
-            sns.scatterplot(x=var, y="gd_mean", data=df, ax=ax[cpt])
+                sns.scatterplot(x=var, y="grand_mean", data=df, ax=ax[cpt])
 
-    if pdf:
-        pdf.savefig()
-    plt.close(fig)
+        plt.tight_layout()
 
-    if pdf:
+        if pdf_filename:
+            pdf.savefig()
+        plt.close(fig)
+
+    if pdf_filename:
         pdf.close()
 
-    # Clean variables
-    for var in variables:
-        variables[var] = dict(stat=variables[var]['stat'], pval=variables[var]['pval'])
 
-    return variables, mask_arr
+def residualize(Y, formula_res, data, formula_full=None):
+    """
+    Residualisation of adjusted residualization.
+
+    Parameters
+    ----------
+    Y: array (n, p), dependant variables
+    formula_res: str, residualisation formula ex: "site":
+    1) Fit  Y = b0 + b1 site + eps
+    2) Return Y - b0 - b1 site
+    data: DataFrame of independant variables
+    formula_full:  str, full model formula (default None) ex: "age + sex + site + diagnosis". If not Null residualize
+    performs an adjusted residualization:
+    1) Fit Y = b1 age + b2 sex + b3 site + b4 diagnosis + eps
+    2) Return Y - b3 site
+
+    Returns
+    -------
+    Y: array (n, p), of residualized dependant variables
+    """
+    if formula_full is None:
+        formula_full = formula_res
+
+    res_terms = mulm.design_matrix(formula=formula_res, data=data)[1].keys()
+
+    X, t_contrasts, f_contrasts = mulm.design_matrix(formula=formula_full, data=data)
+
+    # Fit full model
+    mod_mulm = mulm.MUOLS(Y, X).fit()
+
+    # mask of terms in residualize formula within full model
+    mask = np.array([cont  for term, cont in t_contrasts.items() if term in res_terms]).sum(axis=0) == 1
+
+    return Y -  np.dot(X[:, mask], mod_mulm.coef[mask, :])
+
 
 def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
     """
@@ -184,7 +181,7 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
     model_params dictionary of models parameters
     """
     if mask_arr is not None:
-        X = NI_arr[:, :, mask_arr].squeeze()
+        X = NI_arr.squeeze()[:, mask_arr]
     else:
         X = NI_arr
 
@@ -292,3 +289,63 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
     model_params = None
 
     return stats_df, stats_folds_df, model_params
+
+if __name__ == '__main__':
+    import numpy as np
+    import pandas as pd
+    from brainomics.image_statistics import univ_stats, plot_univ_stats, ml_predictions, residualize
+
+    ####################################################################################################################
+    # Residualization
+    import seaborn as sns
+    # %matplotlib qt
+
+    # Dataset no site effect in age
+
+    age = np.random.uniform(10, 40, size=100)
+    sex = np.random.choice([0, 1], 100)
+    sex_c = ["X%i" % i for i in sex]
+    site = np.array([-1] * 50 + [1] * 50)
+    # age = age + 1 * site
+    site_c = ["S%i" % i for i in site]
+
+    y0 = -0.1 * age + 0.0 * sex + site + np.random.normal(size=100)
+
+    data = pd.DataFrame(dict(age=age, sex=sex_c, site=site_c, y0=y0))
+    Y = np.asarray(data[["y0"]])
+
+    Yres = residualize(Y, formula_res="site", data=data)
+    Yadj = residualize(Y, formula_res="site", data=data, formula_full="age + sex + site")
+
+    data["y0res"] = Yres[:, 0]
+    data["y0adj"] = Yadj[:, 0]
+
+    # Simple residualization or adjusted residualization works the same
+    sns.lmplot("age", "y0", hue="site", data=data)
+    sns.lmplot("age", "y0res", hue="site", data=data)
+    sns.lmplot("age", "y0adj", hue="site", data=data)
+
+    # Dataset with site effect in age
+
+    age = np.random.uniform(10, 40, size=100)
+    sex = np.random.choice([0, 1], 100)
+    sex_c = ["X%i" % i for i in sex]
+    site = np.array([-1] * 50 + [1] * 50)
+    age = age + 5 * site
+    site_c = ["S%i" % i for i in site]
+
+    y0 = -0.1 * age + 0.0 * sex + site + np.random.normal(size=100)
+
+    data = pd.DataFrame(dict(age=age, sex=sex_c, site=site_c, y0=y0))
+    Y = np.asarray(data[["y0"]])
+
+    Yres = residualize(Y, formula_res="site", data=data)
+    Yadj = residualize(Y, formula_res="site", data=data, formula_full="age + sex + site")
+
+    data["y0res"] = Yres[:, 0]
+    data["y0adj"] = Yadj[:, 0]
+
+    # Requires adjusted residualization
+    sns.lmplot("age", "y0", hue="site", data=data)
+    sns.lmplot("age", "y0res", hue="site", data=data)
+    sns.lmplot("age", "y0adj", hue="site", data=data)
