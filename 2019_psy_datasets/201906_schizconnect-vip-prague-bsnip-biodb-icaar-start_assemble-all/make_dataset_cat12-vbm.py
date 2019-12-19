@@ -305,7 +305,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 3) Global scaling")
@@ -323,6 +324,8 @@ for dataset in datasets:
                     skip_intercept=True)
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     # Keep reference on this mmmaped data
@@ -345,6 +348,8 @@ for dataset in datasets:
                     skip_intercept=True)
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
@@ -369,6 +374,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 6) Harmonization res:site adjusted for (age+sex+diag)")
@@ -390,6 +397,8 @@ for dataset in datasets:
                     skip_intercept=True)
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
@@ -413,7 +422,10 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
+    np.max(np.abs(NI_arr.astype('float32') - NI_arr))
     ########################################################################################################################
     # Save Mask and ML stats
     """
