@@ -277,6 +277,7 @@ for dataset in datasets:
 
     NI_participants_df = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
     ref_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    mask_img = ref_img
     """
 
     # Compute mask
@@ -402,8 +403,8 @@ for dataset in datasets:
     ml_age_df = pd.concat(ml_age_l)
     ml_sex_df = pd.concat(ml_sex_l)
     ml_dx_df = pd.concat(ml_dx_l)
-    xls_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='ml', ext='xlsx')
-    with pd.ExcelWriter(xls_filename) as writer:
+
+    with pd.ExcelWriter(OUTPUT(dataset, scaling=None, harmo=None, type="ml-scores", ext="xlsx")) as writer:
         ml_age_df.to_excel(writer, sheet_name='age', index=False)
         ml_sex_df.to_excel(writer, sheet_name='sex', index=False)
         ml_dx_df.to_excel(writer, sheet_name='dx', index=False)
