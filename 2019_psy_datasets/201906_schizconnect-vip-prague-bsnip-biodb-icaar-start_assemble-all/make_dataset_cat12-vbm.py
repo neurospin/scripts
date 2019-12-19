@@ -348,8 +348,8 @@ for dataset in datasets:
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
-    print("# 5) Site-harmonization residualize on site")
-    scaling, harmo = 'gs', 'ressite'
+    print("# 5) Harmonization residualize on site")
+    scaling, harmo = 'gs', 'res:site'
 
     Yres = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df)
     #Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="age + sex + diagnosis + site")
@@ -371,17 +371,17 @@ for dataset in datasets:
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
-    print("# 6) Site-harmonization adjusted (age+sex+diag) residualize on site")
-    scaling, harmo = 'gs', 'adjsite(age+sex+diag)'
+    print("# 6) Harmonization res:site adjusted for (age+sex+diag)")
+    scaling, harmo = 'gs', 'res:site(age+sex+diag)'
 
-    Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="age + sex + diagnosis + site")
+    Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="site + age + sex + diagnosis")
     NI_arr = np.zeros(NI_arr_gs.shape)
     NI_arr[:, 0, mask_arr] = Yadj
     del Yadj
 
     # Save
     np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
-    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo='adjsite(age+sex+diag)', type="data64", ext="npy"), mmap_mode='r')
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
 
     # Univariate stats
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
@@ -391,6 +391,29 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+
+    ########################################################################################################################
+    print("# 7) Harmonization res:age+sex+site adjusted for diag")
+    scaling, harmo = 'gs', 'res:site+age+sex(diag)'
+
+    Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site + age + sex", data=dmat_df, formula_full="site + age + sex + diagnosis")
+    NI_arr = np.zeros(NI_arr_gs.shape)
+    NI_arr[:, 0, mask_arr] = Yadj
+    del Yadj
+
+    # Save
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+
+    # Univariate stats
+    univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+    pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
+    plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
+                    skip_intercept=True)
+    # ML
+    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
+    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+
     ########################################################################################################################
     # Save Mask and ML stats
     """
