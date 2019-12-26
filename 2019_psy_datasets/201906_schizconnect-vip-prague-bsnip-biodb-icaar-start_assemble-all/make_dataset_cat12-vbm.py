@@ -177,7 +177,6 @@ set(tivo_biobd.participant_id).difference(set(phenotypes.participant_id))
 ########################################################################################################################
 # Some global params
 
-
 def do_ml(NI_arr, NI_participants_df, mask_arr, tag, dataset):
     """
     Machine learning for sex, age and DX
@@ -189,11 +188,13 @@ def do_ml(NI_arr, NI_participants_df, mask_arr, tag, dataset):
     def balanced_acc(estimator, X, y, **kwargs):
         return metrics.recall_score(y, estimator.predict(X), average=None).mean()
 
-    estimators_clf = dict(lrl2=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
+    estimators_clf = dict(LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
                           gbc=sklearn.ensemble.GradientBoostingClassifier())
     # or
-    estimators_clf = dict(lrl2=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5))
-    estimators_reg = dict(lrl2=lm.RidgeCV())
+    estimators_clf = dict(LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
+                          LogisticRegressionCV_balanced_nointer=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5,
+                                                                                        fit_intercept=False))
+    estimators_reg = dict(RidgeCV_inter=lm.RidgeCV(), RidgeCV_nointer=lm.RidgeCV(fit_intercept=False))
 
     ml_age_, _, _ = ml_predictions(NI_arr=NI_arr, y=NI_participants_df["age"].values,
                                    estimators=estimators_reg, cv=None, mask_arr=mask_arr)

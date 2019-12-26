@@ -216,6 +216,14 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
                 results[name]["coefs"] = estimators[name].coef_
             except:
                 pass
+
+            if hasattr(estimators[name], 'alpha_'):
+                results[name]["best_param"] = estimators[name].alpha_
+            elif hasattr(estimators[name], 'C_'):
+                results[name]["best_param"] = estimators[name].C_
+            else:
+                results[name]["best_param"] = np.NaN
+
         return results
 
     #estimator = lm.LogisticRegression(C=1, solver='lbfgs')
@@ -227,7 +235,7 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
         for train, test in cv.split(X, y))
 
     # Aggregate predictions
-    preds = {name:dict(y_test=np.zeros(len(y)), score_test=np.zeros(len(y)), time=[], coefs=[]) for name in estimators}
+    preds = {name:dict(y_test=np.zeros(len(y)), score_test=np.zeros(len(y)), time=[], coefs=[], best_param=[]) for name in estimators}
     for i, (train, test) in enumerate(cv.split(X, y)):
         for name in estimators:
             preds[name]['y_test'][test] = cv_ret[i][name]['y_test']
@@ -236,6 +244,7 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
             except:
                 if 'score_test' in preds[name]: preds[name].pop('score_test')
             preds[name]['time'].append(cv_ret[i][name]['time'])
+            preds[name]['best_param'].append(cv_ret[i][name]['best_param'])
             try:
                 preds[name]["coefs"].append(cv_ret[i][name]['coefs'].ravel())
             except:
@@ -257,15 +266,17 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
                     np.concatenate((np.array([name] * len(baccs_test))[: ,None],
                                    np.array(["CV%i" %cv for cv in range(len(baccs_test))])[: ,None],
                                    baccs_test[:, None], aucs_test[:, None], np.asarray(recalls_test),
-                                   np.asarray(preds[name]['time'])[:, None]), axis=1))
+                                   np.asarray(preds[name]['time'])[:, None],
+                                   np.asarray(preds[name]['best_param'])[:, None]), axis=1))
                 stats_list.append([name, np.mean(baccs_test), np.mean(aucs_test)] + \
-                                      np.asarray(recalls_test).mean(axis=0).tolist() + [np.mean(preds[name]['time'])])
+                                      np.asarray(recalls_test).mean(axis=0).tolist() + [np.mean(preds[name]['time']), str(preds[name]['best_param'])])
 
         stats_df = pd.DataFrame(stats_list, columns=['model', 'bacc_test', 'auc_test'] + \
-                                                    ['recall%i_test' % lev for lev in np.unique(y)] + ["time"])
+                                                    ['recall%i_test' % lev for lev in np.unique(y)] + ["time", "best_param"])
+        stats_df["n"] = str(["%i:%i" % (lab, np.sum(y==lab)) for lab in np.unique(y)])
 
         stats_folds_df = pd.DataFrame(np.concatenate(stats_folds_list, axis=0), columns=['model', 'fold', 'bacc_test', 'auc_test'] + \
-                                                    ['recall%i_test' % lev for lev in np.unique(y)] + ["time"])
+                                                    ['recall%i_test' % lev for lev in np.unique(y)] + ["time", "best_param"])
 
     else:
         for name in preds:
@@ -278,13 +289,16 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
                 np.concatenate((np.array([name] * len(mae_test))[:, None],
                                 np.array(["CV%i" % cv for cv in range(len(mae_test))])[:, None],
                                 mae_test[:, None], r2_test[:, None], mse_test[:, None], cor_test[:, None],
-                                np.asarray(preds[name]['time'])[:, None]), axis=1))
-            stats_list.append([name, np.mean(mae_test), np.mean(r2_test), np.mean(mse_test), np.mean(cor_test), np.mean(preds[name]['time'])])
+                                np.asarray(preds[name]['time'])[:, None],
+                                np.asarray(preds[name]['best_param'])[:, None]), axis=1))
+            stats_list.append([name, np.mean(mae_test), np.mean(r2_test), np.mean(mse_test), np.mean(cor_test),
+                               np.mean(preds[name]['time']), str(preds[name]['best_param'])])
 
-        stats_df = pd.DataFrame(stats_list, columns=['model', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time"])
+        stats_df = pd.DataFrame(stats_list, columns=['model', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time", "best_param"])
+        stats_df["n"] = len(y)
 
         stats_folds_df = pd.DataFrame(np.concatenate(stats_folds_list, axis=0),
-                                      columns=['model', 'fold', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time"])
+                                      columns=['model', 'fold', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time", "best_param"])
 
     model_params = None
 
