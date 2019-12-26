@@ -298,6 +298,7 @@ for dataset in datasets:
     assert np.all(dmat_df.isnull().sum() == 0)
 
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
+
     # %time univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
     pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
@@ -306,8 +307,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 3) Global scaling")
@@ -326,8 +327,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     # Keep reference on this mmmaped data
     NI_arr_gs = NI_arr
@@ -339,8 +340,8 @@ for dataset in datasets:
     NI_arr = preproc.center_by_site(NI_arr_gs, site=NI_participants_df.site)
 
     # Save
-    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
-    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), NI_arr.astype('float32'))
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), mmap_mode='r')
 
     # Univariate stats
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
@@ -350,8 +351,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 5) Harmonization residualize on site")
@@ -364,8 +365,8 @@ for dataset in datasets:
     del Yres
 
     # Save
-    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
-    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), NI_arr.astype('float32'))
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), mmap_mode='r')
 
     # Univariate stats
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
@@ -375,8 +376,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 6) Harmonization res:site adjusted for (age+sex+diag)")
@@ -388,8 +389,8 @@ for dataset in datasets:
     del Yadj
 
     # Save
-    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
-    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), NI_arr.astype('float32'))
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), mmap_mode='r')
 
     # Univariate stats
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
@@ -399,8 +400,8 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
     print("# 7) Harmonization res:age+sex+site adjusted for diag")
@@ -412,8 +413,8 @@ for dataset in datasets:
     del Yadj
 
     # Save
-    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), NI_arr)
-    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), NI_arr.astype('float32'))
+    NI_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data32", ext="npy"), mmap_mode='r')
 
     # Univariate stats
     univmods, univstats = univ_stats(NI_arr.squeeze()[:, mask_arr], formula="age + sex + diagnosis + tiv + site", data=dmat_df)
@@ -423,18 +424,11 @@ for dataset in datasets:
     # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
-    ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
-    ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
+    # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
+    # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
-    np.max(np.abs(NI_arr.astype('float32') - NI_arr))
+    #np.max(np.abs(NI_arr.astype('float32') - NI_arr))
     ########################################################################################################################
-    # Save Mask and ML stats
-    """
-    mask_img = nilearn.image.new_img_like(ref_img, mask_arr)
-    mask_filename = OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='', type='mask', ext='nii.gz')
-    mask_img.to_filename(mask_filename)
-    print("Check mask: fslview %s &" % mask_filename)
-    """
     # Save ML
     ml_age_df = pd.concat(ml_age_l)
     ml_sex_df = pd.concat(ml_sex_l)
@@ -445,152 +439,4 @@ for dataset in datasets:
         ml_sex_df.to_excel(writer, sheet_name='sex', index=False)
         ml_dx_df.to_excel(writer, sheet_name='dx', index=False)
 
-    ########################################################################################################################
-    # Reload and check precision
-    # x64 = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-64', ext='npy'))
-    # assert np.max(np.abs(NI_arr - x64)) == 0
-    # del x64
-    if False:
-        x32 = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-32', ext='npy'))
-        print("x32= %.2f GB; x64=%.2f GB" % (x32.nbytes / 1e9, NI_arr.nbytes / 1e9))
-        print(np.max(np.abs(NI_arr[:, :, mask_arr] - x32[:, :, mask_arr])))
-        #np.min(np.abs(NI_arr[:, :, mask_arr]))
-        # schizconnect 1.160547182799121e-07
-        del x32
-
     del NI_arr
-
-
-
-
-"""
-dataset='schizconnect-vip'
-df = pd.read_csv(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='participants', ext='csv'))
-np.all(NI_participants_df.age == df.age)
-np.all(NI_participants_df.site == df.site)
-
-pd.options.display.float_format = '{:,.2f}'.format
-import statsmodels.api as sm
-import statsmodels.formula.api as smfrmla
-import seaborn as sns
-
-# age
-sns.violinplot("site", "age", data=df)
-df[["site", 'age']].groupby("site").describe()
-          age                                          
-        count  mean   std   min   25%   50%   75%   max
-site                                                   
-MRN    164.00 37.84 12.63 18.00 26.00 36.50 49.00 65.00
-NU      80.00 32.05  7.33 20.00 25.00 31.50 37.25 46.00
-PRAGUE 133.00 28.21  6.57 19.00 23.00 27.00 33.00 49.00
-WUSTL  269.00 30.61 13.04 14.00 21.00 25.00 41.00 66.00
-vip     92.00 34.38 10.69 18.57 24.46 33.03 42.51 55.51
-
-sm.stats.anova_lm(smfrmla.ols("age ~ site", data=df).fit(), typ=2)
-           sum_sq     df     F  PR(>F)
-site      8,419.19   4.00 16.78    0.00
-Residual 91,946.87 733.00   nan     nan
-
-# sex
-df[["site", 'sex']].groupby("site").describe()
-          sex                                   
-        count mean  std  min  25%  50%  75%  max
-site                                            
-MRN    164.00 0.23 0.42 0.00 0.00 0.00 0.00 1.00
-NU      80.00 0.42 0.50 0.00 0.00 0.00 1.00 1.00
-PRAGUE 133.00 0.52 0.50 0.00 0.00 1.00 1.00 1.00
-WUSTL  269.00 0.45 0.50 0.00 0.00 0.00 1.00 1.00
-vip     92.00 0.45 0.50 0.00 0.00 0.00 1.00 1.00
-
-
-###########################################################################################################
-# icaar-start
-# 1) Read images
-Clusters of connected voxels #3, sizes= [368616, 45, 19]
-# 2) Global scaling
-# 3) Center by site
-Mask BEFORE Global scaling and Center by site 368680
-Mask AFTER Global scaling and Center by site 368680
-Check mask: fslview /neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/icaar-start_mwp1_gs_mask.nii.gz &
-x32= 1.42 GB; x64=2.84 GB
-8.20750178931462e-08
-
-###########################################################################################################
-# schizconnect-vip
-# 1) Read images
-Clusters of connected voxels #4, sizes= [365159, 44, 36, 41]
-# 2) Global scaling
-# 3) Center by site
-Mask BEFORE Global scaling and Center by site 365280
-Mask AFTER Global scaling and Center by site 365280
-Check mask: fslview /neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/schizconnect-vip_mwp1_gs_mask.nii.gz &
-x32= 6.27 GB; x64=12.53 GB
-1.160547182799121e-07
-
-ML:
-count         605
-unique          2
-top       control
-freq          330
-Name: diagnosis, dtype: object
-###########################################################################################################
-# bsnip
-# 1) Read images
-Clusters of connected voxels #4, sizes= [362509, 33, 24, 53]
-# 2) Global scaling
-# 3) Center by site
-Mask BEFORE Global scaling and Center by site 362619
-Mask AFTER Global scaling and Center by site 362619
-Check mask: fslview /neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/bsnip_mwp1_gs_mask.nii.gz &
-x32= 8.83 GB; x64=17.66 GB
-2.2977780922417423e-07
-
-###########################################################################################################
-# biobd
-# 1) Read images
-Clusters of connected voxels #5, sizes= [364481, 33, 13, 27, 56]
-# 2) Global scaling
-# 3) Center by site
-Mask BEFORE Global scaling and Center by site 364610
-Mask AFTER Global scaling and Center by site 364610
-Check mask: fslview /neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/biobd_mwp1_gs_mask.nii.gz &
-x32= 5.92 GB; x64=11.84 GB
-1.188412546149209e-07
-"""
-########################################################################################################################
-# 
-
-"""
-
-datasets = {
-    'icaar-start': ni_icaar_filenames,
-    'schizconnect-vip': ni_schizconnect_filenames,
-    'bsnip': ni_bsnip_filenames,
-    'biobd': ni_biobd_filenames}
-
-tags = ['raw', 'g', 'gs']
-for dataset in datasets:
-    print("###########################################################################################################")
-
-# dataset = 'icaar-start'
-# dataset = 'schizconnect-vip'
-# dataset = 'bsnip'
-# dataset = 'biobd'    print("#", dataset)
-
-# Same mask and participants for all tags
-mask_img = nibabel.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='mask', ext='nii.gz'))
-mask_arr = mask_img.get_data() == 1
-pop = pd.read_csv(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='participants', ext='csv'))
-
-
-for tag in tags:
-    tag = "raw"
-
-NI_arr = np.load(OUTPUT_PATH.format(dataset=dataset, modality='mwp1', tags='gs', type='data-64', ext='npy'), mmap_mode='r')
-
-#X = NI_arr[:, :, mask_arr].squeeze()
-
-# provide CV and score
-
-
-"""

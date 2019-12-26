@@ -220,7 +220,7 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
             if hasattr(estimators[name], 'alpha_'):
                 results[name]["best_param"] = estimators[name].alpha_
             elif hasattr(estimators[name], 'C_'):
-                results[name]["best_param"] = estimators[name].C_
+                results[name]["best_param"] = estimators[name].C_[0]
             else:
                 results[name]["best_param"] = np.NaN
 
