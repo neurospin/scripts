@@ -12,8 +12,6 @@ http://brainvisa.info/doc/pyaims-4.4/sphinx/pyaims_tutorial.html#types-conversio
 """
 import argparse
 import numpy as np
-from soma import aims
-from soma import aimsalgo
 
 """
 Do the same job than fsl5.0-applywarp
@@ -31,14 +29,48 @@ out_filename = "atlas_in_ref_bv_fsl.nii.gz"
 interp = "nn"
 
 """
-def get_transformation(src, ref):
+def down_sample(src_img, factor=2):
+    """
+
+    Parameters
+    ----------
+    src_img: nii image
+    factor: subsmapling factor (default 2)
+
+    Returns
+    -------
+    nii subsample image
+
+    Examples
+    --------
+    >>> import nilearn.datasets
+    >>> import brainomics.image_resample
+    >>> mni159_img = nilearn.datasets.load_mni152_template()
+
+    >>> resamp_img = brainomics.image_resample.down_sample(src_img=mni159_img, factor=2)
+
+    >>> print("SRC:", mni159_img.header.get_zooms(), mni159_img.get_data().shape)
+    >>> print("DST:", resamp_img.header.get_zooms(), resamp_img.get_data().shape)
+
+    >>> mni159_img.to_filename("/tmp/mni152_%imm.nii.gz" % mni159_img.header.get_zooms()[0])
+    >>> resamp_img.to_filename("/tmp/mni152_%imm.nii.gz" % resamp_img.header.get_zooms()[0])
+    """
+    from nilearn.image import resample_img
+    target_affine = np.copy(src_img.affine)[:3, :][:, :3]
+    target_affine[:3, :3] *= factor
+    return resample_img(src_img, target_affine=target_affine)
+
+
+def aims_get_transformation(src, ref):
+    from soma import aims
     src3mni = aims.AffineTransformation3d(src.header()['transformations'][0])
     ref2mni = aims.AffineTransformation3d(ref.header()['transformations'][0])
     src2ref = ref2mni.inverse() * src3mni
     return src2ref
 
 
-def resample(src, ref):
+def aims_resample(src, ref):
+    from soma import aims
     interp_dict = {"nn": 0, "lin": 1, "quad": 2}
     conv = aims.Converter(intype=src, outtype=aims.Volume('FLOAT'))
     src = conv(src)
@@ -58,7 +90,7 @@ def resample(src, ref):
     output_ima.header()['transformations'] = ref.header()['transformations']
     return output_ima
 
-if __name__ == "__main__":
+def aims__main__():
     interp = "nn"
     # Set default values to parameters
     # parse command line options

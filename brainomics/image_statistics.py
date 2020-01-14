@@ -162,12 +162,12 @@ def residualize(Y, formula_res, data, formula_full=None):
     return Y -  np.dot(X[:, mask], mod_mulm.coef[mask, :])
 
 
-def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
+def ml_predictions(X, y, estimators, cv=None, mask_arr=None):
     """
 
     Parameters
     ----------
-    NI_arr : ndarray, of shape (n_subjects, 1, image_shape).
+    X : ndarray, of shape (n_subjects, n_features) or (n_subjects, 1, image_shape) if mask_arr is provided.
     y : (n, ) array
         the target
     estimators : dict of estimators (do not mix regressors with classifiers)
@@ -179,11 +179,27 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
     stats_df (DataFrame) of predictions statistics average across folds
     stats_folds_df (DataFrame) of predictions statistics for each individuals folds
     model_params dictionary of models parameters
+
+    Examples
+    --------
+    from sklearn.datasets import make_regression, make_classification
+    import sklearn.linear_model as lm
+    from sklearn.neural_network import MLPClassifier
+
+    X, y = make_classification(n_features=50, n_informative=2, random_state=1, class_sep=0.5)
+
+    estimators = dict(
+        lr=lm.LogisticRegressionCV(class_weight='balanced'),
+        mlp=MLPClassifier(alpha=1, max_iter=1000))
+
+    stats_df, stats_folds_df, model_params = ml_predictions(X, y, estimators, cv=None, mask_arr=None)
+
+    X, y = make_regression(n_features=50, n_informative=2, random_state=1)
+    estimators = dict(lr_inter=lm.RidgeCV(), lr_nointer=lm.RidgeCV(fit_intercept=False))
+    stats_df, stats_folds_df, model_params = ml_predictions(X, y, estimators, cv=None, mask_arr=None)
     """
     if mask_arr is not None:
-        X = NI_arr.squeeze()[:, mask_arr]
-    else:
-        X = NI_arr
+        X = X.squeeze()[:, mask_arr]
 
     estimator_type = set([e._estimator_type for e in estimators.values()]).pop()
 
@@ -208,10 +224,11 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
             estimators[name].fit(X_train, y_train)
             results[name]["time"] = time.clock() - t0
             results[name]["y_test"] = estimators[name].predict(X_test)
-            try:
-                results[name]["score_test"] = estimators[name].decision_function(X_test)
-            except:
-                pass
+            if(len(np.unique(y)) == 2): # TODO extends for mulinomial classif
+                if hasattr(estimators[name], 'decision_function'):
+                    results[name]["score_test"] = estimators[name].decision_function(X_test)
+                elif hasattr(estimators[name], 'predict_log_proba'):
+                    results[name]["score_test"] = estimators[name].predict_log_proba(X_test)[:, 1]
             try:
                 results[name]["coefs"] = estimators[name].coef_
             except:
@@ -225,8 +242,6 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
                 results[name]["best_param"] = np.NaN
 
         return results
-
-    #estimator = lm.LogisticRegression(C=1, solver='lbfgs')
 
     parallel = Parallel(n_jobs=5)
     cv_ret = parallel(
@@ -261,22 +276,25 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
                 baccs_test = np.asarray([metrics.recall_score(y[test], preds[name]['y_test'][test], average=None).mean() for train, test in cv.split(X, y)])
                 recalls_test = np.asarray([metrics.recall_score(y[test], preds[name]['y_test'][test], average=None) for train, test in cv.split(X, y)])
                 aucs_test = np.asarray([metrics.roc_auc_score(y[test], preds[name]['score_test'][test]) for train, test in cv.split(X, y)])
+                size_test = np.asarray([len(y[test]) for train, test in cv.split(X, y)])
 
-                stats_folds_list.append(
-                    np.concatenate((np.array([name] * len(baccs_test))[: ,None],
-                                   np.array(["CV%i" %cv for cv in range(len(baccs_test))])[: ,None],
-                                   baccs_test[:, None], aucs_test[:, None], np.asarray(recalls_test),
-                                   np.asarray(preds[name]['time'])[:, None],
-                                   np.asarray(preds[name]['best_param'])[:, None]), axis=1))
+                folds = pd.DataFrame()
+                folds['model'] = [name] * len(baccs_test)
+                folds['fold'] = ["CV%i" % fold for fold in range(len(baccs_test))]
+                folds['bacc_test'] = baccs_test
+                folds['auc_test'] = aucs_test
+                for i, lev in enumerate(np.unique(y)):
+                    folds['recall%i_test' % lev] = recalls_test[:, i]
+                folds["time"] = preds[name]['time']
+                folds["best_param"] = preds[name]['best_param']
+                folds["size_test"] = size_test
+                stats_folds_list.append(folds)
                 stats_list.append([name, np.mean(baccs_test), np.mean(aucs_test)] + \
                                       np.asarray(recalls_test).mean(axis=0).tolist() + [np.mean(preds[name]['time']), str(preds[name]['best_param'])])
-
+        stats_folds_df = pd.concat(stats_folds_list)
         stats_df = pd.DataFrame(stats_list, columns=['model', 'bacc_test', 'auc_test'] + \
                                                     ['recall%i_test' % lev for lev in np.unique(y)] + ["time", "best_param"])
-        stats_df["n"] = str(["%i:%i" % (lab, np.sum(y==lab)) for lab in np.unique(y)])
-
-        stats_folds_df = pd.DataFrame(np.concatenate(stats_folds_list, axis=0), columns=['model', 'fold', 'bacc_test', 'auc_test'] + \
-                                                    ['recall%i_test' % lev for lev in np.unique(y)] + ["time", "best_param"])
+        stats_df["size"] = str(["%i:%i" % (lab, np.sum(y==lab)) for lab in np.unique(y)])
 
     else:
         for name in preds:
@@ -284,21 +302,23 @@ def ml_predictions(NI_arr, y, estimators, cv, mask_arr=None):
             r2_test = np.asarray([metrics.r2_score(y[test], preds[name]['y_test'][test]) for train, test in cv.split(X, y)])
             mse_test = np.asarray([metrics.mean_squared_error(y[test], preds[name]['y_test'][test]) for train, test in cv.split(X, y)])
             cor_test = np.asarray([np.corrcoef(y[test], preds[name]['y_test'][test])[0, 1] for train, test in cv.split(X, y)])
+            size_test = np.asarray([len(y[test]) for train, test in cv.split(X, y)])
 
             stats_folds_list.append(
                 np.concatenate((np.array([name] * len(mae_test))[:, None],
                                 np.array(["CV%i" % cv for cv in range(len(mae_test))])[:, None],
                                 mae_test[:, None], r2_test[:, None], mse_test[:, None], cor_test[:, None],
                                 np.asarray(preds[name]['time'])[:, None],
-                                np.asarray(preds[name]['best_param'])[:, None]), axis=1))
+                                np.asarray(preds[name]['best_param'])[:, None],
+                                size_test[:, None]), axis=1))
             stats_list.append([name, np.mean(mae_test), np.mean(r2_test), np.mean(mse_test), np.mean(cor_test),
                                np.mean(preds[name]['time']), str(preds[name]['best_param'])])
 
         stats_df = pd.DataFrame(stats_list, columns=['model', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time", "best_param"])
-        stats_df["n"] = len(y)
+        stats_df["size"] = len(y)
 
         stats_folds_df = pd.DataFrame(np.concatenate(stats_folds_list, axis=0),
-                                      columns=['model', 'fold', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time", "best_param"])
+                                      columns=['model', 'fold', 'mae_test', 'r2_test', 'mse_test', 'cor_test', "time", "best_param", "size_test"])
 
     model_params = None
 
