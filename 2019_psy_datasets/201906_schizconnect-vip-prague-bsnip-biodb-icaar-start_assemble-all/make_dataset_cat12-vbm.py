@@ -643,15 +643,19 @@ datasets = ['schizconnect-vip', 'bsnip']
 
 # Read clinical data
 df = pd.concat([pd.read_csv(OUTPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
-mask = df['diagnosis'].isin(['schizophrenia', 'control'])
+mask = df['diagnosis'].isin(['schizophrenia', 'FEP', 'control'])
 df = df[mask]
-df["diagnosis"] = df["diagnosis"].map({'schizophrenia': 1, 'control': 0}).values
+# FEP of PRAGUE becomes 1
+df["diagnosis"] = df["diagnosis"].map({'schizophrenia': 1, 'FEP':1, 'control': 0}).values
 
 # Leave study out CV
 studies = np.sort(df["study"].unique())
 # array(['BIOBD', 'BSNIP', 'PRAGUE', 'SCHIZCONNECT-VIP'], dtype=object)
 folds = [[np.where(df["study"] != s)[0], np.where(df["study"] == s)[0]] for s in studies]
 cv = CVIterableWrapper(folds)
+
+# Check all sites have both labels
+print([[studies[i], np.unique(df["diagnosis"].values[te])] for i, (tr, te) in enumerate(cv.split(None, df["diagnosis"].values))])
 
 # Merge masks
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
@@ -680,6 +684,8 @@ settings = [
 for scaling, harmo, datatype in settings:
     print(scaling, harmo, datatype)
     # scaling, harmo, datatype = 'raw', 'raw', "data64"
+    # 'raw', "data64"
+
     # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
 
     NI_arr = np.concatenate([np.load(OUTPUT(dataset=dataset, scaling=scaling, harmo=harmo, type=datatype, ext="npy"), mmap_mode='r') for dataset in datasets])[mask]
@@ -726,7 +732,7 @@ pd.DataFrame([[l, np.sum(bsnip["diagnosis"] == l)] for l in bsnip["diagnosis"].u
 
 ########################################################################################################################
 # BD (biobd <=> bsnip (schizoaffective disorder))
-# => in bsnip merge "schizoaffective disorder" and "psychotic bipolar disorder"
+# => in bsnip consider "psychotic bipolar disorder"
 
 suffix = ""
 
@@ -734,7 +740,7 @@ df = pd.concat([pd.read_csv(OUTPUT(dataset=dataset, scaling=None, harmo=None, ty
 pd.DataFrame([[l, np.sum(df["diagnosis"] == l)] for l in df["diagnosis"].unique()])
 
 
-mask = df['diagnosis'].isin(['bipolar disorder', 'schizoaffective disorder', 'control'])
+mask = df['diagnosis'].isin(['bipolar disorder', 'psychotic bipolar disorder', 'control'])
 df = df[mask]
 print(pd.DataFrame([[l, np.sum(df["diagnosis"] == l)] for l in df["diagnosis"].unique()]))
 """
@@ -743,13 +749,17 @@ print(pd.DataFrame([[l, np.sum(df["diagnosis"] == l)] for l in df["diagnosis"].u
 1          bipolar disorder  306
 2  schizoaffective disorder  112
 """
-df["diagnosis"] = df["diagnosis"].map({'bipolar disorder': 1, 'schizoaffective disorder':1, 'control': 0}).values
+df["diagnosis"] = df["diagnosis"].map({'bipolar disorder': 1, 'psychotic bipolar disorder':1, 'control': 0}).values
 
 # Leave study out CV
 studies = np.sort(df["study"].unique())
 # array(['BIOBD', 'BSNIP', 'PRAGUE', 'SCHIZCONNECT-VIP'], dtype=object)
 folds = [[np.where(df["study"] != s)[0], np.where(df["study"] == s)[0]] for s in studies]
 cv = CVIterableWrapper(folds)
+
+# Check all sites have both labels
+print([[studies[i]] + [np.sum(df["diagnosis"].values[te] == lab) for lab in np.unique(df["diagnosis"].values[te])] for i, (tr, te) in enumerate(cv.split(None, df["diagnosis"].values))])
+# [['BIOBD', 356, 306], ['BSNIP', 200, 117]]
 
 # Merge masks
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
