@@ -14,27 +14,150 @@ https://en.wikipedia.org/wiki/IEEE_754
 %load_ext autoreload
 %autoreload 2
 
-HC age
-train:
 
-HC between 15-30
-train: schizconnect-vip_mwp1_gs_data-64
-val:
+########################################################################################################################
+# COMPARISON ANALYSIS
+########################################################################################################################
 
-set(df.study)
-Out[278]: {'BIOBD', 'BSNIP', 'ICAAR_EUGEI_START', 'PRAGUE', 'SCHIZCONNECT-VIP'}
+# storage double 64 vs simple 32
+# ==============================
 
-df = participants_df.copy()
+for all datasets for all targets similar results (diff < 1%)
+=> use simple precision
 
-df = df[df.diagnosis.isin(['control']) & (df.age <= 30) & (df.age => 15)]
-df_tr = df[df.study.isin(['SCHIZCONNECT-VIP', 'PRAGUE', 'BIOBD'])]
-316 from 12 sites
+    'icaar-start'
+    'schizconnect-vip'
+    'bsnip'
+    'biobd'
 
-df_val = df[df.study.isin(['BSNIP'])]
-70 from 5 site
+# Hamonization
+# ============
 
-Debug
-os.chdir("/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/")
+Use adjusted residualization (or raw data)
+
+## raw vs global scaling
+## ---------------------
+
+### Intra
+                   age          diag(AUC)
+'icaar-start'      1.96 1.93    62 69(+7)
+'schizconnect-vip' 4.9  5       74 75
+'biobd'            4.9  5       67 66
+'bsnip'            5    5       73 73
+
+No big diff
+
+### Inter
+
+AGE-SEX: BIOBD+BSNIP+PRAGUE+SCHIZCONNECT-VIP_t1mri_mwp1_ml-scores_predict-AGE-SEX
+SCZvsCTL: BSNIP+PRAGUE+SCHIZCONNECT-VIP_t1mri_mwp1_ml-scores_predict-SCZvsCTL
+BDvsCTL: BIOBD+BSNIP_t1mri_mwp1_ml-scores_predict-BDvsCTL
+
+AGE(MAE)             5.3 5.5
+SEX(AUC)             89  89
+SCZvsCTL(AUC)        77  77
+BDvsCTL(AUC)         64  64
+
+Similar
+
+**CONCLUSION:** No big diff, by default do glob scale. Because we want to normalize for TIV
+
+
+## raw vs ressite
+## --------------
+
+### Intra
+
+                   age            sex(AUC)       diag (AUC)
+'icaar-start'      1.9 1.8        87 89(+2)      69 68
+'schizconnect-vip' 5   15 (+10)   95 89(-6)      82 81
+'biobd'            5   28(+24)    76 64(-8)      74 51(-23)
+'bsnip'            5 9 (+4)       91 90          73 67(+6)
+
+ressite is BAD !!! DO NOT USE !!!
+
+### Inter
+
+AGE(MAE)             5.3 8.3 (-3 bad)
+SEX(AUC)             89  88
+SCZvsCTL(AUC)        77  78
+BDvsCTL(AUC)         64  62 (-2 bad)
+
+
+**CONCLUSION:** ctrsite is BAD !!! DO NOT USE !!!
+
+## ctrsite vs ressite
+## ------------------
+
+**CONCLUSION:** for all datasets for all targets same results
+
+## ressite vs site(age+sex+diag)
+## -----------------------------
+
+perf of adj
+
+### Intra
+                   age            sex(AUC)   diag (AUC)
+'icaar-start'      1.86 1.87      75 73      69 75(+6)
+'schizconnect-vip' 15   4.8 (-10) 80 89(+9)  81 84(+3)
+'biobd'            28   4.5(-24)  65 79(+14) 51 80(+30)
+'bsnip'            9    5 (-4)    96 97(+1)  76 81(+5)
+
+=> always used adjusted residualization is better
+
+### Inter
+
+AGE(MAE)             8.3 6.9 (-1.5 good)
+SEX(AUC)             89  88
+SCZvsCTL(AUC)        78  72 (-6 bad)
+BDvsCTL(AUC)         62  62
+
+=> Not sot good
+
+
+**CONCLUSION:** adjusted residualization is better on intra-study but not for inter-study
+
+## raw-raw vs gs-site(age+sex+diag)
+## --------------------------------
+
+### Intra
+
+                   age            sex(AUC)   diag (AUC)
+'icaar-start'      1.9 1.8        89 89      62 75 (+13)
+'schizconnect-vip' 4.9 4.8        90 90      83 84
+'biobd'            5   4.5        78 79      75 80(+5)
+'bsnip'            5   4.9        97 97      80 81
+
+
+=> Adjusted residualization always better in half cases much better results for diag
+
+### Inter
+
+AGE(MAE)             5.3 6.9 (+1.5 bad)
+SEX(AUC)             89  89
+SCZvsCTL(AUC)        77  72 (-5 bad)
+BDvsCTL(AUC)         64  62 (-2 bad)
+
+=> bad
+
+**CONCLUSION:**
+
+# Intercept vs no intercept
+
+gs-res:site(age+sex+diag)
+Regression RidgeCV alpha large => large regularization
+Classif: [C] large => low regularization
+
+### Intra
+
+                   age                    sex(AUC)             diag (AUC)
+'icaar-start'      1.8[0.1] 21[10]        88[21]  88[1e-4]     75[21]   73[1e-4] (+2)
+'schizconnect-vip' 4.9[10]  32[10]        96[166] 95[1e-4]     84[1200] 84[7e-5]
+'biobd'            4.5[0.1] 39[10]        79[21]  79[1e-4]     80[166]  79[7e-5]
+'bsnip'            5  [0.1] 38[10]        97[166]  97[1e-4]    81[166]  81[7e-5]
+
+Regression: interpect
+Classif: No big diff but models with no interpect are more regularized
 """
 
 import os
