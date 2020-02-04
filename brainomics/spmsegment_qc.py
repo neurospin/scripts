@@ -255,8 +255,8 @@ if __name__ == "__main__":
     pdf.savefig()
     plt.close(fig)
 
-    fig = plt.figure(figsize=(13.33, 7.5))
-    sns.pairplot(tissues_vol[["GMratio", "WMratio", "CSFratio"]])
-    pdf.savefig()
-    plt.close(fig)
+    #fig = plt.figure(figsize=(13.33, 7.5))
+    #sns.pairplot(tissues_vol[["GMratio", "WMratio", "CSFratio"]])
+    #pdf.savefig()
+    #plt.close(fig)
     pdf.close()

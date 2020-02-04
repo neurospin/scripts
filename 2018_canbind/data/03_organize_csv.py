@@ -17,7 +17,7 @@ WD = "/neurospin/psy/canbind"
 # demo_clinic
 #demo_clinic = pd.read_csv(os.path.join(WD, "data/sourcedata/clinic_demo/CBN-database_20180618.csv")).iloc[:, 1:]
 #demo_clinic = pd.read_csv(os.path.join(WD, "data/sourcedata/clinic_demo/CBN-database_20180703.csv"))#.iloc[:, 1:]
-demo_clinic = pd.read_csv(os.path.join(WD, "data/sourcedata/clinic_demo/CBN-database_20180706.csv"))#.iloc[:, 1:]
+demo_clinic = pd.read_csv(os.path.join(WD, "raw/clinic_demo/CBN-database_20180706.csv"))#.iloc[:, 1:]
 # rename columns
 cols = {"SUBJLABEL":"participant_id",
         "EVENTNAME":"time_point",
@@ -33,9 +33,9 @@ cols = {"SUBJLABEL":"participant_id",
 demo_clinic = demo_clinic[list(cols.keys())]
 demo_clinic.columns = [cols[name] for name in demo_clinic.columns]
 demo_clinic.head()
-demo_clinic["participant_id"] = ["sub-%s" % s.replace("_", "-") for s in demo_clinic["participant_id"]]
+demo_clinic["participant_id"] = [s.replace("_", "-") for s in demo_clinic["participant_id"]]
 # get site
-demo_clinic["site"] = [s.split("-")[1] for s in demo_clinic["participant_id"]]
+demo_clinic["site"] = [s.split("-")[0] for s in demo_clinic["participant_id"]]
 
 
 # Get One line per subject: pivot madrs measures
