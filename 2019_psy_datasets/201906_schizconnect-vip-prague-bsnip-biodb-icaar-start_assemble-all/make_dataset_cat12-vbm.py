@@ -31,14 +31,14 @@ for all datasets for all targets similar results (diff < 1%)
     'biobd'
 
 # Hamonization
-# ============
+# ============
 
 Use adjusted residualization (or raw data)
 
 ## raw vs global scaling
 ## ---------------------
 
-### Intra
+### Intra
                    age          diag(AUC)
 'icaar-start'      1.96 1.93    62 69(+7)
 'schizconnect-vip' 4.9  5       74 75
@@ -66,7 +66,7 @@ Similar
 ## raw vs ressite
 ## --------------
 
-### Intra
+### Intra
 
                    age            sex(AUC)       diag (AUC)
 'icaar-start'      1.9 1.8        87 89(+2)      69 68
@@ -96,7 +96,7 @@ BDvsCTL(AUC)         64  62 (-2 bad)
 
 perf of adj
 
-### Intra
+### Intra
                    age            sex(AUC)   diag (AUC)
 'icaar-start'      1.86 1.87      75 73      69 75(+6)
 'schizconnect-vip' 15   4.8 (-10) 80 89(+9)  81 84(+3)
@@ -120,7 +120,7 @@ BDvsCTL(AUC)         62  62
 ## raw-raw vs gs-site(age+sex+diag)
 ## --------------------------------
 
-### Intra
+### Intra
 
                    age            sex(AUC)   diag (AUC)
 'icaar-start'      1.9 1.8        89 89      62 75 (+13)
@@ -148,7 +148,7 @@ gs-res:site(age+sex+diag)
 Regression RidgeCV alpha large => large regularization
 Classif: [C] large => low regularization
 
-### Intra
+### Intra
 
                    age                    sex(AUC)             diag (AUC)
 'icaar-start'      1.8[0.1] 21[10]        88[21]  88[1e-4]     75[21]   73[1e-4] (+2)
@@ -171,7 +171,7 @@ from brainomics.image_statistics import univ_stats, plot_univ_stats, residualize
 import shutil
 # import mulm
 # import sklearn
-# import re
+# import re
 # from nilearn import plotting
 import nilearn.image
 import matplotlib
@@ -189,7 +189,7 @@ BASE_PATH_schizconnect = '/neurospin/psy/schizconnect-vip-prague/derivatives/cat
 BASE_PATH_bsnip = '/neurospin/psy/bsnip1/derivatives/cat12'
 BASE_PATH_biobd = '/neurospin/psy/bipolar/biobd/derivatives/cat12'
 
-# 1) Inputs: phenotype
+# 1) Inputs: phenotype
 PHENOTYPE_CSV = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START.tsv"
 # for the phenotypes
 # INPUT_CSV_icaar_bsnip_biobd = '/neurospin/psy_sbox/start-icaar-eugei/phenotype'
@@ -232,9 +232,9 @@ phenotypes = phenotypes[phenotypes.sex.notnull() & phenotypes.age.notnull()]
 assert phenotypes.shape == (2711, 46)
 
 ########################################################################################################################
-# Neuroimaging niftii and TIV
-# mwp1 files
-check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)) # excpected image dimensions
+# Neuroimaging niftii and TIV
+# mwp1 files
+check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)) # excpected image dimensions
 
 ni_icaar_filenames = glob.glob("/neurospin/psy/start-icaar-eugei/derivatives/cat12/vbm/sub-*/ses-V1/mri/mwp1*.nii")
 ni_schizconnect_filenames = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12/vbm/sub-*/mri/mwp1*.nii")
@@ -271,7 +271,7 @@ tivo_biobd = tivo_biobd[np.logical_not(tivo_biobd.participant_id.isin(duplicated
 assert tivo_biobd.shape == (732, 6)
 
 # 2) Remove dublicated subject from bsnip with inconsistant sex and age
-# cd /neurospin/psy/bsnip1/sourcedata
+# cd /neurospin/psy/bsnip1/sourcedata
 # fslview sub-INVVV2WYKK6/ses-V1/anat/sub-INVVV2WYKK6_ses-V1_acq-1.2_T1w.nii.gz sub-INVXR8L3WRZ/ses-V1/anat/sub-INVXR8L3WRZ_ses-V1_acq-1.2_T1w.nii.gz  &
 # Same image
 
@@ -293,7 +293,7 @@ assert participants_df.shape == (2642, 51)
 
 # Check missing in phenotypes
 assert len(set(tivo_icaar.participant_id).difference(set(phenotypes.participant_id))) == 4
-# set(tivo_icaar.participant_id).difference(set(phenotypes.participant_id))
+# set(tivo_icaar.participant_id).difference(set(phenotypes.participant_id))
 # Out[8]: {'5EU31000', 'ICAAR004', 'ICAAR047', 'SLBG3TPILOTICAAR'}
 assert len(set(tivo_schizconnect.participant_id).difference(set(phenotypes.participant_id))) == 0
 assert len(set(tivo_bsnip.participant_id).difference(set(phenotypes.participant_id))) == 0
@@ -320,7 +320,7 @@ def do_ml(NI_arr, NI_participants_df, mask_arr, tag, dataset):
     def balanced_acc(estimator, X, y, **kwargs):
         return metrics.recall_score(y, estimator.predict(X), average=None).mean()
 
-    # estimators_clf = dict(LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
+    # estimators_clf = dict(LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
     #                      gbc=sklearn.ensemble.GradientBoostingClassifier())
     # or
     estimators_clf = dict(LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1, cv=5),
@@ -365,7 +365,7 @@ def do_ml(NI_arr, NI_participants_df, mask_arr, tag, dataset):
     return ml_age_, ml_sex_, ml_dx_
 
 ########################################################################################################################
-# Load images, intersect with pop and do preprocessing qnd dump 5d npy
+# Load images, intersect with pop and do preprocessing qnd dump 5d npy
 
 datasets = {
     'icaar-start': dict(ni_filenames = ni_icaar_filenames),
@@ -377,7 +377,7 @@ datasets = {
 for dataset in datasets:
     print("###########################################################################################################")
     print("#", dataset)
-    # dataset = 'icaar-start'
+    # dataset = 'icaar-start'
     # dataset = 'schizconnect-vip'
     # dataset = 'bsnip'
     # dataset = 'biobd'
@@ -430,7 +430,7 @@ for dataset in datasets:
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
                     skip_intercept=True)
 
-    # ML
+    # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
@@ -460,7 +460,7 @@ for dataset in datasets:
     NI_arr_gs = NI_arr
 
     ########################################################################################################################
-    print("# 4) Site-harmonization Center by site")
+    print("# 4) Site-harmonization Center by site")
     scaling, harmo = 'gs', 'ctrsite'
 
     NI_arr = preproc.center_by_site(NI_arr_gs, site=NI_participants_df.site)
@@ -474,14 +474,14 @@ for dataset in datasets:
     pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
                     skip_intercept=True)
-    # ML
+    # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
-    print("# 5) Harmonization residualize on site")
+    print("# 5) Harmonization residualize on site")
     scaling, harmo = 'gs', 'res:site'
 
     Yres = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df)
@@ -499,14 +499,14 @@ for dataset in datasets:
     pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
                     skip_intercept=True)
-    # ML
+    # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
-    print("# 6) Harmonization res:site adjusted for (age+sex+diag)")
+    print("# 6) Harmonization res:site adjusted for (age+sex+diag)")
     scaling, harmo = 'gs', 'res:site(age+sex+diag)'
 
     Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site", data=dmat_df, formula_full="site + age + sex + diagnosis")
@@ -523,14 +523,14 @@ for dataset in datasets:
     pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
                     skip_intercept=True)
-    # ML
+    # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
     # ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
 
     ########################################################################################################################
-    print("# 7) Harmonization res:age+sex+site adjusted for diag")
+    print("# 7) Harmonization res:age+sex+site adjusted for diag")
     scaling, harmo = 'gs', 'res:site+age+sex(diag)'
 
     Yadj = residualize(Y=NI_arr_gs.squeeze()[:, mask_arr], formula_res="site + age + sex", data=dmat_df, formula_full="site + age + sex + diagnosis")
@@ -547,7 +547,7 @@ for dataset in datasets:
     pdf_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="univstats", ext="pdf")
     plot_univ_stats(univstats, mask_img, data=dmat_df, grand_mean=NI_arr.squeeze()[:, mask_arr].mean(axis=1), pdf_filename=pdf_filename, thres_nlpval=3,
                     skip_intercept=True)
-    # ML
+    # ML
     ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr, NI_participants_df, mask_arr, tag=scaling + '-' + harmo, dataset=dataset)
     ml_age_l.append(ml_age_); ml_sex_l.append(ml_sex_); ml_dx_l.append(ml_dx_)
     # ml_age_, ml_sex_, ml_dx_ = do_ml(NI_arr.astype('float32'), NI_participants_df, mask_arr, tag=scaling + '-' + harmo + '-' + "x32", dataset=dataset)
@@ -571,9 +571,9 @@ for dataset in datasets:
 # Make some public datasets
 ########################################################################################################################
 
-# schizconnect ONLY
+# schizconnect ONLY
 
-# Read clinical data
+# Read clinical data
 dataset = 'schizconnect-vip'
 
 df = pd.read_csv(OUTPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv"))
@@ -586,7 +586,7 @@ NI_arr = np.load(OUTPUT(dataset=dataset, scaling=scaling, harmo=harmo, type="dat
 mask_img = nibabel.load(OUTPUT(dataset='schizconnect-vip', scaling=None, harmo=None, type="mask", ext="nii.gz"))
 mask_arr = mask_img.get_data() != 0
 
-# Save at 1.5mm
+# Save at 1.5mm
 mask_img.to_filename(OUTPUT(dataset="public/" + 'schizconnect_1.5mm', scaling=None, harmo=None, type="mask", ext="nii.gz"))
 df.to_csv(OUTPUT(dataset="public/" + 'schizconnect_1.5mm', scaling=None, harmo=None, type="participants", ext="csv"), index=False)
 np.save(OUTPUT(dataset="public/" + 'schizconnect_1.5mm', scaling=scaling, harmo=harmo, type="data32", ext="npy"), NI_arr.astype('float32'))
@@ -642,7 +642,7 @@ def ml_predictions_warpper(X, df, targets_reg, targets_clf, cv=None, mask_arr=No
     #estimators_reg = dict(RidgeCV_inter=lm.RidgeCV())
 
     for target in targets_reg:
-        ml_, ml_folds_,  _ = ml_predictions(X=NI_arr, y=df[target].values,
+        ml_, ml_folds_,  _ = ml_predictions(X=X, y=df[target].values,
                                        estimators=estimators_reg, cv=cv, mask_arr=mask_arr)
         ml_folds_.insert(0, "tag", tag_name);
         ml_folds_.insert(0, "dataset", dataset_name);
@@ -654,7 +654,7 @@ def ml_predictions_warpper(X, df, targets_reg, targets_clf, cv=None, mask_arr=No
         scores_ml[target + "_folds"] = ml_folds_
         scores_ml[target] = ml_
 
-    # Classification targets
+    # Classification targets
     estimators_clf = dict(
         LogisticRegressionCV_balanced_inter=lm.LogisticRegressionCV(class_weight='balanced', scoring=balanced_acc, n_jobs=1,
                                                                     cv=5),
@@ -662,7 +662,7 @@ def ml_predictions_warpper(X, df, targets_reg, targets_clf, cv=None, mask_arr=No
                                                                       n_jobs=1, cv=5,
                                                                       fit_intercept=False))
     for target in targets_clf:
-        ml_, ml_folds_,  _ = ml_predictions(X=NI_arr, y=df[target].values,
+        ml_, ml_folds_,  _ = ml_predictions(X=X, y=df[target].values,
                                        estimators=estimators_clf, cv=cv, mask_arr=mask_arr)
         ml_folds_.insert(0, "tag", tag_name);
         ml_folds_.insert(0, "dataset", dataset_name);
@@ -692,12 +692,12 @@ class CVIterableWrapper(BaseCrossValidator):
 
 
 ########################################################################################################################
-# Age, Sex : leave study out on CTL of on schizconnect-vip bsnip biobd
-# 'icaar-start', 'schizconnect-vip', 'bsnip', 'biobd'
+# Age, Sex : leave study out on CTL of on schizconnect-vip bsnip biobd
+# 'icaar-start', 'schizconnect-vip', 'bsnip', 'biobd'
 
 datasets = ['schizconnect-vip', 'bsnip', 'biobd']
 
-# Read clinical data
+# Read clinical data
 df = pd.concat([pd.read_csv(OUTPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
 mask = df['diagnosis'].isin(['control'])
 df = df[mask]
@@ -708,14 +708,14 @@ studies = np.sort(df["study"].unique())
 folds = [[np.where(df["study"] != s)[0], np.where(df["study"] == s)[0]] for s in studies]
 cv = CVIterableWrapper(folds)
 
-# Merge masks
+# Merge masks
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
-# [364610, 368680, 365280, 362619]
-# 
+# [364610, 368680, 365280, 362619]
+# 
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
-# 360348
+# 360348
 mask_img = nilearn.image.new_img_like(mask_filenames[0], data=mask_arr)
 
 print(mask_arr.sum())
@@ -733,8 +733,8 @@ settings = [
 
 for scaling, harmo, datatype in settings:
     print(scaling, harmo, datatype)
-    # scaling, harmo, datatype = 'raw', 'raw', "data64"
-    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
+    # scaling, harmo, datatype = 'raw', 'raw', "data64"
+    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
 
     NI_arr = np.concatenate([np.load(OUTPUT(dataset=dataset, scaling=scaling, harmo=harmo, type=datatype, ext="npy"), mmap_mode='r') for dataset in datasets])[mask]
     scores_ml_ = ml_predictions_warpper(X=NI_arr, df=df, targets_reg=["age"], targets_clf=["sex"], cv=cv, mask_arr=mask_arr,
@@ -760,15 +760,15 @@ with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies), scaling=None, h
         dat.to_excel(writer, sheet_name=key, index=False)
 
 ########################################################################################################################
-# SCZ (schizconnect-vip <=> bsnip)
+# SCZ (schizconnect-vip <=> bsnip)
 
 datasets = ['schizconnect-vip', 'bsnip']
 
-# Read clinical data
+# Read clinical data
 df = pd.concat([pd.read_csv(OUTPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
 mask = df['diagnosis'].isin(['schizophrenia', 'FEP', 'control'])
 df = df[mask]
-# FEP of PRAGUE becomes 1
+# FEP of PRAGUE becomes 1
 df["diagnosis"] = df["diagnosis"].map({'schizophrenia': 1, 'FEP':1, 'control': 0}).values
 
 # Leave study out CV
@@ -780,14 +780,14 @@ cv = CVIterableWrapper(folds)
 # Check all sites have both labels
 print([[studies[i], np.unique(df["diagnosis"].values[te])] for i, (tr, te) in enumerate(cv.split(None, df["diagnosis"].values))])
 
-# Merge masks
+# Merge masks
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
-# [364610, 368680, 365280, 362619]
-# 
+# [364610, 368680, 365280, 362619]
+# 
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
-# 360348
+# 360348
 mask_img = nilearn.image.new_img_like(mask_filenames[0], data=mask_arr)
 
 print(mask_arr.sum())
@@ -806,10 +806,10 @@ settings = [
 
 for scaling, harmo, datatype in settings:
     print(scaling, harmo, datatype)
-    # scaling, harmo, datatype = 'raw', 'raw', "data64"
-    # 'raw', "data64"
+    # scaling, harmo, datatype = 'raw', 'raw', "data64"
+    # 'raw', "data64"
 
-    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
+    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
 
     NI_arr = np.concatenate([np.load(OUTPUT(dataset=dataset, scaling=scaling, harmo=harmo, type=datatype, ext="npy"), mmap_mode='r') for dataset in datasets])[mask]
     scores_ml_ = ml_predictions_warpper(X=NI_arr, df=df, targets_reg=[], targets_clf=["diagnosis"], cv=cv, mask_arr=mask_arr,
@@ -835,7 +835,7 @@ with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies), scaling=None, h
         dat.to_excel(writer, sheet_name=key, index=False)
 
 ########################################################################################################################
-# BD (biobd <=> bsnip)
+# BD (biobd <=> bsnip)
 
 datasets = ['biobd', 'bsnip']
 
@@ -854,8 +854,8 @@ pd.DataFrame([[l, np.sum(bsnip["diagnosis"] == l)] for l in bsnip["diagnosis"].u
 """
 
 ########################################################################################################################
-# BD (biobd <=> bsnip (schizoaffective disorder))
-# => in bsnip consider "psychotic bipolar disorder"
+# BD (biobd <=> bsnip (schizoaffective disorder))
+# => in bsnip consider "psychotic bipolar disorder"
 
 suffix = ""
 
@@ -882,16 +882,16 @@ cv = CVIterableWrapper(folds)
 
 # Check all sites have both labels
 print([[studies[i]] + [np.sum(df["diagnosis"].values[te] == lab) for lab in np.unique(df["diagnosis"].values[te])] for i, (tr, te) in enumerate(cv.split(None, df["diagnosis"].values))])
-# [['BIOBD', 356, 306], ['BSNIP', 200, 117]]
+# [['BIOBD', 356, 306], ['BSNIP', 200, 117]]
 
-# Merge masks
+# Merge masks
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
-# [364610, 368680, 365280, 362619]
-# 
+# [364610, 368680, 365280, 362619]
+# 
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
-# 360348
+# 360348
 mask_img = nilearn.image.new_img_like(mask_filenames[0], data=mask_arr)
 
 print(mask_arr.sum())
@@ -910,8 +910,8 @@ settings = [
 
 for scaling, harmo, datatype in settings:
     print(scaling, harmo, datatype)
-    # scaling, harmo, datatype = 'raw', 'raw', "data64"
-    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
+    # scaling, harmo, datatype = 'raw', 'raw', "data64"
+    # scaling, harmo, datatype = 'gs', 'res:site(age+sex+diag)', "data32"
 
     NI_arr = np.concatenate([np.load(OUTPUT(dataset=dataset, scaling=scaling, harmo=harmo, type=datatype, ext="npy"), mmap_mode='r') for dataset in datasets])[mask]
     scores_ml_ = ml_predictions_warpper(X=NI_arr, df=df, targets_reg=[], targets_clf=["diagnosis"], cv=cv, mask_arr=mask_arr,

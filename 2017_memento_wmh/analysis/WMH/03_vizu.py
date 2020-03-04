@@ -69,10 +69,21 @@ df["PC1"] = PC[wmhvol > thres, 0]
 df["PC2"] = PC[wmhvol > thres, 1]
 df["PC3"] = PC[wmhvol > thres, 2]
 df["wmh_tot"] = wmhvol[wmhvol > thres]
+df["sex"] = df.sex.astype('object')
 
 #df[['participant_id', "PC1", "PC2", "PC3"]].to_csv(os.path.join(WD, "components_participants_id.csv"), index=False)
 
+import statsmodels.formula.api as smfrmla
+import statsmodels.api as sm
 import seaborn as sns
+
+#
+d = df[["wmh_tot", "age_cons", "PC1", "PC2", "PC3",
+        "mmssctot", "tmta_taux"]]
+g = sns.PairGrid(d)
+g.map_diag(plt.hist)
+g.map_offdiag(plt.scatter)
+
 
 # PCs vs wmh_tot
 sns.scatterplot(x="PC1", y="wmh_tot", data=df)
@@ -80,16 +91,46 @@ sns.scatterplot(x="PC2", y="wmh_tot", data=df)
 sns.scatterplot(x="PC3", y="wmh_tot", data=df)
 smfrmla.ols("wmh_tot ~ PC1 + PC2 + PC3", data=df).fit().summary()
 
+"""
+PC1 more correlated with WMH tot
+"""
+
 # PCs vs age
 sns.scatterplot(x="PC1", y="age_cons", data=df)
 sns.scatterplot(x="PC2", y="age_cons", data=df)
 sns.scatterplot(x="PC3", y="age_cons", data=df)
 smfrmla.ols("age_cons ~ PC1 + PC2 + PC3", data=df).fit().summary()
 
-# PCs
-sns.scatterplot(x="PC1", y="PC2", data=df)
-sns.scatterplot(x="PC1", y="PC2", hue="mmssctot", data=df)
+"""
+PC1 correlated with AGE
+"""
 
+# PCs
+sns.scatterplot(x="PC1", y="PC2", hue="mmssctot", alpha=0.5, data=df)
+
+pc1_prctls = df.PC1.describe(percentiles=[.2, .8])
+pc2_prctls = df.PC2.describe(percentiles=[.2, .8])
+
+extrem_mask = ((df.PC1 <= pc1_prctls["10%"]) | (df.PC1 >= pc1_prctls["90%"])) &\
+    ((df.PC2 <= pc2_prctls["10%"]) | (df.PC2 >= pc2_prctls["90%"]))
+
+extrem_mask = ((df.PC1 <= pc1_prctls["20%"]) | (df.PC1 >= pc1_prctls["80%"])) &\
+    ((df.PC2 <= pc2_prctls["20%"]) | (df.PC2 >= pc2_prctls["80%"]))
+
+# np.sum((df.PC1 <= pc1_prctls["10%"]) | (df.PC1 >= pc1_prctls["90%"]))
+# np.sum((df.PC2 <= pc2_prctls["10%"]) | (df.PC2 >= pc2_prctls["90%"]))
+
+extrem_mask.sum()
+# 97
+sns.scatterplot(x="PC1", y="PC2", hue="mmssctot", alpha=0.9, data=df)
+
+sns.scatterplot(x="PC1", y="PC2", hue="mmssctot", alpha=0.9, data=df[extrem_mask])
+
+
+pc2_prctls[["10%"]] pc2_prctls[["90%"]]
+
+
+#
 sns.lmplot(x="wmh_tot", y="mmssctot", data=df)
 sns.lmplot(x="PC1", y="mmssctot", data=df)
 sns.lmplot(x="PC2", y="mmssctot", data=df)
@@ -106,11 +147,7 @@ sns.scatterplot(x="wmh_tot", y="flu_anim", data=df)
 sns.scatterplot(x="PC1", y="flu_anim", data=df)
 sns.scatterplot(x="PC2", y="flu_anim", data=df)
 
-import statsmodels.formula.api as smfrmla
-import statsmodels.api as sm
 
-
-df["sex"] = df.sex.astype('object')
 
 smfrmla.ols("mmssctot ~ PC1 + PC2 + PC3 + age_cons + sex", data=df).fit().summary()
 smfrmla.ols("mmssctot ~ PC1 + PC2 + PC3 + sex", data=df).fit().summary()
