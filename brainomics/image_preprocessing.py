@@ -62,7 +62,7 @@ def load_images(NI_filenames, check=dict()):
     assert np.all([np.all(img.affine == ref_img.affine) for img in NI_imgs])
     assert np.all([np.all(img.get_data().shape == ref_img.get_data().shape) for img in NI_imgs])
 
-    # Load image subjects x chanels (1) x image
+    # Load image subjects x chanels (1) x image
     NI_arr = np.stack([np.expand_dims(img.get_data(), axis=0) for img in NI_imgs])
     return NI_arr, NI_participants_df, ref_img
 
@@ -108,7 +108,7 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="par
     True
     """
     keep = NI_participants_df[participant_id].isin(participants_df[participant_id])
-    return NI_arr[keep], pd.merge(NI_participants_df[keep], participants_df, on=participant_id, how= 'inner') # preserve the order of the left keys.
+    return NI_arr[keep], pd.merge(NI_participants_df[keep], participants_df, on=participant_id, how= 'inner') # preserve the order of the left keys.
 
 def global_scaling(NI_arr, axis0_values=None, target=1500):
     """

@@ -182,8 +182,8 @@ def ml_predictions(X, y, estimators, cv=None, mask_arr=None):
 
     Examples
     --------
-    from sklearn.datasets import make_regression, make_classification
-    import sklearn.linear_model as lm
+    >>> from sklearn.datasets import make_regression, make_classification
+    >>> import sklearn.linear_model as lm
     from sklearn.neural_network import MLPClassifier
 
     X, y = make_classification(n_features=50, n_informative=2, random_state=1, class_sep=0.5)
