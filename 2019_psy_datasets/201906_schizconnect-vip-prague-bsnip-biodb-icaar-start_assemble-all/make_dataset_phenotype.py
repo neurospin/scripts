@@ -400,22 +400,92 @@ pheno_all.sex = pheno_all.sex.map({'F':1.0,'H':0.0,'M':0.0, 1.0:1.0, 0.0:0.0})
 pheno_all.to_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START.tsv'), sep='\t', index=False)
 
 
+##### Make ABIDE 2 phenotype
+
+ABIDE2_BASEPATH = '/neurospin/psy/abide2'
+OUTPUT_PATH_ABIDE2 = '/neurospin/psy_sbox/hc/abide2/participants.tsv'
+all_pheno_filenames = glob.glob(os.path.join(ABIDE2_BASEPATH, 'raw/*.csv'))
+basic_pheno_filename = os.path.join(ABIDE2_BASEPATH, 'derivatives/pynet/participants.tsv')
+
+# Purpose: align the basic demographic info contained in "all_pheno" with the order defined in "basic_pheno".
+# This will be used by the PyNet library.
+
+output_pheno = pd.read_csv(basic_pheno_filename, sep='\t')
+# Concatenates all the complete phenotypes
+all_pheno_complete = []
+for file in all_pheno_filenames:
+    if file != '/neurospin/psy/abide2/raw/ABIDEII_Composite_Phenotypic.csv':
+        try:
+            pheno_complete = pd.read_csv(file, sep=',', encoding='ISO-8859-1')
+            pheno_complete = pheno_complete.rename(columns={'SUB_ID': 'participant_id'})
+            all_pheno_complete.append(pheno_complete)
+        except Exception as e:
+            print(e, file)
 
 
+all_pheno_complete = pd.concat(all_pheno_complete, ignore_index=True, sort=False)
+assert all_pheno_complete.shape == (1114, 350)
+assert len(set(all_pheno_complete.participant_id)) == len(all_pheno_complete)
+
+# Basic checks
+assert set(all_pheno_complete['participant_id']) >= set(output_pheno['participant_id'])
+sorted_p_id = list(output_pheno.participant_id)
+len_out_pheno = len(output_pheno)
+
+# Merge the 2 dataframes
+output_pheno = pd.merge(output_pheno, all_pheno_complete, on='participant_id', how='left', sort=False)
+assert len_out_pheno == len(output_pheno)
+assert sorted_p_id == list(output_pheno.participant_id)
+
+output_pheno = output_pheno.rename(columns={'SEX': 'sex', 'AGE_AT_SCAN ': 'age', 'DX_GROUP': 'diagnosis', 'center': 'site'})
+output_pheno.diagnosis = output_pheno.diagnosis.map({1: 'autism', 2: 'control'})
+output_pheno.sex = output_pheno.sex.map({2: 1, 1: 0}) # Male == 0, Female == 1
+output_pheno['study'] = 'ABIDE2'
+output_pheno.to_csv(OUTPUT_PATH_ABIDE2, sep='\t', index=False)
+
+##### Make IXI phenotype and merge ABIDE2 + IXI
+IXI_PATH = '/neurospin/psy_sbox/hc/ixi/'
+OUTPUT_PATH = '/neurospin/psy_sbox/hc/abide2_ixi_participants.tsv'
+pheno_ixi = pd.read_csv(os.path.join(IXI_PATH, 'participants.tsv'), sep='\t')
+
+pheno_ixi.sex = pheno_ixi.sex.map({'M': 0, 'F': 1})
+pheno_ixi['study'] = 'IXI'
+pheno_ixi['site'] = 'LONDON'
+pheno_ixi['diagnosis'] = 'control'
+participant_ids_ixi, participant_ids_abide2 = pheno_ixi.participant_id.values, output_pheno.participant_id.values
+pheno_abide2_ixi = pd.concat([output_pheno, pheno_ixi], ignore_index=True, sort=False)
+assert list(pheno_abide2_ixi.participant_id.values) == list(participant_ids_abide2) + list(participant_ids_ixi)
+assert pheno_ixi.shape == (581, 9)
+assert output_pheno.shape == (1108, 352)
+assert pheno_abide2_ixi.shape == (581+1108, 9+352-6) #6 common columns: age, sex, diagnosis, study, site, participant_id
+
+pheno_abide2_ixi.to_csv(OUTPUT_PATH, sep='\t', index=False)
 
 
+## Make IXI phenotype with TIV
+IXI_PATH = '/neurospin/psy_sbox/hc/ixi/'
+OUTPUT_PATH = '/neurospin/psy_sbox/hc/ixi/IXI_t1mri_mwp1_participants.csv'
+pheno_ixi = pd.read_csv(os.path.join(IXI_PATH, 'participants.tsv'), sep='\t')
+meta_data_ixi = pd.read_csv(os.path.join(IXI_PATH, 'tiv.csv'), sep=',')
+pheno_ixi.sex = pheno_ixi.sex.map({'M': 0, 'F': 1})
+pheno_ixi['study'] = 'IXI'
+pheno_ixi['site'] = 'LONDON'
+pheno_ixi['diagnosis'] = 'control'
+meta_data_ixi = meta_data_ixi.rename(columns={'TIV': 'tiv'})
+pheno_ixi = pd.merge(pheno_ixi, meta_data_ixi, on='participant_id', how='left', sort=False)
 
+pheno_ixi.to_csv(OUTPUT_PATH, sep='\t', index=False)
 
+## Make ABIDE2 phenotype with TIV
+ABIDE2_PATH = '/neurospin/psy_sbox/hc/abide2/'
+OUTPUT_PATH = '/neurospin/psy_sbox/hc/abide2/ABIDE2_t1mri_mwp1_participants.csv'
+pheno_abide2 = pd.read_csv(os.path.join(ABIDE2_PATH, 'participants.tsv'), sep='\t')
+meta_data_abide2 = pd.read_csv(os.path.join(ABIDE2_PATH, 'derivatives/cat12_estimations.csv'), sep=',')
+meta_data_abide2 = meta_data_abide2.rename(columns={'TIV': 'tiv'})
+pheno_abide2 = pd.merge(pheno_abide2, meta_data_abide2, on='participant_id', how='left', sort=False)
+pheno_abide2 = pheno_abide2[~pheno_abide2.tiv.isna()]
 
-
-
-
-
-
-
-
-
-
+pheno_abide2.to_csv(OUTPUT_PATH, sep='\t', index=False)
 
 
 
