@@ -188,8 +188,7 @@ from nitk.stats import Residualizer
 import sklearn.metrics as metrics
 from nitk.utils import dict_product, parallel, aggregate_cv
 
-def fit_predict(estimator_img, split):
-    #residualizer = copy.deepcopy(residualizer)
+def fit_predict(key, estimator_img, split):
     estimator_img = copy.deepcopy(estimator_img)
     train, test = split
     Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
@@ -209,7 +208,10 @@ def fit_predict(estimator_img, split):
     scaler = StandardScaler()
     Xim_train = scaler.fit_transform(Xim_train)
     Xim_test = scaler.transform(Xim_test)
-    estimator_img.fit(Xim_train, y_train)
+    try: # if coeficient can be retrieved given the key
+        estimator_img.coef_ = coefs_cv_cache[key]
+    except: # if not fit
+        estimator_img.fit(Xim_train, y_train)
 
     y_test_img = estimator_img.predict(Xim_test)
     score_test_img = estimator_img.decision_function(Xim_test)
@@ -267,9 +269,6 @@ formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_n
 residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
 Z_ = residualizer.get_design_mat()
 
-# CV
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
-
 # estimators
 estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', fit_intercept=False))
 
@@ -285,9 +284,6 @@ y_ = pop[target + "_num"][msk].values
 formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_num
 residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
 Z_ = residualizer.get_design_mat()
-
-# CV
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
 
 # estimators
 estimators_dict = dict(gb=ensemble.GradientBoostingClassifier()) # 2min 15s / run
@@ -305,9 +301,6 @@ y_ = pop[target + "_num"][msk].values
 formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_num
 residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
 Z_ = residualizer.get_design_mat()
-
-# CV
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
 
 # estimators
 lr = lm.LogisticRegression(C=1e6, class_weight='balanced', fit_intercept=False)
@@ -328,9 +321,6 @@ formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_n
 residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
 Z_ = residualizer.get_design_mat()
 
-# CV
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
-
 # estimators
 estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', fit_intercept=False))
 
@@ -348,15 +338,11 @@ formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_n
 residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
 Z_ = residualizer.get_design_mat()
 
-# CV
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
-
 # estimators
 import parsimony.algorithms as algorithms
 import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
-
 
 if not os.path.exists(OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz")):
     Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
@@ -379,20 +365,16 @@ estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=cones
 
 estimators_dict = {mod_str:estimator}
 
-"""
-estimator.fit(X_train, y_train.ravel())
-# Store prediction for micro avg
-y_test_pred[test] = estimator.predict(X_test).ravel()
-y_test_prob_pred[test] = estimator.predict_probability(X_test).ravel()#[:, 1]
-"""
-
 ################################################################################
 # RUN FOR EACH SETTING
 
+# CV
+cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
 cv_dict = {fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
 args_collection = dict_product(estimators_dict, cv_dict)
 
-cv_res = parallel(fit_predict, args_collection, n_jobs=min(NSPLITS, 8))
+#coefs_cv = dict()
+%time cv_res = parallel(fit_predict, args_collection, n_jobs=min(NSPLITS, 8), pass_key=True)
 
 #-------------------------------------------------------------------------------
 # Save results
@@ -405,22 +387,24 @@ result_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo,
 with open(result_filename, 'wb') as fd:
     pickle.dump(cv_dict, fd)
 
-# Save model coeficients
+# Model coeficients
 mod_str = list(estimators_dict.keys())[0]
-cv_coefs_ = {str(keys[1]):val['coef_img'] for keys, val in cv_res.items()}
 modelcoef_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo,
     type="modelcoef-%s" % mod_str, ext="npz")
-np.savez_compressed(modelcoef_filename, **cv_coefs_)
+
+# Save
+coefs_cv_ = {"__".join([str(k) for k in keys]):val['coef_img'] for keys, val in cv_res.items()}
+np.savez_compressed(modelcoef_filename, **coefs_cv_)
+del coefs_cv_
+
+# Reload
+coefs_cv_cache = {tuple([int(k) if k.isdigit() else k for k in keys.split("__")]): v
+    for keys, v in np.load(modelcoef_filename).items()}
 
 #-------------------------------------------------------------------------------
 # Scores
 
 aggregate = aggregate_cv(cv_res, args_collection, 1)
-
-"""
-a_ = np.load(modelcoef_filename)
-[k for k in a.keys()]
-"""
 
 # Results
 
