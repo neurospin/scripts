@@ -950,6 +950,7 @@ with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies)  + suffix, scali
 #
 # stratif = {
 #     'train': {'study': ['HCP', 'IXI']},
+#     'validation': {'study': 'BIOBD'},
 #     'test': {'study': 'BSNIP', 'diagnosis': 'control'}
 # }
 #
