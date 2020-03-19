@@ -935,3 +935,53 @@ scores_ml_bytarget = {key:pd.concat(dats) for key, dats in scores_ml_bytarget.it
 with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies)  + suffix, scaling=None, harmo=None, type="ml-scores", ext="xlsx")) as writer:
     for key, dat in scores_ml_bytarget.items():
         dat.to_excel(writer, sheet_name=key, index=False)
+
+# ## Sex, Age Benchmark used in PyNet (with PyTorch back-end)
+
+# inputs_path = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/" \
+#               "cat12vbm/all_t1mri_mwp1_gs-raw_data32_tocheck.npy"
+# metadata_path = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/" \
+#                 "cat12vbm/all_t1mri_mwp1_participants.tsv"
+# df = pd.read_csv(metadata_path, sep='\t')
+# batch_size = 16
+# nb_folds = 1
+# pin_memory = True
+# drop_last = False
+#
+# stratif = {
+#     'train': {'study': ['HCP', 'IXI']},
+#     'test': {'study': 'BSNIP', 'diagnosis': 'control'}
+# }
+#
+# add_to_input = None
+# add_input = False
+# labels=["age", "sex"]
+# sampler="random"
+# stratify_label='site'
+# input_transforms=[Crop((1, 121, 128, 121)), Padding((1, 128, 128, 128)), Normalize(mean=0, std=1)]
+# strat_label_transforms=[LabelMapping(**{site: indice for (indice, site) in enumerate(sorted(set(df['site'])))})]
+# labels_transforms=None
+# data_augmentation=None
+# output_transforms=None
+# patch_size=None
+# input_size=None
+#
+# manager1 = DataManager(inputs_path, metadata_path,
+#                        batch_size=batch_size,
+#                        number_of_folds=nb_folds,
+#                        add_to_input=add_to_input,
+#                        add_input=add_input,
+#                        labels=labels,
+#                        sampler=sampler,
+#                        projection_labels=projection_labels,
+#                        custom_stratification=stratif,
+#                        stratify_label=stratify_label,
+#                        input_transforms=input_transforms,
+#                        stratify_label_transforms=strat_label_transforms,
+#                        labels_transforms=labels_transforms,
+#                        data_augmentation=data_augmentation,
+#                        output_transforms=output_transforms,
+#                        patch_size=patch_size,
+#                        input_size=input_size,
+#                        pin_memory=pin_memory,
+#                        drop_last=drop_last)
