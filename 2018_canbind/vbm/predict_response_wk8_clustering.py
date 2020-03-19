@@ -36,11 +36,11 @@ def OUTPUT(*args, **kwargs):
 # Future filename formating:
 # dataset_sel-<selection>_mod-<t1mri|...>_improc-<mwp1|cat12roi|...>_grpproc-<[raw|gs]:[residualization]>_
 
-###############################################################################
+################################################################################
 #
 # Dataset
 #
-###############################################################################
+################################################################################
 
 pop = pd.read_csv(INPUT(dataset="canbind", mri_preproc='cat12roi', scaling=None, harmo=None, type="participants", ext="csv"))
 assert pop.shape[0] == 761
@@ -52,7 +52,7 @@ for target in targets:
 pop["GM_frac"] = pop.GM_Vol / pop.TIV
 
 
-###############################################################################
+################################################################################
 # Subject selector
 
 # Subcohorts: select V1 with response info
@@ -71,7 +71,7 @@ if target == "respond_wk16":
 elif target == "respond_wk8":
     assert msk_tgt.sum() == 135
 
-###############################################################################
+################################################################################
 # Images
 
 from  nitk.image import img_to_array, global_scaling
@@ -90,9 +90,9 @@ del imgs_arr
 vars_clinic = ['mde_num', 'duration', 'madrs_Baseline', 'age_onset']
 vars_demo = ['age', 'sex', 'educ']
 
-# Impute missing data for patients only
+# pop_w: working popolation DataFrame = pop with Imputed missing data for patients only
 
-pop_imp = pop.copy()  # imputed missing data for patients only
+pop_w = pop.copy()  # imputed missing data for patients only
 
 print(pop.loc[msk_trt, vars_clinic + vars_demo].isnull().sum(axis=0))
 """
@@ -119,39 +119,39 @@ print(ols_.rsquared_adj)
 np.sum(pop.loc[msk_trt, 'age_onset'].isnull() & pop.loc[msk_trt, 'mde_num'].isnull())
 
 # age_onset => median
-pop_imp.loc[msk_trt & pop_imp.loc[msk_trt, "age_onset"].isnull(), "age_onset"]=\
-    pop_imp.loc[msk_trt, "age_onset"].median()
+pop_w.loc[msk_trt & pop_w.loc[msk_trt, "age_onset"].isnull(), "age_onset"]=\
+    pop_w.loc[msk_trt, "age_onset"].median()
 
-pop_imp["duration"] = pop_imp["age"] - pop_imp["age_onset"]
+pop_w["duration"] = pop_w["age"] - pop_w["age_onset"]
 
 # educ => median
-pop_imp.loc[msk_trt & pop_imp.loc[msk_trt, "educ"].isnull(), "educ"] = \
-    pop_imp.loc[msk_trt, "educ"].median()
+pop_w.loc[msk_trt & pop_w.loc[msk_trt, "educ"].isnull(), "educ"] = \
+    pop_w.loc[msk_trt, "educ"].median()
 
 # mde_num ~ age + age_onset + educ
-pop_imp.loc[msk_trt & pop_imp.loc[msk_trt, "mde_num"].isnull(), "mde_num"] = \
-    ols_.predict(pop_imp)[msk_trt & pop_imp.loc[msk_trt, "mde_num"].isnull()]
+pop_w.loc[msk_trt & pop_w.loc[msk_trt, "mde_num"].isnull(), "mde_num"] = \
+    ols_.predict(pop_w)[msk_trt & pop_w.loc[msk_trt, "mde_num"].isnull()]
 
 # madrs_Baseline => median
-pop_imp.loc[msk_trt & pop_imp.loc[msk_trt, "madrs_Baseline"].isnull(), "madrs_Baseline"] = \
-    pop_imp.loc[msk_trt, "madrs_Baseline"].median()
+pop_w.loc[msk_trt & pop_w.loc[msk_trt, "madrs_Baseline"].isnull(), "madrs_Baseline"] = \
+    pop_w.loc[msk_trt, "madrs_Baseline"].median()
 
-print(pop_imp.loc[msk_trt, vars_clinic + vars_demo].isnull().sum(axis=0))
+print(pop_w.loc[msk_trt, vars_clinic + vars_demo].isnull().sum(axis=0))
 
 vars_clinic = ['mde_num', 'duration', 'madrs_Baseline', 'age_onset']
 vars_demo = ['age', 'sex', 'educ']
 
 # Finally, extract blocs
-Xclin = pop_imp[vars_clinic].values
-Xdemo = pop_imp[vars_demo].values
-Xsite = pd.get_dummies(pop_imp.site).values
+Xclin = pop_w[vars_clinic].values
+Xdemo = pop_w[vars_demo].values
+Xsite = pd.get_dummies(pop_w.site).values
 Xdemoclin = np.concatenate([Xdemo, Xclin], axis=1)
 
-###############################################################################
+################################################################################
 #
 # PCA on ctl then apply on patients
 #
-###############################################################################
+################################################################################
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -172,7 +172,7 @@ print("PC1-PC2 no specific pattern")
 
 del PC_ctl_, PC_tgt_
 
-###############################################################################
+################################################################################
 # PCA on patients on both image and clinic
 
 from sklearn.preprocessing import StandardScaler
@@ -214,11 +214,11 @@ sns.scatterplot(PCdemoClin[:, 1], PCdemoClin[:, 2], hue=pop["respond_wk8"][msk_t
 #sns.scatterplot(PCdemoClin[:, 0], PCdemoClin[:, 1], hue=pop["respond_wk16"][msk_tgt])
 #sns.scatterplot(PCdemoClin[:, 0], PCdemoClin[:, 2], hue=pop["respond_wk16"][msk_tgt])
 
-###############################################################################
+################################################################################
 #
 # PLS
 #
-###############################################################################
+################################################################################
 
 import scipy.linalg
 from sklearn.cross_decomposition import PLSCanonical
@@ -248,17 +248,17 @@ sns.pairplot(df_, hue="respond_wk8")
 print("PLSscore1 capture global age")
 del df_, Xim_tgt_s_, Xdemoclin_tgt_s_, rank_
 
-###############################################################################
+################################################################################
 #
 # Clustering
 #
-###############################################################################
+################################################################################
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn import metrics
 
-###############################################################################
+################################################################################
 # Fit on Imaging of Ctl => predict on imaging of treatment
 
 scaler_ctl = StandardScaler()
@@ -342,7 +342,7 @@ with pd.ExcelWriter(xls_filename) as writer:
 
 del Xim_ctl_, Xim_tgt_, PC_tgt_
 
-###############################################################################
+################################################################################
 # Fit clustering on patients' imaging PLSscores
 
 X_ = StandardScaler().fit_transform(PLSim_scores)
@@ -375,8 +375,11 @@ clust_labels_kmeans_pls = km_pls.predict(X_)
 
 del X_
 
-###############################################################################
-# Run CV
+################################################################################
+#
+# Cross-Validation
+#
+################################################################################
 
 import sklearn.ensemble
 import sklearn.linear_model as lm
@@ -392,7 +395,7 @@ cv = StratifiedKFold(n_splits=nsplits)
 #cv = LeaveOneOut()
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
 # Utils
 
 def fit_predict(estimator_img, split):
@@ -461,23 +464,25 @@ def fit_predict(estimator_img, split):
                 y_test_democlin=y_test_democlin, score_test_democlin=score_test_democlin,
                 y_test_stck=y_test_stck, score_test_stck=score_test_stck)
 
+################################################################################
+# SETTINGS
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-------------------------------------------------------------------------------
 SETTING = "ALL"
 Xim_ = Xim[msk_tgt, :]
 Xdemoclin_ = Xdemoclin[msk_tgt, :]
 Xsite_ = Xsite[msk_tgt, :]
 y_ = pop[target + "_num"][msk_tgt].values
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-SETTING = "CLUST-DBSCAN-PLS"
+#-------------------------------------------------------------------------------
+# SETTING = "CLUST-DBSCAN-PLS"
 assert msk_tgt.sum() == len(clust_labels_dbscan_pls)
 Xim_ = Xim[msk_tgt, :][clust_labels_dbscan_pls != -1, :]
 Xdemoclin_ = Xdemoclin[msk_tgt, :][clust_labels_dbscan_pls != -1, :]
 Xsite_ = Xsite[msk_tgt, :][clust_labels_dbscan_pls != -1, :]
 y_ = pop[target + "_num"][msk_tgt][clust_labels_dbscan_pls != -1].values
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-------------------------------------------------------------------------------
 SETTING = "CLUST0-KMEANS-PLS"
 assert msk_tgt.sum() == len(clust_labels_kmeans_pls)
 clust_ = 0
@@ -486,7 +491,7 @@ Xdemoclin_ = Xdemoclin[msk_tgt, :][clust_labels_kmeans_pls == clust_, :]
 Xsite_ = Xsite[msk_tgt, :][clust_labels_kmeans_pls == clust_, :]
 y_ = pop[target + "_num"][msk_tgt][clust_labels_kmeans_pls ==clust_].values
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-------------------------------------------------------------------------------
 SETTING = "CLUST1-KMEANS-PLS"
 assert msk_tgt.sum() == len(clust_labels_kmeans_pls)
 clust_ = 1
@@ -495,7 +500,7 @@ Xdemoclin_ = Xdemoclin[msk_tgt, :][clust_labels_kmeans_pls == clust_, :]
 Xsite_ = Xsite[msk_tgt, :][clust_labels_kmeans_pls == clust_, :]
 y_ = pop[target + "_num"][msk_tgt][clust_labels_kmeans_pls ==clust_].values
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-------------------------------------------------------------------------------
 SETTING = "CLUST0-KMEANS-IMG"
 
 assert msk_tgt.sum() == len(clust_labels_kmeans_img)
@@ -505,7 +510,7 @@ Xdemoclin_ = Xdemoclin[msk_tgt, :][clust_labels_kmeans_img == clust_, :]
 Xsite_ = Xsite[msk_tgt, :][clust_labels_kmeans_img == clust_, :]
 y_ = pop[target + "_num"][msk_tgt][clust_labels_kmeans_img ==clust_].values
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-------------------------------------------------------------------------------
 SETTING = "CLUST1-KMEANS-IMG"
 assert msk_tgt.sum() == len(clust_labels_kmeans_img)
 clust_ = 1
@@ -515,8 +520,10 @@ Xsite_ = Xsite[msk_tgt, :][clust_labels_kmeans_img == clust_, :]
 y_ = pop[target + "_num"][msk_tgt][clust_labels_kmeans_img ==clust_].values
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# RUN THIS ONE
+
+################################################################################
+# RUN FOR EACH SETTING
+
 cv_dict = {fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
 estimators_dict = dict(lr=lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False))
 args_collection = dict_product(estimators_dict, cv_dict)
