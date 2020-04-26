@@ -43,11 +43,13 @@ from nitk.utils import dict_product, parallel, reduce_cv_classif
 
 INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
 OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202004_schizconnect-bsnip_cat12vbm_predict-dx'
+NJOBS = 8
 
 # On laptop
 if not os.path.exists(INPUT_PATH):
     INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
     OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data' )
+    NJOBS = 3
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
@@ -134,6 +136,8 @@ def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
 # Dataset: concatenate [schizconnect-vip  bsnip]
 #
 ################################################################################
+
+print("# Dataset: concatenate [schizconnect-vip  bsnip]")
 # SCZ (schizconnect-vip <=> bsnip)
 
 datasets = ['schizconnect-vip', 'bsnip']
@@ -157,13 +161,13 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
     # array(['BIOBD', 'BSNIP', 'PRAGUE', 'SCHIZCONNECT-VIP'], dtype=object)
 
     # Check all sites have both labels
-    print([[studies[i], np.unique(pop[target].values[te]), np.unique(pop[target_num].values[te])] for i, (tr, te) in
-        enumerate(cv_lstudieout.split(None, pop[target_num].values))])
+    # print([[studies[i], np.unique(pop[target].values[te]), np.unique(pop[target_num].values[te])] for i, (tr, te) in
+    #    enumerate(cv_lstudieout.split(None, pop[target_num].values))])
 
     # Load arrays
-    %time imgs_arr = np.concatenate([np.load(INPUT(dataset=dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r') for dataset in datasets])[mask_row]
+    imgs_arr = np.concatenate([np.load(INPUT(dataset=dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r') for dataset in datasets])[mask_row]
     # Save and relaod in mm
-    %time np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
+    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
     del imgs_arr
     import gc
     gc.collect()
@@ -189,6 +193,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
 #
 ###############################################################################
 
+print("# Sensitivity study on schizconnect-vip")
 dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
 scaling, harmo = 'gs', 'raw'
 
@@ -202,9 +207,8 @@ assert mask_arr.sum() == 367689
 # Select dataset 5CV on SCHIZCONNECT-VIP
 
 dataset = 'schizconnect-vip'
-
 NSPLITS = 5
-NJOBS = 3
+
 msk = pop.study.isin(['SCHIZCONNECT-VIP'])
 assert msk.sum() == 605
 Xim = imgs_arr.squeeze()[:, mask_arr][msk]
@@ -250,7 +254,7 @@ estimators_dict.update(fl2)
 estimators_dict.update(rfe)
 
 args_collection = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
-key_vals = parallel(fit_predict, args_collection, n_jobs=4, pass_key=True, verbose=20)
+key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
 models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
 with open(models_filename, 'wb') as fd:
@@ -258,6 +262,8 @@ with open(models_filename, 'wb') as fd:
 
 #------------------------------------------------------------------------------
 # Statistics
+
+print("# Statistics")
 
 models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
 with open(models_filename, 'rb') as fd:
@@ -320,6 +326,7 @@ plt.savefig(OUTPUT(dataset, scaling=None, harmo=None, type="sensibility-l2-l1-en
 #==============================================================================
 # Enet-TV
 
+print("# Enet-TV")
 # estimators
 import parsimony.algorithms as algorithms
 import parsimony.estimators as estimators
@@ -367,7 +374,7 @@ for alpha, l1l2ratio, tvratio in itertools.product(alphas, l1l2ratios, tvratios)
 args_collection_1 = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
 
 
-key_vals = parallel(fit_predict, args_collection_1, n_jobs=6, pass_key=True)
+key_vals = parallel(fit_predict, args_collection_1, n_jobs=NJOBS, pass_key=True, verbose=20)
 
 models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
 with open(models_filename, 'wb') as fd:
