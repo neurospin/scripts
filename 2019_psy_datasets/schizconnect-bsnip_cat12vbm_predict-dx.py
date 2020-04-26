@@ -131,13 +131,13 @@ def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
     return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
 """
 
+print("""
 ################################################################################
 #
 # Dataset: concatenate [schizconnect-vip  bsnip]
 #
 ################################################################################
-
-print("# Dataset: concatenate [schizconnect-vip  bsnip]")
+""")
 # SCZ (schizconnect-vip <=> bsnip)
 
 datasets = ['schizconnect-vip', 'bsnip']
@@ -187,13 +187,14 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
     print("Sizes. mask_arr:%.2fGb" % (imgs_arr.nbytes / 1e9))
 
 
+print("""
 ###############################################################################
 #
 # Sensitivity study on schizconnect-vip
 #
 ###############################################################################
+""")
 
-print("# Sensitivity study on schizconnect-vip")
 dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
 scaling, harmo = 'gs', 'raw'
 
@@ -203,8 +204,10 @@ mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", e
 mask_arr = mask_img.get_data() != 0
 assert mask_arr.sum() == 367689
 
+print("""
 #==============================================================================
 # Select dataset 5CV on SCHIZCONNECT-VIP
+""")
 
 dataset = 'schizconnect-vip'
 NSPLITS = 5
@@ -223,9 +226,10 @@ cv_dict = {"CV%i" % fold:split for fold, split in enumerate(cv.split(Xim, y))}
 print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
 #  [[0, 330], [1, 275]]
 
-
+print("""
 #==============================================================================
 # l1, l2, enet, filter, rfe
+""")
 
 # parameters range:
 # from sklearn.svm import l1_min_c
@@ -260,10 +264,10 @@ models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv
 with open(models_filename, 'wb') as fd:
     pickle.dump(key_vals, fd)
 
+print("""
 #------------------------------------------------------------------------------
 # Statistics
-
-print("# Statistics")
+""")
 
 models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
 with open(models_filename, 'rb') as fd:
@@ -279,8 +283,10 @@ with pd.ExcelWriter(xls_filename) as writer:
 cv_scores["param"] = [float(s.split(":")[1]) for s in cv_scores["param_0"]]
 cv_scores["algo"] = [s.split("_")[0] for s in cv_scores["param_0"]]
 
+print("""
 #------------------------------------------------------------------------------
 # plot
+""")
 
 sns.set_style("whitegrid")
 import matplotlib.pylab as pl
@@ -323,8 +329,10 @@ g.set(ylim=(.5, .9))
 plt.tight_layout()
 plt.savefig(OUTPUT(dataset, scaling=None, harmo=None, type="sensibility-l2-l1-enet", ext="pdf"))
 
+print("""
 #==============================================================================
 # Enet-TV
+""")
 
 print("# Enet-TV")
 # estimators
@@ -378,4 +386,4 @@ key_vals = parallel(fit_predict, args_collection_1, n_jobs=NJOBS, pass_key=True,
 
 models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
 with open(models_filename, 'wb') as fd:
-    pickle.dump(key_vals_1, fd)
+    pickle.dump(key_vals, fd)
