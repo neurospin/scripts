@@ -4,6 +4,12 @@
 Created on Tue Feb  4 17:06:56 2020
 
 @author: edouard.duchesnay@cea.fr
+
+TODO: explore coef map
+
+Fusar-Poli, P., S. Borgwardt, A. Crescini, G. Deste, Matthew J. Kempton, S. Lawrie, P. Mc Guire, and E. Sacchetti. “Neuroanatomy of Vulnerability to Psychosis: A Voxel-Based Meta-Analysis.” Neuroscience and Biobehavioral Reviews 35, no. 5 (April 2011): 1175–85. https://doi.org/10.1016/j.neubiorev.2010.12.005.
+GM reductions in the frontal and temporal cortex associated with transition to psychosis (HR-NT > HR-T)
+
 """
 %load_ext autoreload
 %autoreload 2
@@ -255,11 +261,11 @@ def fit_predict(key, estimator_img, split):
 
 ################################################################################
 # Settings
+NSPLITS = 5
 
 #-------------------------------------------------------------------------------
 SETTING = "RES-TRAIN_LR_5CV"
 RES_MOD = 'RES-TRAIN'
-NSPLITS = 5
 
 Xim_ = Xim[msk, :]
 Xdemoclin_ = Xdemoclin[msk, :]
@@ -275,7 +281,6 @@ estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', 
 #-------------------------------------------------------------------------------
 SETTING = "RES-TRAIN_GB_5CV"
 RES_MOD = 'RES-TRAIN'
-NSPLITS = 5
 
 Xim_ = Xim[msk, :]
 Xdemoclin_ = Xdemoclin[msk, :]
@@ -291,7 +296,7 @@ estimators_dict = dict(gb=ensemble.GradientBoostingClassifier()) # 2min 15s / ru
 #-------------------------------------------------------------------------------
 SETTING = "RES-TRAIN-PCA_LR_5CV"
 RES_MOD = 'RES-TRAIN'
-NSPLITS = 5
+
 from sklearn.pipeline import Pipeline
 
 Xim_ = Xim[msk, :]
@@ -328,7 +333,6 @@ estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', 
 #-------------------------------------------------------------------------------
 SETTING = "RES-TRAIN_ENETTV_5CV"
 RES_MOD = 'RES-TRAIN'
-NSPLITS = 5
 
 Xim_ = Xim[msk, :]
 Xdemoclin_ = Xdemoclin[msk, :]
