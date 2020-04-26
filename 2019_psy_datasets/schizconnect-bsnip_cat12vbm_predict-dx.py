@@ -252,20 +252,20 @@ estimators_dict.update(rfe)
 args_collection = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
 key_vals = parallel(fit_predict, args_collection, n_jobs=4, pass_key=True, verbose=20)
 
-models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-l1-l2-enet-filter-rfe", ext="pkl")
+models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
 with open(models_filename, 'wb') as fd:
     pickle.dump(key_vals, fd)
 
 #------------------------------------------------------------------------------
 # Statistics
 
-models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-l1-l2-enet-filter-rfe", ext="pkl")
+models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
 with open(models_filename, 'rb') as fd:
     key_vals = pickle.load(fd)
 
 cv_scores = reduce_cv_classif(key_vals, cv_dict, y_true=y)
 
-xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-l1-l2-enet-filter-rfe", ext="xlsx")
+xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")
 with pd.ExcelWriter(xls_filename) as writer:
     cv_scores.to_excel(writer, sheet_name='folds', index=False)
     cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
@@ -340,16 +340,16 @@ def ratios_to_param(alpha, l1l2ratio, tvratio):
     l2 = alpha * float(1 - tv) * (1- l1l2ratio)
     return l1, l2, tv
 
-"""
-Long range
-alphas = [.01, .1]
+
+# Large range
+alphas = [.01, .1, 1.]
 l1l2ratios = [.1]
 tvratios = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.]
-"""
 
-alphas = [.1]
-l1l2ratios = [.1]
-tvratios = [0, .2, .4, .6, .8, 1.]
+# smaller range
+# alphas = [.1]
+# l1l2ratios = [.1]
+# tvratios = [0, .2, .4, .6, .8, 1.]
 
 import itertools
 estimators_dict = dict()
@@ -367,8 +367,8 @@ for alpha, l1l2ratio, tvratio in itertools.product(alphas, l1l2ratios, tvratios)
 args_collection_1 = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
 
 
-key_vals_1 = parallel(fit_predict, args_collection_1, n_jobs=6, pass_key=True)
+key_vals = parallel(fit_predict, args_collection_1, n_jobs=6, pass_key=True)
 
-models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models_enettv_1", ext="pkl")
+models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
 with open(models_filename, 'wb') as fd:
     pickle.dump(key_vals_1, fd)
