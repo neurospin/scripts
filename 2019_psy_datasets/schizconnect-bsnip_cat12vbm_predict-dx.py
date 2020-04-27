@@ -225,6 +225,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     msk = pop.study.isin(['SCHIZCONNECT-VIP', 'BSNIP'])
     assert msk.sum() == 999
     Xim = imgs_arr.squeeze()[:, mask_arr][msk]
+    Xdemoclin = np.zeros((Xim.shape[0], 1))
     del imgs_arr
     y = pop[target + "_num"][msk].values
     print("Sizes. mask_arr:%.2fGb" % (Xim.nbytes / 1e9))
@@ -370,10 +371,10 @@ print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
 
 
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")):
-print("""
-#==============================================================================
-# l1, l2, enet, filter, rfe
-""")
+    print("""
+    #==============================================================================
+    # l1, l2, enet, filter, rfe
+    """)
 
     # parameters range:
     # from sklearn.svm import l1_min_c
