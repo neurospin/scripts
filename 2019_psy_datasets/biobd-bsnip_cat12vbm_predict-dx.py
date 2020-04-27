@@ -49,7 +49,7 @@ NJOBS = 8
 if not os.path.exists(INPUT_PATH):
     INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
     OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data')
-    NJOBS = 3
+    NJOBS = 2
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
@@ -392,14 +392,14 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     # LSO
 
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv_lso_dict)
-    key_vals_lso = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    key_vals_lso = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
     cv_scores_lso = reduce_cv_classif(key_vals_lso, cv_lso_dict, y_true=y)
     cv_scores_lso["CV"] = 'LSO(BIOBD+BSNIP)'
 
     # 5CV
 
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv5_biobd)
-    key_vals_cv5_biobd = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    key_vals_cv5_biobd = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
     cv_scores_cv5_biobd = reduce_cv_classif(key_vals_cv5_biobd, cv5_biobd, y_true=y)
     cv_scores_cv5_biobd["CV"] = '5CV(BIOBD)'
 
@@ -495,7 +495,7 @@ print("""
     args_collection = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
     print("Nb Tasks=%i" % len(args_collection))
 
-    key_vals = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
     models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
     with open(models_filename, 'wb') as fd:

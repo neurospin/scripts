@@ -49,7 +49,7 @@ NJOBS = 8
 if not os.path.exists(INPUT_PATH):
     INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
     OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data' )
-    NJOBS = 3
+    NJOBS = 2
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
@@ -232,6 +232,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
 
     vars_clinic = []
     vars_demo = ['age', 'sex']
+    Xdemoclin = pop.loc[msk, vars_demo + vars_clinic].values
 
     # -----------------------------------------------------------------------------
     # Residualization bloc: Sex + Sites + age with some descriptives stats
@@ -309,13 +310,13 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
 
     # LSO
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv_lso_dict)
-    key_vals_lso = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    key_vals_lso = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
     cv_scores_lso = reduce_cv_classif(key_vals_lso, cv_lso_dict, y_true=y)
     cv_scores_lso["CV"] = 'LSO(SCHIZCONNECT-VIP+BSNIP)'
     # 5CV
 
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv5_schizconnect)
-    key_vals_cv5_schizconnect = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    key_vals_cv5_schizconnect = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
     cv_scores_cv5_schizconnect = reduce_cv_classif(key_vals_cv5_schizconnect, cv5_schizconnect, y_true=y)
     cv_scores_cv5_schizconnect["CV"] = '5CV(SCHIZCONNECT-VIP)'
 
