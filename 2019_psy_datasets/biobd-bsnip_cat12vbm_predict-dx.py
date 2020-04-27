@@ -1,7 +1,7 @@
 """
 # Copy data
 
-cd /home/ed203246/data/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm
+cd /home/ed203246/data/psy_sbox/analyses/201906_biobd-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*participants*.csv ./
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*t1mri_mwp1_mask.nii.gz ./
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*mwp1_gs-raw_data64.npy ./
@@ -41,14 +41,14 @@ from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
 from nitk.stats import Residualizer
 from nitk.utils import dict_product, parallel, reduce_cv_classif
 
-INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
-OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202004_schizconnect-bsnip_cat12vbm_predict-dx'
+INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm'
+OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx'
 NJOBS = 8
 
 # On laptop
 if not os.path.exists(INPUT_PATH):
     INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
-    OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data' )
+    OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data')
     NJOBS = 3
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
@@ -138,45 +138,123 @@ def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
 print("""
 ################################################################################
 #
-# Dataset: concatenate [schizconnect-vip  bsnip]
+# Dataset: concatenate [biobd  bsnip]
 #
 ################################################################################
 """)
-# SCZ (schizconnect-vip <=> bsnip)
+# BD (biobd <=> bsnip)
 
-datasets = ['schizconnect-vip', 'bsnip']
-dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
+
+datasets = ['biobd', 'bsnip']
+dataset, target, target_num = 'biobd-bsnip', "diagnosis", "diagnosis_num"
 scaling, harmo = 'gs', 'raw'
 
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
 
     # Read clinical data
     pop = pd.concat([pd.read_csv(INPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
-    mask_row = pop[target].isin(['schizophrenia', 'FEP', 'control'])
-    pop = pop[mask_row]
-    # FEP of PRAGUE becomes 1
-    pop[target_num] = pop[target].map({'schizophrenia': 1, 'FEP':1, 'control': 0}).values
+    pop = pop.reset_index(drop=True)
+    # force participants id to be strings
+    pop.participant_id = [str(id) for id in pop.participant_id]
+
+
+    print(pd.DataFrame([[l, np.sum(pop["diagnosis"] == l)] for l in pop["diagnosis"].unique()]))
+    """
+                                                        0    1
+    0                                             control  556
+    1                                    bipolar disorder  306
+    2                                            ADHD, SU    1
+    3                                                 NaN    0
+    4                                                 EDM    1
+    5                                    MDE, ADHD, panic    1
+    6                                           SU, panic    1
+    7                                           MDE, PTSD    1
+    8                                                ADHD    1
+    9   relative of proband with schizoaffective disorder  123
+    10  relative of proband with psychotic bipolar dis...  119
+    11                           schizoaffective disorder  112
+    12                                      schizophrenia  194
+    13             relative of proband with schizophrenia  175
+    14                         psychotic bipolar disorder  117
+    """
+    # keep only
+    msk = pop.diagnosis.isin(['control', 'bipolar disorder', 'psychotic bipolar disorder'])
+    assert pop[msk].shape == (979, 52)
+
+    laurie = pd.read_csv(os.path.join(OUTPUT_PATH, 'norm_dataset_cat12_bsnip_biobd.tsv'), sep="\t")
+    assert laurie.shape == (993, 183)
+
+    merge = pd.merge(laurie, pop[msk], on='participant_id' )
+    assert merge.shape == (976, 234)
+
+    rm_from_laurie = laurie[~laurie.participant_id.isin(merge.participant_id)]
+    rm_from_anton = pop[msk][~pop[msk].participant_id.isin(merge.participant_id)]
+    anton = pop[msk]
+
+    msk_merge = msk & pop.participant_id.isin(merge.participant_id)
+    assert np.sum(msk_merge) == merge.shape[0]
+    assert pd.merge(laurie, pop[msk_merge], on='participant_id' ).shape[0] == np.sum(msk_merge)
+
+    # split mask in  since we will have to load dataset maskin and concatenating
+    last_biobd = np.where(pop.study == "BIOBD")[0][-1]
+    assert last_biobd + 1 == np.where(pop.study == "BSNIP")[0][0]
+    mask_merge_biobd = msk_merge[:(last_biobd + 1)]
+    mask_merge_bsnip = msk_merge[(last_biobd + 1):]
+    assert np.all(np.concatenate([mask_merge_biobd, mask_merge_bsnip]) == msk_merge)
+    del last_biobd
+
+    # QC on merge
+    df_ = pd.merge(
+            pop[msk_merge][['participant_id',  'site', 'sex', 'age', 'diagnosis', 'study', 'Age of Onset']],
+            laurie[['participant_id', 'siteID', 'Female', 'Age', 'DX', 'Age of Onset']],
+            on='participant_id', suffixes=('_anton', '_laurie'))
+
+    np.all(df_.site == df_.siteID)
+    np.all(df_.sex == df_.Female)
+    np.all((df_.age - df_.Age) < 1e-3)
+    np.all(df_.diagnosis.map({'control':0, 'bipolar disorder':1, 'psychotic bipolar disorder':1}) == df_.DX)
+    # OK so far
+
+    correct_age_of_onset = df_[(df_["Age of Onset_anton"].notnull() | df_['Age of Onset_laurie'].notnull()) & (df_["Age of Onset_anton"] != df_['Age of Onset_laurie'])][['participant_id',  "site", "Age of Onset_anton", 'Age of Onset_laurie']]
+    print(correct_age_of_onset.shape)
+    # 36 patiens from Udine where Laurie has the Agae of Onset
+    # Update:
+    # PHENOTYPE_CSV = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START.tsv"
+    # Correct
+    for subject in correct_age_of_onset.participant_id:
+        pop.loc[pop.participant_id == subject, 'Age of Onset'] = laurie.loc[laurie.participant_id == subject, 'Age of Onset'].values[0]
+
+
+    xls_filename = os.path.join(OUTPUT_PATH + "/QC_MERGE_LAURIE-ANTON.xlsx")
+    with pd.ExcelWriter(xls_filename) as writer:
+        pop[msk_merge].to_excel(writer, sheet_name='merged', index=False)
+        rm_from_laurie.to_excel(writer, sheet_name='removed_from_laurie', index=False)
+        rm_from_anton.to_excel(writer, sheet_name='removed_from_ours', index=False)
+
+    del df_, anton, correct_age_of_onset, laurie, merge, msk, rm_from_anton, rm_from_laurie, subject, xls_filename
+
+    pop = pop[msk_merge]
+    pop = pop.reset_index(drop=True)
+    pop[target_num] = pop[target].map({'control':0, 'bipolar disorder':1, 'psychotic bipolar disorder':1}).values
 
     pop["GM_frac"] = pop.gm / pop.tiv
     pop["sex_c"] = pop["sex"].map({0: "M", 1: "F"})
 
-    # Leave study out CV
-    studies = np.sort(pop["study"].unique())
-    # array(['BIOBD', 'BSNIP', 'PRAGUE', 'SCHIZCONNECT-VIP'], dtype=object)
-
-    # Check all sites have both labels
-    # print([[studies[i], np.unique(pop[target].values[te]), np.unique(pop[target_num].values[te])] for i, (tr, te) in
-    #    enumerate(cv_lstudieout.split(None, pop[target_num].values))])
-
-    # Load arrays
-    imgs_arr = np.concatenate([np.load(INPUT(dataset=dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r') for dataset in datasets])[mask_row]
-    # Save and relaod in mm
+    # Load arrays load separatly apply mask
+    imgs_arr = np.zeros((pop.shape[0], 1, 121, 145, 121))
+    imgs_arr[:mask_merge_biobd.sum()] = np.load(INPUT(dataset='biobd', scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')[mask_merge_biobd]
+    imgs_arr[mask_merge_biobd.sum():] = np.load(INPUT(dataset='bsnip', scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')[mask_merge_bsnip]
     np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
     del imgs_arr
     import gc
     gc.collect()
+
+    # reload and do QC
     imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
-    print(imgs_arr.shape)
+    assert np.all(imgs_arr[:mask_merge_biobd.sum()] == np.load(INPUT(dataset='biobd', scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')[mask_merge_biobd])
+    assert np.all(imgs_arr[mask_merge_biobd.sum():] == np.load(INPUT(dataset='bsnip', scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')[mask_merge_bsnip])
+
+    del msk_merge, mask_merge_biobd, mask_merge_bsnip
 
     # Recompute mask
     from nitk.image import compute_brain_mask
@@ -186,7 +264,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
     pop.to_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
 
     mask_arr = mask_img.get_data() != 0
-    assert np.sum(mask_arr != 0) == 367689
+    assert np.sum(mask_arr != 0) == 367120
     print(mask_arr.shape, imgs_arr.squeeze().shape)
     print("Sizes. mask_arr:%.2fGb" % (imgs_arr.nbytes / 1e9))
 
@@ -195,12 +273,12 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     print("""
     ###############################################################################
     #
-    # Residualization study on schizconnect-vip-bsnip
+    # Residualization study on biobd-bsnip
     #
     ###############################################################################
     """)
 
-    dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
+    dataset, target, target_num = 'biobd-bsnip', "diagnosis", "diagnosis_num"
     scaling, harmo = 'gs', 'raw'
 
     pop = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
@@ -212,18 +290,19 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
     mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
     mask_arr = mask_img.get_data() != 0
-    assert mask_arr.sum() == 367689
+    assert mask_arr.sum() == 367120
 
     print("""
     #==============================================================================
-    # Select SCHIZCONNECT-VIP+BSNIP : 5CV(SCHIZCONNECT-VIP) + LSO(SCHIZCONNECT-VIP+BSNIP)
+    # Select biobd+BSNIP : 5CV(BIOBD) + LSO(BIOBD+BSNIP)
     """)
 
-    dataset = 'schizconnect-vip'
+    dataset = 'biobd'
     NSPLITS = 5
 
-    msk = pop.study.isin(['SCHIZCONNECT-VIP', 'BSNIP'])
-    assert msk.sum() == 999
+    msk = pop.study.isin(['BIOBD', 'BSNIP'])
+    # msk is all True here keep it for compatibility
+    assert msk.sum() == 976
     Xim = imgs_arr.squeeze()[:, mask_arr][msk]
     del imgs_arr
     y = pop[target + "_num"][msk].values
@@ -231,6 +310,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
 
     vars_clinic = []
     vars_demo = ['age', 'sex']
+    Xdemoclin = pop.loc[msk, vars_demo + vars_clinic].values
 
     # -----------------------------------------------------------------------------
     # Residualization bloc: Sex + Sites + age with some descriptives stats
@@ -246,16 +326,20 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     columns=['study', "site", 'count', 'DX%', 'age_mean', "sex%F"])
     print(desc_stats)
     """
-                  study       site  count   DX%  age_mean  sex%F
-    0  SCHIZCONNECT-VIP        MRN    164  0.47     37.84   0.23
-    1  SCHIZCONNECT-VIP      WUSTL    269  0.43     30.61   0.45
-    2  SCHIZCONNECT-VIP        vip     92  0.42     34.38   0.45
-    3  SCHIZCONNECT-VIP         NU     80  0.53     32.05   0.42
-    4             BSNIP     Boston     51  0.49     32.65   0.43
-    5             BSNIP     Dallas     66  0.33     39.98   0.52
-    6             BSNIP   Hartford    109  0.52     33.14   0.43
-    7             BSNIP  Baltimore    141  0.60     39.89   0.41
-    8             BSNIP    Detroit     27  0.22     28.44   0.52
+        study        site  count   DX%  age_mean  sex%F
+    0   BIOBD    sandiego    117  0.37     50.65   0.62
+    1   BIOBD    mannheim     79  0.52     41.06   0.56
+    2   BIOBD     creteil     73  0.47     35.27   0.49
+    3   BIOBD       udine    126  0.29     38.72   0.43
+    4   BIOBD      galway     69  0.41     41.33   0.49
+    5   BIOBD  pittsburgh    114  0.68     33.68   0.73
+    6   BIOBD    grenoble     32  0.72     43.22   0.53
+    7   BIOBD      geneve     52  0.46     31.25   0.46
+    8   BSNIP      Boston     54  0.52     34.69   0.61
+    9   BSNIP      Dallas     67  0.36     40.24   0.63
+    10  BSNIP    Hartford     79  0.34     35.44   0.58
+    11  BSNIP   Baltimore     88  0.35     41.70   0.64
+    12  BSNIP     Detroit     26  0.19     32.88   0.54
     """
 
     formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_num
@@ -265,7 +349,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     assert Xim.shape[0] == Z.shape[0] == y.shape[0]
 
     # -----------------------------------------------------------------------------
-    # CV: 5CV(SCHIZCONNECT-VIP) + LSO(SCHIZCONNECT-VIP+BSNIP)
+    # CV: 5CV(BIOBD) + LSO(biobd+BSNIP)
 
     pop_ = pop_w[msk]
     pop_ = pop_.reset_index(drop=True)
@@ -281,81 +365,87 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
         assert len(sites_) == 1 and sites_[0] == k
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 5cv on SCHIZCONNECT-VIP that will be applied on SCHIZCONNECT-VIP+bsnip
+    # 5cv on BIOBD that will be applied on biobd+bsnip
 
     # store idx of the large dataset, cv in the smaller, map back using stored idx
     df_ = pop_[["participant_id", target_num]]
     df_["idx"] = np.arange(len(df_)) # store idx of large dataset
-    df_ = df_[pop_.study.isin(["SCHIZCONNECT-VIP"])] # select smaller
+    df_ = df_[pop_.study.isin(["BIOBD"])] # select smaller
     cv_ = StratifiedKFold(n_splits=5, shuffle=True, random_state=3)
 
     # do CV on the smaller but use index of the larger
-    cv5_schizconnect = {"CV%i" % fold : [df_.idx[train].values, df_.idx[test].values] for fold, (train, test) in enumerate(cv_.split(df_[target_num].values, df_[target_num].values))}
+    cv5_biobd = {"CV%i" % fold : [df_.idx[train].values, df_.idx[test].values] for fold, (train, test) in enumerate(cv_.split(df_[target_num].values, df_[target_num].values))}
 
-    # Check all split cover all SCHIZCONNECT-VIP sample
-    assert np.all(np.array([len(np.unique(train.tolist() + test.tolist()))  for fold, (train, test) in cv5_schizconnect.items()]) == pop_.study.isin(["SCHIZCONNECT-VIP"]).sum())
-    # Check all test cover all SCHIZCONNECT-VIP sample
-    assert np.all(len(np.unique([test.tolist()  for fold, (train, test) in cv5_schizconnect.items()])) == pop_.study.isin(["SCHIZCONNECT-VIP"]).sum())
+    # Check all split cover all biobd sample
+    assert np.all(np.array([len(np.unique(train.tolist() + test.tolist()))  for fold, (train, test) in cv5_biobd.items()]) == pop_.study.isin(["BIOBD"]).sum())
+    # Check all test cover all biobd sample
+    assert np.all(len(np.unique(np.concatenate([test.tolist()  for fold, (train, test) in cv5_biobd.items()]))) == pop_.study.isin(["BIOBD"]).sum())
     del df_, cv_
 
     print("""
     #==============================================================================
-    # Run l2 5CV(SCHIZCONNECT-VIP) + LSO(SCHIZCONNECT-VIP+BSNIP)
+    # Run l2 5CV(BIOBD) + LSO(BIOBD+BSNIP)
     """)
-
 
     estimators_dict = {"l2_C:%f" % 1: lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False)}
 
     # LSO
+
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv_lso_dict)
     key_vals_lso = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
     cv_scores_lso = reduce_cv_classif(key_vals_lso, cv_lso_dict, y_true=y)
-    cv_scores_lso["CV"] = 'LSO(SCHIZCONNECT-VIP+BSNIP)'
+    cv_scores_lso["CV"] = 'LSO(BIOBD+BSNIP)'
+
     # 5CV
 
-    args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv5_schizconnect)
-    key_vals_cv5_schizconnect = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
-    cv_scores_cv5_schizconnect = reduce_cv_classif(key_vals_cv5_schizconnect, cv5_schizconnect, y_true=y)
-    cv_scores_cv5_schizconnect["CV"] = '5CV(SCHIZCONNECT-VIP)'
+    args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv5_biobd)
+    key_vals_cv5_biobd = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
+    cv_scores_cv5_biobd = reduce_cv_classif(key_vals_cv5_biobd, cv5_biobd, y_true=y)
+    cv_scores_cv5_biobd["CV"] = '5CV(BIOBD)'
 
-    cv_scores = cv_scores_lso.append(cv_scores_cv5_schizconnect)
+    cv_scores = cv_scores_lso.append(cv_scores_cv5_biobd)
 
     # =>
     #
+    mean = cv_scores.groupby(["CV", "param_1"]).mean()
+    sd = cv_scores.groupby(["CV", "param_1"]).std()
+    sd = sd[["auc", "bacc"]].rename(columns={'auc':'auc_std', 'bacc':'bacc_std'})
+    stat = pd.concat([mean, sd], axis=1)
     xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
-        cv_score.groupby(["CV", "param_1"]).mean().to_excel(writer, sheet_name='mean')
+        stat.to_excel(writer, sheet_name='mean')
         desc_stats.to_excel(writer, sheet_name='desc_stats', index=False)
 
+    del cv_scores, cv_scores_lso, cv_scores_cv5_biobd
 
 print("""
 ###############################################################################
 #
-# Comparison analysis and Sensitivity study on schizconnect-vip 5CV
+# Comparison analysis and Sensitivity study on biobd 5CV
 #
 ###############################################################################
 """)
 
-dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
+dataset, target, target_num = 'biobd-bsnip', "diagnosis", "diagnosis_num"
 scaling, harmo = 'gs', 'raw'
 
 pop = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
 imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
 mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
 mask_arr = mask_img.get_data() != 0
-assert mask_arr.sum() == 367689
+assert mask_arr.sum() == 367120
 
 print("""
 #==============================================================================
-# Select dataset 5CV on SCHIZCONNECT-VIP
+# Select dataset 5CV on biobd
 """)
 
-dataset = 'schizconnect-vip'
+dataset = 'biobd'
 NSPLITS = 5
 
-msk = pop.study.isin(['SCHIZCONNECT-VIP'])
-assert msk.sum() == 605
+msk = pop.study.isin(['BIOBD'])
+assert msk.sum() == 662
 Xim = imgs_arr.squeeze()[:, mask_arr][msk]
 del imgs_arr
 y = pop[target + "_num"][msk].values
@@ -366,8 +456,8 @@ cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
 cv_dict = {"CV%i" % fold:split for fold, split in enumerate(cv.split(Xim, y))}
 
 print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
-#  [[0, 330], [1, 275]]
-
+#Sizes. mask_arr:1.94Gb
+#[[0, 356], [1, 306]]
 
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")):
 print("""
@@ -403,12 +493,15 @@ print("""
     estimators_dict.update(rfe)
 
     args_collection = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
-    key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
+    print("Nb Tasks=%i" % len(args_collection))
+
+    key_vals = parallel(fit_predict, args_collection, n_jobs=2, pass_key=True, verbose=20)
 
     models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
     with open(models_filename, 'wb') as fd:
         pickle.dump(key_vals, fd)
 
+    TODO
     print("""
     #------------------------------------------------------------------------------
     # Statistics
