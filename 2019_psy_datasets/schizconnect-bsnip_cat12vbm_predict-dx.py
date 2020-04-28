@@ -327,7 +327,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
-        cv_score.groupby(["CV", "param_1"]).mean().to_excel(writer, sheet_name='mean')
+        cv_scores.groupby(["CV", "param_1"]).mean().to_excel(writer, sheet_name='mean')
         desc_stats.to_excel(writer, sheet_name='desc_stats', index=False)
 
 
