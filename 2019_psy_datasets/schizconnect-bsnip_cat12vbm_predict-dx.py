@@ -5,6 +5,9 @@ cd /home/ed203246/data/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-bi
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*participants*.csv ./
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*t1mri_mwp1_mask.nii.gz ./
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*mwp1_gs-raw_data64.npy ./
+
+# NS => Laptop
+rsync -azvun triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202004_schizconnect-bsnip_cat12vbm_predict-dx/* /home/ed203246/data/psy_sbox/analyses/202004_schizconnect-bsnip_cat12vbm_predict-dx/
 """
 # %load_ext autoreload
 # %autoreload 2
@@ -52,6 +55,12 @@ if not os.path.exists(INPUT_PATH):
     NJOBS = 2
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
+
+scaling, harmo = 'gs', 'raw'
+DATASET_FULL = 'schizconnect-vip-bsnip'
+DATASET_TRAIN = 'schizconnect-vip'
+target, target_num = "diagnosis", "diagnosis_num"
+NSPLITS = 5
 
 ################################################################################
 #
@@ -135,23 +144,22 @@ def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
     return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
 """
 
-print("""
-################################################################################
-#
-# Dataset: concatenate [schizconnect-vip  bsnip]
-#
-################################################################################
-""")
-# SCZ (schizconnect-vip <=> bsnip)
 
-datasets = ['schizconnect-vip', 'bsnip']
-dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
-scaling, harmo = 'gs', 'raw'
+if not os.path.exists(OUTPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
 
-if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
+    print("""
+    ################################################################################
+    #
+    # Dataset: concatenate [schizconnect-vip  bsnip]
+    #
+    ################################################################################
+    """)
+    # SCZ (schizconnect-vip <=> bsnip)
+
+    datasets = ['schizconnect-vip', 'bsnip']
 
     # Read clinical data
-    pop = pd.concat([pd.read_csv(INPUT(dataset=dataset, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
+    pop = pd.concat([pd.read_csv(INPUT(dataset=DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv")) for dataset in datasets], axis=0)
     mask_row = pop[target].isin(['schizophrenia', 'FEP', 'control'])
     pop = pop[mask_row]
     # FEP of PRAGUE becomes 1
@@ -169,21 +177,21 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
     #    enumerate(cv_lstudieout.split(None, pop[target_num].values))])
 
     # Load arrays
-    imgs_arr = np.concatenate([np.load(INPUT(dataset=dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r') for dataset in datasets])[mask_row]
+    imgs_arr = np.concatenate([np.load(INPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r') for dataset in datasets])[mask_row]
     # Save and relaod in mm
-    np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
+    np.save(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
     del imgs_arr
     import gc
     gc.collect()
-    imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    imgs_arr = np.load(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
     print(imgs_arr.shape)
 
     # Recompute mask
     from nitk.image import compute_brain_mask
     ref_img = nibabel.load(INPUT(datasets[0], scaling=None, harmo=None, type="mask", ext="nii.gz"))
     mask_img = compute_brain_mask(imgs_arr, target_img=ref_img)
-    mask_img.to_filename(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
-    pop.to_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
+    mask_img.to_filename(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    pop.to_csv(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
 
     mask_arr = mask_img.get_data() != 0
     assert np.sum(mask_arr != 0) == 367689
@@ -191,7 +199,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64
     print("Sizes. mask_arr:%.2fGb" % (imgs_arr.nbytes / 1e9))
 
 
-if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")):
+if not os.path.exists(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")):
     print("""
     ###############################################################################
     #
@@ -200,17 +208,14 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     ###############################################################################
     """)
 
-    dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
-    scaling, harmo = 'gs', 'raw'
-
-    pop = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
+    pop = pd.read_csv(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv"))
 
     # Working population df with no NAs
     pop_w = pop.copy()
     assert np.all(pop_w[["sex", "age", "site"]].isnull().sum()  == 0)
 
-    imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
-    mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    imgs_arr = np.load(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
     mask_arr = mask_img.get_data() != 0
     assert mask_arr.sum() == 367689
 
@@ -219,13 +224,10 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     # Select SCHIZCONNECT-VIP+BSNIP : 5CV(SCHIZCONNECT-VIP) + LSO(SCHIZCONNECT-VIP+BSNIP)
     """)
 
-    dataset = 'schizconnect-vip'
-    NSPLITS = 5
 
     msk = pop.study.isin(['SCHIZCONNECT-VIP', 'BSNIP'])
     assert msk.sum() == 999
     Xim = imgs_arr.squeeze()[:, mask_arr][msk]
-    Xdemoclin = np.zeros((Xim.shape[0], 1))
     del imgs_arr
     y = pop[target + "_num"][msk].values
     print("Sizes. mask_arr:%.2fGb" % (Xim.nbytes / 1e9))
@@ -305,7 +307,6 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     # Run l2 5CV(SCHIZCONNECT-VIP) + LSO(SCHIZCONNECT-VIP+BSNIP)
     """)
 
-
     estimators_dict = {"l2_C:%f" % 1: lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False)}
 
     # LSO
@@ -313,6 +314,7 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
     key_vals_lso = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
     cv_scores_lso = reduce_cv_classif(key_vals_lso, cv_lso_dict, y_true=y)
     cv_scores_lso["CV"] = 'LSO(SCHIZCONNECT-VIP+BSNIP)'
+
     # 5CV
 
     args_collection = dict_product(estimators_dict, dict(noresidualize=False, residualize=True), cv5_schizconnect)
@@ -324,54 +326,57 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residu
 
     # =>
     #
-    xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")
+    mean = cv_scores.groupby(["CV", "param_1"]).mean()
+    sd = cv_scores.groupby(["CV", "param_1"]).std()
+    sd = sd[["auc", "bacc"]].rename(columns={'auc':'auc_std', 'bacc':'bacc_std'})
+    stat = pd.concat([mean, sd], axis=1)
+
+    xls_filename = OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="residualization-l2", ext="xlsx")
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
-        cv_scores.groupby(["CV", "param_1"]).mean().to_excel(writer, sheet_name='mean')
+        stat.to_excel(writer, sheet_name='mean')
         desc_stats.to_excel(writer, sheet_name='desc_stats', index=False)
 
+    del cv_scores, cv_scores_lso, cv_scores_cv5_biobd
 
-print("""
-###############################################################################
-#
-# Comparison analysis and Sensitivity study on schizconnect-vip 5CV
-#
-###############################################################################
-""")
+if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")) or\
+   not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")):
 
-dataset, target, target_num = 'schizconnect-vip-bsnip', "diagnosis", "diagnosis_num"
-scaling, harmo = 'gs', 'raw'
+    print("""
+    ###############################################################################
+    #
+    # Comparison analysis and Sensitivity study on schizconnect-vip 5CV
+    #
+    ###############################################################################
+    """)
 
-pop = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
-imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
-mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
-mask_arr = mask_img.get_data() != 0
-assert mask_arr.sum() == 367689
+    pop = pd.read_csv(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv"))
+    imgs_arr = np.load(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
+    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    mask_arr = mask_img.get_data() != 0
+    assert mask_arr.sum() == 367689
 
-print("""
-#==============================================================================
-# Select dataset 5CV on SCHIZCONNECT-VIP
-""")
+    print("""
+    #==============================================================================
+    # Select dataset 5CV on SCHIZCONNECT-VIP
+    """)
 
-dataset = 'schizconnect-vip'
-NSPLITS = 5
+    msk = pop.study.isin(['SCHIZCONNECT-VIP'])
+    assert msk.sum() == 605
+    Xim = imgs_arr.squeeze()[:, mask_arr][msk]
+    del imgs_arr
+    y = pop[target + "_num"][msk].values
+    print("Sizes. mask_arr:%.2fGb" % (Xim.nbytes / 1e9))
+    Xdemoclin = Z = np.zeros((Xim.shape[0], 1))
 
-msk = pop.study.isin(['SCHIZCONNECT-VIP'])
-assert msk.sum() == 605
-Xim = imgs_arr.squeeze()[:, mask_arr][msk]
-del imgs_arr
-y = pop[target + "_num"][msk].values
-print("Sizes. mask_arr:%.2fGb" % (Xim.nbytes / 1e9))
-Xdemoclin = Z = np.zeros((Xim.shape[0], 1))
+    cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
+    cv_dict = {"CV%i" % fold:split for fold, split in enumerate(cv.split(Xim, y))}
 
-cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
-cv_dict = {"CV%i" % fold:split for fold, split in enumerate(cv.split(Xim, y))}
-
-print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
-#  [[0, 330], [1, 275]]
+    print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
+    #  [[0, 330], [1, 275]]
 
 
-if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")):
+if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")):
     print("""
     #==============================================================================
     # l1, l2, enet, filter, rfe
@@ -405,35 +410,30 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models
     estimators_dict.update(rfe)
 
     args_collection = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
+    print("Nb Tasks=%i" % len(args_collection))
+
     key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
-    models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
+    models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
     with open(models_filename, 'wb') as fd:
         pickle.dump(key_vals, fd)
 
-    print("""
-    #------------------------------------------------------------------------------
-    # Statistics
-    """)
-
-    models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="pkl")
-    with open(models_filename, 'rb') as fd:
-        key_vals = pickle.load(fd)
-
     cv_scores = reduce_cv_classif(key_vals, cv_dict, y_true=y)
 
-    xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")
+    xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
         cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
-
-    cv_scores["param"] = [float(s.split(":")[1]) for s in cv_scores["param_0"]]
-    cv_scores["algo"] = [s.split("_")[0] for s in cv_scores["param_0"]]
 
     print("""
     #------------------------------------------------------------------------------
     # plot
     """)
+
+    xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")
+    cv_scores = pd.read_excel(xls_filename)
+    cv_scores["param"] = [float(s.split(":")[1]) for s in cv_scores["param_0"]]
+    cv_scores["algo"] = [s.split("_")[0] for s in cv_scores["param_0"]]
 
     sns.set_style("whitegrid")
     import matplotlib.pylab as pl
@@ -448,89 +448,130 @@ if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models
     # seach l2 C closre to 1
     x_ = cv_scores[cv_scores.algo == 'l2']["param"].unique()
     C1_almost = x_[np.argmin(np.abs(x_ - 1))]
-    baseline_l2C1 = cv_scores[(cv_scores.algo == 'l2') & (cv_scores.param == C1_almost)]["auc"]
+    baseline_l2C1_auc = cv_scores[(cv_scores.algo == 'l2') & (cv_scores.param == C1_almost)]["auc"]
+    baseline_l2C1_bacc = cv_scores[(cv_scores.algo == 'l2') & (cv_scores.param == C1_almost)]["bacc"]
 
     cv_scores["Model"] = cv_scores.algo.map({'l1':r'$\ell_1$', 'l2':r'$\ell_2$', "enet":r'$\ell_1\ell_2$', 'rfel2':'RFE+$\ell_2$',  'fl2':'Filter+$\ell_2$'})
 
     # filter and RFE + l2
+
+    # AUC
     df_ = cv_scores[cv_scores["algo"].isin(["fl2", "rfel2"])]
     fig = plt.figure(figsize=(7.25, 5), dpi=300)
     g = sns.lineplot(x="param", y="auc", hue="Model", data=df_)#, palette=palette)
     g.set(xscale="log")
     plt.xlabel(xlabel=r'k', fontsize=20)
     plt.ylabel(ylabel=r'AUC', fontsize=16)
-    g.axes.axhline(baseline_l2C1.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
-    g.set(ylim=(.5, .9))
+    g.axes.axhline(baseline_l2C1_auc.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
+    g.set(ylim=(.45, .9))
     plt.tight_layout()
-    plt.savefig(OUTPUT(dataset, scaling=None, harmo=None, type="sensibility-filter-rfe", ext="pdf"))
+    plt.savefig(OUTPUT(DATASET_TRAIN, scaling=None, harmo=None, type="sensibility-filter-rfe_auc", ext="pdf"))
+
+    # bACC
+    df_ = cv_scores[cv_scores["algo"].isin(["fl2", "rfel2"])]
+    fig = plt.figure(figsize=(7.25, 5), dpi=300)
+    g = sns.lineplot(x="param", y="bacc", hue="Model", data=df_)#, palette=palette)
+    g.set(xscale="log")
+    plt.xlabel(xlabel=r'k', fontsize=20)
+    plt.ylabel(ylabel=r'bACC', fontsize=16)
+    g.axes.axhline(baseline_l2C1_bacc.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
+    g.set(ylim=(.45, .9))
+    plt.tight_layout()
+    plt.savefig(OUTPUT(DATASET_TRAIN, scaling=None, harmo=None, type="sensibility-filter-rfe_bacc", ext="pdf"))
 
     # l1, enet
+
+    # AUC
     df_ = cv_scores[cv_scores["algo"].isin(["l2", "l1", "enet"])]
     fig = plt.figure(figsize=(7.25, 5), dpi=300)
     g = sns.lineplot(x="param", y="auc", hue="Model", data=df_)#, palette=palette)
     g.set(xscale="log")
     plt.xlabel(xlabel=r'C', fontsize=20)
     plt.ylabel(ylabel=r'AUC', fontsize=16)
-    g.axes.axhline(baseline_l2C1.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
-    g.set(ylim=(.5, .9))
+    g.axes.axhline(baseline_l2C1_auc.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
+    g.set(ylim=(.45, .9))
+    g.set(xlim=(1e-4, 1e4))
     plt.tight_layout()
-    plt.savefig(OUTPUT(dataset, scaling=None, harmo=None, type="sensibility-l2-l1-enet", ext="pdf"))
+    plt.savefig(OUTPUT(DATASET_TRAIN, scaling=None, harmo=None, type="sensibility-l2-l1-enet_auc", ext="pdf"))
 
-print("""
-#==============================================================================
-# Enet-TV
-""")
-
-print("# Enet-TV")
-# estimators
-import parsimony.algorithms as algorithms
-import parsimony.estimators as estimators
-import parsimony.functions.nesterov.tv as nesterov_tv
-from parsimony.utils.linalgs import LinearOperatorNesterov
-
-if not os.path.exists(OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz")):
-    Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
-    Atv.save(OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz"))
-
-Atv = LinearOperatorNesterov(filename=OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz"))
-assert np.allclose(Atv.get_singular_values(0), 11.940517804227724)
+    # bACC
+    df_ = cv_scores[cv_scores["algo"].isin(["l2", "l1", "enet"])]
+    fig = plt.figure(figsize=(7.25, 5), dpi=300)
+    g = sns.lineplot(x="param", y="bacc", hue="Model", data=df_)#, palette=palette)
+    g.set(xscale="log")
+    plt.xlabel(xlabel=r'C', fontsize=20)
+    plt.ylabel(ylabel=r'bACC', fontsize=16)
+    g.axes.axhline(baseline_l2C1_bacc.mean(), ls='--', color='black', linewidth=1, alpha=0.5)  # no feature selection performance
+    g.set(ylim=(.45, .9))
+    g.set(xlim=(1e-4, 1e4))
+    plt.tight_layout()
+    plt.savefig(OUTPUT(DATASET_TRAIN, scaling=None, harmo=None, type="sensibility-l2-l1-enet_bacc", ext="pdf"))
 
 
-def ratios_to_param(alpha, l1l2ratio, tvratio):
-    tv = alpha * tvratio
-    l1 = alpha * float(1 - tv) * l1l2ratio
-    l2 = alpha * float(1 - tv) * (1- l1l2ratio)
-    return l1, l2, tv
+if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")):
+
+    print("""
+    #==============================================================================
+    # Enet-TV
+    """)
+
+    print("# Enet-TV")
+    # estimators
+    import parsimony.algorithms as algorithms
+    import parsimony.estimators as estimators
+    import parsimony.functions.nesterov.tv as nesterov_tv
+    from parsimony.utils.linalgs import LinearOperatorNesterov
+
+    if not os.path.exists(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz")):
+        Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
+        Atv.save(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
+
+    Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
+    assert np.allclose(Atv.get_singular_values(0), 11.940147985778873)
 
 
-# Large range
-alphas = [.01, .1, 1.]
-l1l2ratios = [.1]
-tvratios = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.]
-
-# smaller range
-# alphas = [.1]
-# l1l2ratios = [.1]
-# tvratios = [0, .2, .4, .6, .8, 1.]
-
-import itertools
-estimators_dict = dict()
-for alpha, l1l2ratio, tvratio in itertools.product(alphas, l1l2ratios, tvratios):
-    print(alpha, l1l2ratio, tvratio)
-    l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvratio)
-    key = "enettv_%.3f:%.3f:%.3f" % (alpha, l1l2ratio, tvratio)
-
-    conesta = algorithms.proximal.CONESTA(max_iter=10000)
-    estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
-                                            class_weight="auto", penalty_start=0)
-    estimators_dict[key] = estimator
+    def ratios_to_param(alpha, l1l2ratio, tvratio):
+        tv = alpha * tvratio
+        l1 = alpha * float(1 - tv) * l1l2ratio
+        l2 = alpha * float(1 - tv) * (1- l1l2ratio)
+        return l1, l2, tv
 
 
-args_collection_1 = dict_product(estimators_dict, dict(noresdualize=False), cv_dict)
+    # Large range
+    alphas = [.01, .1, 1.]
+    l1l2ratios = [.1]
+    tvratios = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.]
+
+    # smaller range
+    # alphas = [.1]
+    # l1l2ratios = [.1]
+    # tvratios = [0, .2, .4, .6, .8, 1.]
+
+    import itertools
+    estimators_dict = dict()
+    for alpha, l1l2ratio, tvratio in itertools.product(alphas, l1l2ratios, tvratios):
+        # print(alpha, l1l2ratio, tvratio)
+        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvratio)
+        key = "enettv_%.3f:%.3f:%.3f" % (alpha, l1l2ratio, tvratio)
+
+        conesta = algorithms.proximal.CONESTA(max_iter=10000)
+        estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
+                                                class_weight="auto", penalty_start=0)
+        estimators_dict[key] = estimator
 
 
-key_vals = parallel(fit_predict, args_collection_1, n_jobs=NJOBS, pass_key=True, verbose=20)
+    args_collection = dict_product(estimators_dict, dict(noresidualize=False), cv_dict)
 
-models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
-with open(models_filename, 'wb') as fd:
-    pickle.dump(key_vals, fd)
+    key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
+
+    models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
+    with open(models_filename, 'wb') as fd:
+        pickle.dump(key_vals, fd)
+
+    cv_scores = reduce_cv_classif(key_vals, cv_dict, y_true=y)
+
+    xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")
+    with pd.ExcelWriter(xls_filename) as writer:
+        cv_scores.to_excel(writer, sheet_name='folds', index=False)
+        cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
+
