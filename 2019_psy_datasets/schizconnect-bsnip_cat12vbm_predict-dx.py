@@ -337,7 +337,7 @@ if not os.path.exists(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="r
         stat.to_excel(writer, sheet_name='mean')
         desc_stats.to_excel(writer, sheet_name='desc_stats', index=False)
 
-    del cv_scores, cv_scores_lso, cv_scores_cv5_biobd
+    del cv_scores, cv_scores_lso
 
 if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-l1-l2-enet-filter-rfe", ext="xlsx")) or\
    not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")):
@@ -527,7 +527,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         Atv.save(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
 
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
-    assert np.allclose(Atv.get_singular_values(0), 11.940147985778873)
+    assert np.allclose(Atv.get_singular_values(0), 11.94026967367116)
 
 
     def ratios_to_param(alpha, l1l2ratio, tvratio):
