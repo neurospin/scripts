@@ -7,12 +7,15 @@ rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconn
 rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/*mwp1_gs-raw_data64.npy ./
 
 # NS => Laptop
-rsync -azvun triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/* /neurospin/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/
+rsync -azvun triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/* /home/ed203246/data/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/
+
+# Laptop => NS
+rsync -azvun /home/ed203246/data/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/ triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_predict-dx/
 """
 # %load_ext autoreload
 # %autoreload 2
 
-import os
+import os, sys
 import numpy as np
 import glob
 import pandas as pd
@@ -26,7 +29,8 @@ import shutil
 # from nilearn import plotting
 import nilearn.image
 import matplotlib
-# matplotlib.use('Qt5Cairo')
+if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
+    matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import re
 # import glob
