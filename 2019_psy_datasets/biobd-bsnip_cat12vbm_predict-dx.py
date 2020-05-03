@@ -613,7 +613,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         Atv.save(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
 
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
-    assert np.allclose(Atv.get_singular_values(0), 11.941154893888315)
+    assert np.allclose(Atv.get_singular_values(0), 11.941115174310951)
 
     def ratios_to_param(alpha, l1l2ratio, tvratio):
         tv = alpha * tvratio
