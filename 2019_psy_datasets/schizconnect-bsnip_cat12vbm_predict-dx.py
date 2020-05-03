@@ -530,13 +530,11 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
     assert np.allclose(Atv.get_singular_values(0), 11.94026967367116)
 
-
     def ratios_to_param(alpha, l1l2ratio, tvratio):
         tv = alpha * tvratio
-        l1 = alpha * float(1 - tv) * l1l2ratio
-        l2 = alpha * float(1 - tv) * (1- l1l2ratio)
+        l1 = alpha * l1l2ratio
+        l2 = alpha * 1
         return l1, l2, tv
-
 
     # Large range
     alphas = [.01, .1, 1.]
@@ -559,7 +557,6 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
                                                 class_weight="auto", penalty_start=0)
         estimators_dict[key] = estimator
-
 
     args_collection = dict_product(estimators_dict, dict(noresidualize=False), cv_dict)
 

@@ -74,12 +74,13 @@ mcic = clinic[converters_bool][['Subject ID',"Center Code", 'Age at inclusion', 
 "MMSE Total Score.m12","ADAS11.m12","MMSE Total Score.m24","ADAS11.m24"]]
 mcic["DX"] = "MCIc"
 #mcic["time_of_conversion"] = converters_time[np.array(converters_bool==True)]
+assert mcic.shape == (133, 15)
 
 ctl = clinic[controls_bool][['Subject ID',"Center Code", 'Age at inclusion', 'Sex', \
 "status.sc", "mri_path_lh","mri_path_rh","MMSE Total Score.sc","ADAS11.sc","ADAS13.sc",\
 "MMSE Total Score.m12","ADAS11.m12","MMSE Total Score.m24","ADAS11.m24"]]
 ctl["DX"] = "CTL"
-
+assert ctl.shape == (227, 15)
 
 pop = pd.concat([mcic, ctl])
 assert pop.shape == (360, 15)

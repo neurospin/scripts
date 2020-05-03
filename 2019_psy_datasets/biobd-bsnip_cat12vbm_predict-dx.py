@@ -615,13 +615,11 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
     assert np.allclose(Atv.get_singular_values(0), 11.941154893888315)
 
-
     def ratios_to_param(alpha, l1l2ratio, tvratio):
         tv = alpha * tvratio
-        l1 = alpha * float(1 - tv) * l1l2ratio
-        l2 = alpha * float(1 - tv) * (1- l1l2ratio)
+        l1 = alpha * l1l2ratio
+        l2 = alpha * 1
         return l1, l2, tv
-
 
     # Large range
     alphas = [.01, .1, 1.]
@@ -645,7 +643,6 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
                                                 class_weight="auto", penalty_start=0)
         estimators_dict[key] = estimator
 
-
     args_collection = dict_product(estimators_dict, dict(noresidualize=False), cv_dict)
 
     key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
@@ -660,3 +657,4 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
         cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
+
