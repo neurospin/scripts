@@ -615,28 +615,28 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
     assert np.allclose(Atv.get_singular_values(0), 11.941115174310951)
 
-    def ratios_to_param(alpha, l1l2ratio, tvratio):
-        tv = alpha * tvratio
+    def ratios_to_param(alpha, l1l2ratio, tvcoef):
+        tv = alpha * tvcoef
         l1 = alpha * l1l2ratio
         l2 = alpha * 1
         return l1, l2, tv
 
     # Large range
     alphas = [.01, .1, 1.]
-    l1l2ratios = [.1]
-    tvratios = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.]
+    l1l2ratios = [0, 0.01, 0.1]
+    tvcoefs = [0.001, 0.01, 0.1, 1]
 
-    # smaller range
+    # Smaller range
     # alphas = [.1]
     # l1l2ratios = [.1]
     # tvratios = [0, .2, .4, .6, .8, 1.]
 
     import itertools
     estimators_dict = dict()
-    for alpha, l1l2ratio, tvratio in itertools.product(alphas, l1l2ratios, tvratios):
+    for alpha, l1l2ratio, tvcoef in itertools.product(alphas, l1l2ratios, tvcoefs):
         # print(alpha, l1l2ratio, tvratio)
         l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvratio)
-        key = "enettv_%.3f:%.3f:%.3f" % (alpha, l1l2ratio, tvratio)
+        key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvcoef)
 
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
