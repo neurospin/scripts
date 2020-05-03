@@ -544,13 +544,13 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     # Smaller range
     # alphas = [.1]
     # l1l2ratios = [.1]
-    # tvratios = [0, .2, .4, .6, .8, 1.]
+    # tvcoefs = [0.001, 0.01, 0.1, 1]
 
     import itertools
     estimators_dict = dict()
     for alpha, l1l2ratio, tvcoef in itertools.product(alphas, l1l2ratios, tvcoefs):
-        # print(alpha, l1l2ratio, tvratio)
-        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvratio)
+        # print(alpha, l1l2ratio, tvcoef)
+        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvcoef)
         key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvcoef)
 
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
