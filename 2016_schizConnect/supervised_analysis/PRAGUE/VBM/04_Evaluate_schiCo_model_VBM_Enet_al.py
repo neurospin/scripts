@@ -48,7 +48,7 @@ scaler = preprocessing.StandardScaler().fit(X_scz)
 X_scz = scaler.transform(X_scz)
 X_pra = scaler.transform(X_pra)
 
-max_iter = 2
+max_iter = 10000
 def fit_predict_scores(mod):
     mod.fit(X_scz,y_scz)
     y_pred_pra = mod.predict(X_pra)

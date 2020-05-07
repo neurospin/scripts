@@ -51,7 +51,21 @@ scaler = preprocessing.StandardScaler().fit(X_scz)
 X_scz = scaler.transform(X_scz)
 X_pra = scaler.transform(X_pra)
 
-##'enettv':
+max_iter = 10000
+def fit_predict_scores(mod):
+    mod.fit(X_scz,y_scz)
+    y_pred_pra = mod.predict(X_pra)
+    y_proba_pred_pra = mod.predict_probability(X_pra)
+    p, r, f, s = precision_recall_fscore_support(y_pra, y_pred_pra, average=None)
+    auc = roc_auc_score(y_pra, y_proba_pred_pra)
+    print("######################################")
+    print("Classification performance on PRAGUE dataset:")
+    print("Balanced accuracy : " + str(r.mean()))
+    print("Spe and Sen : " + str(r[0]) + " " + str(r[1]))
+    print("AUC : " + str(auc))
+    print("######################################")
+
+print('##enettv')
 tvratio=1.0
 l1l2ratio = 0.1
 alpha = 1.0
@@ -60,11 +74,13 @@ l1 = alpha * float(1 - tv) * l1l2ratio
 l2 = alpha * float(1 - tv) * (1- l1l2ratio)
 
 conesta = algorithms.proximal.CONESTA(max_iter=10000)
-mod = estimators.LogisticRegressionL1L2TV(l1, l2, tv,Atv,\
-algorithm=conesta, class_weight=class_weight, penalty_start=penalty_start)
+mod = estimators.LogisticRegressionL1L2TV(l1, l2, tv,Atv,
+    algorithm=conesta, class_weight=class_weight, penalty_start=penalty_start)
 
-#
-#'enetgn':
+fit_predict_scores(mod)
+
+
+print('#enetgn')
 tvratio=0.8
 l1l2ratio = 0.1
 alpha = 0.1
@@ -73,25 +89,29 @@ l1 = alpha * float(1 - tv) * l1l2ratio
 l2 = alpha * float(1 - tv) * (1- l1l2ratio)
 fista = algorithms.proximal.FISTA(max_iter=5000)
 mod = estimators.LogisticRegressionL1L2GraphNet(l1, l2, tv,Agn,
-algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+    algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
 
-#algo == 'enet':
+fit_predict_scores(mod)
+
+
+print('#algo == enet')
 fista = algorithms.proximal.FISTA(max_iter=5000)
-mod = estimators.ElasticNetLogisticRegression(0.01,0.1)
-algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+mod = estimators.ElasticNetLogisticRegression(0.01,0.1,
+    algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
+
+fit_predict_scores(mod)
 
 
+# mod.fit(X_scz,y_scz)
+# y_pred_pra = mod.predict(X_pra)
+# y_proba_pred_pra = mod.predict_probability(X_pra)
 
-mod.fit(X_scz,y_scz)
-y_pred_pra = mod.predict(X_pra)
-y_proba_pred_pra = mod.predict_probability(X_pra)
+# p, r, f, s = precision_recall_fscore_support(y_pra, y_pred_pra, average=None)
+# auc = roc_auc_score(y_pra, y_proba_pred_pra)
 
-p, r, f, s = precision_recall_fscore_support(y_pra, y_pred_pra, average=None)
-auc = roc_auc_score(y_pra, y_proba_pred_pra)
-
-print("######################################")
-print("Classification performance on PRAGUE dataset:")
-print("Balanced accuracy : " + str(r.mean()))
-print("Spe and Sen : " + str(r[0]) + " " + str(r[1]))
-print("AUC : " + str(auc))
-print("######################################")
+# print("######################################")
+# print("Classification performance on PRAGUE dataset:")
+# print("Balanced accuracy : " + str(r.mean()))
+# print("Spe and Sen : " + str(r[0]) + " " + str(r[1]))
+# print("AUC : " + str(auc))
+# print("######################################")
