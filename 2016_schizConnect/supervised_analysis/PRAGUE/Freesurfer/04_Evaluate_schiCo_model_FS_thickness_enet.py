@@ -10,7 +10,7 @@ import os
 import json
 import numpy as np
 import itertools
-from sklearn.cross_validation import StratifiedKFold
+#from sklearn.cross_validation import StratifiedKFold
 from sklearn.metrics import recall_score, roc_auc_score, precision_recall_fscore_support
 import parsimony.estimators as estimators
 import parsimony.algorithms as algorithms
@@ -73,7 +73,7 @@ tv = alpha * tvratio
 l1 = alpha * float(1 - tv) * l1l2ratio
 l2 = alpha * float(1 - tv) * (1- l1l2ratio)
 
-conesta = algorithms.proximal.CONESTA(max_iter=10000)
+conesta = algorithms.proximal.CONESTA(max_iter=max_iter)
 mod = estimators.LogisticRegressionL1L2TV(l1, l2, tv,Atv,
     algorithm=conesta, class_weight=class_weight, penalty_start=penalty_start)
 
@@ -87,7 +87,7 @@ alpha = 0.1
 tv = alpha * tvratio
 l1 = alpha * float(1 - tv) * l1l2ratio
 l2 = alpha * float(1 - tv) * (1- l1l2ratio)
-fista = algorithms.proximal.FISTA(max_iter=5000)
+fista = algorithms.proximal.FISTA(max_iter=int(max_iter/2))
 mod = estimators.LogisticRegressionL1L2GraphNet(l1, l2, tv,Agn,
     algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
 
@@ -95,7 +95,7 @@ fit_predict_scores(mod)
 
 
 print('#algo == enet')
-fista = algorithms.proximal.FISTA(max_iter=5000)
+fista = algorithms.proximal.FISTA(max_iter=int(max_iter/2))
 mod = estimators.ElasticNetLogisticRegression(0.01,0.1,
     algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
 
