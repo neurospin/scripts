@@ -77,7 +77,7 @@ algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
 
 #algo == 'enet':
 fista = algorithms.proximal.FISTA(max_iter=5000)
-mod = estimators.ElasticNetLogisticRegression(0.01,0.1,
+mod = estimators.ElasticNetLogisticRegression(0.01,0.1)
 algorithm=fista, class_weight=class_weight, penalty_start=penalty_start)
 
 

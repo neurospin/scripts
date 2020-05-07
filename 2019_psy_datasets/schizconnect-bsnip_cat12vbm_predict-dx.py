@@ -574,3 +574,4 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
         cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
 
+# [Parallel(n_jobs=8)]: Done 180 out of 180 | elapsed: 4900.6min finished
