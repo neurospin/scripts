@@ -453,6 +453,8 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     del imgs_arr
     y = pop[target + "_num"][msk].values
     print("Sizes. mask_arr:%.2fGb" % (Xim.nbytes / 1e9))
+    # Sizes. mask_arr:1.94Gb
+
     Xdemoclin = Z = np.zeros((Xim.shape[0], 1))
 
     cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
@@ -460,7 +462,6 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     cv_dict["ALL"] = [np.arange(Xim.shape[0]), np.arange(Xim.shape[0])]
 
     print([[lab, np.sum(y == lab)] for lab in np.unique(y)])
-    # Sizes. mask_arr:1.94Gb
     #[[0, 356], [1, 306]]
 
 
