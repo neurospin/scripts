@@ -559,7 +559,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvcoef)
         key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvcoef)
 
-        conesta = algorithms.proximal.CONESTA(max_iter=1)#10000)
+        conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
                                                 class_weight="auto", penalty_start=0)
         estimators_dict[key] = estimator
