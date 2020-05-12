@@ -618,28 +618,28 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     Atv = LinearOperatorNesterov(filename=OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="Atv", ext="npz"))
     assert np.allclose(Atv.get_singular_values(0), 11.941115174310951)
 
-    def ratios_to_param(alpha, l1l2ratio, tvcoef):
-        tv = alpha * tvcoef
+    def ratios_to_param(alpha, l1l2ratio, tvl2ratio):
+        tv = alpha * tvl2ratio
         l1 = alpha * l1l2ratio
         l2 = alpha * 1
         return l1, l2, tv
 
     # Large range
     alphas = [.01, .1, 1.]
-    l1l2ratios = [0, 0.01, 0.1]
-    tvcoefs = [0, 0.0001, 0.001, 0.01, 0.1, 1]
+    l1l2ratios = [0, 0.0001, 0.001, 0.01, 0.1]
+    tvl2ratios = [0, 0.0001, 0.001, 0.01, 0.1, 1]
 
     # Smaller range
     # alphas = [.1]
     # l1l2ratios = [.1]
-    # tvcoefs = [0.001, 0.01, 0.1, 1]
+    # tvl2ratios = [0.001, 0.01, 0.1, 1]
 
     import itertools
     estimators_dict = dict()
-    for alpha, l1l2ratio, tvcoef in itertools.product(alphas, l1l2ratios, tvcoefs):
-        # print(alpha, l1l2ratio, tvcoef)
-        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvcoef)
-        key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvcoef)
+    for alpha, l1l2ratio, tvl2ratio in itertools.product(alphas, l1l2ratios, tvl2ratios):
+        # print(alpha, l1l2ratio, tvl2ratio)
+        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
+        key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
 
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
@@ -676,6 +676,9 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     with open(models_filename, 'rb') as fd:
         key_vals = pickle.load(fd)
 
+    # filter out "ALL" folds
+    key_vals = {k:v for k, v in key_vals.items() if k[2] != "ALL"}
+
     # Agregate maps by key[0]
     by_param = {k:[] for k in set([k[0] for k in key_vals])}
     for k, v in key_vals.items():
@@ -694,7 +697,8 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
 
     # Update excel file with similariy measures
     xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")
-    cv_scores = pd.read_excel(xls_filename, sheet_name='folds')
+    cv_scores_all = pd.read_excel(xls_filename, sheet_name='folds')
+    cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
     pred_score_mean_ = cv_scores.groupby(["param_0"]).mean()
     pred_score_mean_ = pred_score_mean_.reset_index()
     pred_score_mean = pd.merge(pred_score_mean_, map_sim)
@@ -703,6 +707,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
         pred_score_mean.to_excel(writer, sheet_name='mean')
+        cv_scores_all.to_excel(writer, sheet_name='folds_with_all_in_train', index=False)
     del pred_score_mean_
 
     print("""
