@@ -653,7 +653,9 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         with open(models_filename, 'rb') as fd:
             KEY_VALS = pickle.load(fd)
         #key = list(args_collection)[10]
-        #list(KEY_VALS)
+    # TODO RM THIS LINE (RM run short runs)
+    KEY_VALS = {k:v for k, v in KEY_VALS.items() if v["time"] > 1000}
+
     key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
     with open(models_filename, 'wb') as fd:

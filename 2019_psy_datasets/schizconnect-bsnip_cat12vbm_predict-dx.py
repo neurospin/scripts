@@ -559,7 +559,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
         key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
 
-        conesta = algorithms.proximal.CONESTA(max_iter=1)#0000)
+        conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
                                                 class_weight="auto", penalty_start=0)
         estimators_dict[key] = estimator
@@ -571,7 +571,9 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
         with open(models_filename, 'rb') as fd:
             KEY_VALS = pickle.load(fd)
         #key = list(args_collection)[10]
-        #list(KEY_VALS)
+    # TODO RM THIS LINE (RM run short runs)
+    KEY_VALS = {k:v for k, v in KEY_VALS.items() if v["time"] > 1000}
+
     key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
     with open(models_filename, 'wb') as fd:
