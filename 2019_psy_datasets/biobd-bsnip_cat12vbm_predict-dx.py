@@ -630,9 +630,9 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     tvl2ratios = [0, 0.0001, 0.001, 0.01, 0.1, 1]
 
     # Smaller range
-    # alphas = [.1]
-    # l1l2ratios = [.1]
-    # tvl2ratios = [0.001, 0.01, 0.1, 1]
+    # alphas = [0.010]
+    # l1l2ratios = [0]
+    # tvl2ratios = [0]
 
     import itertools
     estimators_dict = dict()
@@ -652,9 +652,6 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     if os.path.exists(models_filename):
         with open(models_filename, 'rb') as fd:
             KEY_VALS = pickle.load(fd)
-        #key = list(args_collection)[10]
-    # TODO RM THIS LINE (RM run short runs)
-    KEY_VALS = {k:v for k, v in KEY_VALS.items() if v["time"] > 1000}
 
     key_vals = parallel(fit_predict, args_collection, n_jobs=NJOBS, pass_key=True, verbose=20)
 
@@ -666,7 +663,6 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="xlsx")
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
-        cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
 
     # [Parallel(n_jobs=8)]: Done 180 out of 180 | elapsed: 4900.6min finished
 
@@ -748,7 +744,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
     pdf_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pdf")
     with PdfPages(pdf_filename) as pdf:
         for l1l2 in cv_scores["l1l2"].unique():
-            print(l1l2)
+            print("%.4f" % l1l2, l1l2)
             df_ = cv_scores[cv_scores["l1l2"].isin([l1l2])]
             dfm_ = cv_scores_mean[cv_scores_mean["l1l2"].isin([l1l2])]
             df_["alpha"] = df_["alpha"].map({0.01:"1e-2'", 0.1:"1e-1'" , 1.:"1'"})
@@ -764,7 +760,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
             g = sns.lineplot(x="tv", y='dice', hue="alpha", data=dfm_, ax=axs[2, 0], palette="Blues"); g.set(xscale="log")
             g = sns.lineplot(x="tv", y='Fleiss-Kappa', hue="alpha", data=dfm_, ax=axs[2, 1], palette="Blues"); g.set(xscale="log")
             #plt.tight_layout()
-            fig.suptitle('$\ell_1/\ell_2=%.3f$' % l1l2)
+            fig.suptitle('$\ell_1/\ell_2=%.5f$' % l1l2)
             #plt.savefig(OUTPUT(DATASET_TRAIN, scaling=None, harmo=None, type="sensibility-l2-l1-enet_auc", ext="pdf"))
             pdf.savefig()  # saves the current figure into a pdf page
             fig.clf()

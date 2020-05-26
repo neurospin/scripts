@@ -64,6 +64,7 @@ def OUTPUT(*args, **kwargs):
 
 dataset, target, target_num = 'icaar-start', "diagnosis", "diagnosis_num"
 scaling, harmo = 'gs', 'raw'
+DATASET_TRAIN = dataset
 
 # Create dataset if needed
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
@@ -122,7 +123,7 @@ freq          53
 27
 
 diagnosis  UHR-C  UHR-NC
-sex_c                   
+sex_c
 F              8      23
 M             19      30
 """
@@ -189,17 +190,19 @@ import sklearn.linear_model as lm
 import sklearn.ensemble as ensemble
 from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
 from sklearn.preprocessing import StandardScaler
-from nitk.stats import Residualizer
-
 import sklearn.metrics as metrics
-from nitk.utils import dict_product, parallel, aggregate_cv
+
+#from nitk.utils import dict_product, parallel, aggregate_cv
+from nitk.stats import Residualizer
+from nitk.utils import dict_product, parallel, reduce_cv_classif
+from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio
 
 def fit_predict(key, estimator_img, split):
     estimator_img = copy.deepcopy(estimator_img)
     train, test = split
     Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
         Xim_[train, :], Xim_[test, :], Xdemoclin_[train, :], Xdemoclin_[test, :], Z_[train, :], Z_[test, :], y_[train]
-    
+
     # Images based predictor
 
     # Residualization
@@ -264,7 +267,7 @@ def fit_predict(key, estimator_img, split):
 NSPLITS = 5
 
 #-------------------------------------------------------------------------------
-SETTING = "RES-TRAIN_LR_5CV"
+SETTING = "5CV_RES-TRAIN_LR"
 RES_MOD = 'RES-TRAIN'
 
 Xim_ = Xim[msk, :]
@@ -279,7 +282,7 @@ Z_ = residualizer.get_design_mat()
 estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', fit_intercept=False))
 
 #-------------------------------------------------------------------------------
-SETTING = "RES-TRAIN_GB_5CV"
+SETTING = "5CV_RES-TRAIN_GB"
 RES_MOD = 'RES-TRAIN'
 
 Xim_ = Xim[msk, :]
@@ -294,7 +297,7 @@ Z_ = residualizer.get_design_mat()
 estimators_dict = dict(gb=ensemble.GradientBoostingClassifier()) # 2min 15s / run
 
 #-------------------------------------------------------------------------------
-SETTING = "RES-TRAIN-PCA_LR_5CV"
+SETTING = "5CV_RES-TRAIN-PCA_LR"
 RES_MOD = 'RES-TRAIN'
 
 from sklearn.pipeline import Pipeline
@@ -314,7 +317,7 @@ pca_lr = Pipeline([('pca', pca_), ('lr', lr)])
 estimators_dict = dict(pcalr=pca_lr)
 
 #-------------------------------------------------------------------------------
-SETTING = "RES-ALL_LR_5CV"
+SETTING = "5CV_RES-ALL_LR"
 RES_MOD = 'RES-ALL'
 NSPLITS = 5
 
@@ -329,9 +332,8 @@ Z_ = residualizer.get_design_mat()
 # estimators
 estimators_dict = dict(lr=lm.LogisticRegression(C=1e6, class_weight='balanced', fit_intercept=False))
 
-
 #-------------------------------------------------------------------------------
-SETTING = "RES-TRAIN_ENETTV_5CV"
+SETTING = "5CV_RES-TRAIN_ENETTV_PARAM-ERR"
 RES_MOD = 'RES-TRAIN'
 
 Xim_ = Xim[msk, :]
@@ -369,28 +371,132 @@ estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=cones
 
 estimators_dict = {mod_str:estimator}
 
+#-------------------------------------------------------------------------------
+SETTING = "5CV_RES-TRAIN_ENETTV-0.1_0.01_1"
+RES_MOD = 'RES-TRAIN'
+
+mod_str = list(estimators_dict.keys())[0]
+cv_str = "5cv"
+
+Xim_ = Xim[msk, :]
+Xdemoclin_ = Xdemoclin[msk, :]
+Xsite_ = Xsite[msk, :]
+y_ = pop[target + "_num"][msk].values
+formula_res, formula_full = "site + age + sex", "site + age + sex + " + target_num
+residualizer = Residualizer(data=pop_w[msk], formula_res=formula_res, formula_full=formula_full)
+Z_ = residualizer.get_design_mat()
+
+# estimators
+import parsimony.algorithms as algorithms
+import parsimony.estimators as estimators
+import parsimony.functions.nesterov.tv as nesterov_tv
+from parsimony.utils.linalgs import LinearOperatorNesterov
+
+if not os.path.exists(OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz")):
+    Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
+    Atv.save(OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz"))
+
+Atv = LinearOperatorNesterov(filename=OUTPUT(dataset, scaling=None, harmo=None, type="Atv", ext="npz"))
+assert np.allclose(Atv.get_singular_values(0), 11.942012807930546)
+
+# Parameters
+mod_str = 'enettv_0.1_0.01_1'
+keys_ = mod_str.split("_")
+algo, alpha, l1l2ratio, tvl2ratio = keys_[0], float(keys_[1]), float(keys_[2]), float(keys_[3])
+
+tv = alpha * tvl2ratio
+l1 = alpha * l1l2ratio
+l2 = alpha * 1
+
+conesta = algorithms.proximal.CONESTA(max_iter=10000)
+estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
+                                            class_weight="auto", penalty_start=0)
+
+estimators_dict = {mod_str:estimator}
+
 ################################################################################
 # RUN FOR EACH SETTING
 
-# CV
+# CV, with "ALL" fold containing all samples
+#cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
+#cv_dict = {fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
+
 cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=3)
-cv_dict = {fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
+cv_dict = {"CV%i" % fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
+cv_dict["ALL"] = [np.arange(Xim_.shape[0]), np.arange(Xim_.shape[0])]
+
+
 args_collection = dict_product(estimators_dict, cv_dict)
 
-#coefs_cv = dict()
-%time cv_res = parallel(fit_predict, args_collection, n_jobs=min(NSPLITS, 8), pass_key=True)
+%time key_vals = parallel(fit_predict, args_collection, n_jobs=min(NSPLITS, 8), pass_key=True)
+
+
+models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-%s" % SETTING, ext="pkl")
+xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-%s" % SETTING, ext="xlsx")
+
+with open(models_filename, 'wb') as fd:
+    pickle.dump(key_vals, fd)
+
+cv_scores = reduce_cv_classif(key_vals, cv_dict, y_true=y_)
+
+with pd.ExcelWriter(xls_filename) as writer:
+    cv_scores.to_excel(writer, sheet_name='folds', index=False)
+    #cv_scores.groupby(["param_0"]).mean().to_excel(writer, sheet_name='mean')
 
 #-------------------------------------------------------------------------------
-# Save results
+# Reload average by folds
 
-mod_str = list(estimators_dict.keys())[0]
+models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-%s" % SETTING, ext="pkl")
+xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-%s" % SETTING, ext="xlsx")
 
-# pickle results
-result_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo,
-    type="results-_%s" % mod_str, ext="pkl")
-with open(result_filename, 'wb') as fd:
-    pickle.dump(cv_dict, fd)
+with open(models_filename, 'rb') as fd:
+    key_vals = pickle.load(fd)
 
+# filter out "ALL" folds
+key_vals = {k:v for k, v in key_vals.items() if k[1] != "ALL"}
+
+# Update excel file with similariy measures
+cv_scores_all = pd.read_excel(xls_filename, sheet_name='folds')
+cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
+pred_score_mean = cv_scores.groupby(["param_0", "pred"]).mean()
+#pred_score_mean_ = pred_score_mean_.reset_index()
+#pred_score_mean = pd.merge(pred_score_mean_, map_sim)
+#assert pred_score_mean_.shape[0] == map_sim.shape[0] == pred_score_mean.shape[0]
+
+with pd.ExcelWriter(xls_filename) as writer:
+    cv_scores.to_excel(writer, sheet_name='folds', index=False)
+    pred_score_mean.to_excel(writer, sheet_name='mean')
+    cv_scores_all.to_excel(writer, sheet_name='folds_with_all_in_train', index=False)
+del pred_score_mean_
+
+###############################################################################
+# Vizu
+with open(models_filename, 'rb') as fd:
+    key_vals = pickle.load(fd)
+w = key_vals[('enettv_0.1_0.01_1', 'ALL')]['coef_img'].ravel()
+arr_threshold_from_norm2_ratio(maps[i, :], .99)[0]
+
+mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+mask_arr = mask_img.get_fdata() != 0
+assert mask_arr.sum() == 368680
+val_arr = np.zeros(mask_arr.shape)
+val_arr[mask_arr] = w
+val_img = nibabel.Nifti1Image(val_arr, affine=mask_img.affine)
+val_img.to_filename("/tmp/enet.nii.gz")
+val_img
+import nilearn.image
+from nilearn import plotting
+
+plotting.plot_glass_brain(val_img, threshold=1e-6, plot_abs=False, colorbar=True)
+
+w.mean()
+w.max()
+w.min()
+np.sum(np.abs(w) > 1e-5)
+np.median(w)
+
+###############################################################################
+"""
 # Model coeficients
 mod_str = list(estimators_dict.keys())[0]
 modelcoef_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo,
@@ -407,8 +513,9 @@ coefs_cv_cache = {tuple([int(k) if k.isdigit() else k for k in keys.split("__")]
 
 #-------------------------------------------------------------------------------
 # Scores
+cv_res_ = key_vals
 
-aggregate = aggregate_cv(cv_res, args_collection, 1)
+aggregate = aggregate_cv(cv_res_, args_collection, 1)
 
 # Results
 
@@ -424,18 +531,24 @@ for mod_key, pred_key in aggregate.keys():
 
 print("*** %s" % SETTING)
 pd.DataFrame(scores_)
-
+"""
 ################################################################################
 """
-*** RES-TRAIN_ENETTV_5CV
+                                      auc      bacc  ...  count_0  count_1
+param_0           pred                               ...
+enettv_0.1_0.01_1 test_democlin  0.690758  0.668485  ...     10.6      5.4
+                  test_img       0.699394  0.630909  ...     10.6      5.4
+                  test_stck      0.730909  0.633939  ...     10.6      5.4
+
+*** 5CV_RES-TRAIN_ENETTV_PARAM-ERR
 N	count_0	count_1	enettv_0.1_0.1_0.8	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    enettv_0.1_0.1_0.8	0.673655	        0.777778	    0.792453	    0.606569	        0.691474	    0.720475
 
-￼*** RES-TRAIN_LR_5CV
+￼*** 5CV_RES-TRAIN_LR
 N	count_0	count_1	lr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    lr	0.673655	        0.680643	    0.690426	    0.606569	        0.616352	    0.626834
 
-*** RES-ALL_LR_5CV (JUST TO SEE HOW MUCH IT IS BIASED)
+*** 5CV_RES-ALL_LR (JUST TO SEE HOW MUCH IT IS BIASED)
 N	count_0	count_1	lr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    lr	0.673655	        0.874214    	0.908456	    0.606569	        0.79385	        0.768344
 
@@ -443,7 +556,7 @@ N	count_0	count_1	lr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_demo
 N	count_0	count_1	pcalr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    pcalr	0.673655	        0.500349	    0.630328	    0.606569	        0.50559	        0.518519
 
-*** RES-TRAIN-PCA_LR_5CV (all PCs same results as without PCA)
+*** 5CV_RES-TRAIN-PCA_LR (all PCs same results as without PCA)
 N	count_0	count_1	pcalr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    pcalr	0.673655	        0.680643	    0.690426	    0.606569	        0.616352	    0.626834
 
@@ -451,7 +564,7 @@ N	count_0	count_1	pcalr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_d
 N	count_0	count_1	pcalr	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 0	80	53	27	pcalr	    0.673655	        0.675052	    0.689029	    0.606569	        0.616352	    0.607617
 
-*** RES-TRAIN_GB_5CV
+*** 5CV_RES-TRAIN_GB
 N	count_0	count_1	gb	auc_test_democlin	auc_test_img	auc_test_stck	bacc_test_democlin	bacc_test_img	bacc_test_stck
 80	53	    27	    gb	0.673655	        0.614955	    0.628931	    0.606569	        0.543326	    0.580363
 """
@@ -514,12 +627,12 @@ print(tab_true["UHR-C"] / tab_true.sum(axis=1))
 
 """
 diagnosis  UHR-C  UHR-NC
-sex                     
+sex
 F              8      23
 M             19      30
 
 diagnosis   UHR-C  UHR-NC
-sex                      
+sex
 F          0.1000  0.2875
 M          0.2375  0.3750
 
@@ -536,12 +649,12 @@ print(tab_pred / tab_pred.values.sum())
 print(tab_pred["UHR-C"] / tab_pred.sum(axis=1))
 """
 prediction  UHR-C  UHR-NC
-sex                      
+sex
 F              14      17
 M              22      27
 
 prediction  UHR-C  UHR-NC
-sex                      
+sex
 F           0.175  0.2125
 M           0.275  0.3375
 
@@ -562,17 +675,17 @@ print(tab_err /tab)
 print(tab_err["UHR-C"] / tab_err.sum(axis=1))
 """
 diagnosis  UHR-C  UHR-NC
-sex                     
+sex
 F              1       7
 M              7      10
 
 diagnosis  UHR-C  UHR-NC
-sex                     
+sex
 F           0.04    0.28
 M           0.28    0.40
 
 diagnosis     UHR-C    UHR-NC
-sex                          
+sex
 F          0.125000  0.304348
 M          0.368421  0.333333
 
@@ -596,19 +709,19 @@ print(tab_pred / tab_true)
 """
 PREDICTIONS
 prediction  UHR-C  UHR-NC
-sex                      
+sex
 F               9      22
 M              32      17
 
 TRUE
 diagnosis  UHR-C  UHR-NC
-sex                     
+sex
 F              8      23
 M             19      30
 
 RATIO PREDICTIONS / TRUE
 prediction     UHR-C    UHR-NC
-sex                           
+sex
 F           1.125000  0.956522
 M           1.684211  0.566667
 
@@ -626,7 +739,7 @@ c = Number of unexposed cases
 d = Number of unexposed non-cases
 
 cases = UHR-C
-exposed = predicted 
+exposed = predicted
 """
 
 OR = ratio.iloc[:, 0] / ratio.iloc[:, 1]
