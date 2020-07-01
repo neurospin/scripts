@@ -39,6 +39,13 @@ import pickle
 INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
 OUTPUT_PATH = '/home/ed203246/data/psy_sbox/analyses/202003_start-icaar_cat12vbm_predict-transition'
 
+# Update 2020/06
+clinic_filename = "/home/ed203246/data/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_202006.tsv"
+
+df = pd.read_csv(clinic_filename, sep="\t")
+df.study == 'ICAAR_EUGEI_START'
+
+
 def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None,
     type=None, ext=None, basepath=""):
     # scaling: global scaling? in "raw", "gs"
@@ -68,6 +75,28 @@ DATASET_TRAIN = dataset
 
 # Create dataset if needed
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
+    # TODO: UPDATE 2020/06 REBUILD DATA-SET WITH clinic_filename
+    BASE_PATH_icaar = '/neurospin/psy/start-icaar-eugei/derivatives/cat12'
+    ni_icaar_filenames = glob.glob(os.path.join(BASE_PATH_icaar, "cat12/vbm/sub-*/ses-V1/mri/mwp1*.nii"))
+    tivo_icaar = pd.read_csv(os.path.join(BASE_PATH_icaar, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+    assert tivo_icaar.shape == (171, 6)
+    assert len(ni_icaar_filenames) == 171
+
+################################################################################
+# Images
+
+from  nitk.image import img_to_array, global_scaling
+imgs_arr, df_, target_img = img_to_array(pop.path)
+assert np.all(pop[['participant_id', 'session', 'path']] == df_[['participant_id', 'session', 'path']])
+imgs_arr = global_scaling(imgs_arr, axis0_values=np.array(pop.TIV), target=1500)
+mask_img = nibabel.load(INPUT('icaar-start', scaling=None, harmo=None, type="mask", ext="nii.gz"))
+mask_arr = mask_img.get_fdata() != 0
+assert mask_arr.sum() == 368680
+Xim = imgs_arr.squeeze()[:, mask_arr]
+del imgs_arr
+
+
+    # CADUC
     pop = pd.read_csv(INPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
     assert pop.shape == (167, 52)
 
@@ -91,10 +120,11 @@ mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", e
 mask_arr = mask_img.get_fdata() != 0
 assert mask_arr.sum() == 368680
 
-pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0}).values
+# pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0}).values
+pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0, 'Non-UHR-NC':0}).values # UPDATE 2020/06
+
 pop["GM_frac"] = pop.gm / pop.tiv
 pop["sex_c"] = pop["sex"].map({0: "M", 1: "F"})
-pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0}).values
 
 Xim = imgs_arr.squeeze()[:, mask_arr]
 
@@ -102,7 +132,10 @@ Xim = imgs_arr.squeeze()[:, mask_arr]
 ###############################################################################
 # Select participants
 
-msk = pop["diagnosis"].isin(['UHR-C', 'UHR-NC']) &  pop["irm"].isin(['M0'])
+# msk = pop["diagnosis"].isin(['UHR-C', 'UHR-NC']) &  pop["irm"].isin(['M0'])
+#
+msk = pop["diagnosis"].isin(['UHR-C', 'UHR-NC', 'Non-UHR-NC']) &  pop["irm"].isin(['M0']) # UPDATE 2020/06
+
 assert msk.sum() == 80
 
 # Working population df
