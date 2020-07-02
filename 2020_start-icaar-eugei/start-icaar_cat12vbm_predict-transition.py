@@ -10,6 +10,17 @@ TODO: explore coef map
 Fusar-Poli, P., S. Borgwardt, A. Crescini, G. Deste, Matthew J. Kempton, S. Lawrie, P. Mc Guire, and E. Sacchetti. “Neuroanatomy of Vulnerability to Psychosis: A Voxel-Based Meta-Analysis.” Neuroscience and Biobehavioral Reviews 35, no. 5 (April 2011): 1175–85. https://doi.org/10.1016/j.neubiorev.2010.12.005.
 GM reductions in the frontal and temporal cortex associated with transition to psychosis (HR-NT > HR-T)
 
+
+# Copy data
+
+cd /home/ed203246/data/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition
+rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition/*participants*.csv ./
+rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition*t1mri_mwp1_mask.nii.gz ./
+rsync -azvu triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition/*mwp1_gs-raw_data64.npy ./
+
+# NS => Laptop
+rsync -azvun triscotte.intra.cea.fr:/neurospin/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition/* /home/ed203246/data/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition/
+
 """
 %load_ext autoreload
 %autoreload 2
@@ -36,14 +47,15 @@ import seaborn as sns
 import copy
 import pickle
 
-INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
-OUTPUT_PATH = '/home/ed203246/data/psy_sbox/analyses/202003_start-icaar_cat12vbm_predict-transition'
+INPUT_PATH = '/neurospin/psy/start-icaar-eugei/'
+OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202009_start-icaar_cat12vbm_predict-transition'
 
-# Update 2020/06
-clinic_filename = "/home/ed203246/data/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_202006.tsv"
+# On laptop
+if not os.path.exists(INPUT_PATH):
+    INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
+    OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data' )
+    NJOBS = 2
 
-df = pd.read_csv(clinic_filename, sep="\t")
-df.study == 'ICAAR_EUGEI_START'
 
 
 def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None,
@@ -75,39 +87,36 @@ DATASET_TRAIN = dataset
 
 # Create dataset if needed
 if not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
-    # TODO: UPDATE 2020/06 REBUILD DATA-SET WITH clinic_filename
-    BASE_PATH_icaar = '/neurospin/psy/start-icaar-eugei/derivatives/cat12'
-    ni_icaar_filenames = glob.glob(os.path.join(BASE_PATH_icaar, "cat12/vbm/sub-*/ses-V1/mri/mwp1*.nii"))
-    tivo_icaar = pd.read_csv(os.path.join(BASE_PATH_icaar, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+
+    # Clinic filename (Update 2020/06)
+    clinic_filename = os.path.join(INPUT_PATH, "phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_202006.tsv")
+    pop = pd.read_csv(clinic_filename, sep="\t")
+    pop = pop[pop.study == 'ICAAR_EUGEI_START']
+
+    ################################################################################
+    # Images
+    ni_icaar_filenames = glob.glob(os.path.join(INPUT_PATH, "derivatives/cat12/vbm/sub-*/ses-V1/mri/mwp1*.nii"))
+    tivo_icaar = pd.read_csv(os.path.join(INPUT_PATH, 'derivatives/cat12/stats', 'cat12_tissues_volumes.tsv'), sep='\t')
     assert tivo_icaar.shape == (171, 6)
     assert len(ni_icaar_filenames) == 171
 
-################################################################################
-# Images
-
-from  nitk.image import img_to_array, global_scaling
-imgs_arr, df_, target_img = img_to_array(pop.path)
-assert np.all(pop[['participant_id', 'session', 'path']] == df_[['participant_id', 'session', 'path']])
-imgs_arr = global_scaling(imgs_arr, axis0_values=np.array(pop.TIV), target=1500)
-mask_img = nibabel.load(INPUT('icaar-start', scaling=None, harmo=None, type="mask", ext="nii.gz"))
-mask_arr = mask_img.get_fdata() != 0
-assert mask_arr.sum() == 368680
-Xim = imgs_arr.squeeze()[:, mask_arr]
-del imgs_arr
-
-
-    # CADUC
-    pop = pd.read_csv(INPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"))
-    assert pop.shape == (167, 52)
-
     from  nitk.image import img_to_array, global_scaling
-    imgs_arr, df_, target_img = img_to_array(pop.ni_path)
-    df_ = df_.rename(columns=dict(path='ni_path'))
-    assert np.all(pop[['participant_id', 'ni_path']] == df_[['participant_id', 'ni_path']])
+    imgs_arr, pop_ni, target_img = img_to_array(ni_icaar_filenames)
+
+    # Merge image with clinic and global volumes
+    keep = pop_ni["participant_id"].isin(pop["participant_id"])
+    np.sum(keep) == 170
+    imgs_arr =  imgs_arr[keep]
+    pop = pd.merge(pop_ni[keep], pop, on="participant_id", how= 'inner') # preserve the order of the left keys.
+    pop = pd.merge(pop, tivo_icaar, on="participant_id", how= 'inner')
+
+    # Global scaling
     imgs_arr = global_scaling(imgs_arr, axis0_values=np.array(pop.tiv), target=1500)
 
-    # Save all data to output
-    mask_img = nibabel.load(INPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    # Compute mask
+    mask_img = preproc.compute_brain_mask(imgs_arr, target_img, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10,
+                               verbose=1)
+    mask_arr = mask_img.get_data() > 0
     mask_img.to_filename(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
     pop.to_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
     np.save(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"), imgs_arr)
@@ -118,7 +127,7 @@ pop = pd.read_csv(OUTPUT(dataset, scaling=None, harmo=None, type="participants",
 imgs_arr = np.load(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="data64", ext="npy"))
 mask_img = nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz"))
 mask_arr = mask_img.get_fdata() != 0
-assert mask_arr.sum() == 368680
+assert mask_arr.sum() == 369547
 
 # pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0}).values
 pop[target_num] = pop[target].map({'UHR-C': 1, 'UHR-NC': 0, 'Non-UHR-NC':0}).values # UPDATE 2020/06
@@ -136,7 +145,7 @@ Xim = imgs_arr.squeeze()[:, mask_arr]
 #
 msk = pop["diagnosis"].isin(['UHR-C', 'UHR-NC', 'Non-UHR-NC']) &  pop["irm"].isin(['M0']) # UPDATE 2020/06
 
-assert msk.sum() == 80
+assert msk.sum() == 85
 
 # Working population df
 pop_w = pop.copy()
@@ -148,17 +157,16 @@ print(pop["diagnosis"][msk].describe())
 print(pop["diagnosis"][msk].isin(['UHR-C']).sum())
 print(tab)
 """
-count         80
-unique         2
+count         85
+unique         3
 top       UHR-NC
-freq          53
-
+freq          55
+Name: diagnosis, dtype: object
 27
-
-diagnosis  UHR-C  UHR-NC
+diagnosis  Non-UHR-NC  UHR-C  UHR-NC
 sex_c
-F              8      23
-M             19      30
+F                   0      8      24
+M                   3     19      31
 """
 vars_clinic = []
 vars_demo = ['age', 'sex']
