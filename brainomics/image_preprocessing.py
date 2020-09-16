@@ -66,7 +66,7 @@ def load_images(NI_filenames, check=dict()):
     NI_arr = np.stack([np.expand_dims(img.get_data(), axis=0) for img in NI_imgs])
     return NI_arr, NI_participants_df, ref_img
 
-def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="participant_id"):
+def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="participant_id", merge_ni_path=True):
     """
     Select participants of NI_arr and NI_participants_df participants that are also in participants_df
 
@@ -108,7 +108,35 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="par
     True
     """
     keep = NI_participants_df[participant_id].isin(participants_df[participant_id])
-    return NI_arr[keep], pd.merge(NI_participants_df[keep], participants_df, on=participant_id, how= 'inner') # preserve the order of the left keys.
+
+    # Preserve the order of the left keys
+    NI_participants_merged = pd.merge(NI_participants_df[keep], participants_df, on=participant_id, how= 'inner')
+
+    if merge_ni_path and 'ni_path' in participants_df:
+        # Keep only the matching session and acquisition nb according to <participants_df>
+        sub_sess_to_keep = NI_participants_merged['ni_path_y'].str.extract(r".*/.*sub-(\w+)_ses-(\w+)_.*")
+        sub_sess = NI_participants_merged['ni_path_x'].str.extract(r".*/.*sub-(\w+)_ses-(\w+)_.*")
+        # Some participants have only one acq, in which case it is not mentioned
+        acq_to_keep = NI_participants_merged['ni_path_y'].str.extract(r"(acq-[a-zA-Z0-9\-\.]+)").fillna('')
+        acq = NI_participants_merged['ni_path_x'].str.extract(r"(acq-[a-zA-Z0-9\-\.]+)").fillna('')
+
+        assert not (sub_sess.isnull().values.any() or sub_sess_to_keep.isnull().values.any()), \
+            "Extraction of session_id or participant_id failed"
+
+        keep_unique_participant_ids = sub_sess_to_keep.eq(sub_sess).all(1).values.flatten() & \
+                                      acq_to_keep.eq(acq).values.flatten()
+
+        NI_participants_merged = NI_participants_merged[keep_unique_participant_ids]
+        NI_participants_merged.drop(columns=['ni_path_y'], inplace=True)
+        NI_participants_merged.rename(columns={'ni_path_x': 'ni_path'}, inplace=True)
+
+    if not NI_participants_merged[participant_id].is_unique:
+        print('WARNING: non-unique participant_id found !', flush=True)
+
+    if merge_ni_path and 'ni_path' in participants_df:
+        return NI_arr[keep][keep_unique_participant_ids], NI_participants_merged
+    else:
+        return NI_arr[keep], NI_participants_merged
 
 def global_scaling(NI_arr, axis0_values=None, target=1500):
     """
