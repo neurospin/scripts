@@ -936,6 +936,31 @@ with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies)  + suffix, scali
     for key, dat in scores_ml_bytarget.items():
         dat.to_excel(writer, sheet_name=key, index=False)
 
+################################################################################
+"""
+Première chose, j'ai effcivement oublié ici dans la stratification 'diagnosis': 
+'control' pour BIOBD (je l'ai bien mis dans le benchmark en revanche). 
+
+Age: 
+Train = HCP+IXI
+validation = controls de BIOBD
+test = controls de BSNIP
+
+Sex: 
+same as age
+
+Diagnostic :
+Train/val: IXI+HCP(ctl)+Schizconnect+PRAGUE with CV
+Test: BSNIP en
+
+La stratification est bien pour les batchs puisque les set train/val/test sont fixés pour la partie (âge/sexe). 
+
+Encore une fois, pour le diagnostic je ne suis même pas sûr de ce que l'on veut (par exemple,
+inclut on HCP alors que c'est une base différente de nos bases de controls dans SCHIZCONNECT?).
+Le problème comparé au linéaire dans ce cas est la taille de l'échantillons, vraiment très petite,
+qui occasionne des problèmes de convergence. 
+"""
+
 # ## Sex, Age Benchmark used in PyNet (with PyTorch back-end)
 
 # inputs_path = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/" \

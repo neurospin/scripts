@@ -39,6 +39,8 @@ assert  pop.shape == (34, 5)
 
 
 # Map group
+print([[lab, np.sum(pop["Response"] == lab)] for lab in np.unique(pop["Response"])])
+# [['N', 16], ['Y', 18]]
 pop['Response.num'] = pop["Response"].map(GROUP_MAP)
 
 # Save population information

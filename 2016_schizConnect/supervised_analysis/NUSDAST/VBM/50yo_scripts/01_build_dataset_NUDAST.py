@@ -38,6 +38,10 @@ penalty_start = 2
 
 # Read pop csv
 pop = pd.read_csv(INPUT_CSV)
+[[lab, np.sum(pop["dx_num"] == lab)] for lab in pop["dx_num"].unique()]
+# [[1, 97], [0, 139]]
+pop.shape
+# (236, 9)
 #############################################################################
 # Read images
 n = len(pop)

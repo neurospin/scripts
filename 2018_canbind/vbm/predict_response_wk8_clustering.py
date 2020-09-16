@@ -78,9 +78,9 @@ from  nitk.image import img_to_array, global_scaling
 imgs_arr, df_, target_img = img_to_array(pop.path)
 assert np.all(pop[['participant_id', 'session', 'path']] == df_[['participant_id', 'session', 'path']])
 imgs_arr = global_scaling(imgs_arr, axis0_values=np.array(pop.TIV), target=1500)
-mask_img = nibabel.load(INPUT('canbind', scaling=None, harmo=None, type="mask", ext="nii.gz"))
+mask_img = nibabel.load(INPUT('icaar-start', scaling=None, harmo=None, type="mask", ext="nii.gz"))
 mask_arr = mask_img.get_fdata() != 0
-assert mask_arr.sum() == 369824
+assert mask_arr.sum() == 368680
 Xim = imgs_arr.squeeze()[:, mask_arr]
 del imgs_arr
 
@@ -389,16 +389,16 @@ import copy
 from nitk.utils import dict_product, parallel, aggregate_cv
 
 #nsplits = 32
-nsplits = 5
+NSPLITS = 5
 
-cv = StratifiedKFold(n_splits=nsplits)
+cv = StratifiedKFold(n_splits=NSPLITS)
 #cv = LeaveOneOut()
 
 
 ################################################################################
 # Utils
 
-def fit_predict(estimator_img, split):
+def fit_predict(key, estimator_img, split):
     #residualizer = copy.deepcopy(residualizer)
     estimator_img = copy.deepcopy(estimator_img)
     train, test = split
@@ -419,7 +419,10 @@ def fit_predict(estimator_img, split):
     scaler = StandardScaler()
     Xim_train = scaler.fit_transform(Xim_train)
     Xim_test = scaler.transform(Xim_test)
-    estimator_img.fit(Xim_train, y_train)
+    try: # if coeficient can be retrieved given the key
+        estimator_img.coef_ = coefs_cv_cache[key]
+    except: # if not fit
+        estimator_img.fit(Xim_train, y_train)
 
     y_test_img = estimator_img.predict(Xim_test)
     # score_test_img = estimator_img.predict_log_proba(Xim_test)[:, 1]
@@ -462,7 +465,8 @@ def fit_predict(estimator_img, split):
 
     return dict(y_test_img=y_test_img, score_test_img=score_test_img,
                 y_test_democlin=y_test_democlin, score_test_democlin=score_test_democlin,
-                y_test_stck=y_test_stck, score_test_stck=score_test_stck)
+                y_test_stck=y_test_stck, score_test_stck=score_test_stck,
+                coef_img=estimator_img.coef_)
 
 ################################################################################
 # SETTINGS
@@ -527,7 +531,8 @@ y_ = pop[target + "_num"][msk_tgt][clust_labels_kmeans_img ==clust_].values
 cv_dict = {fold:split for fold, split in enumerate(cv.split(Xim_, y_))}
 estimators_dict = dict(lr=lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False))
 args_collection = dict_product(estimators_dict, cv_dict)
-%time cv_res = parallel(fit_predict, args_collection, n_jobs=min(nsplits, 8))
+%time cv_res = parallel(fit_predict, args_collection, n_jobs=min(NSPLITS, 8), pass_key=True)
+
 aggregate = aggregate_cv(cv_res, args_collection, 1)
 mod_keys = set(list(zip(*[k for k in aggregate.keys()]))[0])
 
