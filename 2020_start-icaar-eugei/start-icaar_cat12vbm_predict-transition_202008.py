@@ -41,14 +41,15 @@ import shutil
 import json
 
 import numpy as np
+import pandas as pd
+
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib
 # matplotlib.use('Qt5Cairo')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import numpy as np
-import pandas as pd
+
 
 import nibabel
 import nilearn.image
