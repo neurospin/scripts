@@ -15,40 +15,85 @@ rsync -azvun /home/ed203246/data/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_p
 # %load_ext autoreload
 # %autoreload 2
 
-import os, sys
-import numpy as np
-import glob
-import pandas as pd
-import nibabel
-import brainomics.image_preprocessing as preproc
-from brainomics.image_statistics import univ_stats, plot_univ_stats, residualize, ml_predictions
-import shutil
-# import mulm
-# import sklearn
-# import re
-# from nilearn import plotting
-import nilearn.image
-import matplotlib
-if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
-    matplotlib.use('pdf')
-import matplotlib.pyplot as plt
-import re
+# import os, sys
+# import numpy as np
 # import glob
-import seaborn as sns
+# import pandas as pd
+# import nibabel
+# import brainomics.image_preprocessing as preproc
+# from brainomics.image_statistics import univ_stats, plot_univ_stats, residualize, ml_predictions
+# import shutil
+# # import mulm
+# # import sklearn
+# # import re
+# # from nilearn import plotting
+# import nilearn.image
+# import matplotlib
+# if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
+#     matplotlib.use('pdf')
+# import matplotlib.pyplot as plt
+# import re
+# # import glob
+# import seaborn as sns
+# import copy
+# import pickle
+# import time
+
+# # ML
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.decomposition import PCA
+# import sklearn.linear_model as lm
+# import sklearn.ensemble as ensemble
+# from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
+# from nitk.stats import Residualizer
+# from nitk.utils import dict_product, parallel, reduce_cv_classif
+# from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio
+
+
+##
+import os
+import sys
+import time
+import glob
+import re
 import copy
 import pickle
-import time
+import shutil
+import json
+import subprocess
 
-# ML
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
+import numpy as np
+from collections import OrderedDict
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib
+# matplotlib.use('Qt5Cairo')
+import matplotlib.pyplot as plt
+if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
+     matplotlib.use('pdf')
+import seaborn as sns
+
+import numpy as np
+import pandas as pd
+
+import nibabel
+import nilearn.image
+from nilearn.image import resample_to_img
+import nilearn.image
+from nilearn import plotting
+
+from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio, arr_clusters
+from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
+from nitk.stats import Residualizer
+from nitk.mapreduce import dict_product, MapReduce, reduce_cv_classif
+
 import sklearn.linear_model as lm
 import sklearn.ensemble as ensemble
 from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
-from nitk.stats import Residualizer
-from nitk.utils import dict_product, parallel, reduce_cv_classif
-from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import resample
+import sklearn.metrics as metrics
 
+##
 INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm'
 OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202010_biobd-bsnip_cat12vbm_predict-dx'
 NJOBS = 8
@@ -61,19 +106,14 @@ if not os.path.exists(INPUT_PATH):
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
-scaling, harmo = 'gs', 'raw'
-DATASET_FULL = 'biobd-bsnip'
-DATASET_TRAIN = 'biobd'
-target, target_num = "diagnosis", "diagnosis_num"
-NSPLITS = 5
-
-################################################################################
+###############################################################################
 #
-# Utils
+# %% 1) Config
 #
-################################################################################
+###############################################################################
 
 def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None,
+    masking=None,
     type=None, ext=None, basepath=""):
     # scaling: global scaling? in "raw", "gs"
     # harmo (harmonization): in [raw, ctrsite, ressite, adjsite]
@@ -82,7 +122,9 @@ def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None
     return os.path.join(basepath, dataset + "_" + modality+ "_" + mri_preproc +
                  ("" if scaling is None else "_" + scaling) +
                  ("" if harmo is None else "-" + harmo) +
-                 ("" if type is None else "_" + type) + "." + ext)
+                 ("" if masking is None else "-" + masking) +
+                 ("" if type is None else "_" + type) +
+                 ("" if ext is None else "." + ext))
 
 def INPUT(*args, **kwargs):
     return PATH(*args, **kwargs, basepath=INPUT_PATH)
@@ -90,64 +132,83 @@ def INPUT(*args, **kwargs):
 def OUTPUT(*args, **kwargs):
     return PATH(*args, **kwargs, basepath=OUTPUT_PATH)
 
-def fit_predict(key, estimator_img, residualize, split):
-    print(key)
-    start_time = time.time()
-    train, test = split
-    Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
-    Xim[train, :], Xim[test, :], Xdemoclin[train, :], Xdemoclin[test, :], Z[train, :], Z[test, :], y[train]
+dataset, TARGET, TARGET_NUM = 'biobd-bsnip', "transition", "transition_num" #, "diagnosis", "diagnosis_num"
+scaling, harmo = 'gs', 'raw'
+DATASET_TRAIN = dataset
+VAR_CLINIC  = []
+VAR_DEMO = ['age', 'sex']
+NSPLITS = 5
+NBOOTS = 500
 
-    # Images based predictor
+target, target_num = "diagnosis", "diagnosis_num"
+# NSPLITS = 5
 
-    # Residualization
-    if residualize:
-        # residualizer.fit(Xim_, Z_) biased residualization
-        residualizer.fit(Xim_train, Z_train)
-        Xim_train = residualizer.transform(Xim_train, Z_train)
-        Xim_test = residualizer.transform(Xim_test, Z_test)
 
-    scaler = StandardScaler()
-    Xim_train = scaler.fit_transform(Xim_train)
-    Xim_test = scaler.transform(Xim_test)
-    try: # if coeficient can be retrieved given the key
-        estimator_img.coef_ = KEY_VALS[key]['coef_img']
-    except: # if not fit
-        estimator_img.fit(Xim_train, y_train)
 
-    y_test_img = estimator_img.predict(Xim_test)
-    score_test_img = estimator_img.decision_function(Xim_test)
-    score_train_img = estimator_img.decision_function(Xim_train)
-    try:
-        coef_img = estimator_img.coef_
-    except:
-        coef_img = None
-    time_elapsed = round(time.time() - start_time, 2)
+# ################################################################################
+# #
+# # Utils
+# #
+# ################################################################################
 
-    return dict(y_test_img=y_test_img, score_test_img=score_test_img, time=time_elapsed,
-                coef_img=coef_img)
+# def fit_predict(key, estimator_img, residualize, split):
+#     print(key)
+#     start_time = time.time()
+#     train, test = split
+#     Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
+#     Xim[train, :], Xim[test, :], Xdemoclin[train, :], Xdemoclin[test, :], Z[train, :], Z[test, :], y[train]
 
-"""
-# Wrap user define CV to new sklearn CV (Leave out study CV)
-from sklearn.model_selection import BaseCrossValidator
-class CVIterableWrapper(BaseCrossValidator):
-    "Wrapper class for old style cv objects and iterables."
-    def __init__(self, cv):
-        self.cv = list(cv)
+#     # Images based predictor
 
-    def get_n_splits(self, X=None, y=None, groups=None):
-        return len(self.cv)
+#     # Residualization
+#     if residualize:
+#         # residualizer.fit(Xim_, Z_) biased residualization
+#         residualizer.fit(Xim_train, Z_train)
+#         Xim_train = residualizer.transform(Xim_train, Z_train)
+#         Xim_test = residualizer.transform(Xim_test, Z_test)
 
-    def split(self, X=None, y=None, groups=None):
-        for train, test in self.cv:
-            yield train, test
+#     scaler = StandardScaler()
+#     Xim_train = scaler.fit_transform(Xim_train)
+#     Xim_test = scaler.transform(Xim_test)
+#     try: # if coeficient can be retrieved given the key
+#         estimator_img.coef_ = KEY_VALS[key]['coef_img']
+#     except: # if not fit
+#         estimator_img.fit(Xim_train, y_train)
 
-# [(fold, train, test) for fold, (train, test) in enumerate(cv.split(X, y))]
-# for fold, (train, test) in enumerate(cv.split(X, y)): print(fold, (train, test))
-def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
-    from sklearn import metrics
-    y_pred_tr, y_pred_te = estimator.predict(X_tr), estimator.predict(X_te)
-    return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
-"""
+#     y_test_img = estimator_img.predict(Xim_test)
+#     score_test_img = estimator_img.decision_function(Xim_test)
+#     score_train_img = estimator_img.decision_function(Xim_train)
+#     try:
+#         coef_img = estimator_img.coef_
+#     except:
+#         coef_img = None
+#     time_elapsed = round(time.time() - start_time, 2)
+
+#     return dict(y_test_img=y_test_img, score_test_img=score_test_img, time=time_elapsed,
+#                 coef_img=coef_img)
+
+# """
+# # Wrap user define CV to new sklearn CV (Leave out study CV)
+# from sklearn.model_selection import BaseCrossValidator
+# class CVIterableWrapper(BaseCrossValidator):
+#     "Wrapper class for old style cv objects and iterables."
+#     def __init__(self, cv):
+#         self.cv = list(cv)
+
+#     def get_n_splits(self, X=None, y=None, groups=None):
+#         return len(self.cv)
+
+#     def split(self, X=None, y=None, groups=None):
+#         for train, test in self.cv:
+#             yield train, test
+
+# # [(fold, train, test) for fold, (train, test) in enumerate(cv.split(X, y))]
+# # for fold, (train, test) in enumerate(cv.split(X, y)): print(fold, (train, test))
+# def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
+#     from sklearn import metrics
+#     y_pred_tr, y_pred_te = estimator.predict(X_tr), estimator.predict(X_te)
+#     return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
+# """
 
 
 if not os.path.exists(OUTPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy")):

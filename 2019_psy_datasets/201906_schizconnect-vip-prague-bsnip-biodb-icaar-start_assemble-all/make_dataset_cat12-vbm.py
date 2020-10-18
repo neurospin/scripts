@@ -15,12 +15,9 @@ https://en.wikipedia.org/wiki/IEEE_754
 %autoreload 2
 
 
-########################################################################################################################
-# COMPARISON ANALYSIS
-########################################################################################################################
 
+###############################################################################
 # storage double 64 vs simple 32
-# ==============================
 
 for all datasets for all targets similar results (diff < 1%)
 => use simple precision
@@ -30,15 +27,112 @@ for all datasets for all targets similar results (diff < 1%)
     'bsnip'
     'biobd'
 
-# Hamonization
-# ============
+###############################################################################
+# COMPARISION OF PRE-PROCESSING STRATEGIES
 
-Use adjusted residualization (or raw data)
 
+## schizconnect-vip inter-study
+
+target	dataset	tag	model	mae_test
+age	schizconnect-vip	raw-raw	RidgeCV_inter	4.92782552726035
+age	schizconnect-vip	gs-raw		RidgeCV_inter	**5.01495242618661**
+age	schizconnect-vip	gs-ctrsite	RidgeCV_inter	15.4597558193428
+
+target	dataset		tag		model		bacc_test		auc_test
+sex	schizconnect-vip	raw-raw	LRCVinter	0.909564297582952	0.966949583454671
+sex	schizconnect-vip	raw-raw	LRCVnointer	0.892740120252839	0.961594213759985
+sex	schizconnect-vip	gs-raw		LRCVinter	0.880714279596416	**0.953279480788667**
+sex	schizconnect-vip	gs-raw		LRCVnointer	0.857585350394847	0.944485185375519
+sex	schizconnect-vip	gs-ctrsite	LRCVinter	0.803415214896277	0.890699469254444
+sex	schizconnect-vip	gs-ctrsite	LRCVnointer	0.792076930983093	0.885717048951927
+
+target	dataset		tag		model		bacc_test		auc_test
+dx	schizconnect-vip	raw-raw	LRCVinter	0.742121212121212	0.829972451790634
+dx	schizconnect-vip	raw-raw	LRCVnointer	0.753636363636364	0.833994490358127
+dx	schizconnect-vip	gs-raw		LRCVinter	0.747575757575757	**0.826005509641873**
+dx	schizconnect-vip	gs-raw		LRCVnointer	0.759393939393939	0.830082644628099
+dx	schizconnect-vip	gs-ctrsite	LRCVinter	0.752727272727273	0.815426997245179
+dx	schizconnect-vip	gs-ctrsite	LRCVnointer	0.753636363636363	0.819504132231405
+
+
+## biodb inter-study
+
+target	dataset tag		model		mae_test
+age	biobd	raw-raw	RidgeCV_inter	4.96452954053455
+age	biobd	gs-raw		RidgeCV_inter	**5.04393558083351**
+age	biobd	gs-ctrsite	RidgeCV_inter	28.6553804648908
+
+target	dataset tag		model		bacc_test		auc_test
+sex	biobd	raw-raw	LRCVinter	0.732239873878244	0.786298774796228
+sex	biobd	raw-raw	LRCVnointer	0.72603484517746	0.784560995772492
+sex	biobd	gs-raw		LRCVinter	0.70314085556021	0.764522052582931
+sex	biobd	gs-raw		LRCVnointer	0.709167897750241	**0.767147191746998**
+sex	biobd	gs-ctrsite	LRCVinter	0.638340719834778	0.647879885091867
+sex	biobd	gs-ctrsite	LRCVnointer	0.630803670956472	0.660747412099583
+
+target	dataset tag		model		bacc_test		auc_test
+dx	biobd	raw-raw	LRCVinter	0.670077456926765	0.751997994784619
+dx	biobd	raw-raw	LRCVnointer	0.691678138931716	0.756543546194022
+dx	biobd	gs-raw		LRCVinter	0.664073872697375	0.73970722655458
+dx	biobd	gs-raw		LRCVnointer	0.676360037538824	**0.743236846308475**
+dx	biobd	gs-ctrsite	LRCVinter	0.497257870035892	0.51834903450907
+dx	biobd	gs-ctrsite	LRCVnointer	0.496390157148307	0.520185176219784
+
+
+### bnsip inter-study
+
+target	dataset tag		model		mae_test
+age	bsnip	raw-raw	RidgeCV_inter	5.08211339671643
+age	bsnip	gs-raw		RidgeCV_inter	**5.04579017671471**
+age	bsnip	gs-ctrsite	RidgeCV_inter	9.16294421271349
+
+target	dataset tag		model		bacc_test		auc_test
+sex	bsnip	raw-raw	LRCVinter	0.913394990701162	0.972804536275248
+sex	bsnip	raw-raw	LRCVnointer	0.910831568074446	0.968940483703162
+sex	bsnip	gs-raw		LRCVinter	0.915353399405849	0.972788387112606
+sex	bsnip	gs-raw		LRCVnointer	0.900731847617483	**0.968696247622391**
+sex	bsnip	gs-ctrsite	LRCVinter	0.901883299628491	0.964367624787489
+sex	bsnip	gs-ctrsite	LRCVnointer	0.89734738001085	0.965216524494645
+
+target	dataset tag		model		bacc_test		auc_test
+dx	bsnip	raw-raw	LRCVinter	0.737908232118758	0.807020917678813
+dx	bsnip	raw-raw	LRCVnointer	0.735344129554656	0.808306342780027
+dx	bsnip	gs-raw		LRCVinter	0.732908232118758	0.800570175438596
+dx	bsnip	gs-raw		LRCVnointer	0.725472334682861	**0.798890013495277**
+dx	bsnip	gs-ctrsite	LRCVinter	0.672078272604588	0.768694331983805
+dx	bsnip	gs-ctrsite	LRCVnointer	0.677334682860999	0.766622807017544
+
+
+### icaar-start inter-study
+
+target	dataset	tag		model		mae_test
+age	icaar-start	raw-raw	RidgeCV_inter	1.96619730303429
+age	icaar-start	gs-raw		RidgeCV_inter	**1.93729897446262**
+age	icaar-start	gs-ctrsite	RidgeCV_inter	1.86460950477642
+
+target	dataset	tag		model		bacc_test		auc_test
+sex	icaar-start	raw-raw	LRCVinter	0.816391941391941	0.901709401709402
+sex	icaar-start	raw-raw	LRCVnointer	0.817307692307692	0.90030525030525
+sex	icaar-start	gs-raw		LRCVinter	0.731593406593406	0.875457875457876
+sex	icaar-start	gs-raw		LRCVnointer	0.801373626373626	**0.880830280830281**
+sex	icaar-start	gs-ctrsite	LRCVinter	0.768956043956044	0.890659340659341
+sex	icaar-start	gs-ctrsite	LRCVnointer	0.794139194139194	0.885225885225885
+
+target	dataset	tag		model		bacc_test		auc_test
+dx	icaar-start	raw-raw	LRCVinter	0.644688644688645	0.621367521367521
+dx	icaar-start	raw-raw	LRCVnointer	0.50018315018315	0.598534798534798
+dx	icaar-start	gs-raw		LRCVinter	0.631043956043956	0.696550671550672
+dx	icaar-start	gs-raw		LRCVnointer	0.580769230769231	**0.696916971916972**
+dx	icaar-start	gs-ctrsite	LRCVinter	0.640018315018315	0.685286935286935
+dx	icaar-start	gs-ctrsite	LRCVnointer	0.618131868131868	0.689896214896215
+
+
+###############################################################################
 ## raw vs global scaling
 ## ---------------------
 
 ### Intra
+
                    age          diag(AUC)
 'icaar-start'      1.96 1.93    62 69(+7)
 'schizconnect-vip' 4.9  5       74 75
@@ -63,6 +157,7 @@ Similar
 **CONCLUSION:** No big diff, by default do glob scale. Because we want to normalize for TIV
 
 
+###############################################################################
 ## raw vs ressite
 ## --------------
 
@@ -76,14 +171,6 @@ Similar
 
 ressite is BAD !!! DO NOT USE !!!
 
-### Inter
-
-AGE(MAE)             5.3 8.3 (-3 bad)
-SEX(AUC)             89  88
-SCZvsCTL(AUC)        77  78
-BDvsCTL(AUC)         64  62 (-2 bad)
-
-
 **CONCLUSION:** ctrsite is BAD !!! DO NOT USE !!!
 
 ## ctrsite vs ressite
@@ -91,8 +178,18 @@ BDvsCTL(AUC)         64  62 (-2 bad)
 
 **CONCLUSION:** for all datasets for all targets same results
 
+###############################################################################
+### Inter
+
+AGE(MAE)             5.3 8.3 (-3 bad)
+SEX(AUC)             89  88
+SCZvsCTL(AUC)        77  78
+BDvsCTL(AUC)         64  62 (-2 bad)
+
+###############################################################################
 ## ressite vs site(age+sex+diag)
 ## -----------------------------
+# BIASED Anyway DO NOT USE
 
 perf of adj
 
@@ -158,6 +255,8 @@ Classif: [C] large => low regularization
 
 Regression: interpect
 Classif: No big diff but models with no interpect are more regularized
+
+
 """
 
 import os
@@ -712,7 +811,7 @@ cv = CVIterableWrapper(folds)
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
 # [364610, 368680, 365280, 362619]
-# 
+#
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
 # 360348
@@ -784,7 +883,7 @@ print([[studies[i], np.unique(df["diagnosis"].values[te])] for i, (tr, te) in en
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
 # [364610, 368680, 365280, 362619]
-# 
+#
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
 # 360348
@@ -888,7 +987,7 @@ print([[studies[i]] + [np.sum(df["diagnosis"].values[te] == lab) for lab in np.u
 mask_filenames = glob.glob(OUTPUT("*", scaling=None, harmo=None, type="mask", ext="nii.gz"))
 print([np.sum(nibabel.load(mask_filename).get_data()) for mask_filename in mask_filenames])
 # [364610, 368680, 365280, 362619]
-# 
+#
 mask_arr = np.sum(np.concatenate([np.expand_dims(nibabel.load(mask_filename).get_data() > 0, axis=0) for mask_filename
                                   in mask_filenames]), axis=0) > (len(mask_filenames) - 1)
 # 360348
@@ -938,27 +1037,28 @@ with pd.ExcelWriter(OUTPUT("inter_studies/" + "+".join(studies)  + suffix, scali
 
 ################################################################################
 """
-Première chose, j'ai effcivement oublié ici dans la stratification 'diagnosis': 
-'control' pour BIOBD (je l'ai bien mis dans le benchmark en revanche). 
+Première chose, j'ai effcivement oublié ici dans la stratification 'diagnosis':
+'control' pour BIOBD (je l'ai bien mis dans le benchmark en revanche).
 
-Age: 
+Age:
 Train = HCP+IXI
 validation = controls de BIOBD
 test = controls de BSNIP
 
-Sex: 
+Sex:
 same as age
 
 Diagnostic :
 Train/val: IXI+HCP(ctl)+Schizconnect+PRAGUE with CV
 Test: BSNIP en
 
-La stratification est bien pour les batchs puisque les set train/val/test sont fixés pour la partie (âge/sexe). 
+
+La stratification est bien pour les batchs puisque les set train/val/test sont fixés pour la partie (âge/sexe).
 
 Encore une fois, pour le diagnostic je ne suis même pas sûr de ce que l'on veut (par exemple,
 inclut on HCP alors que c'est une base différente de nos bases de controls dans SCHIZCONNECT?).
 Le problème comparé au linéaire dans ce cas est la taille de l'échantillons, vraiment très petite,
-qui occasionne des problèmes de convergence. 
+qui occasionne des problèmes de convergence.
 """
 
 # ## Sex, Age Benchmark used in PyNet (with PyTorch back-end)
@@ -1011,3 +1111,89 @@ qui occasionne des problèmes de convergence.
 #                        input_size=input_size,
 #                        pin_memory=pin_memory,
 #                        drop_last=drop_last)
+
+
+################################################################################
+# Global mask
+import numpy as np
+import nibabel
+#from nilearn.image import resample_to_img
+from nitk.image import compute_brain_mask
+
+# ABIDE2_t1mri_mwp1_gs-raw_data64.npy
+# biobd_t1mri_mwp1_gs-raw_data64.npy
+# bsnip_t1mri_mwp1_gs-raw_data64.npy
+# HCP_t1mri_mwp1_gs-raw_data64.npy
+# icaar-start_t1mri_mwp1_gs-raw_data64.npy
+# IXI_t1mri_mwp1_gs-raw_data64.npy
+# schizconnect-vip_t1mri_mwp1_gs-raw_data64.npy
+
+datasets = [
+    'icaar-start',
+    'schizconnect-vip',
+    'bsnip',
+    'biobd',
+    'ABIDE2',
+    'HCP',
+    'IXI']
+
+# IXI_t1mri_mwp1_mask.nii.gz
+
+# Read mask images and check same affine => ref_img
+mask_imgs = {dataset: nibabel.load(OUTPUT(dataset, scaling=None, harmo=None, type="mask", ext="nii.gz")) for dataset in datasets}
+affines = [mask_img.affine for k, mask_img in mask_imgs.items()]
+assert np.all([np.all(affines[0] == affine) for affine in affines])
+
+target_img = mask_imgs["IXI"]
+shape = ref_img.get_fdata().shape
+
+# grand sum and ss
+stats = dict()
+for dataset in datasets:
+    print(dataset)
+    # dataset = datasets[0]
+    #OUTPUT(dataset, scaling="gs", harmo="raw", type="data64", ext="npy")
+    imgs_arr = np.load(OUTPUT(dataset, scaling="gs", harmo="raw", type="data64", ext="npy"), mmap_mode='r').squeeze()
+    n = imgs_arr.shape[0]
+    sum_ = np.mean(imgs_arr, axis=0) * n
+    ss = np.var(imgs_arr, axis=0) * n
+    stats[dataset] = [n, sum_, ss]
+
+n = np.sum([v[0] for k, v in stats.items()])
+assert n == 5571
+
+grand_sum =  np.zeros(shape)
+grand_ss =  np.zeros(shape)
+
+for k, v in stats.items():
+    grand_sum += v[1]
+    grand_ss += v[2]
+
+# grand mean and std
+
+grand_mean = grand_sum / n
+grand_std = np.sqrt(grand_ss / n)
+
+np.save(os.path.join(OUTPUT_PATH, "grand_mean.npy"), grand_mean)
+np.save(os.path.join(OUTPUT_PATH, "grand_std.npy"), grand_std)
+# grand_mean_ = np.load(os.path.join(OUTPUT_PATH, "grand_mean.npy"))
+# np.all(grand_mean_ == grand_mean)
+
+# global mask
+
+mask_thres_mean = 0.1
+mask_thres_std = 1e-6
+
+implicitmask_arr = np.ones(shape, dtype=bool).squeeze()
+implicitmask_arr = implicitmask_arr & (np.abs(grand_mean) >= mask_thres_mean).squeeze()
+implicitmask_arr = implicitmask_arr & (grand_std >= mask_thres_std).squeeze()
+
+from  nitk.image import compute_brain_mask
+
+mask_brain_img = compute_brain_mask(target_img=target_img, implicitmask_arr=implicitmask_arr, verbose=1)
+# Clusters of connected voxels #1, sizes= [371414]
+mask_cerebrum_img = compute_brain_mask(target_img=target_img, implicitmask_arr=implicitmask_arr, rm_brainstem=True, rm_cerebellum=True, verbose=1)
+# Clusters of connected voxels #1, sizes= [331695]
+
+mask_brain_img.to_filename(OUTPUT("ALL", scaling=None, harmo=None, type="brain-mask", ext="nii.gz"))
+mask_cerebrum_img.to_filename(OUTPUT("ALL", scaling=None, harmo=None, type="cerebrum-mask", ext="nii.gz"))
