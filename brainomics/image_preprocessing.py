@@ -66,7 +66,8 @@ def load_images(NI_filenames, check=dict()):
     NI_arr = np.stack([np.expand_dims(img.get_data(), axis=0) for img in NI_imgs])
     return NI_arr, NI_participants_df, ref_img
 
-def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="participant_id", merge_ni_path=True):
+def merge_ni_df(NI_arr, NI_participants_df, participants_df, qc=None, participant_id="participant_id", id_type=str,
+                merge_ni_path=True):
     """
     Select participants of NI_arr and NI_participants_df participants that are also in participants_df
 
@@ -75,7 +76,9 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="par
     NI_arr:  ndarray, of shape (n_subjects, 1, image_shape).
     NI_participants_df: DataFrame, with at leas 2 columns: participant_id, "ni_path"
     participants_df: DataFrame, with 2 at least 1 columns participant_id
+    qc: DataFrame, with at least 1 column participant_id
     participant_id: column that identify participant_id
+    id_type: the type of participant_id and session, eventually, that should be used for every DataFrame
 
     Returns
     -------
@@ -107,10 +110,56 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="par
     >>> np.all(NI_arr[[0, 2], ::] == NI_arr2)
     True
     """
-    keep = NI_participants_df[participant_id].isin(participants_df[participant_id])
 
-    # Preserve the order of the left keys
-    NI_participants_merged = pd.merge(NI_participants_df[keep], participants_df, on=participant_id, how= 'inner')
+    # 1) Extracts the session + run if available in participants_df/qc from <ni_path> in NI_participants_df
+    unique_key_pheno = [participant_id]
+    unique_key_qc = [participant_id]
+    NI_participants_df.participant_id = NI_participants_df.participant_id.astype(id_type)
+    participants_df.participant_id = participants_df.participant_id.astype(id_type)
+    if 'session' in participants_df or (qc is not None and 'session' in qc):
+        NI_participants_df['session'] = NI_participants_df.ni_path.str.extract('ses-([^_/]+)/')[0].astype(id_type)
+        if 'session' in participants_df:
+            participants_df.session = participants_df.session.astype(id_type)
+            unique_key_pheno.append('session')
+        if qc is not None and 'session' in qc:
+            qc.session = qc.session.astype(id_type)
+            unique_key_qc.append('session')
+    if 'run' in participants_df or (qc is not None and 'run' in qc):
+        NI_participants_df['run'] = NI_participants_df.ni_path.str.extract('run-([^_/]+)\_.*nii')[0].fillna(1).astype(str)
+        if 'run' in participants_df:
+            unique_key_pheno.append('run')
+            participants_df.run = participants_df.run.astype(str)
+        if qc is not None and 'run' in qc:
+            unique_key_qc.append('run')
+            qc.run = qc.run.astype(str)
+
+    # 2) Keeps only the matching (participant_id, session, run) from both NI_participants_df and participants_df by
+    #    preserving the order of NI_participants_df
+    # !! Very import to have a clean index (to retrieve the order after the merge)
+    NI_participants_df = NI_participants_df.reset_index(drop=True).reset_index() # stores a clean index from 0..len(df)
+    NI_participants_merged = pd.merge(NI_participants_df, participants_df, on=unique_key_pheno,
+                                      how='inner', validate='m:1')
+    print('--> {} {} have missing phenotype'.format(len(NI_participants_df)-len(NI_participants_merged),
+          unique_key_pheno))
+
+    # 3) If QC is available, filters out the (participant_id, session, run) who did not pass the QC
+    if qc is not None:
+        assert np.all(qc.qc.eq(0) | qc.qc.eq(1)), 'Unexpected value in qc.csv'
+        qc = qc.reset_index(drop=True) # removes an old index
+        qc_val = qc.qc.values
+        if np.all(qc_val==0):
+            raise ValueError('No participant passed the QC !')
+        elif np.all(qc_val==1):
+            pass
+        else:
+            idx_first_occurence = len(qc_val) - (qc_val[::-1] != 1).argmax()
+            assert np.all(qc.iloc[idx_first_occurence:].qc == 1)
+            keep = qc.iloc[idx_first_occurence:][unique_key_qc]
+            init_len = len(NI_participants_merged)
+            # Very important to have 1:1 correspondance between the QC and the NI_participant_array
+            NI_participants_merged = pd.merge(NI_participants_merged, keep, on=unique_key_qc,
+                                              how='inner', validate='1:1')
+            print('--> {} {} did not pass the QC'.format(init_len - len(NI_participants_merged), unique_key_qc))
 
     if merge_ni_path and 'ni_path' in participants_df:
         # Keep only the matching session and acquisition nb according to <participants_df>
@@ -130,13 +179,17 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, participant_id="par
         NI_participants_merged.drop(columns=['ni_path_y'], inplace=True)
         NI_participants_merged.rename(columns={'ni_path_x': 'ni_path'}, inplace=True)
 
-    if not NI_participants_merged[participant_id].is_unique:
-        print('WARNING: non-unique participant_id found !', flush=True)
 
-    if merge_ni_path and 'ni_path' in participants_df:
-        return NI_arr[keep][keep_unique_participant_ids], NI_participants_merged
-    else:
-        return NI_arr[keep], NI_participants_merged
+    unique_key = unique_key_qc if set(unique_key_qc) >= set(unique_key_pheno) else unique_key_pheno
+    assert len(NI_participants_merged.groupby(unique_key)) == len(NI_participants_merged), \
+        '{} similar pairs {} found'.format(len(NI_participants_merged)-len(NI_participants_merged.groupby(unique_key)),
+                                           unique_key)
+
+    # Get back to NI_arr using the indexes kept in NI_participants through all merges
+    idx_to_keep = NI_participants_merged['index'].values
+
+    # NI_participants_merged.drop('index')
+    return NI_arr[idx_to_keep], NI_participants_merged
 
 def global_scaling(NI_arr, axis0_values=None, target=1500):
     """

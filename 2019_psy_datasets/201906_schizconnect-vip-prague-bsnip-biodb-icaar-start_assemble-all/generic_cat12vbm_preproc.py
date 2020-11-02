@@ -6,7 +6,8 @@
 
 """
 
-import os
+import os, sys
+sys.path.extend(['../../', '/home/bd261576/PycharmProjects/pylearn-mulm'])
 import numpy as np
 import glob
 import pandas as pd
@@ -20,6 +21,7 @@ import shutil
 # import re
 # from nilearn import plotting
 import nilearn.image
+import argparse
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -39,12 +41,16 @@ def OUTPUT(dataset, output_path, modality='t1mri', mri_preproc='mwp1', scaling=N
                  ("" if type is None else "_" + type) + "." + ext)
 
 
-def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_type=str,
+def nii2npy(nii_path, phenotype_path, dataset_name, output_path, qc=None, sep='\t', id_type=str,
             check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5))):
     ########################################################################################################################
     # Read phenotypes
 
     phenotype = pd.read_csv(phenotype_path, sep=sep)
+    qc = pd.read_csv(qc, sep=sep) if qc is not None else None
+
+    if 'TIV' in phenotype:
+        phenotype.rename(columns={'TIV': 'tiv'}, inplace=True)
 
     keys_required = ['participant_id', 'age', 'sex', 'tiv', 'diagnosis']
 
@@ -52,9 +58,9 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
         "Missing keys in {} that are required to compute the npy array: {}".format(phenotype_path,
                                                                                    set(keys_required)-set(phenotype.columns))
 
-    assert len(set(phenotype.participant_id)) == len(phenotype), "Unexpected number of participant_id"
+    ## TODO: change this condition according to session and run in phenotype.csv
+    #assert len(set(phenotype.participant_id)) == len(phenotype), "Unexpected number of participant_id"
 
-    phenotype['participant_id'] = phenotype['participant_id'].astype(id_type)
 
     null_or_nan_mask = [False for _ in range(len(phenotype))]
     for key in keys_required:
@@ -70,7 +76,6 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
     #  mwp1 files
       #  excpected image dimensions
     NI_filenames = glob.glob(nii_path)
-
     ########################################################################################################################
     #  Load images, intersect with pop and do preprocessing and dump 5d npy
     print("###########################################################################################################")
@@ -80,11 +85,12 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
     scaling, harmo = 'raw', 'raw'
     print("## Load images")
     NI_arr, NI_participants_df, ref_img = preproc.load_images(NI_filenames,check=check)
-    NI_participants_df.participant_id = NI_participants_df.participant_id.astype(id_type)
-    print('--> {} img loaded'.format(len(NI_arr)))
+    print('--> {} img loaded'.format(len(NI_participants_df)))
     print("## Merge nii's participant_id with participants.csv")
-    NI_arr, NI_participants_df = preproc.merge_ni_df(NI_arr, NI_participants_df, participants_df)
+    NI_arr, NI_participants_df = preproc.merge_ni_df(NI_arr, NI_participants_df, participants_df,
+                                                         qc=qc, id_type=id_type)
     print('--> Remaining samples: {} / {}'.format(len(NI_participants_df), len(participants_df)))
+
     print("## Save the new participants.csv")
     NI_participants_df.to_csv(OUTPUT(dataset_name, output_path, scaling=None, harmo=None, type="participants", ext="csv"),
                               index=False)
@@ -259,12 +265,68 @@ class Sobel3D:
         return x_filtered
 
 if __name__=="__main__":
-    OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/'
+    parser = argparse.ArgumentParser()
 
-    # Case specific
-    nii_path = "/neurospin/psy_sbox/hc/abide2/derivatives/cat12vbm/sub-*/ses-*/anat/mri/mwp1*.nii"
-    dataset_name = "ABIDE2"
-    phenotype_path = "/neurospin/psy_sbox/hc/abide2/ABIDE2_t1mri_mwp1_participants.csv"
+    parser.add_argument('--output_path', type=str, required=True)
+    parser.add_argument('--nii_regex_path', type=str, required=True)
+    parser.add_argument('--phenotype_path', type=str, required=True)
+    parser.add_argument('--dataset', type=str, required=True)
+    parser.add_argument('--qc_path', type=str, required=False)
+    parser.add_argument('--id_type', type=str, choices=['str', 'int'], default='str',
+                        help='Type of <participant_id> and <session> used for casting')
+    parser.add_argument('--sep', type=str, choices=[',', '\t'], default='\t', help='Separator used in participants.csv')
+
+    args = parser.parse_args()
+
+    # # General case
+    nii2npy(args.nii_regex_path,
+            args.phenotype_path,
+            args.dataset,
+            args.output_path,
+            qc=args.qc_path,
+            sep=args.sep,
+            id_type=eval(args.id_type),
+            check=dict(shape=(121, 145, 121),
+                       zooms=(1.5, 1.5, 1.5)))
+
+    # MAIN = ~/PycharmProjects/neurospin/scripts/2019
+    # _psy_datasets / 201906
+    # _schizconnect - vip - prague - bsnip - biodb - icaar - start_assemble - all / generic_cat12vbm_preproc.py
+    # OUTPUT_PATH = / neurospin / psy_sbox / analyses / 201906
+    # _schizconnect - vip - prague - bsnip - biodb - icaar - start_assemble - all / data / cat12vbm
+    #
+    # for DATASET in ncp
+    # do
+    # PHENOTYPE=/neurospin/psy_sbox/$DATASET/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/$DATASET/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'$DATASET'/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+    # done
+
+    ## 4 Particular cases
+    # DATASET=hcp
+    # PHENOTYPE=/neurospin/psy_sbox/$DATASET/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/$DATASET/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'$DATASET'/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+
+    # DATASET=gsp
+    # PHENOTYPE=/neurospin/psy_sbox/${DATASET^^}/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/${DATASET^^}/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'${DATASET^^}'/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+
+    # DATASET=corr
+    # PHENOTYPE=/neurospin/psy_sbox/CoRR/CoRR_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/CoRR/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/CoRR/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+
+    # DATASET = localizer
+    # PHENOTYPE = / neurospin / psy_sbox /$DATASET /${DATASET ^ ^}
+    # _t1mri_mwp1_participants.csv
+    # QC = / neurospin / psy_sbox /$DATASET / derivatives / cat12 - 12.6
+    # _vbm_qc / qc.tsv
+    # python3 $MAIN - -nii_regex_path
+    # '/neurospin/psy/'$DATASET
+    # '/derivatives/cat12/vbm/sub-*/ses-*/anat/mri/mwp1*.nii' - -phenotype_path $PHENOTYPE - -output_path $OUTPUT_PATH - -qc_path $QC - -dataset $DATASET - -id_type
+    # str & > $DATASET.txt &
 
     # mask_arr=nibabel.load(OUTPUT("bsnip", OUTPUT_PATH, scaling=None, harmo=None, type="mask", ext="nii.gz")).get_data()>0
     # NI_arr = np.load(os.path.join(OUTPUT_PATH,'all_t1mri_mwp1_gs-raw_data32_tocheck.npy'), mmap_mode='r')
@@ -274,6 +336,4 @@ if __name__=="__main__":
     # sobel = Sobel3D(1, True, 'cuda', 25)
     # Y_pred, Y_true, clf = dx_predict(NI_arr, df, mask_arr, train_filter, test_filter, filter=sobel)
 
-    # # General case
-    nii2npy(nii_path, phenotype_path, dataset_name, OUTPUT_PATH, sep='\t', id_type=int,
-            check=dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)))
+
