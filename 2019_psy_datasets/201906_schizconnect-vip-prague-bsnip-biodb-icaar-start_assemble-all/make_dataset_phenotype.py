@@ -22,18 +22,17 @@ import re
 import xml.etree.ElementTree as ET
 import re
 
+###############################################################################
+# Make phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20190909.tsv
+
 # for the phenotypes
 INPUT_CSV_icaar = '/neurospin/psy/start-icaar-eugei/phenotype/raw'
-INPUT_CSV_bsnip_biobd = '/neurospin/psy/bipolar/biobd/phenotype/raw'
+INPUT_CSV_bsnip_biobd = '/neurospin/psy/biobd/phenotype/raw'
 INPUT_CSV_schizconnect = '/neurospin/psy/schizconnect-vip-prague/participants_schizconnect-vip.tsv'
 INPUT_CSV_prague = '/neurospin/psy/schizconnect-vip-prague/participants_prague.tsv'
 
-OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data'
+OUTPUT_PATH = '/neurospin/psy/all_studies/phenotype'
 
-
-"""
-CREATION OF ONE SINGLE DATASET WITH ALL PHENOTYPES
-"""
 
 # STEP 4: for each phenotype file, homogeneize the columns
 
@@ -259,10 +258,10 @@ pheno_BSNIP_1 = pheno_BSBD[pheno_BSBD.study == 'BSNIP']
 assert pheno_BSNIP_1.shape == (317, 46)
 
 
-pheno_BSNIP_2 = pd.read_csv('/neurospin/psy_sbox/start-icaar-eugei/phenotype/BSNIP_all_clinical_data.csv',sep=',')
+pheno_BSNIP_2 = pd.read_csv(os.path.join(INPUT_CSV_bsnip_biobd, 'BSNIP_all_clinical_data.csv'),sep=',')
 assert pheno_BSNIP_2.shape == (1094, 232)
 assert pheno_BSNIP_2.duplicated().sum() == 0
-pheno_relatives = pd.read_csv('/neurospin/psy_sbox/start-icaar-eugei/phenotype/BSNIP_cases_ctrls_relatives_diagnosis.csv')
+pheno_relatives = pd.read_csv(os.path.join(INPUT_CSV_bsnip_biobd, 'BSNIP_cases_ctrls_relatives_diagnosis.csv'))
 assert pheno_relatives.shape == (4125, 2)
 assert pheno_relatives.duplicated().sum() == 1874
 pheno_relatives = pheno_relatives.drop_duplicates()
@@ -337,15 +336,16 @@ assert pheno_all.duplicated('participant_id').sum() == 0
 
 
 # reorder columns
-
-list_col = list(pheno_all)
-assert list_col.index('participant_id') == 37
-assert list_col.index('sex') == 41
-assert list_col.index('age') == 31
-assert list_col.index('diagnosis') == 34
-assert list_col.index('study') == 43
-assert list_col.index('site') == 42
-reorder_col = [list_col[37], list_col[41], list_col[31], list_col[34], list_col[43], list_col[42]] + [item for item in list_col if item not in {'participant_id','sex','age','diagnosis','study','site'}]
+head_cols = ['participant_id', 'sex', 'age', 'diagnosis', 'study', 'site']
+list_cols = list(pheno_all)
+reorder_col = head_cols + [item for item in list_cols if item not in head_cols]
+# assert list_col.index('participant_id') == 37
+# assert list_col.index('sex') == 41
+# assert list_col.index('age') == 31
+# assert list_col.index('diagnosis') == 34
+# assert list_col.index('study') == 43
+# assert list_col.index('site') == 42
+# reorder_col = [list_col[37], list_col[41], list_col[31], list_col[34], list_col[43], list_col[42]] + [item for item in list_col if item not in {'participant_id','sex','age','diagnosis','study','site'}]
 pheno_all = pheno_all[reorder_col]
 assert pheno_all.shape == (3871, 46)
 
@@ -358,6 +358,8 @@ for i in range(pheno_all.shape[0]):
         pheno_all.age.iloc[i] = float(pheno_all.age.iloc[i])
     elif isinstance(pheno_all.age.iloc[i], int):
         pheno_all.age.iloc[i] = float(pheno_all.age.iloc[i])
+
+pheno_all.age = pheno_all.age.astype(float)
 
 # homogeneize diagnosis coding
 
@@ -391,15 +393,218 @@ pheno_all.diagnosis = pheno_all.diagnosis.map({
 'Relative of Proband with Schizoaffective Disorder':'relative of proband with schizoaffective disorder',
 'Relative of Proband with Psychotic Bipolar Disorder':'relative of proband with psychotic bipolar disorder'})
 
+
 # homogeneize sex coding
 
 pheno_all.sex = pheno_all.sex.map({'F':1.0,'H':0.0,'M':0.0, 1.0:1.0, 0.0:0.0})
 
 
+# homogeneize tobacco_last_month
 
-pheno_all.to_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START.tsv'), sep='\t', index=False)
+mapping = {lev:lev for lev in pheno_all.tobacco_last_month.unique()}
+mapping['ND'] = np.nan
+mapping = {k:float(v) for k, v in mapping.items()}
+
+pheno_all.tobacco_last_month = pheno_all.tobacco_last_month.map(mapping)
 
 
+# Drop index
+
+pheno_all = pheno_all.reset_index(drop=True)
+
+pheno_all.to_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20190909.tsv'), sep='\t', index=False)
+
+# Check differences with other version
+def _compare_df(df1, df2):
+    df2 = df2[df1.columns]
+
+    # Ensure tocaco coding
+    mapping = {lev:lev for lev in df2.tobacco_last_month.unique()}
+    mapping['ND'] = np.nan
+    mapping = {k:float(v) for k, v in mapping.items()}
+    df2.tobacco_last_month = df2.tobacco_last_month.map(mapping)
+
+    # Round age at 10-6
+    df1.age = df1.age.round(decimals=6)
+    df2.age = df2.age.round(decimals=6)
+
+    # Round Density of Episodes at 10-6
+    df1['Density of Episodes'] = df1['Density of Episodes'].round(decimals=6)
+    df2['Density of Episodes'] = df2['Density of Episodes'].round(decimals=6)
+
+    for i in range(df1.shape[0]):
+        if not df1.iloc[i].equals(df2.iloc[i]):
+            row1 = df1.iloc[i].to_frame().T
+            row2 = df2.iloc[i].to_frame().T
+            diff = pd.concat([row1, row2]).drop_duplicates(keep=False)
+            if len(diff) > 0:
+                print(diff)
+                for n in row1.columns:
+                    val1, val2 = row1[n].values[0], row2[n].values[0]
+                    if (pd.isnull(val1) and pd.isnull(val2)):
+                        continue
+                    elif val1 != val2:
+                        print(row1.participant_id, n, val1, val2)
+                        raise "Differences found"
+
+    assert df1.equals(df2), "Global differences found"
+
+
+new = pd.read_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20190909.tsv'), sep='\t')
+old = pd.read_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20190909_orig.tsv'), sep='\t')
+
+_compare_df(new, old)
+
+
+###############################################################################
+# Intergrate modification by Anton on ICAAR-START
+# iftimovici anton <anton.iftimovici@gmail.com>
+# to:	Edouard Duchesnay <duchesnay@gmail.com>
+# date:	May 14, 2020, 9:41 AM
+
+# 1) J'ai fait une re-vérification globale de tous nos phénotypes ICAAR-START, y compris ceux des patients qui ont de l'imagerie:
+# - une erreur sur l'âge d'un UHR-non converteur a été retrouvée (il passe de 23 à 18 ans)
+# - plusieurs sujets n'étaient pas inclus dans nos études car ils étaient Non-UHR, et je n'avais pris que des UHR initialement; sauf que si on compare converteurs vs non-converteurs, ce n'est pas un problème; ça rajoute 4 IRM de non-converteurs à M0 et MF.
+# - j'ai calculé des âges précis qui correspondent à trois temps différents, celui de la passation de l'irm, celui de la passation des tests neuropsycho, et celui des prélèvements biologiques (la différence entre eux n'est pas significative, mais ça m'a surtout servi pour compléter les âges des sujets dont on ne connaissait pas l'âge au moment de l'irm
+
+# 2) J'ai récupéré tous les phénotypes de cognition pour ICAAR-START, que j'ai homogénéisé et ensuite standardisé en fonctions des moyennes et déviations standard pour chaque note dans la population générale, en tenant compte des critères spécifiques de chaque test, d'après les indications de Célia (années d'étude et sexe, en général); du coup, ce sont des données de cognition vraiment très propres, qu'on pourra utiliser !
+
+df = pd.read_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20190909.tsv'), sep='\t')
+anton = pd.read_csv(os.path.join(OUTPUT_PATH,'sources/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20200626_from_anton.tsv'), sep='\t')
+# Found 21 year in in Anton file
+df.loc[df.participant_id == 'STARTLF170705', 'age'] = 21
+df.loc[df.participant_id == 'STARTHW170703', 'diagnosis'] = 'UHR-NC'
+df.loc[df.participant_id == 'STARTNA150400', 'diagnosis'] = 'UHR-NC'
+df.loc[df.participant_id == 'STARTNA160597', 'diagnosis'] = 'UHR-NC'
+df.loc[df.participant_id == 'STARTLF160491', 'age'] = 20
+
+_compare_df(df1=df, df2=anton)
+
+df.to_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20200626.tsv'), sep='\t', index=False)
+
+###############################################################################
+    tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH_schizconnect,
+        'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
+
+    # tivo_bsnip = pd.read_csv(os.path.join(BASE_PATH_bsnip, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+    tivo_biobd = pd.read_csv(os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
+    tivo_biobd.participant_id = tivo_biobd.participant_id.astype(str)
+
+    # assert tivo_icaar.shape == (171, 6)
+    # assert len(ni_icaar_filenames) == 171
+
+    # assert tivo_schizconnect.shape == (738, 6)
+    # assert len(ni_schizconnect_filenames) == 738
+
+    # assert tivo_bsnip.shape == (1042, 6)
+    # assert len(ni_bsnip_filenames) == 1042
+
+    assert tivo_biobd.shape ==  (746, 5)
+
+
+###############################################################################
+# QC with Laurie Anne
+
+df = pd.read_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20200626.tsv'), sep='\t')
+df.shape == (3871, 46)
+
+other = df[~df.study.isin(['BIOBD', 'BSNIP'])]
+
+df = df[df.study.isin(['BIOBD', 'BSNIP'])]
+df.shape == (2962, 46)
+
+LAURIEANNE_CSV = "/neurospin/psy_sbox/bipolar-biobd/phenotype/2019_laurie_anne/biobd_bsnip_clinical.csv"
+
+laurie = pd.read_csv(LAURIEANNE_CSV, sep=',')
+laurie.shape == (1099, 26)
+laurie.insert(0, 'participant_id', laurie.subjectID.str.replace("\.0", ""))
+
+# Fix Age
+laurie['Age'] = laurie['Age'].apply(lambda x: float(x.replace(',','.')) if pd.notnull(x) else None)
+laurie.Sex = laurie.Sex.map({'M':'M', 'H':'M', 'F':'F'})
+mapping = {v:v for v in laurie.DX.unique()}
+mapping['HC'] = 'control'
+mapping['BD'] = 'bipolar disorder'
+mapping['SZ'] = 'schizophrenia'
+mapping['0'] = np.nan
+laurie.DX = laurie.DX.map(mapping)
+
+# Some participants are controls from
+# "/neurospin/psy_sbox/bipolar-biobd/derivatives/cat12-12.6_vbm_qc-laurie-anne/norm_dataset_cat12_bsnip_biobd.tsv"
+ctrl = ['802708704329', '127567692450', '755449777673', '344463774916', '184173668405', '206152431141', '876651563587', '460127580829', '298882272395', '799399693953', '664703775284', '994959841722', '866203430929', '911350678973', '261904584888', '143031618176', '331968608917', '714476111882', '188862939450', '464576291986', '639944271186', '718400641243', '386747285357', '939887150837', '373702396205', '558753042196', '154558208022', '403707311299']
+laurie.loc[laurie.participant_id.isin(ctrl), "DX"] = 'control'
+
+# QC between Participants and Laurie file
+# recode 'psychotic bipolar disorder' => 'bipolar disorder' before comparison
+mapping = {v:v for v in df.diagnosis.unique()}
+mapping['psychotic bipolar disorder'] = 'bipolar disorder'
+df.diagnosis = df.diagnosis.map(mapping)
+
+merge_ = pd.merge(
+        df[['participant_id',  'site', 'sex', 'age', 'diagnosis', 'study', 'Age of Onset']],
+        laurie[['participant_id', 'siteID', 'Sex', 'Age', 'DX', 'Age of Onset']],
+        on='participant_id', suffixes=('_anton', '_laurie'))
+assert merge_.shape[0] == 711  # 711 subjects
+
+# Age sex site
+assert np.all(merge_.site == merge_.siteID)
+assert np.all(merge_.sex == merge_.Sex.map({'M':0, 'H':0, 'F':1}))
+assert np.all((merge_.age - merge_.Age) < 1e-3)
+
+# DX
+diff_ = merge_[~merge_.diagnosis.eq(merge_.DX)]# & (merge_.diagnosis.notnull() & diff_.DX.notnull())]
+diff_ = diff_[np.logical_not(diff_.diagnosis.isnull() & diff_.DX.isnull())]
+assert len(diff_) == 1
+
+print("Differ for only on subject")
+print(diff_)
+
+# Age of Onset
+assert np.allclose(merge_["Age of Onset_anton"],  merge_['Age of Onset_laurie'], equal_nan=True)
+
+###############################################################################
+#%% FIX Remove subjects from biobd subject dublicated in schizconnect(vip)
+
+if False:
+    # Match subjects using Total Imaging volumes
+    STUDY_PATH_biodb = '/neurospin/psy_sbox/bipolar-biobd'
+    STUDY_PATH_schizconnect = '/neurospin/psy/schizconnect-vip-prague'
+
+    # Read schizconnect to remove duplicates
+    # tivo_icaar = pd.read_csv(os.path.join(BASE_PATH_icaar, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+    #tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH_schizconnect, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+    vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
+
+    tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH_schizconnect,
+        'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
+    assert tivo_schizconnect.shape ==  (738, 5)
+
+    # tivo_bsnip = pd.read_csv(os.path.join(BASE_PATH_bsnip, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
+    tivo_biobd = pd.read_csv(os.path.join(STUDY_PATH_biodb,
+        'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
+    tivo_biobd.participant_id = tivo_biobd.participant_id.astype(str)
+    assert tivo_biobd.shape ==  (746, 5)
+
+
+    df = tivo_biobd.append(tivo_schizconnect)
+    duplicated_in_biobd =  df["participant_id"][df.loc[:, vol_cols[1:]].duplicated(keep='last')]
+    assert len(duplicated_in_biobd) == 14
+
+duplicated_in_biobd = ['341879365063', '156634941156', '611954003219', '999412570656', '435432648506', '186334059458', '870810930661', '153138320244', '726278928908', '611553851411', '942465208526', '148210353882', '419555247213', '544435731463']
+
+
+df = pd.read_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20200626.tsv'), sep='\t')
+df.shape == (3871, 46)
+
+assert np.all(df.loc[df.participant_id.isin(duplicated_in_biobd), "study"] == "BIOBD")
+df = df.loc[~df.participant_id.isin(duplicated_in_biobd)]
+df.shape == (3857, 46)
+
+df.to_csv(os.path.join(OUTPUT_PATH,'phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'), sep='\t', index=False)
+
+
+###############################################################################
 ##### Make ABIDE 2 phenotype
 
 ABIDE2_BASEPATH = '/neurospin/psy/abide2'
