@@ -2,7 +2,7 @@ import numpy as np
 import nibabel
 from nilearn.image import resample_img
 import pandas as pd
-import os
+import os, argparse
 from tqdm import tqdm
 from skimage.transform import rescale
 
@@ -29,15 +29,16 @@ def nilearn_resample_all(participants_path, factor=2.0, **kwargs):
     return data
 
 
-def sk_resample_all(ni_arr, factor=2.0, **kwargs):
+def sk_resample_all(ni_arr, factor=2.0, dtype=np.float32, **kwargs):
     if len(ni_arr) == 0:
         return []
     ni_ref = ni_arr[0]
     ni_ref_resampled = rescale(ni_ref, factor, **kwargs)
-    arr_resampled = np.zeros((len(ni_arr),)+ni_ref_resampled.shape, dtype=np.float32)
+    arr_resampled = np.zeros((len(ni_arr),)+ni_ref_resampled.shape, dtype=dtype)
     print('Ref img of shape: {}\t After resizing: {}\tData size after resizing: {}'.format(ni_ref.shape,
                                                                                            ni_ref_resampled.shape,
-                                                                                           arr_resampled.shape))
+                                                                                           arr_resampled.shape),
+          flush=True)
     pbar = tqdm(total=len(ni_arr), desc='# Img resampled')
     for i, arr in enumerate(ni_arr):
         arr_resampled[i] = rescale(arr, factor, **kwargs)
@@ -46,15 +47,28 @@ def sk_resample_all(ni_arr, factor=2.0, **kwargs):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    # participants_path = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/' \
-    #              'data/quasi_raw/all_t1mri_quasi_raw_participants.tsv'
-    #
-    # resampled_data = nilearn_resample_all(participants_path, factor=1.5, sep='\t')
-    # np.save(os.path.join(os.path.dirname(participants_path), 'all_t1mri_quasi_raw_data32_1.5mm.npy'), resampled_data)
+    parser.add_argument('--py_path', type=str, required=True)
+    parser.add_argument('--resampling_factor', type=float, required=True)
+    parser.add_argument('--output_path', type=str, required=True)
 
-    ni_filename = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/' \
-                 'data/quasi_raw/all_t1mri_quasi_raw_data32.npy'
-    ni_arr = np.load(ni_filename, mmap_mode='r')
-    resampled_data = sk_resample_all(ni_arr, factor=1/1.5)
-    np.save(os.path.join(os.path.dirname(ni_filename), 'all_t1mri_quasi_raw_data32_1.5mm_skimage.npy'), resampled_data)
+
+    args = parser.parse_args()
+
+    ni_arr = np.load(args.py_path, mmap_mode='r')
+    resampled_data = sk_resample_all(ni_arr, factor=1.0/float(args.resampling_factor), dtype=np.float32)
+    new_py_path = os.path.splitext(args.py_path)[0].replace("data64", "data32")
+    np.save(new_py_path+'_%.1fmm_skimage.npy'%args.resampling_factor, resampled_data)
+
+
+    ## RESAMPLING to 1.5mm3
+    #!/bin/bash
+    # MAIN=~/PycharmProjects/neurospin/scripts/2019_psy_datasets/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/generic_quasi_raw_preproc.py
+    # MAIN_RESAMPLING=~/PycharmProjects/neurospin/scripts/2019_psy_datasets/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/quasi_raw_resample.py
+    # OUTPUT_PATH=/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/quasi_raw/
+    # for DATASET in mpi-leipzig cnp abide1 abide2 ixi icbm localizer candi gsp corr bsnip schizconnect-vip npc biobd hcp nar rbp
+    # do
+    #  DATA_PATH=$OUTPUT_PATH$DATASET'_t1mri_quasi_raw_data64.npy'
+    #  python3 $MAIN_RESAMPLING --py_path $DATA_PATH --resampling_factor 1.5 --output_path $OUTPUT_PATH &> $DATASET'_resampling.txt' &
+    # done

@@ -6,28 +6,13 @@
 
 """
 import sys; sys.path.append('../../')
-import os
+import os, argparse
 import numpy as np
-import glob
 import pandas as pd
-import nibabel
-# import brainomics.image_atlas
 import brainomics.image_preprocessing as preproc
-#from brainomics.image_statistics import univ_stats, plot_univ_stats, residualize, ml_predictions
-import shutil
-# import mulm
-# import sklearn
-# import re
-# from nilearn import plotting
-import nilearn.image
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import scipy, scipy.ndimage
-#import xml.etree.ElementTree as ET
-import re
 import glob
-import seaborn as sns
 
 def OUTPUT(dataset, output_path, modality='t1mri', mri_preproc='quasi_raw', type=None, ext=None):
     # type data64, or data32
@@ -35,12 +20,16 @@ def OUTPUT(dataset, output_path, modality='t1mri', mri_preproc='quasi_raw', type
                  ("" if type is None else "_" + type) + "." + ext)
 
 
-def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_type=str,
+def nii2npy(nii_path, phenotype_path, dataset_name, output_path, qc=None, sep='\t', id_type=str,
             check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5)), merge_ni_path=True):
     ########################################################################################################################
-    # Read phenotypes
+
 
     phenotype = pd.read_csv(phenotype_path, sep=sep)
+    qc = pd.read_csv(qc, sep=sep) if qc is not None else None
+
+    if 'TIV' in phenotype:
+        phenotype.rename(columns={'TIV': 'tiv'}, inplace=True)
 
     keys_required = ['participant_id', 'age', 'sex', 'tiv', 'diagnosis']
 
@@ -48,9 +37,9 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
         "Missing keys in {} that are required to compute the npy array: {}".format(phenotype_path,
                                                                                    set(keys_required)-set(phenotype.columns))
 
-    assert len(set(phenotype.participant_id)) == len(phenotype), "Unexpected number of participant_id"
+    ## TODO: change this condition according to session and run in phenotype.csv
+    #assert len(set(phenotype.participant_id)) == len(phenotype), "Unexpected number of participant_id"
 
-    phenotype['participant_id'] = phenotype['participant_id'].astype(id_type)
 
     null_or_nan_mask = [False for _ in range(len(phenotype))]
     for key in keys_required:
@@ -66,7 +55,6 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
     #  mwp1 files
       #  excpected image dimensions
     NI_filenames = glob.glob(nii_path)
-
     ########################################################################################################################
     #  Load images, intersect with pop and do preprocessing and dump 5d npy
     print("###########################################################################################################")
@@ -74,55 +62,97 @@ def nii2npy(nii_path, phenotype_path, dataset_name, output_path, sep='\t', id_ty
 
     print("# 1) Read images")
     scaling, harmo = 'raw', 'raw'
-    print("## Load images", flush=True)
+    print("## Load images")
     NI_arr, NI_participants_df, ref_img = preproc.load_images(NI_filenames,check=check)
-    NI_participants_df.participant_id = NI_participants_df.participant_id.astype(id_type)
-    print('--> {} img loaded'.format(len(NI_arr)))
+    print('--> {} img loaded'.format(len(NI_participants_df)))
     print("## Merge nii's participant_id with participants.csv")
     NI_arr, NI_participants_df = preproc.merge_ni_df(NI_arr, NI_participants_df, participants_df,
-                                                     merge_ni_path=merge_ni_path)
-    print('--> Total number of participants: %i'%len(participants_df))
-    print('--> Total number of MRI scans annotated: %i'%len(NI_participants_df))
+                                                         qc=qc, id_type=id_type)
+    print('--> Remaining samples: {} / {}'.format(len(NI_participants_df), len(participants_df)))
+
     print("## Save the new participants.csv")
     NI_participants_df.to_csv(OUTPUT(dataset_name, output_path, type="participants", ext="csv"),
                               index=False)
     print("## Save the raw npy file (with shape {})".format(NI_arr.shape))
     np.save(OUTPUT(dataset_name, output_path, type="data64", ext="npy"), NI_arr)
 
-    """
-    #NI_arr = np.load(OUTPUT(dataset, output_path, type="data64", ext="npy"))
-    NI_arr = np.load(OUTPUT(dataset, output_path, type="data64", ext="npy"), mmap_mode='r')
-
-    NI_participants_df = pd.read_csv(OUTPUT(dataset, output_path, type="participants", ext="csv"))
-    ref_img = nibabel.load(OUTPUT(dataset, output_path, type="mask", ext="nii.gz"))
-    mask_img = ref_img
-    """
     ######################################################################################################################
     # Deallocate the memory
     del NI_arr
 
 
 if __name__=="__main__":
-    OUTPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/quasi_raw/'
 
-    # Case specific
-    nii_path = "/neurospin/psy_sbox/bsnip1/derivatives/quasi-raw/sub-*/ses-*/anat/sub-*_ses-*_*.nii.gz"
-    dataset_name = "bsnip"
-    phenotype_path = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/" \
-                     "data/cat12vbm/bsnip_t1mri_mwp1_participants.csv"
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--output_path', type=str, required=True)
+    parser.add_argument('--nii_regex_path', type=str, required=True)
+    parser.add_argument('--phenotype_path', type=str, required=True)
+    parser.add_argument('--dataset', type=str, required=True)
+    parser.add_argument('--qc_path', type=str, required=False)
+    parser.add_argument('--id_type', type=str, choices=['str', 'int'], default='str',
+                        help='Type of <participant_id> and <session> used for casting')
+    parser.add_argument('--sep', type=str, choices=[',', '\t'], default='\t', help='Separator used in participants.csv')
+
+    args = parser.parse_args()
 
     # # General case
-    nii2npy(nii_path, phenotype_path, dataset_name, OUTPUT_PATH, sep=',', id_type=str,
-            check=dict(shape=(182, 218, 182), zooms=(1, 1, 1)), merge_ni_path=True)
+    nii2npy(args.nii_regex_path,
+            args.phenotype_path,
+            args.dataset,
+            args.output_path,
+            qc=args.qc_path,
+            sep=args.sep,
+            id_type=eval(args.id_type),
+            check=dict(shape=(182, 218, 182),
+                       zooms=(1, 1, 1)))
 
-    ## Particular case of HCP
-    if dataset_name == 'HCP':
-        hcp_restricted = pd.read_csv(
-            '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/HCP_restricted_data.csv')
-        df = pd.read_csv('/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/quasi_raw/'
-                         'HCP_t1mri_quasi_raw_participants.csv', sep=',')
-        assert set(hcp_restricted.Subject.astype(str)) >= set(df[df.study.eq('HCP')].participant_id.astype(str))
-        for id, age in hcp_restricted[['Subject', 'Age_in_Yrs']].values:
-            df.loc[df.participant_id.astype(str).eq(str(id)), 'age'] = float(age)
-        df.to_csv('/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/quasi_raw/'
-                         'HCP_t1mri_quasi_raw_participants.csv', sep=',', index=False)
+    # !/bin/bash
+
+    # MAIN = ~ / PycharmProjects / neurospin / scripts / 2019
+    # _psy_datasets / 201906
+    # _schizconnect - vip - prague - bsnip - biodb - icaar - start_assemble - all / generic_quasi_raw_preproc.py
+    # MAIN_RESAMPLING = ~ / PycharmProjects / neurospin / scripts / 2019
+    # _psy_datasets / 201906
+    # _schizconnect - vip - prague - bsnip - biodb - icaar - start_assemble - all / quasi_raw_resample.py
+    # OUTPUT_PATH = / neurospin / psy_sbox / analyses / 201906
+    # _schizconnect - vip - prague - bsnip - biodb - icaar - start_assemble - all / data / quasi_raw /
+
+    ## .nii to .npy for id-type == int and id-type == str (important to make the distinction, depends on the participant_id
+    ## values)
+
+    # for DATASET in  biobd hcp nar rbp  mpi-leipzig cnp abide1 abide2 ixi
+    # do
+    # PHENOTYPE=/neurospin/psy_sbox/$DATASET/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/$DATASET/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'$DATASET'/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+    # done
+
+    # for DATASET in oasis3  #icbm localizer candi
+    # do
+    # PHENOTYPE=/neurospin/psy_sbox/$DATASET/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/$DATASET/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'$DATASET'/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type str &> $DATASET.txt &
+    # done
+
+    ## Particular cases
+
+    # DATASET=gsp
+    # PHENOTYPE=/neurospin/psy_sbox/${DATASET^^}/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/${DATASET^^}/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/'${DATASET^^}'/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+    #
+    # DATASET=corr
+    # PHENOTYPE=/neurospin/psy_sbox/CoRR/CoRR_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/CoRR/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/CoRR/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type int &> $DATASET.txt &
+
+    # DATASET=bsnip
+    # PHENOTYPE=/neurospin/psy_sbox/bsnip1/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/bsnip1/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/bsnip1/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type str &> $DATASET.txt &
+    #
+    # DATASET=schizconnect-vip
+    # PHENOTYPE=/neurospin/psy_sbox/schizconnect-vip-prague/${DATASET^^}_t1mri_mwp1_participants.csv
+    # QC=/neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.6_vbm_qc/qc.tsv
+    # python3 $MAIN --nii_regex_path '/neurospin/psy_sbox/schizconnect-vip-prague/derivatives/quasi-raw/sub-*/ses-*/anat/*preproc-linear*.nii.gz' --phenotype_path $PHENOTYPE --output_path $OUTPUT_PATH --qc_path $QC --dataset $DATASET --id_type str &> $DATASET.txt &

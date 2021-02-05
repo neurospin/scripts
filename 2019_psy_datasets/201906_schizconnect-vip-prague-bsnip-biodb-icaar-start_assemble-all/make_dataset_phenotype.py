@@ -827,3 +827,17 @@ age_sex_dx_site_study_tiv = age_sex_dx_site_study_tiv[~age_sex_dx_site_study_tiv
                                                       ~age_sex_dx_site_study_tiv.TIV.isna()]
 assert len(age_sex_dx_site_study_tiv) == len(tiv) - 1 # 1 participant sex missing
 age_sex_dx_site_study_tiv.to_csv(os.path.join(NPC_PATH, 'NPC_t1mri_mwp1_participants.csv'), sep='\t', index=False)
+
+## Make BIOBD, BSNIP, SCHIZCONNECT-VIP phenotypes: takes it from cat12vbm phenotype and removes the the useless column
+## (path_ni).
+dbs = ['schizconnect-vip-prague', 'biobd', 'bsnip1']
+dbs_pheno = ['schizconnect-vip', 'biobd', 'bsnip']
+init_pheno_root = "/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm/"
+for (db, db_pheno) in zip(dbs, dbs_pheno):
+    pheno = pd.read_csv(os.path.join(init_pheno_root, db_pheno+'_t1mri_mwp1_participants.csv'), sep=',')
+    assert (len(set(pheno.participant_id)) == len(pheno))
+    del(pheno['ni_path'])
+    assert np.all(~pheno.participant_id.isna() & ~pheno.age.isna() & ~pheno.sex.isna() & ~pheno.tiv.isna()
+                  & ~pheno.site.isna() & ~pheno.study.isna())
+    pheno.to_csv('/neurospin/psy_sbox/{db}/{db_pheno}_t1mri_mwp1_participants.csv'.
+                 format(db=db, db_pheno=db_pheno.upper()), sep='\t', index=False)

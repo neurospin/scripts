@@ -74,7 +74,7 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, qc=None, participan
     Parameters
     ----------
     NI_arr:  ndarray, of shape (n_subjects, 1, image_shape).
-    NI_participants_df: DataFrame, with at leas 2 columns: participant_id, "ni_path"
+    NI_participants_df: DataFrame, with at least 2 columns: participant_id, ni_path
     participants_df: DataFrame, with 2 at least 1 columns participant_id
     qc: DataFrame, with at least 1 column participant_id
     participant_id: column that identify participant_id
@@ -117,12 +117,12 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, qc=None, participan
     NI_participants_df.participant_id = NI_participants_df.participant_id.astype(id_type)
     participants_df.participant_id = participants_df.participant_id.astype(id_type)
     if 'session' in participants_df or (qc is not None and 'session' in qc):
-        NI_participants_df['session'] = NI_participants_df.ni_path.str.extract('ses-([^_/]+)/')[0].astype(id_type)
+        NI_participants_df['session'] = NI_participants_df.ni_path.str.extract('ses-([^_/]+)/')[0].astype(str) # .astype(id_type)?
         if 'session' in participants_df:
-            participants_df.session = participants_df.session.astype(id_type)
+            participants_df.session = participants_df.session.astype(str)  # .astype(id_type)?
             unique_key_pheno.append('session')
         if qc is not None and 'session' in qc:
-            qc.session = qc.session.astype(id_type)
+            qc.session = qc.session.astype(str)  # .astype(id_type)?
             unique_key_qc.append('session')
     if 'run' in participants_df or (qc is not None and 'run' in qc):
         NI_participants_df['run'] = NI_participants_df.ni_path.str.extract('run-([^_/]+)\_.*nii')[0].fillna(1).astype(str)
@@ -152,9 +152,11 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, qc=None, participan
         elif np.all(qc_val==1):
             pass
         else:
-            idx_first_occurence = len(qc_val) - (qc_val[::-1] != 1).argmax()
-            assert np.all(qc.iloc[idx_first_occurence:].qc == 1)
-            keep = qc.iloc[idx_first_occurence:][unique_key_qc]
+            #idx_first_occurence = len(qc_val) - (qc_val[::-1] != 1).argmax()
+            #assert np.all(qc.iloc[idx_first_occurence:].qc == 1)
+            qc_passed = qc.qc.eq(1).to_numpy()
+            assert np.all(qc[qc_passed].qc == 1)
+            keep = qc[qc_passed][unique_key_qc]
             init_len = len(NI_participants_merged)
             # Very important to have 1:1 correspondance between the QC and the NI_participant_array
             NI_participants_merged = pd.merge(NI_participants_merged, keep, on=unique_key_qc,
