@@ -30,6 +30,10 @@ from nilearn.image import resample_to_img
 ########################################################################################################################
 WD = "/neurospin/brainomics/2017_memento/analysis/WMH/models/wmh_memento_pcatv"
 ANALYSIS_PATH = "/neurospin/brainomics/2017_memento/analysis/WMH"
+
+WD = "/home/ed203246/data/2017_memento/analysis/WMH/models/wmh_memento_pcatv"
+ANALYSIS_PATH = "/home/ed203246/data/2017_memento/analysis/WMH"
+
 ANALYSIS_DATA_PATH = os.path.join(ANALYSIS_PATH, "data")
 PARTICIPANTS_CSV = os.path.join(ANALYSIS_PATH , "population.csv")
 

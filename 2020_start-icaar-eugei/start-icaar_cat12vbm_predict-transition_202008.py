@@ -84,14 +84,13 @@ NJOBS = 4
 #MSK_SIZE = 369542 # whole brain
 MSK_SIZE = 330850 # without cerrebelum and BrainStem
 
-os.chdir(OUTPUT_PATH)
-
 # On laptop
 if not os.path.exists(INPUT_PATH):
     INPUT_PATH = INPUT_PATH.replace('/neurospin', '/home/ed203246/data')
     OUTPUT_PATH = OUTPUT_PATH.replace('/neurospin', '/home/ed203246/data' )
     NJOBS = 2
 
+os.chdir(OUTPUT_PATH)
 
 def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None,
     masking=None,
@@ -388,6 +387,9 @@ def load_uhr_dataset():
     msk = pop["diagnosis"].isin(['UHR-C', 'UHR-NC']) &  pop["irm"].isin(['M0']) # UPDATE 2020/06
 
     assert msk.sum() == 82
+
+    assert {dx:np.sum(pop.loc[msk, "diagnosis"] == dx) for dx in pop.loc[msk, "diagnosis"].unique()}\
+            == {'UHR-NC': 55, 'UHR-C': 27}
 
     Xim = imgs_arr.squeeze()[:, mask_arr][msk]
     del imgs_arr

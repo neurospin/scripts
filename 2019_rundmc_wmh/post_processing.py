@@ -28,6 +28,8 @@ from brainomics import array_utils
 
 ########################################################################################################################
 STUDY_PATH = '/neurospin/brainomics/2019_rundmc_wmh'
+STUDY_PATH = '/home/ed203246/data/2019_rundmc_wmh'
+
 DATA_PATH = os.path.join(STUDY_PATH, 'sourcedata', 'wmhmask')
 
 #ANALYSIS_PATH = os.path.join(STUDY_PATH, 'analysis', '201905_rundmc_wmh_pca')
@@ -39,16 +41,16 @@ OUTPUT_DIR = os.path.join(ANALYSIS_MODELS_PATH, '{key}')
 
 
 ########################################################################################################################
-# Read Data
+# Read Data
 mask_img = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "mask.nii.gz"))
-mask_arr = mask_img.get_data() == 1
+mask_arr = mask_img.get_fdata() == 1
 shape = mask_arr.shape
 
 #assert mask_arr.sum() == 51637
 assert mask_arr.sum() == 371278
 
 WMH = nibabel.load(os.path.join(ANALYSIS_DATA_PATH, "WMH_2006.nii.gz"))
-WMH_flat = WMH.get_data()[mask_arr].T
+WMH_flat = WMH.get_fdata()[mask_arr].T
 X = WMH_flat - WMH_flat.mean(axis=0)
 
 assert X.shape == (267, 371278)
@@ -67,7 +69,7 @@ info = info.sort_values(by=['comp', 'rsquared'], ascending=False)
 #k = 'pca_enettv_0.0000_1.000_0.100'
 
 ########################################################################################################################
-# Compare models group them in 4 groups by computing correlation between contactenate projectors
+# Compare models group them in 4 groups by computing correlation between contactenate projectors
 # Useless here since we only have 4 models
 
 # Global correlation between concateneted projectors
@@ -257,7 +259,7 @@ import nilearn.plotting.cm as cmnl
 U, d, V, PC, explained_variance = mod["U"], mod["d"], mod["V"], mod["PC"], mod["explained_variance"]
 explained_variance_ratio = np.concatenate([[explained_variance[0]], np.ediff1d(explained_variance)])
 
-# Some small thresholding
+# Some small thresholding
 from brainomics.array_utils import arr_get_threshold_from_norm2_ratio
 thresholds = np.array([arr_get_threshold_from_norm2_ratio(V[: ,k], ratio=.99) for k in range(V.shape[1])])
 V[V < thresholds] = 0
