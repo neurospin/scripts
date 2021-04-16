@@ -56,10 +56,12 @@ import nibabel
 import nilearn.image
 from nilearn.image import resample_to_img
 import nilearn.image
+from nilearn.image import new_img_like
 from nilearn import plotting
 
 from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio, arr_clusters
-from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
+from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters
+#, img_plot_glass_brain
 from nitk.stats import Residualizer
 from nitk.mapreduce import dict_product, MapReduce, reduce_cv_classif
 
@@ -77,7 +79,7 @@ import sklearn.metrics as metrics
 ###############################################################################
 
 INPUT_PATH = '/neurospin/psy/start-icaar-eugei/'
-OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202008_start-icaar_cat12vbm_predict-transition'
+OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202008_start-icaar_cat12vbm_predict-transition_cerebrum/'
 # OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202008_start-icaar_cat12vbm_predict-transition_wholebrain'
 
 NJOBS = 4
@@ -120,6 +122,9 @@ VAR_DEMO = ['age', 'sex']
 NSPLITS = 5
 NBOOTS = 500
 
+mask_img = nibabel.load(OUTPUT(dataset='icaar-start', scaling=None, harmo=None, type="mask", ext="nii.gz"))
+mask_arr = mask_img.get_fdata() != 0
+assert mask_arr.sum() == MSK_SIZE
 
 ###############################################################################
 #
@@ -210,88 +215,77 @@ def ratios_to_param(alpha, l1l2ratio, tvl2ratio):
 ###############################################################################
 # %% 2.2) Plot
 
-def plot_coefmap_stats(coef_map, coef_maps, ref_img, thresh_norm_ratio, vmax, prefix):
 
-    # arr_threshold_from_norm2_ratio(coef_map, thresh_norm_ratio)[0]
-    coef_maps_t = np.vstack([arr_threshold_from_norm2_ratio(coef_maps[i, :], thresh_norm_ratio)[0] for i in range(coef_maps.shape[0])])
+def plot_coefmap_stats(coef_vec, coef_vecs, mask_img, thresh_norm_ratio=0.99, zscore_vmin=1.5):
+    """computes statistics and plot images from coef_vec and coef_vecs
 
-    w_selectrate = np.sum(coef_maps_t != 0, axis=0) / coef_maps_t.shape[0]
-    w_zscore = np.nan_to_num(np.mean(coef_maps, axis=0) / np.std(coef_maps, axis=0))
-    w_mean = np.mean(coef_maps, axis=0)
-    w_std = np.std(coef_maps, axis=0)
+    Parameters
+    ----------
+    coef_vec : array
+        Coefficient vector.
+    coef_vecs : [array]
+        CV or bootstrappped coefficient vectors.
+    mask_img : nii
+        mask image.
+    thresh_norm_ratio : float
+        Threshold to apply to compute selection rate and to plot coef maps.
+
+    Returns
+    -------
+    fig, axes, maps : dict
+        dict containing all statistics images.
+    """
+
+    from nitk.utils import arr_threshold_from_norm2_ratio
+    import nilearn.image
+    from nilearn import plotting
+    from nitk.image import vec_to_img, plot_glass_brains
+    # arr_threshold_from_norm2_ratio(coef_vec, thresh_norm_ratio)[0]
+    coef_vecs_t = np.vstack([arr_threshold_from_norm2_ratio(coef_vecs[i, :],
+                                                            thresh_norm_ratio)[0]
+                             for i in range(coef_vecs.shape[0])])
+
+    w_selectrate = np.sum(coef_vecs_t != 0, axis=0) / coef_vecs_t.shape[0]
+    w_zscore = np.nan_to_num(np.mean(coef_vecs, axis=0) / np.std(coef_vecs, axis=0))
+    w_mean = np.mean(coef_vecs, axis=0)
+    w_std = np.std(coef_vecs, axis=0)
     # 95% CI compute sign product of lower and hhigher 95%CI
-    coef_maps_ci = np.quantile(coef_maps, [0.025, 0.975], axis=0)
-    #coef_maps_ci = np.quantile(coef_maps, [0.05, 0.95], axis=0)
-    coef_maps_ci_sign = np.sign(coef_maps_ci.prod(axis=0))
-    coef_maps_ci_sign[coef_maps_ci_sign == -1] = 0
+    coef_vecs_ci = np.quantile(coef_vecs, [0.025, 0.975], axis=0)
+    coef_vecs_ci_sign = np.sign(coef_vecs_ci.prod(axis=0))
+    coef_vecs_ci_sign[coef_vecs_ci_sign == -1] = 0
 
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = coef_map
-    coefmap_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_img.to_filename(prefix + "coefmap.nii.gz")
+    # Vectors to images
+    coefmap_img = vec_to_img(coef_vec, mask_img)
+    coefmap_cvmean_img = vec_to_img(w_mean, mask_img)
+    w_mean[coef_vecs_ci_sign != 1] = 0
+    coefmap_cvmean95ci_img = vec_to_img(w_mean, mask_img)
+    coefmap_cvstd_img = vec_to_img(w_std, mask_img)
+    coefmap_cvzscore_img = vec_to_img(w_zscore, mask_img)
+    coefmap_cvselectrate_img = vec_to_img(w_selectrate, mask_img)
 
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = w_mean
-    coefmap_cvmean_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_cvmean_img.to_filename(prefix + "coefmap_mean.nii.gz")
-
-    # Mean weight map within 95%CI
-    w_mean[coef_maps_ci_sign != 1] = 0
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = w_mean
-    coefmap_cvmean95ci_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_cvmean95ci_img.to_filename(prefix + "coefmap_mean95ci.nii.gz")
-
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = w_std
-    coefmap_cvstd_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_cvstd_img.to_filename(prefix + "coefmap_std.nii.gz")
-
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = w_zscore
-    coefmap_cvzscore_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_cvzscore_img.to_filename(prefix + "coefmap_zscore.nii.gz")
-
-    val_arr = np.zeros(ref_img.get_fdata().shape)
-    val_arr[mask_arr] = w_selectrate
-    coefmap_cvselectrate_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
-    coefmap_cvselectrate_img.to_filename(prefix + "coefmap_selectrate.nii.gz")
+    threshold = arr_threshold_from_norm2_ratio(coef_vec, thresh_norm_ratio)[1]
+    coef_vmax = np.quantile(np.abs(coef_vec), 0.999)
+    zscore_vmax = np.quantile(np.abs(w_zscore), 0.999)
 
     # Plot
-    pdf = PdfPages(prefix + "coefmap.pdf")
-
-    #fig = plt.figure(figsize=(11.69, 6 * 11.69 * .32))
-    fig = plt.figure(figsize=(11.69, 6 * 11.69 * .4))
-
-    ax = fig.add_subplot(611)
-    plotting.plot_glass_brain(coefmap_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Coef")
-
-    ax = fig.add_subplot(612)
-    plotting.plot_glass_brain(coefmap_cvmean_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Mean")
-
-    ax = fig.add_subplot(613)
-    plotting.plot_glass_brain(coefmap_cvmean95ci_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Mean 95%CI")
-
-    ax = fig.add_subplot(614)
-    plotting.plot_glass_brain(coefmap_cvzscore_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, figure=fig, axes=ax, title="Zscore")
-
-    ax = fig.add_subplot(615)
-    plotting.plot_glass_brain(coefmap_cvselectrate_img, threshold=1e-6, plot_abs=True, colorbar=True, figure=fig, axes=ax, title="Select. Rate")
-
-    ax = fig.add_subplot(616)
-    plotting.plot_glass_brain(coefmap_cvstd_img, threshold=1e-8, plot_abs=True, colorbar=True, figure=fig, axes=ax, title="Std")
-
-    pdf.savefig(); plt.close(fig); pdf.close()
+    fig, axes = plot_glass_brains(
+        imgs = [coefmap_img, coefmap_cvmean_img, coefmap_cvzscore_img, coefmap_cvselectrate_img],
+        thresholds = [threshold, threshold, zscore_vmin, None],
+        vmax = [coef_vmax, coef_vmax, zscore_vmax, None],
+        plot_abs = [False, False, False, True],
+        colorbars = [True, True, True, True],
+        cmaps = [plt.cm.bwr, plt.cm.bwr, None, None],
+        titles = ['Coefs. Refit', 'Coefs. CV-Mean', 'Z-scores CV', 'Select. rate CV'])
 
     maps = {"coefmap": coefmap_img, "coefmap_mean": coefmap_cvmean_img,
             "coefmap_cvstd": coefmap_cvstd_img, "coefmap_cvzscore": coefmap_cvzscore_img,
             "coefmap_cvselectrate": coefmap_cvselectrate_img}
 
-    return maps
+    return fig, axes, maps
 
 ###############################################################################
 #
-# %% 3.1) Build uhr from images
+# %% 3) Dataset build uhr from images
 #
 ###############################################################################
 
@@ -405,7 +399,7 @@ def load_uhr_dataset():
 
     dataset = dict(Xim=Xim, y=y, Xdemoclin=Xdemoclin,
                   msk=msk, residualizer=residualizer, Z=Z,
-                  mask_img=mask_img, mask_arr=mask_arr, pop=pop)
+                  mask_img=mask_img, mask_arr=mask_arr, participants=pop[msk], pop=pop)
 
     return dataset
 
@@ -466,7 +460,7 @@ def load_prague_schizconnectvip_datasets():
 ###############################################################################
 
 ###############################################################################
-# %% 5.1) L2 and L1 LR 5CV grid search
+# %% 5.1) Fit L2 and L1 LR 5CV grid search
 
 dataset = 'icaar-start'
 mod_str = "l2l1lr_range"
@@ -520,7 +514,7 @@ if not os.path.exists(xls_filename):
 
 
 ###############################################################################
-# %% 5.3) L2LR smoothed 5CV grid search
+# %% 5.2) Fit L2LR smoothed 5CV grid search
 
 dataset = 'icaar-start'
 mod_str = "s8_l2lr_range"
@@ -578,14 +572,14 @@ if not os.path.exists(xls_filename):
 
 
 ###############################################################################
-# %% 5.4) ENETTV 5CV grid search
+# %% 5.3) Fit ENETTV 5CV grid search
 
 dataset = 'icaar-start'
 #mod_str = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
 mod_str = "enettv_range"
 
 xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="xlsx")
-# models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="pkl")
+models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="pkl")
 mapreduce_sharedir = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext=None)
 
 if not os.path.exists(xls_filename):
@@ -681,8 +675,9 @@ if not os.path.exists(xls_filename):
         cv_scores_std.sort_values(["param_1", "param_0", "pred"], inplace=True, ignore_index=True)
         print(cv_scores_mean)
 
-        # with open(models_filename, 'wb') as fd:
-        #   pickle.dump(key_vals_output, fd)
+        mp.make_archive()
+        with open(models_filename, 'wb') as fd:
+           pickle.dump(key_vals_output, fd)
 
         with pd.ExcelWriter(xls_filename) as writer:
             cv_scores.to_excel(writer, sheet_name='folds', index=False)
@@ -692,7 +687,7 @@ if not os.path.exists(xls_filename):
 # sys.exit("End")
 
 ###############################################################################
-# %% 5.5) ENETTV Bootstrap "enettv_0.100:0.010000:1.000000"
+# %% 5.5) Fit ENETTV Bootstrap "enettv_0.100:0.010000:1.000000"
 
 # 0.100:0.010000:1.000000 has been found to provide good trade-off prediction/statibility/sparsity
 # on other studies: deptms/ schyzconnect/ bsnip
@@ -702,11 +697,11 @@ dataset = 'icaar-start'
 mod_str = "enettv_range"
 
 xls_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_boot" % mod_str, ext="xlsx")
-#models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_boot" % mod_str, ext="pkl")
+models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_boot" % mod_str, ext="pkl")
 bootjson_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_boot" % mod_str, ext="json")
 mapreduce_sharedir = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_boot" % mod_str, ext=None)
 
-if not os.path.exists(xls_filename):
+if False and not os.path.exists(xls_filename):
     print(" %% 6.2) ENETTV Bootstrap enettv")
 
     df = load_uhr_dataset()
@@ -794,7 +789,6 @@ if not os.path.exists(xls_filename):
     mp.map(fit_predict, key_values_input)
     key_vals_output = mp.reduce_collect_outputs()
 
-
     ###########################################################################
     # 3) Centralized Mapper
     # start_time = time.time()
@@ -807,7 +801,7 @@ if not os.path.exists(xls_filename):
     if key_vals_output is not None:
         print("# Distributed mapper completed in %.2f sec" % (time.time() - start_time))
         # cv_scores_all = reduce_cv_classif(key_vals_output, boot_dict, y_true=y)
-        cv_scores_all = reduce_cv_classif(key_vals_output, cv_dict, y_true=df['y'], index_fold=2)
+        cv_scores_all = reduce_cv_classif(key_vals_output, boot_dict, y_true=df['y'], index_fold=2)
         cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
         cv_scores_mean = cv_scores.groupby(["param_1", "param_0", "pred"]).mean().reset_index()
         cv_scores_std = cv_scores.groupby(["param_1", "param_0", "pred"]).std().reset_index()
@@ -815,15 +809,153 @@ if not os.path.exists(xls_filename):
         cv_scores_std.sort_values(["param_1", "param_0", "pred"], inplace=True, ignore_index=True)
         print(cv_scores_mean)
 
-        # with open(models_filename, 'wb') as fd:
-        #   pickle.dump(key_vals_output, fd)
+        mp.make_archive()
+        with open(models_filename, 'wb') as fd:
+           pickle.dump(key_vals_output, fd)
 
         with pd.ExcelWriter(xls_filename) as writer:
             cv_scores.to_excel(writer, sheet_name='folds', index=False)
             cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
             cv_scores_std.to_excel(writer, sheet_name='std', index=False)
 
-sys.exit("End")
+###############################################################################
+# %% 5.6) Fit PRAGUE & schizconnect
+
+mod_str  = "enettv_range"
+
+if np.any([not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="xlsx"))
+           for dataset in ["schizconnectvip", "prague"]]):
+
+    ###########################################################################
+    # Load datasets prague & schizconnectvip dataset
+    dataset_dict = load_prague_schizconnectvip_datasets()
+
+    ###########################################################################
+    # Process datasets
+
+    for dataset in ["schizconnectvip", "prague"]:
+        print("PROCESS:", dataset, mod_str)
+
+        #######################################################################
+        # Prepare data
+        xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="xlsx")
+        models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="pkl")
+        mapreduce_sharedir = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext=None)
+        Xim = dataset_dict[dataset]["Xim"]
+        y = dataset_dict[dataset]["y"]
+        residualizer = dataset_dict[dataset]["residualizer"]
+        Z = residualizer.get_design_mat()
+        Xdemoclin = dataset_dict[dataset]["Xdemoclin"]
+        assert Xim.shape[0] == y.shape[0] == Z.shape[0] and not np.any(np.isnan(Z))
+        print("Data shapes:", Xim.shape, y.shape, Z.shape, Xdemoclin.shape)
+        # print(xls_filename)
+
+        #######################################################################
+        # 5 CV
+        cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=1)
+        cv_dict = {"CV%02d" % fold:split for fold, split in enumerate(cv.split(df['Xim'], df['y']))}
+        cv_dict["ALL"] = [np.arange(df['Xim'].shape[0]), np.arange(df['Xim'].shape[0])]
+
+        #######################################################################
+        # l2lr + l1lr with and without residualization
+
+        Cs = [10.]
+        estimators_l2lr_dict = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
+        estimators_l1lr_dict = {"l1lr_C:%.6f" % C: lm.LogisticRegression(penalty='l1', solver= 'liblinear', C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
+
+        estimators_dict = dict()
+        estimators_dict.update(estimators_l2lr_dict)
+        estimators_dict.update(estimators_l1lr_dict)
+
+        key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes", resdualizeNo="no"), cv_dict)
+
+        #######################################################################
+        # Enettv with residualization
+
+        import parsimony.algorithms as algorithms
+        import parsimony.estimators as estimators
+        import parsimony.functions.nesterov.tv as nesterov_tv
+        from parsimony.utils.linalgs import LinearOperatorNesterov
+
+        if not os.path.exists(OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz")):
+            Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
+            Atv.save(OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz"))
+
+        Atv = LinearOperatorNesterov(filename=OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz"))
+        #assert np.allclose(Atv.get_singular_values(0), 11.940682881834617) # whole brain
+        assert np.allclose(Atv.get_singular_values(0), 11.925947387128584) # rm brainStem+cerrebelum
+
+        # Large range
+        # alphas = [.01, 0.1, 1.]
+        # l1l2ratios = [0, 0.0001, 0.001, 0.01, 0.1]
+        tvl2ratios = [0, 0.0001, 0.001, 0.01, 0.1, 1, 10]
+
+        # Smaller range
+        # tv, l1, l2 from 202004 => tv, l1, l2 = 0.1, 0.001, 0.1
+        # <=> alpha = 0.1, l1l2ratios=0.01, tvl2ratios = 1
+        alphas = [0.1]
+        l1l2ratios = [0.01]
+        #tvl2ratios = [1]
+
+        import itertools
+        estimators_enettv_dict = dict()
+        for alpha, l1l2ratio, tvl2ratio in itertools.product(alphas, l1l2ratios, tvl2ratios):
+            print(alpha, l1l2ratio, tvl2ratio)
+            l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
+            key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
+
+            conesta = algorithms.proximal.CONESTA(max_iter=10000)
+            estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
+                                                    class_weight="auto", penalty_start=0)
+            estimators_enettv_dict[key] = estimator
+
+
+        key_values_enettv_input = dict_product(estimators_enettv_dict, dict(resdualizeYes="yes"), cv_dict)
+
+        #######################################################################
+        # Pack all cases
+        key_values_input.update(key_values_enettv_input)
+        print("Nb Tasks=%i" % len(key_values_input))
+
+        ###########################################################################
+        # 3) Distributed Mapper
+
+        if os.path.exists(mapreduce_sharedir):
+            print("# Existing shared dir, delete for fresh restart: ")
+            print("rm -rf %s" % mapreduce_sharedir)
+
+        os.makedirs(mapreduce_sharedir, exist_ok=True)
+
+        start_time = time.time()
+        mp = MapReduce(n_jobs=NJOBS, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
+        mp.map(fit_predict, key_values_input)
+        key_vals_output = mp.reduce_collect_outputs()
+
+
+        ###########################################################################
+        # 3) Centralized Mapper
+        # start_time = time.time()
+        # key_vals_output = MapReduce(n_jobs=NJOBS, pass_key=True, verbose=20).map(fit_predict, key_values_input)
+        # print("#  Centralized mapper completed in %.2f sec" % (time.time() - start_time))
+
+        ###############################################################################
+        # 4) Reducer: output key/value pairs => CV scores""")
+
+        if key_vals_output is not None:
+            print("# Distributed mapper completed in %.2f sec" % (time.time() - start_time))
+            cv_scores_all = reduce_cv_classif(key_vals_output, cv_dict, y_true=df['y'], index_fold=2)
+            cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
+            cv_scores_mean = cv_scores.groupby(["param_1", "param_0", "pred"]).mean().reset_index()
+            cv_scores_mean.sort_values(["param_1", "param_0", "pred"], inplace=True, ignore_index=True)
+            print(cv_scores_mean)
+
+            with open(models_filename, 'wb') as fd:
+                pickle.dump(key_vals_output, fd)
+
+            with pd.ExcelWriter(xls_filename) as writer:
+                cv_scores.to_excel(writer, sheet_name='folds', index=False)
+                cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
+
 
 ###############################################################################
 #
@@ -845,7 +977,7 @@ if not os.path.exists(pdf_filename):
     """)
     #models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="models-5cv-enettv", ext="pkl")
     #with open(models_filename, 'rb') as fd:
-    #    key_vals = pickle.load(fd)
+    #    key_vals_all = pickle.load(fd)
 
     mp = MapReduce(shared_dir=mapreduce_sharedir)
     key_vals_all = mp.reduce_collect_outputs(force=True)
@@ -951,9 +1083,275 @@ if not os.path.exists(pdf_filename):
             plt.close()
 
 
+###############################################################################
+# %% 7) Clustering brain map from -z-scores
+###############################################################################
+
+mod_str = "enettv_%.3f:%.6f:%.6f" % (0.1, 0.01, 1.)
+
+models_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_5cv" % "enettv_range", ext="pkl")
+pdf_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="pdf")
+refit_img_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-refit" % mod_str, ext="nii.gz")
+zmap_img_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-5cv-zmap" % mod_str, ext="nii.gz")
+
+#pdf_filename =  OUTPUT.format(data='mwp1-gs', model=mod_str, experience="cvlso", type="coefmap", ext="pdf")
+
+if not os.path.exists(pdf_filename):
+    # mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso", type="models", ext="mapreduce")
+    # mp = MapReduce(n_jobs=6, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
+    # key_vals_output = mp.reduce_collect_outputs(force=True)
+
+    with open(models_filename, 'rb') as fd:
+        key_vals_output = pickle.load(fd)
+
+    # Refit all coef map
+    coef_vec = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
+         [k for k in key_vals_output.keys() if
+          (k[0] == mod_str and k[1] == "resdualizeYes" and k[2] == "ALL")]])[0]
+
+    # CV
+    coef_vecs = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
+         [k for k in key_vals_output.keys() if
+          (k[0] == mod_str and k[1] == "resdualizeYes" and k[2] != "ALL")]])
+
+    # arr_threshold_from_norm2_ratio(coef_vec, .999)
+    # threshold= 7.559217591801115e-05)
+    #         arr_threshold_from_norm2_ratio(coef_vec, .99)
+    # Out[94]: (array([0., 0., 0., ..., 0., 0., 0.]), 0.0001944127542099329)
+    # arr_threshold_from_norm2_ratio(coef_vec, .9)
+
+    pdf = PdfPages(pdf_filename)
+    fig, axes, maps =  plot_coefmap_stats(coef_vec, coef_vecs, mask_img, thresh_norm_ratio=0.99, zscore_vmin=1.5)
+    pdf.savefig(); plt.close(fig); pdf.close()
+
+    #'coefmap_cvzscore' 'coefmap' 'coefmap_mean'
+    maps['coefmap'].to_filename(refit_img_filename)
+    maps['coefmap_cvzscore'].to_filename(zmap_img_filename)
+
+    print("fsleyes %s" % zmap_img_filename)
+
+    # Cluster analysis
+    cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s --thresh_neg_high -50 --thresh_pos_low 1.5 --thresh_size 100  --save_atlas" % zmap_img_filename
+    p = subprocess.run(cmd.split())
+    cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s --thresh_neg_high -1.5 --thresh_pos_low 1.5 --thresh_size 100  --save_atlas" % zmap_img_filename
+    p = subprocess.run(cmd.split())
 
 ###############################################################################
-# %% 7) Discrimative power of ROIs
+# %% 8) Cluster ROIs to csv
+###############################################################################
+
+datasets = load_uhr_dataset()
+
+coef_img_filename = OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-refit" % mod_str, ext="nii.gz")
+zmap_img_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-5cv-zmap" % mod_str, ext="nii.gz")
+clust_info_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-5cv-zmap_clust_info" % mod_str, ext="csv")
+clust_img_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_coefmap-5cv-zmap_clust_labels" % mod_str, ext="nii.gz")
+clust_roi_corrmat_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_clust-rois-corr-mat" % mod_str, ext="pdf")
+clust_roi_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="%s_clust-rois" % mod_str, ext="csv")
+
+if not os.path.exists(clust_roi_filename):
+
+    coef_vec = nibabel.load(coef_img_filename).get_fdata()[mask_arr]
+    clust_vec = nibabel.load(clust_img_filename).get_fdata()[mask_arr]
+    clust_info = pd.read_csv(clust_info_filename)
+    coef_vec_n2 = np.sum(coef_vec ** 2)
+
+    # Compute proportion of l2 norm of coefitien vector
+    # prop_norm2_weight was computed on z-map
+    clust_info = clust_info.rename(columns={"prop_norm2_weight":"prop_norm2_zmap"})
+    clust_info["prop_norm2_weight"] = \
+        [np.sum(coef_vec[row["label"] == clust_vec] ** 2) / np.sum(coef_vec ** 2)
+             for idx, row in clust_info.iterrows()]
+
+
+    clust_rois = datasets['participants'].copy()
+    for idx, row in clust_info.iterrows():
+        if row["prop_norm2_zmap"] > 0.01 :# and row["prop_norm2_weight"] > 0.01:
+            vec_mask = row["label"] == clust_vec
+            assert np.sum(vec_mask) == row["size"]
+            roi_name = "_".join([n.strip().replace(', ',':').replace(' ','-') for n in row[['ROI_HO-cort_peak_pos', 'ROI_HO-cort_peak_neg',
+                             'ROI_HO-sub_peak_pos', 'ROI_HO-sub_peak_neg']] if pd.notnull(n)])
+            roi_name = "%2i__%s" % (row["label"], roi_name)
+            print(roi_name)
+            coef_vec_masked = coef_vec.copy()
+            coef_vec_masked[np.logical_not(vec_mask)] = 0
+            clust_rois[roi_name] = np.dot(datasets['Xim'], coef_vec_masked)
+
+    clust_rois.to_csv(clust_roi_filename, index=False)
+
+    # Plot correlation matrix
+    clust_roi_names = [n for n in clust_rois.columns if n[2:4] == '__']
+    assert len(clust_roi_names) == 5
+
+    # groups clusters
+    df = clust_rois[clust_roi_names]
+    # Compute the correlation matrix
+    corr = df.corr()
+    corr.plot()
+
+    d = 2 * (1 - np.abs(corr))
+
+    from sklearn.cluster import AgglomerativeClustering
+    clustering = AgglomerativeClustering(n_clusters=2, linkage='single', affinity="precomputed").fit(d)
+    lab=0
+
+    clusters = [list(corr.columns[clustering.labels_==lab]) for lab in set(clustering.labels_)]
+    print(clusters)
+
+    reordered = np.concatenate(clusters)
+    R = corr.loc[reordered, reordered]
+    cmap = sns.color_palette("RdBu_r", 11)
+
+    pdf = PdfPages(clust_roi_corrmat_filename)
+
+    f, ax = plt.subplots(figsize=(11, 9))
+    # Draw the heatmap with the mask and correct aspect ratio
+    _ = sns.heatmap(R, mask=None, cmap=cmap, vmax=1, center=0,
+                square=True, linewidths=.5, cbar_kws={"shrink": .5})
+    plt.tight_layout()
+    pdf.savefig(); plt.close(fig); pdf.close()
+
+
+###############################################################################
+# %% 8) Univariate statistics VBM ~ DX + age + sex
+###############################################################################
+
+univ_dxpval_nii_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="univ-stat-dx-pval", ext="nii.gz")
+univ_dxtstat_nii_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="univ-stat-dx-tstat", ext="nii.gz")
+univ_agetstat_nii_filename =  OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="univ-stat-age-tstat", ext="nii.gz")
+
+if False:
+    # http://neurospin.github.io/pylearn-mulm/auto_gallery/plot_brain_age_sex_statistics_residualization.html#sphx-glr-auto-gallery-plot-brain-age-sex-statistics-residualization-py
+    import mulm
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smfrmla
+    from collections import OrderedDict
+
+    datasets = load_uhr_dataset()
+
+    participants = datasets['participants']
+    assert np.all(datasets['y'] == participants.transition_num)
+    Z, t_contrasts, f_contrasts = mulm.design_matrix(formula="transition_num + sex + age", data=participants)
+    mod_mulm = mulm.MUOLS(Y=datasets['Xim'], X=Z).fit()
+
+    def flat_to_img(mask_img, flat_values):
+        val_arr = np.zeros(mask_img.get_fdata().shape)
+        val_arr[mask_img.get_fdata() != 0] = flat_values.squeeze()
+        return nilearn.image.new_img_like(mask_img, val_arr)
+
+    tstat_dx, pval_dx, df_age = mod_mulm.t_test(t_contrasts['transition_num'], pval=True)
+
+    tstat_dx_img = flat_to_img(mask_img, tstat_dx.squeeze())
+    nilearn.plotting.plot_stat_map(tstat_dx_img, title="transition tstat")
+    #pval = -np.log10(pval_dx.squeeze())
+    #pd.Series(pval).describe()
+    pval_dx_img = flat_to_img(mask_img, -np.log10(pval_dx.squeeze()))
+    nilearn.plotting.plot_stat_map(pval_dx_img, threshold=2, title="transition")
+
+    tstat_age, pval_age, df_age = mod_mulm.t_test(t_contrasts['age'], pval=True)
+    tstat_age_img = flat_to_img(mask_img, tstat_age.squeeze())
+    nilearn.plotting.plot_stat_map(tstat_age_img, title="age")
+
+    tstat_sex, pval_sex, df_sex = mod_mulm.t_test(t_contrasts['sex'], pval=True)
+    tstat_sex_img = flat_to_img(mask_img, tstat_sex.squeeze())
+    nilearn.plotting.plot_stat_map(tstat_sex_img, title="sex")
+
+    pval_dx_img.to_filename(univ_dxpval_nii_filename)
+    tstat_dx_img.to_filename(univ_dxtstat_nii_filename)
+    tstat_age_img.to_filename(univ_agetstat_nii_filename)
+
+
+
+###############################################################################
+#
+# %% XX) OLDIES
+#
+###############################################################################
+
+###############################################################################
+# %% X.1) Plot
+
+def plot_coefmap_stats_2020(coef_map, coef_maps, ref_img, thresh_norm_ratio, vmax, prefix):
+
+    # arr_threshold_from_norm2_ratio(coef_map, thresh_norm_ratio)[0]
+    coef_maps_t = np.vstack([arr_threshold_from_norm2_ratio(coef_maps[i, :], thresh_norm_ratio)[0] for i in range(coef_maps.shape[0])])
+
+    w_selectrate = np.sum(coef_maps_t != 0, axis=0) / coef_maps_t.shape[0]
+    w_zscore = np.nan_to_num(np.mean(coef_maps, axis=0) / np.std(coef_maps, axis=0))
+    w_mean = np.mean(coef_maps, axis=0)
+    w_std = np.std(coef_maps, axis=0)
+    # 95% CI compute sign product of lower and hhigher 95%CI
+    coef_maps_ci = np.quantile(coef_maps, [0.025, 0.975], axis=0)
+    #coef_maps_ci = np.quantile(coef_maps, [0.05, 0.95], axis=0)
+    coef_maps_ci_sign = np.sign(coef_maps_ci.prod(axis=0))
+    coef_maps_ci_sign[coef_maps_ci_sign == -1] = 0
+
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = coef_map
+    coefmap_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_img.to_filename(prefix + "coefmap.nii.gz")
+
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = w_mean
+    coefmap_cvmean_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_cvmean_img.to_filename(prefix + "coefmap_mean.nii.gz")
+
+    # Mean weight map within 95%CI
+    w_mean[coef_maps_ci_sign != 1] = 0
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = w_mean
+    coefmap_cvmean95ci_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_cvmean95ci_img.to_filename(prefix + "coefmap_mean95ci.nii.gz")
+
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = w_std
+    coefmap_cvstd_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_cvstd_img.to_filename(prefix + "coefmap_std.nii.gz")
+
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = w_zscore
+    coefmap_cvzscore_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_cvzscore_img.to_filename(prefix + "coefmap_zscore.nii.gz")
+
+    val_arr = np.zeros(ref_img.get_fdata().shape)
+    val_arr[mask_arr] = w_selectrate
+    coefmap_cvselectrate_img = nibabel.Nifti1Image(val_arr, affine=ref_img.affine)
+    coefmap_cvselectrate_img.to_filename(prefix + "coefmap_selectrate.nii.gz")
+
+    # Plot
+    pdf = PdfPages(prefix + "coefmap.pdf")
+
+    #fig = plt.figure(figsize=(11.69, 6 * 11.69 * .32))
+    fig = plt.figure(figsize=(11.69, 6 * 11.69 * .4))
+
+    ax = fig.add_subplot(611)
+    plotting.plot_glass_brain(coefmap_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Coef")
+
+    ax = fig.add_subplot(612)
+    plotting.plot_glass_brain(coefmap_cvmean_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Mean")
+
+    ax = fig.add_subplot(613)
+    plotting.plot_glass_brain(coefmap_cvmean95ci_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, vmax=vmax, figure=fig, axes=ax, title="Mean 95%CI")
+
+    ax = fig.add_subplot(614)
+    plotting.plot_glass_brain(coefmap_cvzscore_img, threshold=1e-6, plot_abs=False, colorbar=True, cmap=plt.cm.bwr, figure=fig, axes=ax, title="Zscore")
+
+    ax = fig.add_subplot(615)
+    plotting.plot_glass_brain(coefmap_cvselectrate_img, threshold=1e-6, plot_abs=True, colorbar=True, figure=fig, axes=ax, title="Select. Rate")
+
+    ax = fig.add_subplot(616)
+    plotting.plot_glass_brain(coefmap_cvstd_img, threshold=1e-8, plot_abs=True, colorbar=True, figure=fig, axes=ax, title="Std")
+
+    pdf.savefig(); plt.close(fig); pdf.close()
+
+    maps = {"coefmap": coefmap_img, "coefmap_mean": coefmap_cvmean_img,
+            "coefmap_cvstd": coefmap_cvstd_img, "coefmap_cvzscore": coefmap_cvzscore_img,
+            "coefmap_cvselectrate": coefmap_cvselectrate_img}
+
+    return maps
+
+###############################################################################
+# %% X.2) Discrimative power of ROIs
 
 if False:
 
@@ -1119,149 +1517,12 @@ if False:
     #sns.scatterplot(x='age', y='dec_func_res_nosite', hue=pop_all.diagnosis.tolist(), data=pop_all)
 
 
-###############################################################################
-# %% 9) PRAGUE & schizconnect
-
-mod_str  = "enettv_range"
-
-if np.any([not os.path.exists(OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="xlsx"))
-           for dataset in ["schizconnectvip", "prague"]]):
-
-    ###########################################################################
-    # Load datasets prague & schizconnectvip dataset
-    dataset_dict = load_prague_schizconnectvip_datasets()
-
-    ###########################################################################
-    # Process datasets
-
-    for dataset in ["schizconnectvip", "prague"]:
-        print("PROCESS:", dataset, mod_str)
-
-        #######################################################################
-        # Prepare data
-        xls_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="xlsx")
-        models_filename = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext="pkl")
-        mapreduce_sharedir = OUTPUT(dataset, scaling=scaling, harmo=harmo, type="%s_5cv" % mod_str, ext=None)
-        Xim = dataset_dict[dataset]["Xim"]
-        y = dataset_dict[dataset]["y"]
-        residualizer = dataset_dict[dataset]["residualizer"]
-        Z = residualizer.get_design_mat()
-        Xdemoclin = dataset_dict[dataset]["Xdemoclin"]
-        assert Xim.shape[0] == y.shape[0] == Z.shape[0] and not np.any(np.isnan(Z))
-        print("Data shapes:", Xim.shape, y.shape, Z.shape, Xdemoclin.shape)
-        # print(xls_filename)
-
-        #######################################################################
-        # 5 CV
-        cv = StratifiedKFold(n_splits=NSPLITS, shuffle=True, random_state=1)
-        cv_dict = {"CV%02d" % fold:split for fold, split in enumerate(cv.split(df['Xim'], df['y']))}
-        cv_dict["ALL"] = [np.arange(df['Xim'].shape[0]), np.arange(df['Xim'].shape[0])]
-
-        #######################################################################
-        # l2lr + l1lr with and without residualization
-
-        Cs = [10.]
-        estimators_l2lr_dict = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
-        estimators_l1lr_dict = {"l1lr_C:%.6f" % C: lm.LogisticRegression(penalty='l1', solver= 'liblinear', C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
-
-        estimators_dict = dict()
-        estimators_dict.update(estimators_l2lr_dict)
-        estimators_dict.update(estimators_l1lr_dict)
-
-        key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes", resdualizeNo="no"), cv_dict)
-
-        #######################################################################
-        # Enettv with residualization
-
-        import parsimony.algorithms as algorithms
-        import parsimony.estimators as estimators
-        import parsimony.functions.nesterov.tv as nesterov_tv
-        from parsimony.utils.linalgs import LinearOperatorNesterov
-
-        if not os.path.exists(OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz")):
-            Atv = nesterov_tv.linear_operator_from_mask(mask_img.get_fdata(), calc_lambda_max=True)
-            Atv.save(OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz"))
-
-        Atv = LinearOperatorNesterov(filename=OUTPUT('icaar-start', scaling=None, harmo=None, type="Atv", ext="npz"))
-        #assert np.allclose(Atv.get_singular_values(0), 11.940682881834617) # whole brain
-        assert np.allclose(Atv.get_singular_values(0), 11.925947387128584) # rm brainStem+cerrebelum
-
-        # Large range
-        # alphas = [.01, 0.1, 1.]
-        # l1l2ratios = [0, 0.0001, 0.001, 0.01, 0.1]
-        tvl2ratios = [0, 0.0001, 0.001, 0.01, 0.1, 1, 10]
-
-        # Smaller range
-        # tv, l1, l2 from 202004 => tv, l1, l2 = 0.1, 0.001, 0.1
-        # <=> alpha = 0.1, l1l2ratios=0.01, tvl2ratios = 1
-        alphas = [0.1]
-        l1l2ratios = [0.01]
-        #tvl2ratios = [1]
-
-        import itertools
-        estimators_enettv_dict = dict()
-        for alpha, l1l2ratio, tvl2ratio in itertools.product(alphas, l1l2ratios, tvl2ratios):
-            print(alpha, l1l2ratio, tvl2ratio)
-            l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
-            key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
-
-            conesta = algorithms.proximal.CONESTA(max_iter=10000)
-            estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
-                                                    class_weight="auto", penalty_start=0)
-            estimators_enettv_dict[key] = estimator
-
-
-        key_values_enettv_input = dict_product(estimators_enettv_dict, dict(resdualizeYes="yes"), cv_dict)
-
-        #######################################################################
-        # Pack all cases
-        key_values_input.update(key_values_enettv_input)
-        print("Nb Tasks=%i" % len(key_values_input))
-
-        ###########################################################################
-        # 3) Distributed Mapper
-
-        if os.path.exists(mapreduce_sharedir):
-            print("# Existing shared dir, delete for fresh restart: ")
-            print("rm -rf %s" % mapreduce_sharedir)
-
-        os.makedirs(mapreduce_sharedir, exist_ok=True)
-
-        start_time = time.time()
-        mp = MapReduce(n_jobs=NJOBS, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
-        mp.map(fit_predict, key_values_input)
-        key_vals_output = mp.reduce_collect_outputs()
-
-
-        ###########################################################################
-        # 3) Centralized Mapper
-        # start_time = time.time()
-        # key_vals_output = MapReduce(n_jobs=NJOBS, pass_key=True, verbose=20).map(fit_predict, key_values_input)
-        # print("#  Centralized mapper completed in %.2f sec" % (time.time() - start_time))
-
-        ###############################################################################
-        # 4) Reducer: output key/value pairs => CV scores""")
-
-        if key_vals_output is not None:
-            print("# Distributed mapper completed in %.2f sec" % (time.time() - start_time))
-            cv_scores_all = reduce_cv_classif(key_vals_output, cv_dict, y_true=df['y'], index_fold=2)
-            cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
-            cv_scores_mean = cv_scores.groupby(["param_1", "param_0", "pred"]).mean().reset_index()
-            cv_scores_mean.sort_values(["param_1", "param_0", "pred"], inplace=True, ignore_index=True)
-            print(cv_scores_mean)
-
-            with open(models_filename, 'wb') as fd:
-                pickle.dump(key_vals_output, fd)
-
-            with pd.ExcelWriter(xls_filename) as writer:
-                cv_scores.to_excel(writer, sheet_name='folds', index=False)
-                cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
 
 
 
 
 ###############################################################################
-# %% Map organization as spatial clusters
+# %% X.3) Map organization as spatial clusters
 
 if False:
 
@@ -1340,7 +1601,7 @@ if False:
 
 ###############################################################################
 #
-# %% Plot weight maps
+# %% X.4) Plot weight maps
 #
 ###############################################################################
 
@@ -1372,7 +1633,7 @@ if False:
         coef_maps = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
              [k for k in key_vals_output.keys() if (k[0] == mod_str and  k[1] == "resdualizeYes" and k[2] != "ALL")]])
 
-        maps = plot_coefmap_stats(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
+        maps = plot_coefmap_stats_2020(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
 
         # Cluster analysis
         cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s -t 0.999 --thresh_size 10  --save_atlas" % (prefix + "coefmap.nii.gz")
@@ -1404,7 +1665,7 @@ if False:
         coef_maps = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
              [k for k in key_vals_output.keys() if (k[0] == mod_str and  k[1] == "resdualizeYes" and k[2] != "ALL")]])
 
-        maps = plot_coefmap_stats(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
+        maps = plot_coefmap_stats_2020(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
 
         # Cluster analysis
         cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s -t 0.999 --thresh_size 10  --save_atlas" % (prefix + "coefmap.nii.gz")
@@ -1434,7 +1695,7 @@ if False:
         coef_maps = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
              [k for k in key_vals_output.keys() if (k[0] == mod_str and  k[1] == "resdualizeYes" and k[2] != "ALL")]])
 
-        maps = plot_coefmap_stats(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
+        maps = plot_coefmap_stats_2020(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
 
         # Cluster analysis
         cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s -t 0.999 --thresh_size 10" % (prefix + "coefmap.nii.gz")
@@ -1459,7 +1720,7 @@ if False:
         coef_maps = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
              [k for k in key_vals_output.keys() if (k[0] == mod_str and  k[1] == "resdualizeYes" and k[2] != "ALL")]])
 
-        maps = plot_coefmap_stats(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
+        maps = plot_coefmap_stats_2020(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
 
         # Cluster analysis
         cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s -t 0.999 --thresh_size 10" % (prefix + "coefmap.nii.gz")
@@ -1489,7 +1750,7 @@ if False:
         coef_maps = np.vstack([key_vals_output[k]['coef_img'].ravel() for k in
              [k for k in key_vals_output.keys() if (k[0] == mod_str and  k[1] == "resdualizeYes" and k[2] != "ALL")]])
 
-        maps = plot_coefmap_stats(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
+        maps = plot_coefmap_stats_2020(coef_map, coef_maps, ref_img=mask_img, thresh_norm_ratio=0.999, vmax=0.0005, prefix=prefix)
 
         # Cluster analysis
         cmd = "/home/ed203246/git/nitk/nitk/image/image_clusters_analysis.py %s -t 0.99 --thresh_size 10" % (prefix + "coefmap.nii.gz")
@@ -1499,7 +1760,7 @@ if False:
 
 ###############################################################################
 #
-# %% Explore data
+# %% X.5) Explore data
 #
 ###############################################################################
 

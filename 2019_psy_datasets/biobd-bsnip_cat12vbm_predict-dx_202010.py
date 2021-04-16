@@ -15,6 +15,49 @@ rsync -azvun /home/ed203246/data/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_p
 # %load_ext autoreload
 # %autoreload 2
 
+import os
+import sys
+import time
+import glob
+import re
+import copy
+import pickle
+import shutil
+import json
+import subprocess
+
+import numpy as np
+from collections import OrderedDict
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib
+# matplotlib.use('Qt5Cairo')
+if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
+    matplotlib.use('pdf')
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import numpy as np
+import pandas as pd
+
+import nibabel
+import nilearn.image
+from nilearn.image import resample_to_img
+import nilearn.image
+from nilearn import plotting
+
+from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio, arr_clusters
+from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
+from nitk.stats import Residualizer
+from nitk.mapreduce import dict_product, MapReduce, reduce_cv_classif
+
+import sklearn.linear_model as lm
+import sklearn.ensemble as ensemble
+from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import resample
+import sklearn.metrics as metrics
+
+#
 # import os, sys
 # import numpy as np
 # import glob
@@ -49,51 +92,6 @@ rsync -azvun /home/ed203246/data/psy_sbox/analyses/202004_biobd-bsnip_cat12vbm_p
 # from nitk.utils import dict_product, parallel, reduce_cv_classif
 # from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio
 
-
-##
-import os
-import sys
-import time
-import glob
-import re
-import copy
-import pickle
-import shutil
-import json
-import subprocess
-
-import numpy as np
-from collections import OrderedDict
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib
-# matplotlib.use('Qt5Cairo')
-import matplotlib.pyplot as plt
-if not hasattr(sys, 'ps1'): # if not interactive use pdf backend
-     matplotlib.use('pdf')
-import seaborn as sns
-
-import numpy as np
-import pandas as pd
-
-import nibabel
-import nilearn.image
-from nilearn.image import resample_to_img
-import nilearn.image
-from nilearn import plotting
-
-from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio, arr_clusters
-from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
-from nitk.stats import Residualizer
-from nitk.mapreduce import dict_product, MapReduce, reduce_cv_classif
-
-import sklearn.linear_model as lm
-import sklearn.ensemble as ensemble
-from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import resample
-import sklearn.metrics as metrics
-
-##
 INPUT_PATH = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm'
 OUTPUT_PATH = '/neurospin/psy_sbox/analyses/202010_biobd-bsnip_cat12vbm_predict-dx'
 NJOBS = 8
@@ -106,14 +104,19 @@ if not os.path.exists(INPUT_PATH):
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
-###############################################################################
+scaling, harmo = 'gs', 'raw'
+DATASET_FULL = 'biobd-bsnip'
+DATASET_TRAIN = 'biobd'
+target, target_num = "diagnosis", "diagnosis_num"
+NSPLITS = 5
+
+################################################################################
 #
-# %% 1) Config
+# Utils
 #
-###############################################################################
+################################################################################
 
 def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None,
-    masking=None,
     type=None, ext=None, basepath=""):
     # scaling: global scaling? in "raw", "gs"
     # harmo (harmonization): in [raw, ctrsite, ressite, adjsite]
@@ -122,9 +125,7 @@ def PATH(dataset, modality='t1mri', mri_preproc='mwp1', scaling=None, harmo=None
     return os.path.join(basepath, dataset + "_" + modality+ "_" + mri_preproc +
                  ("" if scaling is None else "_" + scaling) +
                  ("" if harmo is None else "-" + harmo) +
-                 ("" if masking is None else "-" + masking) +
-                 ("" if type is None else "_" + type) +
-                 ("" if ext is None else "." + ext))
+                 ("" if type is None else "_" + type) + "." + ext)
 
 def INPUT(*args, **kwargs):
     return PATH(*args, **kwargs, basepath=INPUT_PATH)
@@ -132,83 +133,64 @@ def INPUT(*args, **kwargs):
 def OUTPUT(*args, **kwargs):
     return PATH(*args, **kwargs, basepath=OUTPUT_PATH)
 
-dataset, TARGET, TARGET_NUM = 'biobd-bsnip', "transition", "transition_num" #, "diagnosis", "diagnosis_num"
-scaling, harmo = 'gs', 'raw'
-DATASET_TRAIN = dataset
-VAR_CLINIC  = []
-VAR_DEMO = ['age', 'sex']
-NSPLITS = 5
-NBOOTS = 500
+def fit_predict(key, estimator_img, residualize, split):
+    print(key)
+    start_time = time.time()
+    train, test = split
+    Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
+    Xim[train, :], Xim[test, :], Xdemoclin[train, :], Xdemoclin[test, :], Z[train, :], Z[test, :], y[train]
 
-target, target_num = "diagnosis", "diagnosis_num"
-# NSPLITS = 5
+    # Images based predictor
 
+    # Residualization
+    if residualize:
+        # residualizer.fit(Xim_, Z_) biased residualization
+        residualizer.fit(Xim_train, Z_train)
+        Xim_train = residualizer.transform(Xim_train, Z_train)
+        Xim_test = residualizer.transform(Xim_test, Z_test)
 
+    scaler = StandardScaler()
+    Xim_train = scaler.fit_transform(Xim_train)
+    Xim_test = scaler.transform(Xim_test)
+    try: # if coeficient can be retrieved given the key
+        estimator_img.coef_ = KEY_VALS[key]['coef_img']
+    except: # if not fit
+        estimator_img.fit(Xim_train, y_train)
 
-# ################################################################################
-# #
-# # Utils
-# #
-# ################################################################################
+    y_test_img = estimator_img.predict(Xim_test)
+    score_test_img = estimator_img.decision_function(Xim_test)
+    score_train_img = estimator_img.decision_function(Xim_train)
+    try:
+        coef_img = estimator_img.coef_
+    except:
+        coef_img = None
+    time_elapsed = round(time.time() - start_time, 2)
 
-# def fit_predict(key, estimator_img, residualize, split):
-#     print(key)
-#     start_time = time.time()
-#     train, test = split
-#     Xim_train, Xim_test, Xdemoclin_train, Xdemoclin_test, Z_train, Z_test, y_train =\
-#     Xim[train, :], Xim[test, :], Xdemoclin[train, :], Xdemoclin[test, :], Z[train, :], Z[test, :], y[train]
+    return dict(y_test_img=y_test_img, score_test_img=score_test_img, time=time_elapsed,
+                coef_img=coef_img)
 
-#     # Images based predictor
+"""
+# Wrap user define CV to new sklearn CV (Leave out study CV)
+from sklearn.model_selection import BaseCrossValidator
+class CVIterableWrapper(BaseCrossValidator):
+    "Wrapper class for old style cv objects and iterables."
+    def __init__(self, cv):
+        self.cv = list(cv)
 
-#     # Residualization
-#     if residualize:
-#         # residualizer.fit(Xim_, Z_) biased residualization
-#         residualizer.fit(Xim_train, Z_train)
-#         Xim_train = residualizer.transform(Xim_train, Z_train)
-#         Xim_test = residualizer.transform(Xim_test, Z_test)
+    def get_n_splits(self, X=None, y=None, groups=None):
+        return len(self.cv)
 
-#     scaler = StandardScaler()
-#     Xim_train = scaler.fit_transform(Xim_train)
-#     Xim_test = scaler.transform(Xim_test)
-#     try: # if coeficient can be retrieved given the key
-#         estimator_img.coef_ = KEY_VALS[key]['coef_img']
-#     except: # if not fit
-#         estimator_img.fit(Xim_train, y_train)
+    def split(self, X=None, y=None, groups=None):
+        for train, test in self.cv:
+            yield train, test
 
-#     y_test_img = estimator_img.predict(Xim_test)
-#     score_test_img = estimator_img.decision_function(Xim_test)
-#     score_train_img = estimator_img.decision_function(Xim_train)
-#     try:
-#         coef_img = estimator_img.coef_
-#     except:
-#         coef_img = None
-#     time_elapsed = round(time.time() - start_time, 2)
-
-#     return dict(y_test_img=y_test_img, score_test_img=score_test_img, time=time_elapsed,
-#                 coef_img=coef_img)
-
-# """
-# # Wrap user define CV to new sklearn CV (Leave out study CV)
-# from sklearn.model_selection import BaseCrossValidator
-# class CVIterableWrapper(BaseCrossValidator):
-#     "Wrapper class for old style cv objects and iterables."
-#     def __init__(self, cv):
-#         self.cv = list(cv)
-
-#     def get_n_splits(self, X=None, y=None, groups=None):
-#         return len(self.cv)
-
-#     def split(self, X=None, y=None, groups=None):
-#         for train, test in self.cv:
-#             yield train, test
-
-# # [(fold, train, test) for fold, (train, test) in enumerate(cv.split(X, y))]
-# # for fold, (train, test) in enumerate(cv.split(X, y)): print(fold, (train, test))
-# def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
-#     from sklearn import metrics
-#     y_pred_tr, y_pred_te = estimator.predict(X_tr), estimator.predict(X_te)
-#     return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
-# """
+# [(fold, train, test) for fold, (train, test) in enumerate(cv.split(X, y))]
+# for fold, (train, test) in enumerate(cv.split(X, y)): print(fold, (train, test))
+def scores_train_test(estimator, X_tr, X_te, y_tr, y_te):
+    from sklearn import metrics
+    y_pred_tr, y_pred_te = estimator.predict(X_tr), estimator.predict(X_te)
+    return [metrics.accuracy_score(y_tr, y_pred_tr), metrics.accuracy_score(y_te, y_pred_te)]
+"""
 
 
 if not os.path.exists(OUTPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy")):
@@ -282,10 +264,10 @@ if not os.path.exists(OUTPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo,
             laurie[['participant_id', 'siteID', 'Female', 'Age', 'DX', 'Age of Onset']],
             on='participant_id', suffixes=('_anton', '_laurie'))
 
-    np.all(df_.site == df_.siteID)
-    np.all(df_.sex == df_.Female)
-    np.all((df_.age - df_.Age) < 1e-3)
-    np.all(df_.diagnosis.map({'control':0, 'bipolar disorder':1, 'psychotic bipolar disorder':1}) == df_.DX)
+    assert np.all(df_.site == df_.siteID)
+    assert np.all(df_.sex == df_.Female)
+    assert np.all((df_.age - df_.Age) < 1e-3)
+    assert np.all(df_.diagnosis.map({'control':0, 'bipolar disorder':1, 'psychotic bipolar disorder':1}) == df_.DX)
     # OK so far
 
     correct_age_of_onset = df_[(df_["Age of Onset_anton"].notnull() | df_['Age of Onset_laurie'].notnull()) & (df_["Age of Onset_anton"] != df_['Age of Onset_laurie'])][['participant_id',  "site", "Age of Onset_anton", 'Age of Onset_laurie']]
@@ -329,15 +311,14 @@ if not os.path.exists(OUTPUT(dataset=DATASET_FULL, scaling=scaling, harmo=harmo,
 
     del msk_merge, mask_merge_biobd, mask_merge_bsnip
 
-    # Recompute mask
-    from nitk.image import compute_brain_mask
-    ref_img = nibabel.load(INPUT(datasets[0], scaling=None, harmo=None, type="mask", ext="nii.gz"))
-    mask_img = compute_brain_mask(imgs_arr, target_img=ref_img)
-    mask_img.to_filename(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    # Use cerebrum mask: ALL_t1mri_mwp1_cerebrum-mask.nii.gz
+    mask_img = nibabel.load(INPUT("ALL", scaling=None, harmo=None, type="cerebrum-mask", ext="nii.gz"))
+    # mask_img = compute_brain_mask(imgs_arr, target_img=ref_img)
+    mask_img.to_filename(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="cerebrum-mask", ext="nii.gz"))
     pop.to_csv(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv"), index=False)
 
     mask_arr = mask_img.get_data() != 0
-    assert np.sum(mask_arr != 0) == 367120
+    assert np.sum(mask_arr != 0) == 331695
     print(mask_arr.shape, imgs_arr.squeeze().shape)
     print("Sizes. mask_arr:%.2fGb" % (imgs_arr.nbytes / 1e9))
 
@@ -358,15 +339,14 @@ if not os.path.exists(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="r
     assert np.all(pop_w[["sex", "age", "site"]].isnull().sum()  == 0)
 
     imgs_arr = np.load(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
-    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="cerebrum-mask", ext="nii.gz"))
     mask_arr = mask_img.get_data() != 0
-    assert mask_arr.sum() == 367120
+    assert mask_arr.sum() == 331695
 
     print("""
     #==============================================================================
     # Select biobd+BSNIP : 5CV(BIOBD) + LSO(BIOBD+BSNIP)
     """)
-
 
     msk = pop.study.isin(['BIOBD', 'BSNIP'])
     assert msk.sum() == 976 # msk is all True here keep it for compatibility
@@ -499,7 +479,7 @@ if not os.path.exists(OUTPUT(DATASET_TRAIN, scaling=scaling, harmo=harmo, type="
 
     pop = pd.read_csv(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="participants", ext="csv"))
     imgs_arr = np.load(OUTPUT(DATASET_FULL, scaling=scaling, harmo=harmo, type="data64", ext="npy"), mmap_mode='r')
-    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="mask", ext="nii.gz"))
+    mask_img = nibabel.load(OUTPUT(DATASET_FULL, scaling=None, harmo=None, type="cerebrum-mask", ext="nii.gz"))
     mask_arr = mask_img.get_data() != 0
     assert mask_arr.sum() == 367120
 

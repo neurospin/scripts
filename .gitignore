@@ -9,3 +9,5 @@
 *.mat
 *.mgh
 .spyderproject
+idea/
+
