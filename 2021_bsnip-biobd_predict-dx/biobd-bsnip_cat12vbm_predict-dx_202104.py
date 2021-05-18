@@ -1726,15 +1726,16 @@ if False:
                 data=univstat)
 
 
- # %% 9) Learning curves
+# %% 9) Learning curves
 
 xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-learningcurves", type="scores", ext="xlsx")
 #models_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso", type="scores-coefs", ext="pkl")
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-if os.path.exists(xls_filename):
+if True or os.path.exists(xls_filename):
 
+    print("# %% 9) Learning curves")
     datasets = load_dataset()
     dataset = DATASET
 
