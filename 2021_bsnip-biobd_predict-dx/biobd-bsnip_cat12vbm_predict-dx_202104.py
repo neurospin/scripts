@@ -1770,7 +1770,7 @@ if True or os.path.exists(xls_filename):
     estimators_l2 = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
 
     estimators_dict = estimators_l2
-    # estimators_dict.update(estimators_l2_dict)
+    estimators_dict.update(estimators_enettv)
 
     # LSOCV
     cv_dict = datasets["cv_lso_dict"]
