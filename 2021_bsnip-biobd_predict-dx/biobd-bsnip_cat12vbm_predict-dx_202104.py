@@ -2,7 +2,12 @@
 """
 # Copy NS => Laptop
 rsync -azvu is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays/mni_cerebrum-gm-mask_1.5mm_* ./
+
+NS => Laptop
 rsync -azvun --delete ed203246@is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx /home/ed203246/data/psy_sbox/analyses/
+
+Laptop => NS
+rsync -azvun --delete /home/ed203246/data/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx ed203246@is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/analyses/
 
 """
 
@@ -1728,16 +1733,15 @@ xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-l
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-if False and not os.path.exists(xls_filename):
+if os.path.exists(xls_filename):
 
-    print(" %% 4.4) ENETTV 5CV grid search")
     datasets = load_dataset()
     dataset = DATASET
 
     mask_arr = datasets['mask_arr']
     mask_img = datasets['mask_img']
 
-    # TV Linear operator
+    # Enet-TV
     linoperatortv_filename = os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm_Atv.npz")
     Atv = LinearOperatorNesterov(filename=linoperatortv_filename)
     # assert np.allclose(Atv.get_singular_values(0), 11.940682881834617) # whole brain
@@ -1749,7 +1753,7 @@ if False and not os.path.exists(xls_filename):
     tvl2ratios = [0.1]
 
     import itertools
-    estimators_dict = dict()
+    estimators_enettv = dict()
     for alpha, l1l2ratio, tvl2ratio in itertools.product(alphas, l1l2ratios, tvl2ratios):
         print(alpha, l1l2ratio, tvl2ratio)
         l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
@@ -1758,13 +1762,14 @@ if False and not os.path.exists(xls_filename):
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
                                                 class_weight="auto", penalty_start=0)
-        estimators_dict[key] = estimator
+        estimators_enettv[key] = estimator
 
     # L2 LR
     Cs = [10]
-    estimators_l2_dict = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
+    estimators_l2 = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
 
-    estimators_dict.update(estimators_l2_dict)
+    estimators_dict = estimators_l2
+    # estimators_dict.update(estimators_l2_dict)
 
     # LSOCV
     cv_dict = datasets["cv_lso_dict"]
