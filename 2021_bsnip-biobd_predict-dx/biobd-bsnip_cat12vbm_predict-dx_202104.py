@@ -19,6 +19,7 @@ import pickle
 from collections import OrderedDict
 from shutil import copyfile, make_archive, unpack_archive, move
 import subprocess
+import json
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -430,6 +431,57 @@ def plot_coefmap_stats(coef_vec, coefs_vec, mask_img, thresh_norm_ratio=0.99):
             "coefmap_cvselectrate": coefmap_cvselectrate_img}
 
     return fig, axes, maps
+
+
+###############################################################################
+#%% 1.5) Stratified resmpler
+
+def sample_stratified(groups, size, shuffle=False, random_state=None):
+    """Sample size observations stratified by groups.
+
+    Parameters
+    ----------
+    groups : DataFrame (n_samples x grouping variables). Index of the array
+        will be used to determine the returned indices.
+        .
+    size : int
+        Desired sample size.
+
+    shuffle : bool, default=False
+            Whether to shuffle the data before splitting into batches.
+
+    random_state int, RandomState instance or None, default=None
+        When shuffle is True, random_state affects the ordering of the indices,
+        which controls the randomness of each fold.
+
+    Returns
+    -------
+        array of indices ma
+    """
+    groups = groups.copy()
+    n_subjects = groups.shape[0]
+
+    cols = groups.columns.to_list()
+    groups.insert(0, '_dummy_', 1)
+    # nb_of selected subject for each sample size (stratified for site and site)
+    count_tot = groups.groupby(cols).count()
+    count = (count_tot[['_dummy_']] *  size / n_subjects).round(0).astype(int)
+
+    if random_state is not None:
+        np.random.set_state(random_state)
+
+    indices = list()
+    for k, d in groups.groupby(cols):
+        indices_ = d.index.values.copy()
+        if shuffle:
+            np.random.shuffle(indices_)
+
+        indices.append(indices_[:count.loc[k, '_dummy_']])
+
+    indices = np.concatenate(indices)
+    assert np.all(groups.loc[indices, :].groupby(cols).count() == count)
+
+    return indices
 
 ###############################################################################
 #%% 2) Descriptives stats
@@ -1535,6 +1587,7 @@ if not os.path.exists(feature_importance_plot_filename):
 
     # plt.savefig(feature_importance_plot_filename)
 
+
 # %% 8.4) Table of Regions and patterns importance
 
 if not os.path.exists(feature_importance_summary_filename):
@@ -1591,61 +1644,44 @@ if not os.path.exists(feature_importance_summary_filename):
     """
 
 
+# %% 8.4) Re-plot Correlation matrix organized as clusters
 
-    #%% Plot Region AUC
+if not os.path.exists(regions_corrmat_filename):
+    regions_scores = pd.read_csv(regions_score_filename)
+    region_names = [n for n in regions_scores.columns if n[3:5] == '__']
+    assert set(region_name_sorted) == set(region_names)
 
-    # plt.savefig(feature_importance_plot_filename)
+    assert len(region_names) == 21
 
-    # # Table of regions
+    # groups clusters
+    df = regions_scores[region_name_sorted]
+    df.columns = map_region_names(df.columns)
+    # df.columns = [_clean_name(name) for name in df.columns]
+    # Compute the correlation matrix
+    # https://stats.stackexchange.com/questions/165194/using-correlation-as-distance-metric-for-hierarchical-clustering
+    corr = df.corr()
+    # d = 2 * (1 - np.abs(corr))
+    d = 2 * (1 - corr)
 
-    # regions_info = pd.read_csv(regions_info_filename)
-    # 'region_name', 'region_name_map', 'pattern_name',
-    # 'size', 'x_center_mni', 'y_center_mni', 'z_center_mni'
+    reordered = map_region_names(region_name_sorted)
+    # reordered = [_clean_name(name) for name in reordered]
+    R = corr.loc[reordered, reordered]
+    cmap = sns.color_palette("RdBu_r", 11)
+    f, ax = plt.subplots(figsize=(5.5, 4.5))
+    # Draw the heatmap with the mask and correct aspect ratio
+    ax = sns.heatmap(R, mask=None, cmap=cmap, vmax=1, center=0,
+                square=True, linewidths=.5, cbar_kws={"shrink": .5})
+    # plt.plot([0, 9, 9, 0, 0], [0, 0, 9, 9, 0], ls='-', color='black', lw=2)
+    # plt.plot([9, 11, 11, 9, 9], [9, 9, 11, 11, 9], ls='-', color='black', lw=2)
+    # plt.plot([11, 14, 14, 11, 11], [11, 11, 14, 14, 11], ls='-', color='black', lw=2)
+    # plt.plot([14, 21, 21, 14, 14], [14, 14, 21, 21, 14], ls='-', color='black', lw=2)
 
-    # scores = pd.read_excel(feature_importance_filename)
-
-    # scores_mean = scores.groupby("region_name").mean()
-    # scores_std = scores.groupby("region_name").std()
-
-    # regions_info
-    # scores_mean = pd.read_excel(feature_importance_filename, sheet_name="mean")
-
-    # %% 8.4) Re-plot Correlation matrix organized as clusters
-
-    if not os.path.exists(regions_corrmat_filename):
-        regions_scores = pd.read_csv(regions_score_filename)
-        region_names = [n for n in regions_scores.columns if n[3:5] == '__']
-        assert set(region_name_sorted) == set(region_names)
-
-        assert len(region_names) == 21
-
-        # groups clusters
-        df = regions_scores[region_name_sorted]
-        df.columns = map_region_names(df.columns)
-        # df.columns = [_clean_name(name) for name in df.columns]
-        # Compute the correlation matrix
-        # https://stats.stackexchange.com/questions/165194/using-correlation-as-distance-metric-for-hierarchical-clustering
-        corr = df.corr()
-        # d = 2 * (1 - np.abs(corr))
-        d = 2 * (1 - corr)
-
-        reordered = map_region_names(region_name_sorted)
-        # reordered = [_clean_name(name) for name in reordered]
-        R = corr.loc[reordered, reordered]
-        cmap = sns.color_palette("RdBu_r", 11)
-        f, ax = plt.subplots(figsize=(5.5, 4.5))
-        # Draw the heatmap with the mask and correct aspect ratio
-        ax = sns.heatmap(R, mask=None, cmap=cmap, vmax=1, center=0,
-                    square=True, linewidths=.5, cbar_kws={"shrink": .5})
-        # plt.plot([0, 9, 9, 0, 0], [0, 0, 9, 9, 0], ls='-', color='black', lw=2)
-        # plt.plot([9, 11, 11, 9, 9], [9, 9, 11, 11, 9], ls='-', color='black', lw=2)
-        # plt.plot([11, 14, 14, 11, 11], [11, 11, 14, 14, 11], ls='-', color='black', lw=2)
-        # plt.plot([14, 21, 21, 14, 14], [14, 14, 21, 21, 14], ls='-', color='black', lw=2)
-
-        # plt.savefig(regions_corrmat_filename)
+    # plt.savefig(regions_corrmat_filename)
 
 
-    # %% 8.6) Univariate statistics
+
+ # %% 8.6) Univariate statistics
+if False:
 
     import mulm
     from collections import OrderedDict
@@ -1684,60 +1720,166 @@ if not os.path.exists(feature_importance_summary_filename):
                 order=reordered,
                 data=univstat)
 
-"""
-    #marco_scores = pd.DataFrame(scores, columns=['region_rm', 'fold', 'auc', 'bacc'])
-    marco_scores = marco_scores[marco_scores.region_rm.isin(["enettv_full", "l2lr_full"])]
 
-    lso_macro_mean = marco_scores.groupby('region_rm').mean()
-    lso_macro_se = marco_scores.groupby('region_rm').std() / np.sqrt(len(marco_scores.fold.unique()))
+ # %% 9) Learning curves
 
-    def ttest_1samp_(x):
-        return ttest_1samp(x, 0.5)[1]
+xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-learningcurves", type="scores", ext="xlsx")
+#models_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso", type="scores-coefs", ext="pkl")
+mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
+cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-    lso_macro_pval = marco_scores.groupby('region_rm').agg(
-        auc_pval=pd.NamedAgg(column="auc", aggfunc=ttest_1samp_),
-        bacc_pval=pd.NamedAgg(column="bacc", aggfunc=ttest_1samp_))
+if False and not os.path.exists(xls_filename):
+
+    print(" %% 4.4) ENETTV 5CV grid search")
+    datasets = load_dataset()
+    dataset = DATASET
+
+    mask_arr = datasets['mask_arr']
+    mask_img = datasets['mask_img']
+
+    # TV Linear operator
+    linoperatortv_filename = os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm_Atv.npz")
+    Atv = LinearOperatorNesterov(filename=linoperatortv_filename)
+    # assert np.allclose(Atv.get_singular_values(0), 11.940682881834617) # whole brain
+    # assert np.allclose(Atv.get_singular_values(0), 11.928817868042772) # rm brainStem+cerrebelum
+
+    # Small range
+    alphas = [0.1]
+    l1l2ratios = [0.01]
+    tvl2ratios = [0.1]
+
+    import itertools
+    estimators_dict = dict()
+    for alpha, l1l2ratio, tvl2ratio in itertools.product(alphas, l1l2ratios, tvl2ratios):
+        print(alpha, l1l2ratio, tvl2ratio)
+        l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
+        key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
+
+        conesta = algorithms.proximal.CONESTA(max_iter=10000)
+        estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
+                                                class_weight="auto", penalty_start=0)
+        estimators_dict[key] = estimator
+
+    # L2 LR
+    Cs = [10]
+    estimators_l2_dict = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
+
+    estimators_dict.update(estimators_l2_dict)
+
+    # LSOCV
+    cv_dict = datasets["cv_lso_dict"]
+    # cv_dict = {"CV%02d" % fold:split for fold, split in enumerate(cv.split(df['Xim'], df['y']))}
+    # cv_dict["ALL"] = [np.arange(df['Xim'].shape[0]), np.arange(df['Xim'].shape[0])]
+
+    # Learning-curve LSOCV: stratified for site and site
+    n_subjects = datasets['y'].shape[0]
+    participants = datasets['participants'][['site', 'dx', 'participant_id']]
+
+    train_sizes_ = [len(train) for fold, (train, test) in cv_dict.items()]
+    size_max_shared_ = np.min(train_sizes_) - (np.min(train_sizes_) % 100)
+    sizes = np.arange(100, size_max_shared_ + 100, 100)
+    del train_sizes_, size_max_shared_
+
+    # LSO CV with various sizes stratified for dx and site
+    if not os.path.exists(cv_filename):
+
+        cv_lso_lrncurv = dict()
+        cpt_ = 0
+        for fold, (train, test) in cv_dict.items():
+            participants_train = participants.iloc[train]
+
+            for size in sizes:
+                train_sub = sample_stratified(participants_train[['site', 'dx']], size, shuffle=False, random_state=None)
+
+                # Check 1: make sure that max diff of proportion between original
+                # dataset and resampled is lower than 1%
+                prop_diff_max = \
+                    np.max(np.abs(participants_train.loc[:, ['site', 'dx', 'participant_id']].groupby(['site', 'dx']).count() / participants_train.shape[0] -\
+                                  participants_train.loc[train_sub, ['site', 'dx', 'participant_id']].groupby(['site', 'dx']).count() / len(train_sub)))
+                assert prop_diff_max.values[0] < 0.01
+
+                # Check 2: participants_train[indices] == participants[indices]
+                assert participants.loc[train_sub, ['site', 'dx', 'participant_id']].equals(
+                    participants_train.loc[train_sub, ['site', 'dx', 'participant_id']])
+
+                # Store train_sub for each size for ech fold
+                cv_lso_lrncurv["%s-%s" % (fold, size)] = [train_sub, test]
+                cpt_ += 1
+
+        # Check
+        assert cpt_ == len(sizes) * len(cv_dict) == len(cv_lso_lrncurv)
+        del cpt_
+
+        cv_lso_lrncurv_ = {k:[x.tolist() for x in v] for k, v in cv_lso_lrncurv.items()}
+        with open(cv_filename, 'w') as outfile:
+            json.dump(cv_lso_lrncurv_, outfile)
+
+    else:
+        with open(cv_filename) as json_file:
+            cv_lso_lrncurv = json.load(json_file)
+        cv_lso_lrncurv = {k:[np.array(x) for x in v] for k, v in cv_lso_lrncurv.items()}
+    # Check when created
+    # assert np.all([np.all([np.all(cv_lso_lrncurv_[k][i] == cv_lso_lrncurv[k][i]) for i in range(len(cv_lso_lrncurv[k]))])
+    #         for k in cv_lso_lrncurv])
+
+    #key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes"), cv_dict)
+    key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes"), cv_lso_lrncurv,
+        {'Xim_%s' % dataset :datasets['Xim']}, {'y_%s' % dataset :datasets['y']},
+        {'Zres_%s' % dataset :datasets['Zres']}, {'Xdemoclin_%s' % dataset :datasets['Xdemoclin']},
+        {'residualizer_%s' % dataset :datasets['residualizer']})
+
+    print("Nb Tasks=%i" % len(key_values_input))
 
 
-    import seaborn as sns
-    sns.set_style("darkgrid")
-    print(plt.rcParams['figure.figsize']) # [6.0, 4.0]
+    ###########################################################################
+    # 3) Distributed Mapper
 
-    def _box_plot_auc(mod):
-        plt.figure(figsize=(1.0, 11.69 * .4))
-        df_ = marco_scores[marco_scores.region_rm.isin([mod])]
-        ax = sns.boxplot(y="auc", data=df_)
-        ax = sns.stripplot(y="auc", data=df_, jitter=True, color="black")
-        ax.set_ylim(0.4, 1)
-        ax.set_ylabel('ROC-AUC', fontsize=18)
-        ax.set_yticklabels(ax.get_yticks().round(2), size = 16)
-        ax.axhline(0.5, ls='--', color='grey')
+    if os.path.exists(mapreduce_sharedir):
+        print("# Existing shared dir, delete for fresh restart: ")
+        print("rm -rf %s" % mapreduce_sharedir)
 
-     _box_plot_auc("enettv_full")
-     _box_plot_auc("l2lr_full")
+    os.makedirs(mapreduce_sharedir, exist_ok=True)
 
 
-    # %% 7.3) Regions' importance
+    start_time = time.time()
+    mp = MapReduce(n_jobs=6, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
+    mp.map(fit_predict, key_values_input)
+    key_vals_output = mp.reduce_collect_outputs()
 
-    #scores = scores.replace({'region_rm':{"net0":"Atrophy", "net1":"Increase", "net2":"Independant"}})
-    scores_mean = scores.groupby('region_rm').mean().reset_index()
-    deltas = scores_mean[['auc','bacc']] - scores_mean.loc[scores_mean['region_rm'] == 'all', ['auc','bacc']].values
-    deltas.rename(columns={'auc':'auc_diff', 'bacc':'bacc_diff'}, inplace=True)
-    #deltas = pd.DataFrame(deltas, columns=['auc_diff','bacc_diff'])
-    scores_mean = pd.concat([scores_mean, deltas], axis=1)#, ignore_index=True, sort=False)
-    #scores_mean.sort_values(by='auc_diff', ascending=True, inplace=True)
 
-    # Cosmetic
-    pattern_name = list()
-    for region_name in scores_mean['region_rm']:
-        find_pattern = None
-        for pattern_name_ in ["Atrophy", "Increase", "Independant"]:
-            if region_name in rm_region_names[pattern_name_]:
-                find_pattern = pattern_name_
-        pattern_name.append(find_pattern)
+    ###########################################################################
+    # 3) Centralized Mapper
+    # start_time = time.time()
+    # key_vals_output = MapReduce(n_jobs=NJOBS, pass_key=True, verbose=20).map(fit_predict, key_values_input)
+    # print("#  Centralized mapper completed in %.2f sec" % (time.time() - start_time))
 
-    scores_mean["pattern"] = pattern_name
-    scores_mean.sort_values(by=['pattern', 'auc_diff'], ascending=True, inplace=True)
+    ###############################################################################
+    # 4) Reducer: output key/value pairs => CV scores""")
 
-    scores_mean_ = scores_mean.round(4)
-"""
+    if key_vals_output is not None:
+        # mp.make_archive()
+        # make_archive(mapreduce_sharedir, "zip", root_dir=os.path.dirname(mapreduce_sharedir), base_dir=os.path.basename(mapreduce_sharedir))
+
+        print("# Distributed mapper completed in %.2f sec" % (time.time() - start_time))
+        cv_scores_all = reduce_cv_classif(key_vals_output, cv_lso_lrncurv, y_true=datasets['y'], index_fold=2)
+
+        # Split fold into fold x size
+        fold, size = zip(*[fold.split('-') for fold in cv_scores_all.fold])
+        cv_scores_all['fold'] = fold
+        cv_scores_all.insert(1, 'size', [int(s) for s in size])
+
+        cv_scores = cv_scores_all[cv_scores_all.fold != "ALL"]
+        cv_scores_mean = cv_scores.groupby(["param_1", "param_0", "size", "pred"]).mean().reset_index()
+        cv_scores_std = cv_scores.groupby(["param_1", "param_0", "size", "pred"]).std().reset_index()
+        cv_scores_mean.sort_values(["param_1", "param_0", "size", "pred"], inplace=True, ignore_index=True)
+        cv_scores_std.sort_values(["param_1", "param_0", "size","pred"], inplace=True, ignore_index=True)
+        print(cv_scores_mean)
+
+        # with open(models_filename, 'wb') as fd:
+        #   pickle.dump(key_vals_output, fd)
+
+        with pd.ExcelWriter(xls_filename) as writer:
+            cv_scores.to_excel(writer, sheet_name='folds', index=False)
+            cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
+            cv_scores_std.to_excel(writer, sheet_name='std', index=False)
+
