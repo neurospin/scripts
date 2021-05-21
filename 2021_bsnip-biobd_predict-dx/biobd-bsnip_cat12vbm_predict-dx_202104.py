@@ -139,8 +139,12 @@ def fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin,
     estimator_img.fit(Xim_train, y_train)
 
     y_test_img = estimator_img.predict(Xim_test)
-    score_test_img = estimator_img.decision_function(Xim_test)
-    score_train_img = estimator_img.decision_function(Xim_train)
+    try:
+        score_test_img = estimator_img.decision_function(Xim_test)
+        score_train_img = estimator_img.decision_function(Xim_train)
+    except AttributeError:
+        score_test_img = estimator_img.predict_log_proba(Xim_test)[:, 1]
+        score_train_img = estimator_img.predict_log_proba(Xim_train)[:, 1]
 
     # Demographic/clinic based predictor
     estimator_democlin = lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False)
@@ -239,6 +243,7 @@ def l1_lr_path(X_train, y_train, X_test, y_test, verbose=True):
     coefs = np.concatenate([c[:, np.newaxis] for c in coefs], axis=1)
     return cs, active, coefs, aucs, baccs
 
+
 ###############################################################################
 #%% 1.3) l1, l2, tv parametrisation function
 
@@ -247,6 +252,7 @@ def ratios_to_param(alpha, l1l2ratio, tvl2ratio):
     l1 = alpha * l1l2ratio
     l2 = alpha * 1
     return l1, l2, tv
+
 
 ###############################################################################
 #%% 1.3) Dataset loader
@@ -363,6 +369,8 @@ def load_dataset(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
     gc.collect()
 
     return dataset
+
+
 ###############################################################################
 #%% 1.4) Images utils
 
