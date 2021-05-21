@@ -178,7 +178,7 @@ def fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin,
     if hasattr(estimator_img, 'best_estimator_'):  # GridSearch case
         estimator_img = estimator_img.best_estimator_
 
-    if hasattr(estimator_img_, 'coef_'):
+    if hasattr(estimator_img, 'coef_'):
         coef_img = estimator_img.coef_
 
     return dict(y_test_img=y_test_img, score_test_img=score_test_img,
@@ -1745,7 +1745,7 @@ xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-l
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-if False or not os.path.exists(xls_filename):
+if True or not os.path.exists(xls_filename):
 
     print("# %% 9) Learning curves")
     datasets = load_dataset()
@@ -1754,7 +1754,10 @@ if False or not os.path.exists(xls_filename):
     mask_arr = datasets['mask_arr']
     mask_img = datasets['mask_img']
 
+    # Estimators
+
     estimators_dict = dict()
+
 
     # Enet-TV
 
@@ -1781,11 +1784,13 @@ if False or not os.path.exists(xls_filename):
 
     estimators_dict.update(estimators_enettv)
 
+
     # L2 LR
 
     Cs = [10]
     estimators_l2 = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
     estimators_dict.update(estimators_l2)
+
 
     # ElasticNet(CV)
 
@@ -1806,13 +1811,12 @@ if False or not os.path.exists(xls_filename):
 
 
     # MLP
+
     mlp_param_grid = {"hidden_layer_sizes":
                   [(100, ), (50, ), (25, ), (10, ), (5, ),          # 1 hidden layer
                    (100, 50, ), (50, 25, ), (25, 10, ), (10, 5, ),  # 2 hidden layers
                    (100, 50, 25, ), (50, 25, 10, ), (25, 10, 5, )], # 3 hidden layers
                   "activation": ["relu"], "solver": ["sgd"], 'alpha': [0.0001]}
-
-
     mlp_cv = GridSearchCV(estimator=MLPClassifier(random_state=1),
                  param_grid=mlp_param_grid,
                  cv=3, n_jobs=1)
@@ -1820,6 +1824,7 @@ if False or not os.path.exists(xls_filename):
 
 
     # LSOCV
+
     cv_dict = datasets["cv_lso_dict"]
     # cv_dict = {"CV%02d" % fold:split for fold, split in enumerate(cv.split(df['Xim'], df['y']))}
     # cv_dict["ALL"] = [np.arange(df['Xim'].shape[0]), np.arange(df['Xim'].shape[0])]
