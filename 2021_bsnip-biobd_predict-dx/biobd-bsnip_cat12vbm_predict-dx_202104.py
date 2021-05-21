@@ -47,8 +47,11 @@ from mulm.residualizer import Residualizer
 # sklearn
 import sklearn.metrics as metrics
 import sklearn.linear_model as lm
+import sklearn.svm as svm
+from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut
+from sklearn.model_selection import GridSearchCV
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import KFold
@@ -169,10 +172,19 @@ def fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin,
     score_test_stck = estimator_stck.predict_log_proba(Xstck_test)[:, 1]
     score_train_stck = estimator_stck.predict_log_proba(Xstck_train)[:, 1]
 
+    # Retrieve coeficient if possible
+    coef_img = None
+
+    if hasattr(estimator_img, 'best_estimator_'):  # GridSearch case
+        estimator_img = estimator_img.best_estimator_
+
+    if hasattr(estimator_img_, 'coef_'):
+        coef_img = estimator_img.coef_
+
     return dict(y_test_img=y_test_img, score_test_img=score_test_img,
                 y_test_democlin=y_test_democlin, score_test_democlin=score_test_democlin,
                 y_test_stck=y_test_stck, score_test_stck=score_test_stck,
-                coef_img=estimator_img.coef_)
+                coef_img=coef_img)
 
 
 ###############################################################################
@@ -1733,7 +1745,7 @@ xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-l
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-if True or os.path.exists(xls_filename):
+if False or not os.path.exists(xls_filename):
 
     print("# %% 9) Learning curves")
     datasets = load_dataset()
@@ -1742,7 +1754,10 @@ if True or os.path.exists(xls_filename):
     mask_arr = datasets['mask_arr']
     mask_img = datasets['mask_img']
 
+    estimators_dict = dict()
+
     # Enet-TV
+
     linoperatortv_filename = os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm_Atv.npz")
     Atv = LinearOperatorNesterov(filename=linoperatortv_filename)
     # assert np.allclose(Atv.get_singular_values(0), 11.940682881834617) # whole brain
@@ -1759,18 +1774,50 @@ if True or os.path.exists(xls_filename):
         print(alpha, l1l2ratio, tvl2ratio)
         l1, l2, tv = ratios_to_param(alpha, l1l2ratio, tvl2ratio)
         key = "enettv_%.3f:%.6f:%.6f" % (alpha, l1l2ratio, tvl2ratio)
-
         conesta = algorithms.proximal.CONESTA(max_iter=10000)
         estimator = estimators.LogisticRegressionL1L2TV(l1, l2, tv, Atv, algorithm=conesta,
                                                 class_weight="auto", penalty_start=0)
         estimators_enettv[key] = estimator
 
+    estimators_dict.update(estimators_enettv)
+
     # L2 LR
+
     Cs = [10]
     estimators_l2 = {"l2lr_C:%.6f" % C: lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False) for C in Cs}
+    estimators_dict.update(estimators_l2)
 
-    estimators_dict = estimators_l2
-    estimators_dict.update(estimators_enettv)
+    # ElasticNet(CV)
+
+    lrenet_cv = GridSearchCV(estimator=lm.SGDClassifier(loss='log', penalty='elasticnet'),
+                 param_grid={'alpha': 10. ** np.arange(-1, 2),
+                             'l1_ratio': [.1, .5, .9]},
+                             cv=3, n_jobs=1)
+    estimators_dict.update({'enetlr_cv':lrenet_cv})
+
+
+    # SVM RBF
+
+    svmrbf_cv= GridSearchCV(svm.SVC(),
+                 # {'kernel': ['poly', 'rbf'], 'C': 10. ** np.arange(-3, 3)},
+                 {'kernel': ['rbf'], 'C': 10. ** np.arange(-1, 2)},
+                 cv=3, n_jobs=1)
+    estimators_dict.update({'svmrbf_cv':svmrbf_cv})
+
+
+    # MLP
+    mlp_param_grid = {"hidden_layer_sizes":
+                  [(100, ), (50, ), (25, ), (10, ), (5, ),          # 1 hidden layer
+                   (100, 50, ), (50, 25, ), (25, 10, ), (10, 5, ),  # 2 hidden layers
+                   (100, 50, 25, ), (50, 25, 10, ), (25, 10, 5, )], # 3 hidden layers
+                  "activation": ["relu"], "solver": ["sgd"], 'alpha': [0.0001]}
+
+
+    mlp_cv = GridSearchCV(estimator=MLPClassifier(random_state=1),
+                 param_grid=mlp_param_grid,
+                 cv=3, n_jobs=1)
+    estimators_dict.update({'mlp_cv':mlp_cv})
+
 
     # LSOCV
     cv_dict = datasets["cv_lso_dict"]
