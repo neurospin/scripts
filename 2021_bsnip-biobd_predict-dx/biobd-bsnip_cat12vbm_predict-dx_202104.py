@@ -1704,8 +1704,30 @@ if not os.path.exists(regions_corrmat_filename):
     # plt.savefig(regions_corrmat_filename)
 
 
+# %% 8.6) Search light
 
- # %% 8.6) Univariate statistics
+# https://nilearn.github.io/modules/generated/nilearn.decoding.SearchLight.html
+# https://nilearn.github.io/decoding/searchlight.html
+# https://github.com/nilearn/nilearn/blob/master/nilearn/decoding/searchlight.py
+
+if False:
+    # Manualy iterate over folds to residualized on training
+
+    """
+    from sklearn.model_selection import KFold
+    cv = KFold(n_splits=4)
+
+    import nilearn.decoding
+    # The radius is the one of the Searchlight sphere that will scan the volume
+    searchlight = nilearn.decoding.SearchLight(
+        mask_img,
+        process_mask_img=process_mask_img,
+        radius=5.6, n_jobs=n_jobs,
+        verbose=1, cv=cv)
+    searchlight.fit(fmri_img, y)
+    """
+
+ # %% 8.7) Univariate statistics
 if False:
 
     import mulm
@@ -1754,6 +1776,8 @@ mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvl
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
 if True or not os.path.exists(xls_filename):
+
+    #%% 9.1) Fit models
 
     print("# %% 9) Learning curves")
     datasets = load_dataset()
@@ -1841,13 +1865,14 @@ if True or not os.path.exists(xls_filename):
     n_subjects = datasets['y'].shape[0]
     participants = datasets['participants'][['site', 'dx', 'participant_id']]
 
-    train_sizes_ = [len(train) for fold, (train, test) in cv_dict.items()]
-    size_max_shared_ = np.min(train_sizes_) - (np.min(train_sizes_) % 100)
-    sizes = np.arange(100, size_max_shared_ + 100, 100)
-    del train_sizes_, size_max_shared_
-
     # LSO CV with various sizes stratified for dx and site
     if not os.path.exists(cv_filename):
+
+        train_sizes_ = [len(train) for fold, (train, test) in cv_dict.items()]
+        size_max_shared_ = np.min(train_sizes_) - (np.min(train_sizes_) % 100)
+        size_mean = int(np.mean(train_sizes_).round(0))
+        sizes = np.arange(100, size_max_shared_ + 100, 100)
+        del train_sizes_, size_max_shared_
 
         cv_lso_lrncurv = dict()
         cpt_ = 0
@@ -1876,6 +1901,11 @@ if True or not os.path.exists(xls_filename):
         assert cpt_ == len(sizes) * len(cv_dict) == len(cv_lso_lrncurv)
         del cpt_
 
+        # Add original cvlso with size = mean size
+        cv_lso_lrncurv.update({"%s-%s" % (fold, size_mean):v for fold, v in cv_dict.items()})
+        assert len(cv_lso_lrncurv) == len(sizes) * len(cv_dict) + len(cv_dict)
+        cv_lso_lrncurv_bak = cv_lso_lrncurv
+
         cv_lso_lrncurv_ = {k:[x.tolist() for x in v] for k, v in cv_lso_lrncurv.items()}
         with open(cv_filename, 'w') as outfile:
             json.dump(cv_lso_lrncurv_, outfile)
@@ -1884,9 +1914,11 @@ if True or not os.path.exists(xls_filename):
         with open(cv_filename) as json_file:
             cv_lso_lrncurv = json.load(json_file)
         cv_lso_lrncurv = {k:[np.array(x) for x in v] for k, v in cv_lso_lrncurv.items()}
+
     # Check when created
-    # assert np.all([np.all([np.all(cv_lso_lrncurv_[k][i] == cv_lso_lrncurv[k][i]) for i in range(len(cv_lso_lrncurv[k]))])
-    #         for k in cv_lso_lrncurv])
+    if 'cv_lso_lrncurv_bak' in locals():
+        assert np.all([np.all([np.all(cv_lso_lrncurv_bak[k][i] == cv_lso_lrncurv[k][i]) for i in range(len(cv_lso_lrncurv[k]))])
+                       for k in cv_lso_lrncurv])
 
     #key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes"), cv_dict)
     key_values_input = dict_product(estimators_dict, dict(resdualizeYes="yes"), cv_lso_lrncurv,
@@ -1894,6 +1926,7 @@ if True or not os.path.exists(xls_filename):
         {'Zres_%s' % dataset :datasets['Zres']}, {'Xdemoclin_%s' % dataset :datasets['Xdemoclin']},
         {'residualizer_%s' % dataset :datasets['residualizer']})
 
+    assert (len(sizes) * len(cv_dict) + len(cv_dict)) * len(estimators_dict) == len(key_values_input)
     print("Nb Tasks=%i" % len(key_values_input))
 
 
@@ -1911,6 +1944,9 @@ if True or not os.path.exists(xls_filename):
     mp = MapReduce(n_jobs=6, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
     mp.map(fit_predict, key_values_input)
     key_vals_output = mp.reduce_collect_outputs()
+    key_vals_output = mp.reduce_collect_outputs(force=True)
+    # If some tasks failed, reset them
+    # rested_keys = mp.reset(keys=key_values_input.keys())
 
 
     ###########################################################################
@@ -1949,3 +1985,89 @@ if True or not os.path.exists(xls_filename):
             cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
             cv_scores_std.to_excel(writer, sheet_name='std', index=False)
 
+    #%% 9.2) Plot curves
+
+    stats = pd.read_excel(xls_filename)
+    stats = stats[stats["param_1"].isin(["resdualizeYes"]) & stats["pred"].isin(["test_img"])]
+    stats = stats.rename(columns={"param_0":"Model", 'auc':'AUC', 'size':'Size'})
+    stats = stats[['Model', 'fold', 'Size', 'AUC', 'bacc']]
+    stats.Model =\
+    stats.Model.map({'enetlr_cv': 'Enet',
+                     'enettv_0.100:0.010000:0.100000':'Enet-TV',
+                     'mlp_cv':'MLP',
+                     'svmrbf_cv':'SVM-RBF',
+                     'l2lr_C:10.000000':'L2'})
+
+    sns.set_style("darkgrid")
+    #fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True, figsize=(9, 5))
+    fig = plt.figure(figsize=(9, 5))
+
+    sns.lineplot(x='Size', y='AUC', hue='Model', data=stats, lw=3)
+"""
+cd /home/ed203246/data/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx/mwp1-gs_all_cvlso-learningcurves_models.mapreduce
+ls task_*| grep -v lock|grep -v pkl>/tmp/toto
+cat /tmp/toto|while read f; do grep STARTED "$f" ; done
+cat /tmp/toto|while read f; do grep -l STARTED "$f" ; done
+rm /tmp/to_delete
+cat /tmp/toto|while read f; do grep -l STARTED "$f" >> /tmp/to_delete; done
+cat /tmp/to_delete|while read f; do rm "$f" ; done
+
+
+
+stats.groupby(['Model']).count()['fold']
+Model
+Enet       104
+Enet-TV    104
+L2         104
+MLP        104
+SVM-RBF    104
+
+stats.groupby(['Model', 'size']).count()['fold']
+
+enetlr_cv                       100      8
+                                200     12
+                                300      9
+                                400     13
+                                500      9
+                                600     13
+                                700      8
+                                800     10
+enettv_0.100:0.010000:0.100000  100     13
+                                200     13
+                                300     13
+                                400     13
+                                500     13
+                                600     13
+                                700     13
+                                800     13
+l2lr_C:10.000000                100     13
+                                200     13
+                                300     13
+                                400     13
+                                500     13
+                                600     13
+                                700     13
+                                800     13
+mlp_cv                          100      9
+                                200      9
+                                300     10
+                                400     10
+                                500     10
+                                600     10
+                                700     10
+                                800     10
+svmrbf_cv                       100     13
+                                200     13
+                                300     13
+                                400     13
+                                500     13
+                                600     13
+                                700     13
+                                800     13
+
+stats.columns
+Index(['param_0', 'size', 'param_1', 'fold', 'param_3', 'param_4', 'param_5',
+       'param_6', 'param_7', 'pred', 'auc', 'bacc', 'recall_0', 'recall_1',
+       'count_0', 'count_1'],
+      dtype='object')
+"""
