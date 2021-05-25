@@ -1926,7 +1926,7 @@ if True or not os.path.exists(xls_filename):
         {'Zres_%s' % dataset :datasets['Zres']}, {'Xdemoclin_%s' % dataset :datasets['Xdemoclin']},
         {'residualizer_%s' % dataset :datasets['residualizer']})
 
-    assert (len(sizes) * len(cv_dict) + len(cv_dict)) * len(estimators_dict) == len(key_values_input)
+    assert (8 * len(cv_dict) + len(cv_dict)) * len(estimators_dict) == len(key_values_input)
     print("Nb Tasks=%i" % len(key_values_input))
 
 
