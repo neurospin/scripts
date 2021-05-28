@@ -1727,9 +1727,8 @@ if not os.path.exists(regions_corrmat_filename):
 # https://nilearn.github.io/decoding/searchlight.html
 # https://github.com/nilearn/nilearn/blob/master/nilearn/decoding/searchlight.py
 
-searchlight_scores_filename = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso", type="auc-bacc", ext="pkl")
 
-if not os.path.exists(searchlight_scores_filename):
+if True: #False and not os.path.exists(searchlight_scores_filename):
     # Manualy iterate over folds to residualized on training
     from nitk.image import flat_to_array, arr_to_4dniimg
     from nitk.image import search_light
@@ -1741,9 +1740,14 @@ if not os.path.exists(searchlight_scores_filename):
     y = datasets['y']
     residualizer = datasets['residualizer']
 
-    results = dict()
+    print('# Search light choose folds in (separated by space):', cv_dict.keys())
+    folds = [f.strip() for f in input('Fold:').split(' ')]
+    cv_dict = {k:v for k, v in cv_dict.items() if k in folds}
+
     for i, (fold_name, (train, test)) in enumerate(cv_dict.items()):
         print("## %s (%i/%i)" % (fold_name, i+1, len(cv_dict)))
+        searchlight_scores_filename = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso-%s" % fold_name, type="auc-bacc", ext="pkl")
+        print(searchlight_scores_filename)
 
         y_train = datasets['y'][train]
         y_test = datasets['y'][test]
@@ -1766,8 +1770,8 @@ if not os.path.exists(searchlight_scores_filename):
         results[(fold_name, 'auc')] = results_['auc']
         results[(fold_name, 'bacc')] = results_['bacc']
 
-    with open(searchlight_scores_filename, 'wb') as fd:
-       pickle.dump(results, fd)
+        with open(searchlight_scores_filename, 'wb') as fd:
+           pickle.dump(results, fd)
 
 
  # %% 8.7) Univariate statistics
