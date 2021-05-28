@@ -9,6 +9,8 @@ rsync -azvun --delete ed203246@is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/ana
 Laptop => NS
 rsync -azvun --delete /home/ed203246/data/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx ed203246@is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/analyses/
 
+# BIOBD NS => Laptop
+rsync -azvun is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays/biobd* /home/ed203246/data/psy_sbox/all_studies/derivatives/arrays/
 """
 
 
@@ -34,12 +36,12 @@ import scipy.ndimage
 import nibabel
 from nilearn.image import new_img_like
 
-#from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
+#from nitk.image import niimgs_bids_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
 #from nitk.bids import get_keys
 #from nitk.data import fetch_data
 
 from nitk.utils import maps_similarity, arr_threshold_from_norm2_ratio, arr_clusters
-from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, plot_glass_brains
+from nitk.image import niimgs_bids_to_array, global_scaling, compute_brain_mask, rm_small_clusters, plot_glass_brains, flat_to_array
 #from nitk.stats import Residualizer
 from nitk.mapreduce import dict_product, MapReduce, reduce_cv_classif
 from mulm.residualizer import Residualizer
@@ -295,6 +297,14 @@ def load_dataset(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
         rois = pd.read_csv(rois_filename)
         rois = rois[select].reset_index(drop=True)
 
+        # DEBUG
+        # arr = np.load(imgs_filename)#, mmap_mode='r')
+        # arr_ = flat_to_array(data_flat=Xim, mask_arr=mask_arr)
+        # arr[:, 0, ~mask_arr] = 0
+        # np.all(arr == arr_)
+        # np.all(flat_to_array(Xim, mask_arr).squeeze()[:, mask_arr] == Xim)
+        # DEBUG
+
         # Load images
         #assert np.all(participants.diagnosis.isin(['control', 'bipolar disorder']))
         Xim = np.load(imgs_filename, mmap_mode='r').squeeze()[:, mask_arr]
@@ -305,11 +315,12 @@ def load_dataset(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
 
     study = 'biobd-bsnip'
     participants_filename = os.path.join(output_dir, "{study}_cat12vbm_participants.csv".format(study=study))
-    imgs_filename = os.path.join(output_dir, "{study}_cat12vbm_mwp1-gs-flat.npy".format(study=study))
+    imgs_flat_filename = os.path.join(output_dir, "{study}_cat12vbm_mwp1-gs-flat.npy".format(study=study))
+    imgs_filename = os.path.join(output_dir, "{study}_cat12vbm_mwp1-gs.npy".format(study=study))
     rois_filename = os.path.join(output_dir, "{study}_cat12vbm_rois-gs.csv".format(study=study))
 
     if not os.path.exists(participants_filename) or \
-       not os.path.exists(imgs_filename) or \
+       not os.path.exists(imgs_flat_filename) or \
        not os.path.exists(rois_filename):
 
         participants_biobd, Xim_biobd, rois_biobd = load_study(input_dir, study="biobd", mask_arr=mask_arr)
@@ -330,13 +341,19 @@ def load_dataset(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
 
         participants.to_csv(participants_filename, index=False)
         rois.to_csv(rois_filename, index=False)
-        np.save(imgs_filename, Xim)
+        np.save(imgs_flat_filename, Xim)
+
+        img_arr = flat_to_array(Xim, mask_arr)
+        assert np.all(img_arr.squeeze()[:, mask_arr] == Xim)
+        np.save(imgs_filename, img_arr)
 
     else:
 
         participants = pd.read_csv(participants_filename)
         rois = pd.read_csv(rois_filename)
-        Xim = np.load(imgs_filename, mmap_mode='r')
+        Xim = np.load(imgs_flat_filename, mmap_mode='r')
+        # imgs_arr = np.load(imgs_filename, mmap_mode='r')
+        # assert np.all(img_arr.squeeze()[:, mask_arr] == Xim)
 
     assert Xim.shape == (participants.shape[0], np.sum(mask_arr != 0))
     assert rois.shape[0] == participants.shape[0]
@@ -414,7 +431,7 @@ def plot_coefmap_stats(coef_vec, coefs_vec, mask_img, thresh_norm_ratio=0.99):
     from nitk.utils import arr_threshold_from_norm2_ratio
     import nilearn.image
     from nilearn import plotting
-    from nitk.image import vec_to_img, plot_glass_brains
+    from nitk.image import vec_to_niimg, plot_glass_brains
     # arr_threshold_from_norm2_ratio(coef_vec, thresh_norm_ratio)[0]
     coefs_vec_t = np.vstack([arr_threshold_from_norm2_ratio(coefs_vec[i, :],
                                                             thresh_norm_ratio)[0]
@@ -430,13 +447,13 @@ def plot_coefmap_stats(coef_vec, coefs_vec, mask_img, thresh_norm_ratio=0.99):
     coefs_vec_ci_sign[coefs_vec_ci_sign == -1] = 0
 
     # Vectors to images
-    coefmap_img = vec_to_img(coef_vec, mask_img)
-    coefmap_cvmean_img = vec_to_img(w_mean, mask_img)
+    coefmap_img = vec_to_niimg(coef_vec, mask_img)
+    coefmap_cvmean_img = vec_to_niimg(w_mean, mask_img)
     w_mean[coefs_vec_ci_sign != 1] = 0
-    coefmap_cvmean95ci_img = vec_to_img(w_mean, mask_img)
-    coefmap_cvstd_img = vec_to_img(w_std, mask_img)
-    coefmap_cvzscore_img = vec_to_img(w_zscore, mask_img)
-    coefmap_cvselectrate_img = vec_to_img(w_selectrate, mask_img)
+    coefmap_cvmean95ci_img = vec_to_niimg(w_mean, mask_img)
+    coefmap_cvstd_img = vec_to_niimg(w_std, mask_img)
+    coefmap_cvzscore_img = vec_to_niimg(w_zscore, mask_img)
+    coefmap_cvselectrate_img = vec_to_niimg(w_selectrate, mask_img)
 
     threshold = arr_threshold_from_norm2_ratio(coef_vec, thresh_norm_ratio)[1]
     vmax = np.quantile(np.abs(coef_vec), 0.99)
@@ -1713,18 +1730,42 @@ if not os.path.exists(regions_corrmat_filename):
 if False:
     # Manualy iterate over folds to residualized on training
 
+    datasets = load_dataset()
+    dataset = DATASET
+
+    mask_arr = datasets['mask_arr']
+    mask_img = datasets['mask_img']
+    y = datasets['y']
+
+    from nitk.image import flat_to_array, arr_to_4dniimg
+
     """
+
+
+    from nitk.image import niimgs_to_array, arr_to_4dniimg
+    niimgs4d = arr_to_4dniimg(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0))
+    assert niimgs4d.shape == (121, 145, 121, 978)
+    img =  niimgs4d
+    img.affine.copy()
+
     from sklearn.model_selection import KFold
-    cv = KFold(n_splits=4)
+    cv = KFold(n_splits=2)
 
     import nilearn.decoding
     # The radius is the one of the Searchlight sphere that will scan the volume
     searchlight = nilearn.decoding.SearchLight(
         mask_img,
-        process_mask_img=process_mask_img,
-        radius=5.6, n_jobs=n_jobs,
+        #process_mask_img=process_mask_img,
+        radius=2, n_jobs=1,
         verbose=1, cv=cv)
-    searchlight.fit(fmri_img, y)
+    sl = searchlight.fit(niimgs4d, y)
+
+    ####
+    from nilearn import masking
+    from nilearn.image.resampling import coord_transform
+    from nilearn.input_data.nifti_spheres_masker import _apply_mask_and_get_affinity
+    from nilearn._utils import check_niimg_4d
+    from sklearn.model_selection import cross_val_score
     """
 
  # %% 8.7) Univariate statistics
@@ -1775,7 +1816,7 @@ xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-l
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
 
-if True or not os.path.exists(xls_filename):
+if not os.path.exists(xls_filename):
 
     #%% 9.1) Fit models
 
@@ -2003,17 +2044,29 @@ if True or not os.path.exists(xls_filename):
     fig = plt.figure(figsize=(9, 5))
 
     sns.lineplot(x='Size', y='AUC', hue='Model', data=stats, lw=3)
+
+    stats_all_mean = stats[stats.Size.isin([903])].groupby('Model').mean()[['AUC', 'bacc']]
+    stats_all_se = stats[stats.Size.isin([903])].groupby('Model').std(ddof=1)[['AUC', 'bacc']]/ np.sqrt(len(stats.fold.unique()))
+
+    stats_all_se.columns = ["se_%s" % col for col in stats_all_se.columns]
+
+    stats_all = pd.concat([stats_all_mean, stats_all_se], axis=1)
+    stats_all = stats_all[['AUC', 'se_AUC', 'bacc', 'se_bacc']]
+    stats_all.to_csv('/tmp/classif_perf.csv')
+
+    print(stats_all.round(3))
+
 """
-cd /home/ed203246/data/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx/mwp1-gs_all_cvlso-learningcurves_models.mapreduce
-ls task_*| grep -v lock|grep -v pkl>/tmp/toto
-cat /tmp/toto|while read f; do grep STARTED "$f" ; done
-cat /tmp/toto|while read f; do grep -l STARTED "$f" ; done
-rm /tmp/to_delete
-cat /tmp/toto|while read f; do grep -l STARTED "$f" >> /tmp/to_delete; done
-cat /tmp/to_delete|while read f; do rm "$f" ; done
+           AUC  se_AUC   bacc  se_bacc
+Model
+Enet     0.687   0.024  0.570    0.021
+Enet-TV  0.689   0.021  0.617    0.018
+L2       0.683   0.020  0.627    0.022
+MLP      0.670   0.015  0.621    0.012
+SVM-RBF  0.674   0.018  0.589    0.017
+"""
 
-
-
+"""
 stats.groupby(['Model']).count()['fold']
 Model
 Enet       104
@@ -2021,53 +2074,14 @@ Enet-TV    104
 L2         104
 MLP        104
 SVM-RBF    104
-
-stats.groupby(['Model', 'size']).count()['fold']
-
-enetlr_cv                       100      8
-                                200     12
-                                300      9
-                                400     13
-                                500      9
-                                600     13
-                                700      8
-                                800     10
-enettv_0.100:0.010000:0.100000  100     13
-                                200     13
-                                300     13
-                                400     13
-                                500     13
-                                600     13
-                                700     13
-                                800     13
-l2lr_C:10.000000                100     13
-                                200     13
-                                300     13
-                                400     13
-                                500     13
-                                600     13
-                                700     13
-                                800     13
-mlp_cv                          100      9
-                                200      9
-                                300     10
-                                400     10
-                                500     10
-                                600     10
-                                700     10
-                                800     10
-svmrbf_cv                       100     13
-                                200     13
-                                300     13
-                                400     13
-                                500     13
-                                600     13
-                                700     13
-                                800     13
-
-stats.columns
-Index(['param_0', 'size', 'param_1', 'fold', 'param_3', 'param_4', 'param_5',
-       'param_6', 'param_7', 'pred', 'auc', 'bacc', 'recall_0', 'recall_1',
-       'count_0', 'count_1'],
-      dtype='object')
 """
+
+
+#%% Misc: Clean failed executions
+# cd /home/ed203246/data/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx/mwp1-gs_all_cvlso-learningcurves_models.mapreduce
+# ls task_*| grep -v lock|grep -v pkl>/tmp/toto
+# cat /tmp/toto|while read f; do grep STARTED "$f" ; done
+# cat /tmp/toto|while read f; do grep -l STARTED "$f" ; done
+# rm /tmp/to_delete
+# cat /tmp/toto|while read f; do grep -l STARTED "$f" >> /tmp/to_delete; done
+# cat /tmp/to_delete|while read f; do rm "$f" ; done
