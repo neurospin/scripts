@@ -1727,46 +1727,48 @@ if not os.path.exists(regions_corrmat_filename):
 # https://nilearn.github.io/decoding/searchlight.html
 # https://github.com/nilearn/nilearn/blob/master/nilearn/decoding/searchlight.py
 
-if False:
+searchlight_scores_filename = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso", type="auc-bacc", ext="pkl")
+
+if not os.path.exists(searchlight_scores_filename):
     # Manualy iterate over folds to residualized on training
+    from nitk.image import flat_to_array, arr_to_4dniimg
+    from nitk.image import search_light
 
     datasets = load_dataset()
-    dataset = DATASET
-
     mask_arr = datasets['mask_arr']
     mask_img = datasets['mask_img']
+    cv_dict = datasets['cv_lso_dict']
     y = datasets['y']
+    residualizer = datasets['residualizer']
 
-    from nitk.image import flat_to_array, arr_to_4dniimg
+    results = dict()
+    for i, (fold_name, (train, test)) in enumerate(cv_dict.items()):
+        print("## %s (%i/%i)" % (fold_name, i+1, len(cv_dict)))
 
-    """
+        y_train = datasets['y'][train]
+        y_test = datasets['y'][test]
 
+        residualizer = datasets['residualizer']
+        X_train = residualizer.fit_transform(datasets['Xim'][train], datasets['Zres'][train])
+        X_test = residualizer.transform(datasets['Xim'][test], datasets['Zres'][test])
+        scaler = preprocessing.StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
 
-    from nitk.image import niimgs_to_array, arr_to_4dniimg
-    niimgs4d = arr_to_4dniimg(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0))
-    assert niimgs4d.shape == (121, 145, 121, 978)
-    img =  niimgs4d
-    img.affine.copy()
+        arr_train = flat_to_array(data_flat=X_train, mask_arr=mask_arr, fill=0).squeeze()
+        arr_test = flat_to_array(data_flat=X_test, mask_arr=mask_arr, fill=0).squeeze()
 
-    from sklearn.model_selection import KFold
-    cv = KFold(n_splits=2)
+        # 4 mms of radius
+        radius = 4 / mask_img.header.get_zooms()[0]
+        estimator = lm.LogisticRegression(C=10, class_weight='balanced', fit_intercept=False, max_iter=1000)
+        results_ = search_light(mask_arr, arr_train, arr_test, y_train, y_test, estimator, radius, verbose=1000)
 
-    import nilearn.decoding
-    # The radius is the one of the Searchlight sphere that will scan the volume
-    searchlight = nilearn.decoding.SearchLight(
-        mask_img,
-        #process_mask_img=process_mask_img,
-        radius=2, n_jobs=1,
-        verbose=1, cv=cv)
-    sl = searchlight.fit(niimgs4d, y)
+        results[(fold_name, 'auc')] = results_['auc']
+        results[(fold_name, 'bacc')] = results_['bacc']
 
-    ####
-    from nilearn import masking
-    from nilearn.image.resampling import coord_transform
-    from nilearn.input_data.nifti_spheres_masker import _apply_mask_and_get_affinity
-    from nilearn._utils import check_niimg_4d
-    from sklearn.model_selection import cross_val_score
-    """
+    with open(searchlight_scores_filename, 'wb') as fd:
+       pickle.dump(results, fd)
+
 
  # %% 8.7) Univariate statistics
 if False:
