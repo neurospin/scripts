@@ -1740,6 +1740,7 @@ if True: #False and not os.path.exists(searchlight_scores_filename):
     y = datasets['y']
     residualizer = datasets['residualizer']
 
+    results = dict()
     print('# Search light choose folds in (separated by space):', cv_dict.keys())
     folds = [f.strip() for f in input('Fold:').split(' ')]
     cv_dict = {k:v for k, v in cv_dict.items() if k in folds}
