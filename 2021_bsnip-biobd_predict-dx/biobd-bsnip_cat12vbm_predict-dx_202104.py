@@ -1227,7 +1227,7 @@ if not os.path.exists(regions_score_filename) or not os.path.exists(regions_info
 
     # Map regions to patterns
     patterns = OrderedDict()
-    patterns['Frontal atrophy'] = clusters[1]
+    patterns['Frontotemporal atrophy'] = clusters[1]
     patterns['Frontal increase'] = clusters[2]
     patterns['Temporal increase'] = clusters[0]
     patterns['Independant'] = np.concatenate(clusters[3:]).tolist()
@@ -1277,7 +1277,7 @@ if not os.path.exists(regions_score_filename) or not os.path.exists(regions_info
                          plot_abs=False, colorbar=False, cmap=None,
                          title=netname)
 
-    _plot_net(region_names=patterns['Frontal atrophy'], netname='Frontal atrophy')
+    _plot_net(region_names=patterns['Frontotemporal atrophy'], netname='Frontotemporal atrophy')
     _plot_net(region_names=patterns['Frontal increase'], netname='Frontal increase')
     _plot_net(region_names=patterns['Temporal increase'], netname='Temporal increase')
     _plot_net(region_names=patterns['Independant'], netname='Independant')
@@ -1508,7 +1508,7 @@ def read_feature_importance_with_order(feature_importance_plot_filename):
 
     # Manually re-order pattern for figures
     pattern_name_sorted = OrderedDict()
-    pattern_name_sorted['Frontal atrophy'] = pattern_name_sorted_['Frontal atrophy']
+    pattern_name_sorted['Frontotemporal atrophy'] = pattern_name_sorted_['Frontotemporal atrophy']
     pattern_name_sorted['Frontal increase'] = pattern_name_sorted_['Frontal increase']
     pattern_name_sorted['Temporal increase'] = pattern_name_sorted_['Temporal increase']
     pattern_name_sorted['Independant'] = pattern_name_sorted_['Independant']
@@ -1516,7 +1516,7 @@ def read_feature_importance_with_order(feature_importance_plot_filename):
 
     # Tune plot order
     region_pattern_name_sorted = \
-        ['Frontal atrophy'] + pattern_name_sorted['Frontal atrophy'] + \
+        ['Frontotemporal atrophy'] + pattern_name_sorted['Frontotemporal atrophy'] + \
         ['Frontal increase'] + pattern_name_sorted['Frontal increase'] + \
         ['Temporal increase'] + pattern_name_sorted['Temporal increase'] + \
         ['Independant'] + pattern_name_sorted['Independant']
@@ -1542,7 +1542,7 @@ if not os.path.exists(feature_importance_plot_filename):
     # Palette
     sns.set_style("darkgrid")
     pal_ = sns.color_palette()
-    palette_ = {'Frontal atrophy': pal_[0], 'Frontal increase': pal_[3],
+    palette_ = {'Frontotemporal atrophy': pal_[0], 'Frontal increase': pal_[3],
                 'Temporal increase': pal_[1], 'Independant': pal_[2]}
     lcolor ="black"
 
@@ -1572,7 +1572,7 @@ if not os.path.exists(feature_importance_plot_filename):
     ax.axvline(0.5, ls='-', color="grey", lw=3)
 
     def add_axvlines(ax, xloc):
-        ax.plot([xloc, xloc], [-0.5, 9.5], ls='-', color=palette_['Frontal atrophy'], lw=4)
+        ax.plot([xloc, xloc], [-0.5, 9.5], ls='-', color=palette_['Frontotemporal atrophy'], lw=4)
         ax.plot([xloc, xloc], [9.5, 12.5], ls='-', color=palette_['Frontal increase'], lw=4)
         ax.plot([xloc, xloc], [12.5, 16.5], ls='-', color=palette_['Temporal increase'], lw=4)
         ax.plot([xloc, xloc], [16.5, 24.5], ls='-', color=palette_['Independant'], lw=4)
@@ -1583,7 +1583,7 @@ if not os.path.exists(feature_importance_plot_filename):
     def add_axhlines(ax):
         ax.yaxis.label.set_visible(False)
         ax.get_legend().remove()
-        ax.axhline(-0.5, ls='-', color=lcolor, lw=2) # Frontal atrophy
+        ax.axhline(-0.5, ls='-', color=lcolor, lw=2) # Frontotemporal atrophy
         ax.axhline(0.5, ls='-', color=lcolor, lw=0.5)
         ax.axhline(9.5, ls='-', color=lcolor, lw=2)  # 'Frontal increase'
         ax.axhline(10.5, ls='-', color=lcolor, lw=0.5)
@@ -1671,7 +1671,7 @@ if not os.path.exists(feature_importance_summary_filename):
     Sum of regions
                         auc_delta  bacc_delta
     region_name
-    Frontal atrophy     -0.063873   -0.033568
+    Frontotemporal atrophy     -0.063873   -0.033568
     Frontal increase    -0.027768   -0.017199
     Temporal increase   -0.008939   -0.008546
     Independant         -0.048966   -0.031595
@@ -1679,7 +1679,7 @@ if not os.path.exists(feature_importance_summary_filename):
     # Patterns losses
                             auc      bacc  auc_delta  bacc_delta
     region_name
-    Frontal atrophy    0.625218  0.564342  -0.159615   -0.140471
+    Frontotemporal atrophy    0.625218  0.564342  -0.159615   -0.140471
     Frontal increase   0.751646  0.675008  -0.033187   -0.029806
     Independant        0.733176  0.653362  -0.051657   -0.051452
     Temporal increase  0.777694  0.695929  -0.007139   -0.008885
@@ -1728,9 +1728,9 @@ if not os.path.exists(regions_corrmat_filename):
 # https://github.com/nilearn/nilearn/blob/master/nilearn/decoding/searchlight.py
 
 
-if True: #False and not os.path.exists(searchlight_scores_filename):
+if False and not os.path.exists(searchlight_scores_filename):
     # Manualy iterate over folds to residualized on training
-    from nitk.image import flat_to_array, arr_to_4dniimg
+    from nitk.image import flat_to_array, arr_to_niimgs
     from nitk.image import search_light
 
     datasets = load_dataset()
@@ -1775,13 +1775,78 @@ if True: #False and not os.path.exists(searchlight_scores_filename):
            pickle.dump(results, fd)
 
 
- # %% 8.7) Univariate statistics
-if False:
+ # %% 8.7) VBM: Univariate statistics
+
+vbm_dirname = OUTPUT.format(data='mwp1-gs', model="vbm", experience="dx", type="ttest-tfce", ext="mulm-fsl")
+
+if False and not os.path.exists(vbm_dirname):
+
+    os.makedirs(vbm_dirname, exist_ok=True)
+
+    from nitk.image import flat_to_array, array_to_niimgs, vec_to_niimg, niimgs_to_array
+    from nilearn.image import smooth_img
+
+
+    # FSL randomize
+    datasets = load_dataset()
+    mask_arr = datasets['mask_arr']
+    mask_img = datasets['mask_img']
 
     import mulm
     from collections import OrderedDict
-    X, t_contrasts, f_contrasts = mulm.design_matrix(formula="dx + age + sex + site", data=regions_scores)
-    reordered = np.concatenate(clusters_reordered)
+    Design, t_contrasts, f_contrasts = mulm.design_matrix(formula="dx + age + sex + site", data=datasets['participants'])
+
+    # Design and contrast matrix for fsl5.0-randomise
+    prefix = vbm_dirname + '/fsl'
+    pd.DataFrame(Design).to_csv(prefix +'_design.txt', header=None, index=None, sep=' ', mode='a')
+    subprocess.run(["fsl5.0-Text2Vest", prefix +'_design.txt', prefix +'_design.mat'], stdout=subprocess.PIPE)
+    os.remove(prefix +'_design.txt')
+    contrasts = np.vstack([t_contrasts['dx'], -1 * t_contrasts['dx']])
+    np.savetxt(prefix +'_contrast.txt', contrasts, fmt='%i')
+    subprocess.run(["fsl5.0-Text2Vest", prefix +'_contrast.txt', prefix +'_contrast.mat'], stdout=subprocess.PIPE)
+    os.remove(prefix +'_contrast.txt')
+
+    arr = flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0)
+
+    # Smooth Data for fsl5.0-randomise
+    niimgs = array_to_niimgs(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0).squeeze())
+    assert np.all(niimgs_to_array(niimgs).squeeze()[:, mask_arr] == datasets['Xim'])
+    niimgs = smooth_img(niimgs, fwhm=8)
+    niimgs.to_filename(prefix + "ALL.nii.gz")
+
+    # Run randomise
+    # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Randomise
+    # -T : TFCE
+    # -C <thresh> for t contrasts, Cluster-based thresholding
+
+    cmd = ["fsl5.0-randomise", '-i', prefix + "ALL.nii.gz", "-m",  os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm.nii.gz"),
+     "-o", vbm_dirname,
+     '-d', prefix +'_design.mat',
+     '-t', prefix +'_contrast.mat', '-T', '-n', '500', "-C", "3"]
+
+    print(" ".join(cmd))
+
+    # MUOLS
+    Y = niimgs_to_array(niimgs).squeeze()[:, mask_arr]
+    mod_mulm = mulm.MUOLS(Y, Design).fit()
+    tstat, pval, df = mod_mulm.t_test(t_contrasts['dx'], pval=True)
+    pval_fwer =  pval * len(pval.ravel())
+    pval_fwer[pval_fwer > 1] = 1
+    print(pd.Series(pval_fwer.ravel()).describe(), np.sum(pval_fwer < 0.05))
+
+    tstat_niimg = vec_to_niimg(tstat.ravel(), mask_img)
+    pval_niimg = vec_to_niimg(1 - pval.ravel(), mask_img)
+    pval_fwer_niimg = vec_to_niimg(1 - pval_fwer.ravel(), mask_img)
+
+    tstat_niimg.to_filename(vbm_dirname + '/mulm_tstat.nii.gz')
+    pval_niimg.to_filename(vbm_dirname + '/mulm_pvals.nii.gz')
+    pval_fwer_niimg.to_filename(vbm_dirname + '/mulm_pvals-fwer.nii.gz')
+
+
+
+    """
+    #
+    #reordered = np.concatenate(clusters_reordered)
 
     Y = regions_scores[reordered].values
 
@@ -1814,7 +1879,7 @@ if False:
                 hue='age_significant',
                 order=reordered,
                 data=univstat)
-
+    """
 
 # %% 9) Learning curves
 
