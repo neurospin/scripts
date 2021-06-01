@@ -1785,26 +1785,27 @@ if False and not os.path.exists(vbm_dirname):
 
     from nitk.image import flat_to_array, array_to_niimgs, vec_to_niimg, niimgs_to_array
     from nilearn.image import smooth_img
-
+    import mulm
 
     # FSL randomize
+
     datasets = load_dataset()
     mask_arr = datasets['mask_arr']
     mask_img = datasets['mask_img']
 
-    import mulm
     from collections import OrderedDict
     Design, t_contrasts, f_contrasts = mulm.design_matrix(formula="dx + age + sex + site", data=datasets['participants'])
 
     # Design and contrast matrix for fsl5.0-randomise
     prefix = vbm_dirname + '/fsl'
-    pd.DataFrame(Design).to_csv(prefix +'_design.txt', header=None, index=None, sep=' ', mode='a')
-    subprocess.run(["fsl5.0-Text2Vest", prefix +'_design.txt', prefix +'_design.mat'], stdout=subprocess.PIPE)
-    os.remove(prefix +'_design.txt')
-    contrasts = np.vstack([t_contrasts['dx'], -1 * t_contrasts['dx']])
-    np.savetxt(prefix +'_contrast.txt', contrasts, fmt='%i')
-    subprocess.run(["fsl5.0-Text2Vest", prefix +'_contrast.txt', prefix +'_contrast.mat'], stdout=subprocess.PIPE)
-    os.remove(prefix +'_contrast.txt')
+    if not os.path.exists(prefix +'_design.mat'):
+        pd.DataFrame(Design).to_csv(prefix +'_design.txt', header=None, index=None, sep=' ', mode='a')
+        subprocess.run(["fsl5.0-Text2Vest", prefix +'_design.txt', prefix +'_design.mat'], stdout=subprocess.PIPE)
+        os.remove(prefix +'_design.txt')
+        contrasts = np.vstack([t_contrasts['dx'], -1 * t_contrasts['dx']])
+        np.savetxt(prefix +'_contrast.txt', contrasts, fmt='%i')
+        subprocess.run(["fsl5.0-Text2Vest", prefix +'_contrast.txt', prefix +'_contrast.mat'], stdout=subprocess.PIPE)
+        os.remove(prefix +'_contrast.txt')
 
     arr = flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0)
 
@@ -1812,7 +1813,8 @@ if False and not os.path.exists(vbm_dirname):
     niimgs = array_to_niimgs(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0).squeeze())
     assert np.all(niimgs_to_array(niimgs).squeeze()[:, mask_arr] == datasets['Xim'])
     niimgs = smooth_img(niimgs, fwhm=8)
-    niimgs.to_filename(prefix + "ALL.nii.gz")
+    if not os.path.exists(prefix +"ALL.nii.gz"):
+        niimgs.to_filename(prefix + "ALL.nii.gz")
 
     # Run randomise
     # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Randomise
@@ -1827,23 +1829,30 @@ if False and not os.path.exists(vbm_dirname):
     print(" ".join(cmd))
 
     # MUOLS
+
     Y = niimgs_to_array(niimgs).squeeze()[:, mask_arr]
     mod_mulm = mulm.MUOLS(Y, Design).fit()
     tstat, pval, df = mod_mulm.t_test(t_contrasts['dx'], pval=True)
     pval_fwer =  pval * len(pval.ravel())
     pval_fwer[pval_fwer > 1] = 1
-    print(pd.Series(pval_fwer.ravel()).describe(), np.sum(pval_fwer < 0.05))
+    print(np.quantile(pval_fwer, (0.0001, 0.001, 0.01)), np.sum(pval_fwer < 0.05))
+    # [1.13558031e-04 1.16418598e-02 1.00000000e+00] 711
 
+    tstat_, pval_maxt, df2 = mod_mulm.t_test_maxT(t_contrasts['dx'], two_tailed=True, nperms=100)
+    assert np.all(tstat_ == tstat)
+    print(np.quantile(pval_maxt, (0.0001, 0.001, 0.01, 0.05)), np.sum(pval_maxt < 0.05))
+    # [0.   0.   0.06 0.56] 2629
+
+    # Save images
     tstat_niimg = vec_to_niimg(tstat.ravel(), mask_img)
     pval_niimg = vec_to_niimg(1 - pval.ravel(), mask_img)
     pval_fwer_niimg = vec_to_niimg(1 - pval_fwer.ravel(), mask_img)
+    pval_maxt_niimg = vec_to_niimg(1 - pval_maxt.ravel(), mask_img)
 
     tstat_niimg.to_filename(vbm_dirname + '/mulm_tstat.nii.gz')
     pval_niimg.to_filename(vbm_dirname + '/mulm_pvals.nii.gz')
     pval_fwer_niimg.to_filename(vbm_dirname + '/mulm_pvals-fwer.nii.gz')
-
-
-
+    pval_maxt_niimg.to_filename(vbm_dirname + '/mulm_pvals-maxT.nii.gz')
     """
     #
     #reordered = np.concatenate(clusters_reordered)
