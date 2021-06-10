@@ -1838,7 +1838,7 @@ if False and not os.path.exists(vbm_dirname):
     print(np.quantile(pval_fwer, (0.0001, 0.001, 0.01)), np.sum(pval_fwer < 0.05))
     # [1.13558031e-04 1.16418598e-02 1.00000000e+00] 711
 
-    tstat_, pval_maxt, df2 = mod_mulm.t_test_maxT(t_contrasts['dx'], two_tailed=True, nperms=100)
+    tstat_, pval_maxt, df2 = mod_mulm.t_test_maxT(t_contrasts['dx'], two_tailed=True, nperms=1000)
     assert np.all(tstat_ == tstat)
     print(np.quantile(pval_maxt, (0.0001, 0.001, 0.01, 0.05)), np.sum(pval_maxt < 0.05))
     # [0.   0.   0.06 0.56] 2629
