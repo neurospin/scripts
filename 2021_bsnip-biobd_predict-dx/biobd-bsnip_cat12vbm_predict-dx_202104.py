@@ -17,6 +17,7 @@ rsync -azvun is234606.intra.cea.fr:/neurospin/tmp/psy_sbox/all_studies/derivativ
 import os
 import os.path
 import numpy as np
+import scipy
 import pandas as pd
 import glob
 import copy
@@ -35,6 +36,7 @@ import seaborn as sns
 import scipy.ndimage
 import nibabel
 from nilearn.image import new_img_like
+from nilearn.plotting import plot_glass_brain
 
 #from nitk.image import niimgs_bids_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
 #from nitk.bids import get_keys
@@ -524,6 +526,59 @@ def sample_stratified(groups, size, shuffle=False, random_state=None):
     assert np.all(groups.loc[indices, :].groupby(cols).count() == count)
 
     return indices
+
+###############################################################################
+#%% 1.6) mean_se_z_t_ci_pval
+
+def mean_se_z_t_ci_pval(X, mu=0):
+    """Compute Mean, Standart Errors, z-scores, t-score, confidence interval, and pvalue.
+
+    Parameters
+    ----------
+    vectors : array (n, p)
+        vectors of p-dimensional arrays.
+    mu : TYPE, optional, The default is 0.
+        Null hypothesis.
+
+    Returns
+    -------
+    mean : array (p, )
+        Mean (accross axis 0).
+    se :  array (p, )
+        SEs.
+    z :  array (p, )
+        Z-scores.
+    tstat :  array (p, )
+        T-values.
+    pval :  array (p, )
+        P-values.
+
+    Example
+    -------
+    import numpy as np
+    #from mulm import mean_se_z_t_ci_pval
+    X = [.1, .2, .3, -.1, .1, .2, .3]
+    mean, se, z, tstat, pval, ci = mean_se_z_t_ci_pval(X)
+    assert np.allclose(mean, 0.15714286)
+    assert np.allclose(tstat, 2.9755)
+    assert np.allclose(pval, 0.02478)
+    assert np.allclose(ci[0], 0.02791636)
+    assert np.allclose(ci[1], 0.28636936)
+    """
+    from mulm import estimate_se_tstat_pval_ci
+    X = np.asarray(X)
+    X = np.expand_dims(X, axis=1) if X.ndim == 1 else X
+
+    n = X.shape[0]
+    df = n - 1
+    mean = X.mean(axis=0)
+    sd = X.std(axis=0, ddof=1)
+    z = (mean - mu) / sd
+    se = sd / np.sqrt(n)
+    _, _, tstat, pval, ci = \
+        estimate_se_tstat_pval_ci(df=df, estimate=mean, se=se)
+
+    return mean, se, z, tstat, pval, ci
 
 ###############################################################################
 #%% 2) Descriptives stats
@@ -1727,10 +1782,12 @@ if not os.path.exists(regions_corrmat_filename):
 # https://nilearn.github.io/decoding/searchlight.html
 # https://github.com/nilearn/nilearn/blob/master/nilearn/decoding/searchlight.py
 
+searchlight_scores_filename = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso", type="auc-bacc", ext="pkl")
 
-if False and not os.path.exists(searchlight_scores_filename):
+if not os.path.exists(searchlight_scores_filename):
+
     # Manualy iterate over folds to residualized on training
-    from nitk.image import flat_to_array, arr_to_niimgs
+    from nitk.image import flat_to_array, array_to_niimgs
     from nitk.image import search_light
 
     datasets = load_dataset()
@@ -1747,8 +1804,8 @@ if False and not os.path.exists(searchlight_scores_filename):
 
     for i, (fold_name, (train, test)) in enumerate(cv_dict.items()):
         print("## %s (%i/%i)" % (fold_name, i+1, len(cv_dict)))
-        searchlight_scores_filename = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso-%s" % fold_name, type="auc-bacc", ext="pkl")
-        print(searchlight_scores_filename)
+        searchlight_scores_filename_ = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso-%s" % fold_name, type="auc-bacc", ext="pkl")
+        print(searchlight_scores_filename_)
 
         y_train = datasets['y'][train]
         y_test = datasets['y'][test]
@@ -1771,8 +1828,74 @@ if False and not os.path.exists(searchlight_scores_filename):
         results[(fold_name, 'auc')] = results_['auc']
         results[(fold_name, 'bacc')] = results_['bacc']
 
-        with open(searchlight_scores_filename, 'wb') as fd:
-           pickle.dump(results, fd)
+        with open(searchlight_scores_filename_, 'wb') as fd:
+           pickle.dump(results_, fd)
+
+
+    # Reload results
+    import re
+    regex = re.compile("cvlso-(.+)_")
+    searchlight_scores_filenames = OUTPUT.format(data='mwp1-gs', model="searchlight-l2lr", experience="cvlso-%s" % '*', type="auc-bacc", ext="pkl")
+    results = dict()
+
+    for filename in glob.glob(searchlight_scores_filenames):
+        fold = regex.findall(filename)[0]
+        print(filename, fold)
+
+        with open(filename, 'rb') as fd:
+          results_ = pickle.load(fd)
+
+        results.update(results_)
+
+    with open(searchlight_scores_filename, 'wb') as fd:
+       pickle.dump(results, fd)
+
+
+
+if False:
+
+    from statsmodels.stats.multitest import multipletests
+
+    with open(searchlight_scores_filename, 'rb') as fd:
+       results = pickle.load(fd)
+
+    auc_arr = np.stack([v for k, v in results.items() if k[1] == 'auc'])
+
+    auc_mean_vec, auc_se_vec, auc_z_vec, auc_t_vec, auc_pval_vec, auc_ci_vec = \
+        mean_se_z_t_ci_pval(vectors=auc_arr[:, mask_arr], null_hypothesis=0.5, alternative="greater")
+
+    sns.histplot(auc_pval_vec)
+
+    # Correction for multpiple comparison
+    auc_pval_fwer_vec = multipletests(auc_pval_vec, alpha=0.05, method='bonferroni')[1]
+    auc_pval_fdr_vec = multipletests(auc_pval_vec, alpha=0.05, method='fdr_bh')[1]
+    assert np.sum(pval < 0.05) == 99355
+    assert np.sum(auc_pval_fwer_vec < 0.05) == 28
+    assert np.sum(auc_pval_fdr_vec < 0.05) == 37608
+
+    # !! 1 - pval image
+    auc_pval_arr = vec_to_arr(1 - auc_pval_vec, mask_arr, fill=0)
+    auc_pval_fwer_arr = vec_to_arr(1 - auc_pval_fwer_vec, mask_arr, fill=0)
+    auc_pval_fdr_arr = vec_to_arr(1 - auc_pval_fdr_vec, mask_arr, fill=0)
+    assert np.sum(auc_pval_fwer_arr >= 0.95) == 28 and np.sum(auc_pval_fdr_arr >= 0.95) == 37608
+
+    # Plot
+    pval_arr = auc_pval_fwer_arr
+    pval_arr = auc_pval_fdr_arr
+
+    #auc_plot_arr = auc_mean_arr.copy()
+    #auc_plot_arr = auc_t_arr.copy()
+    auc_plot_arr =  vec_to_arr(auc_z_vec, mask_arr, fill=0)
+
+    auc_signif_vals = auc_plot_arr[pval_arr >= 0.95]
+    print(len(auc_signif_vals), np.min(auc_signif_vals), np.max(auc_signif_vals))
+
+    np.sum(auc_plot_arr > 0)
+    auc_plot_niimg = new_img_like(mask_img, auc_plot_arr)
+    fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(11.69, 1 * 11.69 * .4))
+    plot_glass_brain(auc_plot_niimg, plot_abs=True, threshold=np.min(auc_signif_vals),
+                     symmetric_cbar=False, colorbar=True, figure=fig, axes=axes)
+
 
 
  # %% 8.7) VBM: Univariate statistics
@@ -1787,7 +1910,6 @@ if False and not os.path.exists(vbm_dirname):
     from nilearn.image import smooth_img
     import mulm
 
-    # FSL randomize
 
     datasets = load_dataset()
     mask_arr = datasets['mask_arr']
@@ -1796,63 +1918,91 @@ if False and not os.path.exists(vbm_dirname):
     from collections import OrderedDict
     Design, t_contrasts, f_contrasts = mulm.design_matrix(formula="dx + age + sex + site", data=datasets['participants'])
 
-    # Design and contrast matrix for fsl5.0-randomise
-    prefix = vbm_dirname + '/fsl'
-    if not os.path.exists(prefix +'_design.mat'):
-        pd.DataFrame(Design).to_csv(prefix +'_design.txt', header=None, index=None, sep=' ', mode='a')
-        subprocess.run(["fsl5.0-Text2Vest", prefix +'_design.txt', prefix +'_design.mat'], stdout=subprocess.PIPE)
-        os.remove(prefix +'_design.txt')
-        contrasts = np.vstack([t_contrasts['dx'], -1 * t_contrasts['dx']])
-        np.savetxt(prefix +'_contrast.txt', contrasts, fmt='%i')
-        subprocess.run(["fsl5.0-Text2Vest", prefix +'_contrast.txt', prefix +'_contrast.mat'], stdout=subprocess.PIPE)
-        os.remove(prefix +'_contrast.txt')
+    # FSL randomize: Design and contrast matrix for fsl5.0-randomise
 
-    arr = flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0)
+    if False:
+        prefix = vbm_dirname + '/fsl'
+        if not os.path.exists(prefix +'_design.mat'):
+            pd.DataFrame(Design).to_csv(prefix +'_design.txt', header=None, index=None, sep=' ', mode='a')
+            subprocess.run(["fsl5.0-Text2Vest", prefix +'_design.txt', prefix +'_design.mat'], stdout=subprocess.PIPE)
+            os.remove(prefix +'_design.txt')
+            contrasts = np.vstack([t_contrasts['dx'], -1 * t_contrasts['dx']])
+            np.savetxt(prefix +'_contrast.txt', contrasts, fmt='%i')
+            subprocess.run(["fsl5.0-Text2Vest", prefix +'_contrast.txt', prefix +'_contrast.mat'], stdout=subprocess.PIPE)
+            os.remove(prefix +'_contrast.txt')
 
-    # Smooth Data for fsl5.0-randomise
-    niimgs = array_to_niimgs(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0).squeeze())
-    assert np.all(niimgs_to_array(niimgs).squeeze()[:, mask_arr] == datasets['Xim'])
-    niimgs = smooth_img(niimgs, fwhm=8)
-    if not os.path.exists(prefix +"ALL.nii.gz"):
-        niimgs.to_filename(prefix + "ALL.nii.gz")
+        arr = flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0)
 
-    # Run randomise
-    # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Randomise
-    # -T : TFCE
-    # -C <thresh> for t contrasts, Cluster-based thresholding
+        # Smooth Data for fsl5.0-randomise
+        niimgs = array_to_niimgs(ref_niimg=mask_img, arr=flat_to_array(data_flat=datasets['Xim'], mask_arr=mask_arr, fill=0).squeeze())
+        assert np.all(niimgs_to_array(niimgs).squeeze()[:, mask_arr] == datasets['Xim'])
+        niimgs = smooth_img(niimgs, fwhm=8)
+        if not os.path.exists(prefix +"ALL.nii.gz"):
+            niimgs.to_filename(prefix + "ALL.nii.gz")
 
-    cmd = ["fsl5.0-randomise", '-i', prefix + "ALL.nii.gz", "-m",  os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm.nii.gz"),
-     "-o", vbm_dirname,
-     '-d', prefix +'_design.mat',
-     '-t', prefix +'_contrast.mat', '-T', '-n', '500', "-C", "3"]
+        # Run randomise
+        # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Randomise
+        # -T : TFCE
+        # -C <thresh> for t contrasts, Cluster-based thresholding
 
-    print(" ".join(cmd))
+        cmd = ["fsl5.0-randomise", '-i', prefix + "ALL.nii.gz", "-m",  os.path.join(INPUT_DIR, "mni_cerebrum-gm-mask_1.5mm.nii.gz"),
+         "-o", vbm_dirname,
+         '-d', prefix +'_design.mat',
+         '-t', prefix +'_contrast.mat', '-T', '-n', '500', "-C", "3"]
+
+        print(" ".join(cmd))
 
     # MUOLS
 
-    Y = niimgs_to_array(niimgs).squeeze()[:, mask_arr]
-    mod_mulm = mulm.MUOLS(Y, Design).fit()
-    tstat, pval, df = mod_mulm.t_test(t_contrasts['dx'], pval=True)
-    pval_fwer =  pval * len(pval.ravel())
-    pval_fwer[pval_fwer > 1] = 1
-    print(np.quantile(pval_fwer, (0.0001, 0.001, 0.01)), np.sum(pval_fwer < 0.05))
-    # [1.13558031e-04 1.16418598e-02 1.00000000e+00] 711
+    if not os.path.exists(vbm_dirname + '/mulm_pvals-maxT.nii.gz'):
+        Y = niimgs_to_array(niimgs).squeeze()[:, mask_arr]
+        mod_mulm = mulm.MUOLS(Y, Design).fit()
+        tstat, pval, df = mod_mulm.t_test(t_contrasts['dx'], pval=True)
+        pval_fwer =  pval * len(pval.ravel())
+        pval_fwer[pval_fwer > 1] = 1
+        print(np.quantile(pval_fwer, (0.0001, 0.001, 0.01)), np.sum(pval_fwer < 0.05))
+        # [1.13558031e-04 1.16418598e-02 1.00000000e+00] 711
 
-    tstat_, pval_maxt, df2 = mod_mulm.t_test_maxT(t_contrasts['dx'], two_tailed=True, nperms=1000)
-    assert np.all(tstat_ == tstat)
-    print(np.quantile(pval_maxt, (0.0001, 0.001, 0.01, 0.05)), np.sum(pval_maxt < 0.05))
-    # [0.   0.   0.06 0.56] 2629
+        tstat_, pval_maxt, df2 = mod_mulm.t_test_maxT(t_contrasts['dx'], two_tailed=True, nperms=1000)
+        assert np.all(tstat_ == tstat)
+        print(np.quantile(pval_maxt, (0.0001, 0.001, 0.01, 0.05)), np.sum(pval_maxt <= 0.05))
+        # [0.   0.   0.06 0.56] 3150
 
-    # Save images
-    tstat_niimg = vec_to_niimg(tstat.ravel(), mask_img)
-    pval_niimg = vec_to_niimg(1 - pval.ravel(), mask_img)
-    pval_fwer_niimg = vec_to_niimg(1 - pval_fwer.ravel(), mask_img)
-    pval_maxt_niimg = vec_to_niimg(1 - pval_maxt.ravel(), mask_img)
+        tstat_signif = tstat.copy()
+        tstat_signif[pval_maxt > 0.05] = 0
+        print(np.sum(tstat_signif != 0))
 
-    tstat_niimg.to_filename(vbm_dirname + '/mulm_tstat.nii.gz')
-    pval_niimg.to_filename(vbm_dirname + '/mulm_pvals.nii.gz')
-    pval_fwer_niimg.to_filename(vbm_dirname + '/mulm_pvals-fwer.nii.gz')
-    pval_maxt_niimg.to_filename(vbm_dirname + '/mulm_pvals-maxT.nii.gz')
+        # Save images
+        tstat_niimg = vec_to_niimg(tstat.ravel(), mask_img)
+        #tstat_signif_niimg = vec_to_niimg(tstat_signif.ravel(), mask_img)
+        pval_niimg = vec_to_niimg(1 - pval.ravel(), mask_img)
+        pval_fwer_niimg = vec_to_niimg(1 - pval_fwer.ravel(), mask_img)
+        pval_maxt_niimg = vec_to_niimg(1 - pval_maxt.ravel(), mask_img)
+
+        tstat_niimg = vec_to_niimg(tstat.ravel(), mask_img)
+
+        tstat_niimg.to_filename(vbm_dirname + '/mulm_tstat.nii.gz')
+        pval_niimg.to_filename(vbm_dirname + '/mulm_pvals.nii.gz')
+        pval_fwer_niimg.to_filename(vbm_dirname + '/mulm_pvals-fwer.nii.gz')
+        pval_maxt_niimg.to_filename(vbm_dirname + '/mulm_pvals-maxT.nii.gz')
+
+
+    tstat_niimg = nibabel.load(vbm_dirname + '/mulm_tstat.nii.gz')
+    pval_niimg = nibabel.load(vbm_dirname + '/mulm_pvals.nii.gz')
+    pval_fwer_niimg = nibabel.load(vbm_dirname + '/mulm_pvals-fwer.nii.gz')
+    pval_maxt_niimg = nibabel.load(vbm_dirname + '/mulm_pvals-maxT.nii.gz')
+
+    print(np.sum(pval_maxt_niimg.get_fdata() > 0.95))
+    # 3817
+    tstat_signif_arr = tstat_niimg.get_fdata().copy()
+    tstat_signif_arr[pval_maxt_niimg.get_fdata() < 0.95] = 0
+    tstat_signif_niimg = new_img_like(mask_img, tstat_signif_arr)
+    tstat_signif_niimg.to_filename(vbm_dirname + '/mulm_tstat_signif.nii.gz')
+
+    K = 1
+    fig, axes = plt.subplots(nrows=K, ncols=1, figsize=(11.69, K * 11.69 * .4))
+    plot_glass_brain(tstat_signif_niimg, colorbar=True, plot_abs=False, figure=fig, axes=axes)
+
     """
     #
     #reordered = np.concatenate(clusters_reordered)
@@ -1893,6 +2043,8 @@ if False and not os.path.exists(vbm_dirname):
 # %% 9) Learning curves
 
 xls_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso-learningcurves", type="scores", ext="xlsx")
+xls_densenet121_filename = OUTPUT.format(data='mwp1-gs', model="denseNet121", experience="cvlso-learningcurves", type="scores", ext="xlsx")
+
 #models_filename = OUTPUT.format(data='mwp1-gs', model="enettv", experience="cvlso", type="scores-coefs", ext="pkl")
 mapreduce_sharedir =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="models", ext="mapreduce")
 cv_filename =  OUTPUT.format(data='mwp1-gs', model="all", experience="cvlso-learningcurves", type="train-test-folds-by-size", ext="json")
@@ -2110,6 +2262,10 @@ if not os.path.exists(xls_filename):
     #%% 9.2) Plot curves
 
     stats = pd.read_excel(xls_filename)
+    stats_densenet = pd.read_excel(xls_densenet121_filename)
+    stats = stats.append(stats_densenet, ignore_index=True)
+
+
     stats = stats[stats["param_1"].isin(["resdualizeYes"]) & stats["pred"].isin(["test_img"])]
     stats = stats.rename(columns={"param_0":"Model", 'auc':'AUC', 'size':'Size'})
     stats = stats[['Model', 'fold', 'Size', 'AUC', 'bacc']]
@@ -2118,7 +2274,8 @@ if not os.path.exists(xls_filename):
                      'enettv_0.100:0.010000:0.100000':'Enet-TV',
                      'mlp_cv':'MLP',
                      'svmrbf_cv':'SVM-RBF',
-                     'l2lr_C:10.000000':'L2'})
+                     'l2lr_C:10.000000':'L2',
+                     'denseNet121':'DenseNet121'})
 
     sns.set_style("darkgrid")
     #fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True, figsize=(9, 5))
@@ -2138,23 +2295,25 @@ if not os.path.exists(xls_filename):
     print(stats_all.round(3))
 
 """
-           AUC  se_AUC   bacc  se_bacc
+               AUC  se_AUC   bacc  se_bacc
 Model
-Enet     0.687   0.024  0.570    0.021
-Enet-TV  0.689   0.021  0.617    0.018
-L2       0.683   0.020  0.627    0.022
-MLP      0.670   0.015  0.621    0.012
-SVM-RBF  0.674   0.018  0.589    0.017
+DenseNet121  0.637   0.018  0.592    0.017
+Enet         0.687   0.024  0.570    0.021
+Enet-TV      0.689   0.021  0.617    0.018
+L2           0.683   0.020  0.627    0.022
+MLP          0.670   0.015  0.621    0.012
+SVM-RBF      0.674   0.018  0.589    0.017
 """
 
 """
 stats.groupby(['Model']).count()['fold']
 Model
-Enet       104
-Enet-TV    104
-L2         104
-MLP        104
-SVM-RBF    104
+DenseNet121     65
+Enet           117
+Enet-TV        117
+L2             117
+MLP            117
+SVM-RBF        117
 """
 
 
