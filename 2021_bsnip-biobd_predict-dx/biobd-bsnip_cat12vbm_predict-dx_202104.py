@@ -68,6 +68,7 @@ import parsimony.estimators as estimators
 import parsimony.functions.nesterov.tv as nesterov_tv
 from parsimony.utils.linalgs import LinearOperatorNesterov
 
+from xgboost import XGBClassifier # conda install -c conda-forge xgboost
 
 ###############################################################################
 #
@@ -2129,6 +2130,12 @@ if not os.path.exists(xls_filename):
     estimators_dict.update({'mlp_cv':mlp_cv})
 
 
+    # Gradient Boosting xgboost
+
+    estimators_dict.update({'gb':XGBClassifier(n_estimators=100, learning_rate=0.05, max_depth=3,
+                                               subsample=0.8, random_state=0, n_jobs=1)})
+
+
     # LSOCV
 
     cv_dict = datasets["cv_lso_dict"]
@@ -2201,7 +2208,7 @@ if not os.path.exists(xls_filename):
         {'residualizer_%s' % dataset :datasets['residualizer']})
 
     assert (8 * len(cv_dict) + len(cv_dict)) * len(estimators_dict) == len(key_values_input)
-    print("Nb Tasks=%i" % len(key_values_input))
+    print("Nb Tasks=%i" % len(key_values_input)) # Nb Tasks=702
 
 
     ###########################################################################
