@@ -144,12 +144,18 @@ def fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin,
     estimator_img.fit(Xim_train, y_train)
 
     y_test_img = estimator_img.predict(Xim_test)
-    try:
+
+    if hasattr(estimator_img, 'decision_function'):
         score_test_img = estimator_img.decision_function(Xim_test)
         score_train_img = estimator_img.decision_function(Xim_train)
-    except AttributeError:
+    elif hasattr(estimator_img, 'predict_log_proba'):
         score_test_img = estimator_img.predict_log_proba(Xim_test)[:, 1]
         score_train_img = estimator_img.predict_log_proba(Xim_train)[:, 1]
+    elif hasattr(estimator_img, 'predict_proba'):
+        score_test_img = estimator_img.predict_proba(Xim_test)[:, 1]
+        score_train_img = estimator_img.predict_proba(Xim_train)[:, 1]
+    else:
+        raise AttributeError("Missing: decision_function or predict_log_proba or predict_proba")
 
     # Demographic/clinic based predictor
     estimator_democlin = lm.LogisticRegression(C=1, class_weight='balanced', fit_intercept=False)
@@ -2131,9 +2137,15 @@ if not os.path.exists(xls_filename):
 
 
     # Gradient Boosting xgboost
+    from xgboost import XGBClassifier
 
-    estimators_dict.update({'gb':XGBClassifier(n_estimators=100, learning_rate=0.05, max_depth=3,
-                                               subsample=0.8, random_state=0, n_jobs=1)})
+    xgboost_cv = GridSearchCV(estimator=XGBClassifier(random_state=0, n_jobs=1),
+                              param_grid={"n_estimators": [10, 50, 100],
+                                          "learning_rate":[0.05, 0.1],
+                                          "max_depth":[3, 6],
+                                          "subsample":[0.8]}, cv=3, n_jobs=1)
+
+    estimators_dict.update({'xgboost_cv':xgboost_cv})
 
 
     # LSOCV
@@ -2225,7 +2237,8 @@ if not os.path.exists(xls_filename):
     mp = MapReduce(n_jobs=6, shared_dir=mapreduce_sharedir, pass_key=True, verbose=20)
     mp.map(fit_predict, key_values_input)
     key_vals_output = mp.reduce_collect_outputs()
-    key_vals_output = mp.reduce_collect_outputs(force=True)
+    # key_vals_output = mp.reduce_collect_outputs(force=True)
+    # key_states = mp.get_states(keys=key_values_input.keys())
     # If some tasks failed, reset them
     # rested_keys = mp.reset(keys=key_values_input.keys())
 
