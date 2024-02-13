@@ -82,9 +82,11 @@ from xgboost import XGBClassifier # conda install -c conda-forge xgboost
 ###############################################################################
 
 STUDIES = ["biobd", "bsnip1"]
-INPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
+INPUT_DIR = "/neurospin/psy_sbox/all_studies/derivatives/arrays"
+#INPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
 
-OUTPUT_DIR = "/neurospin/tmp/psy_sbox/analyses/202104_biobd-bsnip_cata12vbm_predict-dx"
+OUTPUT_DIR = "/neurospin/psy_sbox/analyses/202104_biobd-bsnip_cat12vbm_predict-dx"
+#OUTPUT_DIR = "/neurospin/psy_sbox/analyses/202104_biobd-bsnip_cat12vbm_predict-dx"
 
 # On laptop
 if not os.path.exists(OUTPUT_DIR):
