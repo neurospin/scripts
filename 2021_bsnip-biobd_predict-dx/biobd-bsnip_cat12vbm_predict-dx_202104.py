@@ -203,7 +203,7 @@ def fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin,
     if hasattr(estimator_img, 'coef_'):
         coef_img = estimator_img.coef_
 
-    return dict(y_test_img=y_test_img, score_test_img=score_test_img,
+    return dict(y_test_true=y[test], y_test_img=y_test_img, score_test_img=score_test_img,
                 y_test_democlin=y_test_democlin, score_test_democlin=score_test_democlin,
                 y_test_stck=y_test_stck, score_test_stck=score_test_stck,
                 coef_img=coef_img)
@@ -667,6 +667,34 @@ if not os.path.exists(xls_filename):
     with pd.ExcelWriter(xls_filename) as writer:
         cv_scores.to_excel(writer, sheet_name='folds', index=False)
         cv_scores_mean.to_excel(writer, sheet_name='mean', index=False)
+
+#%% 3.1.bis) L2 LR mwp1-gs from scratch
+
+if False:
+
+    from sklearn.metrics import balanced_accuracy_score, roc_auc_score
+
+    df = load_dataset()
+    C = 1.0
+    key = "l2lr_C:%.6f" % C
+    estimator_img = lm.LogisticRegression(C=C, class_weight='balanced', fit_intercept=False)
+    residualize = 'yes'
+    Xim = df['Xim']
+    y = df['y']
+    Zres = df['Zres']
+    Xdemoclin = df['Xdemoclin']
+    residualizer = df['residualizer']
+    res = dict()
+    for site, split in df["cv_lso_dict"].items():
+        print(site)
+        res_ = fit_predict(key, estimator_img, residualize, split, Xim, y, Zres, Xdemoclin, residualizer)
+        res[site] = res_
+
+    aucs = [roc_auc_score(res_['y_test_true'], res_['score_test_img']) for site, res_ in res.items()]
+    baccs = [balanced_accuracy_score(res_['y_test_true'], res_['y_test_img']) for site, res_ in res.items()]
+
+    assert (np.mean(aucs), np.std(aucs)) == (0.6841169748622756, 0.06769846496721038)
+    assert (np.mean(baccs), np.std(baccs)) == (0.6274203590707195, 0.07945021508966936)
 
 ###############################################################################
 #%% 3.2) L2 LR mwp1-gs Random permutations
