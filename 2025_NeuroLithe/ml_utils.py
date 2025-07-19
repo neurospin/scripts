@@ -426,10 +426,8 @@ def single_feature_classif(X_train, X_test, y_train, y_test):
 # %% Mapper: Fit and predict function used in parallel execution
 # -----------------------------------------------------------
 
-from joblib import Memory
-memory = Memory()#(config['cachedir'], verbose=0)
+#from joblib import Memory
 
-@memory.cache
 def fit_predict(estimator, X, y, train_idx, test_idx, **kwargs):
     X_train, X_test = X[train_idx], X[test_idx]
     y_train, y_test = y[train_idx], y[test_idx]
@@ -665,6 +663,130 @@ def mean_sd_tval_pval_ci(betas_rep, m0=0):
     return betas_m, betas_tval, betas_tval_abs,\
         betas_pval, ci_low, ci_high
 
+# labels features depending en model see: features_names[mod]
+def predictions_dict_toframe(res_cv, models_features_names, importances=['coefs', 'forwd', 'feature_auc']):
+    """Collect and stack into DataFrame output dictionaries: res_cv
+
+    Parameters
+    ----------
+    res_cv : Dictionary
+        indexed by model, permutation, and fold
+        Items are dictionaries produced by fit_predict
+    models_features_names : Dictionary
+        key = models, values = features names.
+        useful when models perform feature aggregation modifying input features
+    importances : list of string, optional
+        should match keys of res_cv, by default ['coefs', 'forwd', 'feature_auc']
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    features_df = pd.concat([dict_to_frame(input_dict=val_dict,
+        keys=importances,
+        base_dict={'model':mod, 'perm':perm, 'fold':fold, 'feature':models_features_names[mod]})
+        for (mod, perm, fold), val_dict in res_cv.items()])
+    return features_df
+
+def features_statistics(features_df, feature_name_col='feature', feature_importance_cols={'coefs':0, 'forwd':0, 'feature_auc':0.5}):
+    """Compute feature statistics.
+    Group by 'model', 'perm', 'fold'
+        for each feature 'feature'
+            for all importance given 'feature_importance_cols'
+                Compute statistics across fold
+
+    Parameters
+    ----------
+    features_df : DataFrame 
+        with 'model', 'perm', 'fold', 'feature' columns
+    feature_name_col : str, optional
+        column name of the feature, by default 'feature'
+    feature_importance_cols : dict, optional
+        importance columns with corresponding null hypothesis, by default {'coefs':0, 'forwd':0, 'feature_auc':0.5}
+
+    Returns
+    -------
+    DataFrame
+        For all 'model', 'perm', 'fold', 'feature', and 'importance',
+        compute 'mean', 'tval', 'tval_abs', 'pval', 'ci_low' and 'ci_high'
+    """
+
+    # For all mod, perm concatenate values accross folds store if in a features[(mod, perm), feature_importance_col]
+    from collections import defaultdict
+    features = defaultdict(list)
+
+    # For each feature importance statistic append across folds
+    # dict[(mod, perm), feature_importance_col] = [vals0, vals1, ...]
+    for (mod, perm, fold), df in features_df.groupby(['model', 'perm', 'fold']):
+        df = df.set_index(feature_name_col)
+        for feature_importance_col in feature_importance_cols.keys():
+            features[(mod, perm), feature_importance_col].append(df[feature_importance_col]) 
+
+    # Feature importance folds-wise statistics
+    features_stats = list()
+    for ((mod, perm), feature_importance_col), vals in features.items():
+        #print(mod, perm, feature_importance_col, vals.shape)
+        vals = pd.concat(vals, axis=1)
+        for i in range(vals.shape[0]):
+            features_stats.append([mod, perm, vals.index[i], feature_importance_col] +\
+                list(mean_sd_tval_pval_ci(vals.iloc[i, :].values, m0=feature_importance_cols[feature_importance_col])))
+
+    features_stats = pd.DataFrame(features_stats, columns=['model', 'perm', feature_name_col, 'importance', 'mean', 'tval', 'tval_abs', 'pval', 'ci_low', 'ci_high'])
+
+    return features_stats
+
+
+def features_statistics_pvalues(features_stats):
+    stat_pval = {}
+    # Split by models and compute corrected p-values
+    for (mod, stat), df in features_stats.groupby(['model', 'importance']):
+        #if mod == 'model-grpRoiLda+lrl2_resid-age+sex+site' and stat=='feature_auc':
+        #if mod == 'model-grpRoiLda+lrl2_resid-age+sex+site' and stat=='forwd':
+        #    break
+        print(mod, stat)
+        true_df = df[df['perm']=='perm-000'].copy().set_index('feature')
+        rnd_df = df[df['perm']!='perm-000']
+        
+        # Corrected p-values
+        true_df['pval_bonferroni'] = multipletests(true_df['pval'], method='bonferroni')[1]
+        true_df['pval_fdr_bh'] = multipletests(true_df['pval'], method='fdr_bh')[1]
+
+        # Statistics under H0
+        mean_rnd = pd.concat([df_.set_index('feature')['mean'] for perm, df_ in rnd_df.groupby('perm')], axis=1)    
+        true_df['mean_h0'] = mean_rnd.mean(axis=1)
+        tval_rnd = pd.concat([df_.set_index('feature')['tval'] for perm, df_ in rnd_df.groupby('perm')], axis=1)
+        true_df['tval_h0'] = tval_rnd.mean(axis=1)
+        # if mod == 'model-grpRoiLda+lrl2_resid-age+sex+site' and stat=='forwd':
+        #     break
+        # #tval_true_ = true_df.loc[tval_rnd.index == "Hippocampus", 'tval']
+        # tval_rnd_ = tval_rnd.loc[tval_rnd.index == "Hippocampus", :].values.ravel()
+        # perms_ = np.array([int(perm.split("-")[1]) for perm, _ in rnd_df.groupby('perm')])
+        # n_ok = np.where(tval_rnd_ >= 2.80743991428207)[0]
+        # ok = np.where(tval_rnd_ < 2.80743991428207)[0]
+        # perms_ = perms_[np.sort(list(np.random.choice(ok, 955, replace=False)) + list(np.random.choice(n_ok, 45, replace=False)))]
+        # perms_df = pd.DataFrame(dict(perm=perms_))
+        # perms_df.to_csv("permutations.csv", index=False)
+        
+        
+        # Compute randomize p-values
+        true_df['mean_pval_rnd'] = mean_rnd.gt(true_df['mean'], axis=0).sum(axis=1) / mean_rnd.shape[1]
+        true_df['tval_pval_rnd'] = tval_rnd.gt(true_df['tval'], axis=0).sum(axis=1) / tval_rnd.shape[1]
+        
+        # Westfall & Young FWER cor p-values
+
+        stat_max_rnd = tval_rnd.max(axis=0).values #stat_max_rnd.shape: (nperms, )
+        stat_values = true_df['tval'].values # stat_values.shape: (nfeatures, )
+        # Reshape for broadcasting: (nfeatures, 1) vs (1, nperms)
+        nperms = stat_max_rnd.shape[0]
+        pval_tmax_fwer = (stat_max_rnd > stat_values[:, None]).sum(axis=1) / nperms # pval_tmax_fwer.shape (nfeatures, )
+        true_df['tval_pval_tmax_fwer'] = pd.Series(pval_tmax_fwer, index=true_df.index)
+
+        true_df = true_df.reset_index()
+        true_df.sort_values('pval', inplace=True)
+        stat_pval[(mod, stat)] = true_df
+    
+    return stat_pval
 
 ################################################################################
 # %% Models
@@ -678,91 +800,11 @@ mlp_param_grid = {"hidden_layer_sizes":
                     "activation": ["relu"], "solver": ["sgd"], 'alpha': [0.0001]}
 
 
-def make_models2(cv_val, scoring='accuracy'):
-    """_summary_
-
-    Parameters
-    ----------
-    cv_val : _type_
-        _description_
-    scoring : str, optional
-         'balanced_accuracy' 'roc_auc', by default 'accuracy'
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    models = {
-        # 'model-lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5, scoring='accuracy')), # 'balanced_accuracy' 'roc_auc'
-        'model-lrl2':
-        make_pipeline(preprocessing.StandardScaler(),
-                GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-                            {'C': 10. ** np.arange(-3, 1)},
-                            cv=cv_val, n_jobs=5, scoring='accuracy')), # 'balanced_accuracy' 'roc_auc'
-        # 'model-grpRoiLr+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  LogisticRegressionTransformer(fit_intercept=False, class_weight='balanced', C=0.01)),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5)),
-        # 'model-grpRoiPca+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  "pca"),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5)),
-        # 'model-grpRoiMean+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  "mean"),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5)),
-        # 'model-grpRoiLda+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, #preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  "lda"),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5, scoring='balanced_accuracy'))
-        # 'model-grpRoiLdaClust2+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, #preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  "lda"),
-        #         FeatureAgglomeration(n_clusters=2),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5)),
-        # 'model-grpRoiLdaClust3+lrl2_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, #preprocessing.StandardScaler(),
-        #         GroupFeatureTransformer(roi_groups,  "lda"),
-        #         FeatureAgglomeration(n_clusters=3),
-        #         preprocessing.StandardScaler(),
-        #         GridSearchCV(lm.LogisticRegression(fit_intercept=False, class_weight='balanced'),
-        #                     {'C': 10. ** np.arange(-3, 1)},
-        #                     cv=cv_val, n_jobs=5)),
-        # 'model-mlp_resid-age+sex+site':
-        # make_pipeline(residualizer_estimator, 
-        #         preprocessing.MinMaxScaler(),
-        #         GridSearchCV(estimator=MLPClassifier(random_state=1, max_iter=200, tol=0.01),
-        #                     param_grid=mlp_param_grid,
-        #                     cv=cv_val, n_jobs=5))
-        }
-    return models
-
-
 def make_models(n_jobs_grid_search, cv_val,
                 scoring='accuracy',
                 residualization_formula=None,
                 residualizer_estimator=None):
-    """_summary_
+    """Make models
 
     Parameters
     ----------
