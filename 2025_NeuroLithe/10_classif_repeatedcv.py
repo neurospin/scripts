@@ -30,6 +30,8 @@ y = data['response']
 imputer = SimpleImputer(strategy='median')
 X = imputer.fit_transform(X)
 
+assert X.shape == (58, 15)
+
 
 ################################################################################
 # %% Repeated Cross-Validation
@@ -38,7 +40,7 @@ from ml_utils import make_models
 nseeds = 100
 rep_cv = list()
 from ml_utils import make_models
-estimator = make_models(cv_val=cv_val, scoring='accuracy')['model-lrl2']
+estimator = make_models(n_jobs_grid_search=5, cv_val=cv_val, scoring='accuracy')['model-lrl2cv']
 
 for seed in range(nseeds):
     cv_= cross_validate(estimator, X, y,

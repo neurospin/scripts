@@ -86,8 +86,3 @@ assert len(data[config['demo_vars'] + config['clinical_vars'] +  ['response']].s
     len(config['demo_vars'] + config['clinical_vars'] +  ['response'])  
 
 
-################################################################################
-
-# %% Utils
-# ========
-

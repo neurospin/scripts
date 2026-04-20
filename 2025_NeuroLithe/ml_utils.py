@@ -527,6 +527,35 @@ def dict_to_frame(input_dict, keys, base_dict={}):
     return pd.DataFrame(output_dict)
 
 
+def get_mask(data, cols, values):
+    """
+    Returns a boolean mask on data where data[cols] == values.
+    Works for both single and MultiIndex columns.
+
+    Parameters
+    ----------
+    data   : pd.DataFrame (single or MultiIndex columns)
+    cols   : list of column labels (str or tuple for MultiIndex columns)
+    values : scalar or tuple of values, as returned by data.groupby(cols)
+
+    Returns
+    -------
+    pd.Series of bool, indexed like data
+    """
+    # Normalize cols to a list
+    if not isinstance(cols, list):
+        cols = [cols]
+
+    # Normalize values to a tuple
+    if not isinstance(values, tuple):
+        values = (values,)
+
+    mask = pd.Series(True, index=data.index)
+    for col, val in zip(cols, values):
+        mask &= (data[col] == val)
+
+    return mask
+
 # 2.1 Classification metrics
 
 class ClassificationScorer:
@@ -536,13 +565,13 @@ class ClassificationScorer:
                  y_pred_lab="y_test_pred_lab",
                  y_pred_decision_function="y_test_pred_decision_function",
                  y_pred_proba="y_test_pred_proba",
-                 metrics_names=['balanced_accuracy', 'roc_auc']):
+                 metrics_cols=['balanced_accuracy', 'roc_auc']):
     
         self.y_true_lab=y_true_lab
         self.y_pred_lab=y_pred_lab
         self.y_pred_decision_function=y_pred_decision_function
         self.y_pred_proba=y_pred_proba
-        self.metrics_names=metrics_names
+        self.metrics_cols=metrics_cols
 
 
     def scores(self, y_true_lab, y_pred_lab, y_pred_decision_function, y_pred_proba):
@@ -556,18 +585,45 @@ class ClassificationScorer:
 
         return balanced_accuracy, roc_auc
 
-    def predictions_dict_toframe(self, predictions_dict, keys=['test_idx', 'y_test_pred_lab',
+    def predictions_dict_to_frame(self, predictions_dict, keys=['test_idx', 'y_test_pred_lab',
                                                         'y_test_pred_decision_function',
                                                         'y_test_pred_proba',
                                                         'y_test_true_lab']):
+        """ Convert a dictionary of predictions into a pandas DataFrame.
         
+        Parameters
+        ----------
+        predictions_dict : dict
+            A dictionary of dictionaries containing prediction results, of the form {(model, perm, fold): prediction_dict},
+            and prediction_dict of the form {keys: prediction_values}.
+            
+        keys : list of str
+            keys is a list of strings corresponding to the prediction outputs (e.g., 'test_idx', 'y_test_pred_lab', etc.).
+            Keys from `predictions_dict` values to include in the output DataFrame.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame constructed from `predictions_dict`.
+            Where each row corresponds to a single prediction output, and columns include the specified keys along with 'model', 'perm', and 'fold' identifiers.
+        """
         predictions_df = pd.concat([dict_to_frame(input_dict=val_dict, keys=keys,
                                             base_dict={'model':mod, 'perm':perm, 'fold':fold})
                             for (mod, perm, fold), val_dict in predictions_dict.items()])
         return predictions_df
 
-    def prediction_metrics(self, predictions_df):
-
+    def prediction_metrics(self, predictions_df, groupby=['model', 'perm', 'fold']):
+        """Compute metrics per model, permutation and fold.
+        
+        Parameters
+        ----------
+        predictions_df : pd.DataFrame with columns ['model', 'perm', 'fold', 'y_test_true_lab', 'y_test_pred_lab', 'y_test_pred_decision_function', 'y_test_pred_proba']
+        groupby : list of columns to group by when computing metrics. Default is ['model', 'perm', 'fold'].
+        
+        Returns
+        -------
+        pd.DataFrame with columns groupby + self.metrics_cols, where self.metrics_cols are the names of the metrics computed by self.scores function.
+        """
+        
         # Compute metrics per model and permutation, and folds
         predictions_metrics_df =  pd.DataFrame(
             [[mod, perm, fold] + list(self.scores(
@@ -576,48 +632,87 @@ class ClassificationScorer:
                 predictions_bymodbyperm_df[self.y_pred_decision_function],
                 predictions_bymodbyperm_df[self.y_pred_proba]))
             for (mod, perm, fold), predictions_bymodbyperm_df 
-            in predictions_df.groupby(['model', 'perm', 'fold'])],
-            columns=["model", "perm", 'fold'] + self.metrics_names)
-
-        # Average accross folds
-        predictions_metrics_df = \
-            predictions_metrics_df.groupby(['model', 'perm']).mean(numeric_only=True).reset_index().sort_values('perm')
+            in predictions_df.groupby(groupby)],
+            columns=groupby + self.metrics_cols)
 
         return predictions_metrics_df
 
-    def prediction_metrics_pvalues(self, predictions_metrics_df, permutation_col='perm', true_value='perm-000'):
-        
-        # Compute p-values and add it to predictions_metrics_df
+
+    def prediction_metrics_stats(self, predictions_metrics_df, groupby=['model', 'perm'], ):
+        # Average accross folds
+        # predictions_metrics_df = \
+        #    predictions_metrics_df.groupby(['model', 'perm']).mean(numeric_only=True).reset_index().sort_values('perm')
+
+        # Mean and SD accross folds
+        metrics_cols = predictions_metrics_df.select_dtypes(include='number').columns.tolist()
+        agg_dict = {col: ['mean', 'std'] for col in metrics_cols}
+        predictions_metrics_mean_sd_df = (
+            predictions_metrics_df
+            .groupby(['model', 'perm'])
+            .agg(agg_dict)
+            .reset_index()
+            .sort_values('perm')
+        )
+        return predictions_metrics_mean_sd_df
+
+
+    def prediction_metrics_pvalues(self, predictions_metrics_df,
+                                   groupby=[('model', '')],
+                                   permutation_col='perm', true_value='perm-000', 
+                                   metrics_cols=None):
+        """Compute p-values for prediction metrics based on permutation testing.
+        For each group defined by `groupby`, compares the metric values of the true predictions
+        (where `permutation_col` == `true_value`) against the metric values of the permuted predictions
+        (where `permutation_col` != `true_value`) to compute p-values.
+        Parameters
+        ----------
+        predictions_metrics_df : pd.DataFrame
+            DataFrame containing prediction metrics with columns for model, permutation, and metric values.
+        groupby : list of str or list of tuple, optional
+            Columns to group by when computing p-values, by default [('model', '')].
+        permutation_col : str, optional
+            Column name in `predictions_metrics_df` that indicates the permutation identifier, by default 'perm'.
+        true_value : str, optional
+            The value in `permutation_col` that corresponds to the true (non-permuted) predictions, by default 'perm-000'.
+        metrics_cols : list of str, optional
+            List of metric column names for which to compute p-values. If None, all numeric columns will be used, by default None.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing the original metrics for the true predictions along with the computed p-values for each metric, indexed by the specified `groupby` columns.
+        """
+        if metrics_cols is None:
+            metrics_cols = predictions_metrics_df.select_dtypes(include='number').columns.tolist()
+
+        # Split true vs randomized predictions metrics
         predictions_metrics_true_df = predictions_metrics_df[predictions_metrics_df[permutation_col] == true_value]
-        #print(predictions_metrics_true_df)
         predictions_metrics_rnd_df = predictions_metrics_df[predictions_metrics_df[permutation_col] != true_value]
 
-        if predictions_metrics_rnd_df.shape[0] > 0:
-            #metrics_names = ["balanced_accuracy", "roc_auc"]
-            predictions_metrics_pval_df = list()
-
-            for mod, predictions_metrics_rnd_bymod_df in predictions_metrics_rnd_df.groupby('model'):
-                nperms = predictions_metrics_rnd_bymod_df.shape[0]
-                balanced_accuracy_h0_mean, roc_auc_h0_mean = predictions_metrics_rnd_bymod_df[self.metrics_names].mean(numeric_only=True)
-                balanced_accuracy_h0_std, roc_auc_h0_std = predictions_metrics_rnd_bymod_df[self.metrics_names].std(numeric_only=True)
-                balanced_accuracy_h0_pval, roc_auc_h0_pval = (predictions_metrics_rnd_bymod_df[self.metrics_names].values > 
-                                                            predictions_metrics_true_df.loc[predictions_metrics_true_df['model']==mod, self.metrics_names].values).sum(axis=0) / nperms
-
-                predictions_metrics_pval_df.append([mod,
-                    balanced_accuracy_h0_pval, roc_auc_h0_pval,
-                    balanced_accuracy_h0_mean, roc_auc_h0_mean, 
-                    balanced_accuracy_h0_std, roc_auc_h0_std])
-
-            predictions_metrics_pval_df = pd.DataFrame(predictions_metrics_pval_df, columns=['model',
-                    'balanced_accuracy_h0_pval', 'roc_auc_h0_pval',
-                    'balanced_accuracy_h0_mean', 'roc_auc_h0_mean', 
-                    'balanced_accuracy_h0_std',  'roc_auc_h0_std'])
-
-            predictions_metrics_true_df = pd.merge(predictions_metrics_true_df, predictions_metrics_pval_df, how='left')
-
+        
+        if predictions_metrics_rnd_df.shape[0] < 1: # No permutation, return only true metrics
             return predictions_metrics_true_df
-        else:
-            return None
+        
+        # Compute p-values table (of the same size that the true metrics table).      
+        predictions_metrics_pval_df = predictions_metrics_true_df.copy()
+        for grp, predictions_metrics_rnd_bymod_df in predictions_metrics_rnd_df.groupby(groupby):
+            mask = get_mask(data=predictions_metrics_pval_df, cols=groupby, values=grp)
+            nperms = predictions_metrics_rnd_bymod_df.shape[0]
+            pvalues = (predictions_metrics_rnd_df[metrics_cols].values > \
+                       predictions_metrics_true_df[metrics_cols].values).sum(axis=0) / nperms
+            predictions_metrics_pval_df.loc[mask, metrics_cols] = pvalues
+
+
+        # drop permutation column before merging
+        predictions_metrics_true_df = predictions_metrics_true_df.drop(columns=[permutation_col])
+        predictions_metrics_pval_df = predictions_metrics_pval_df.drop(columns=[permutation_col])
+                
+        predictions_metrics_pval_df = \
+            pd.merge(predictions_metrics_true_df, predictions_metrics_pval_df, on=groupby, suffixes=('', '_pval'))
+
+        # print(predictions_metrics_true_df)
+        # print(predictions_metrics_pval_df)
+                
+        return predictions_metrics_pval_df
 
 
 
@@ -664,7 +759,7 @@ def mean_sd_tval_pval_ci(betas_rep, m0=0):
         betas_pval, ci_low, ci_high
 
 # labels features depending en model see: features_names[mod]
-def predictions_dict_toframe(res_cv, models_features_names, importances=['coefs', 'forwd', 'feature_auc']):
+def stack_features_dicts(res_cv, models_features_names, importances=['coefs', 'forwd', 'feature_auc']):
     """Collect and stack into DataFrame output dictionaries: res_cv
 
     Parameters
