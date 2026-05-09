@@ -145,10 +145,10 @@ print("Mean AUC:", np.mean(aucs), "Std AUC:", np.std(aucs))
 y_pred_lab = predictions_df_["y_test_pred_lab"]
 y_pred_score = predictions_df_["y_test_pred_decision_function"]
 y_true_lab = predictions_df_["y_test_true_lab"]
-ax = plot_roc(y_true_lab, y_pred_score, label="Model A", rndseed=31, ci=True, ci_alpha=0.95)
+ax = plot_roc(y_true_lab, y_pred_score, label="L2-Regularized Logistic Regression", rndseed=31, ci=True, ci_alpha=0.95)
 
-# plt.savefig("reports/roc_curve.pdf", dpi=300, bbox_inches="tight")
-# plt.savefig("reports/roc_curve.png", dpi=300, bbox_inches="tight")
+plt.savefig("reports/roc_curve.pdf", dpi=300, bbox_inches="tight")
+plt.savefig("reports/roc_curve.png", dpi=300, bbox_inches="tight")
 plt.show()
 
 ################################################################################
@@ -175,6 +175,7 @@ with pd.ExcelWriter(config['output_predictions_scores_feature-importance']) as w
     predictions_metrics_stats_df[predictions_metrics_stats_df['perm'] == 'perm-000'].to_excel(writer, sheet_name='predictions_metrics_stats', index=True)
     predictions_metrics_stats_pvalues_df.to_excel(writer, sheet_name='predictions_metrics_pvalues', index=True)
     predictions_df.to_excel(writer, sheet_name='predictions', index=False)
+    features_df.to_excel(writer, sheet_name='feature_importance', index=False)
     for (mod, stat), df in features_stats_pvals.items():
         sheet_name = '__'.join([mod, stat])
         print(sheet_name)

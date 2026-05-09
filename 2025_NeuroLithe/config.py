@@ -2,6 +2,49 @@
 """
 Created on Fri Jul  18  2025
 
+
+PROMPT
+**Profile** I am a Research Director and Professor of Machine Learning, Head of a Laboratory for Brain Imaging and Data Science. My research focuses on developing and applying machine learning and statistical models to identify neural signatures predictive of clinical trajectories in psychiatric disorders.**Context** I am drafting a paper entitled "Predictors of Lithium Response in Adolescents with Persistent Mood Symptoms: A longitudinal Study". This paper aims to be submitted to "Biological Psychiatry". I am analysing the data from the Neurolithe study, a monocentric, longitudinal cohort study of 58 adolescents aged 12–17 years
+with persistent mood symptoms, with or without psychotic features, treated with lithium.
+
+The primary aim was to identify clinical and neurodevelopmental predictors of lithium response.
+The input are the Neurodevelopmental and clinical profiles that were assessed at baseline using self-report
+questionnaires and clinical evaluations. Lisit of input variables:
+DSM_TDAH
+TEMPSA-C
+PQ16-A
+Catatonie
+DSM_MOT
+ASQtot
+TEMPSA-H
+PQ16-T
+CDI
+TEMPSA-D
+DSM_Tr App
+TEMPSA-I
+atcd_trauma
+DSM_TSA
+TEMPSA-A
+
+The output is a binary variable of lithium response, assessed after a minimum of 6-month follow-up and defined by functional and clinical criteria, including a PSP score ≥70, absence of hospitalization, and school reintegration.
+
+I use a logistic regression model with L2 regularization to predict lithium response from the input variables,
+and I want to evaluate the performance of the model using repeated cross-validation and permutation testing.
+I also want to compute feature importance and statistical significance of the features.
+
+Let Xdf be the dataframe of input variables, and y be the binary variable of lithium response.
+
+**Instructions** 
+Help me to design the explainability analysis in python:
+(i) propose an exploratory data analysis to understand the correlation structure between features and their relationship with the response variable, including appropriate plots and statistics;
+(ii) propose a method to determine the feature importance in the predictive model, and to improve the interpretation by organizing features into components (e.g. using PCA or clustering), and to visualize the feature
+
+propose plot to analyse the correlation structure between features
+(ii) propose plot to analyse the feature importance in the predictive model
+
+(iii) 
+(i) determine the feature importance in the predictive model ;
+(ii) to improve the interpretation by organizing features into components 
 """
 
 import os

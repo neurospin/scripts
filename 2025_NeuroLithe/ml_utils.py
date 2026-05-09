@@ -865,9 +865,12 @@ def features_statistics_pvalues(features_stats):
         
         
         # Compute randomize p-values
-        true_df['mean_pval_rnd'] = mean_rnd.gt(true_df['mean'], axis=0).sum(axis=1) / mean_rnd.shape[1]
-        true_df['tval_pval_rnd'] = tval_rnd.gt(true_df['tval'], axis=0).sum(axis=1) / tval_rnd.shape[1]
+        # true_df['mean_pval_rnd'] = mean_rnd.gt(true_df['mean'], axis=0).sum(axis=1) / mean_rnd.shape[1]
+        # true_df['tval_pval_rnd'] = tval_rnd.gt(true_df['tval'], axis=0).sum(axis=1) / tval_rnd.shape[1]
         
+        true_df['mean_pval_rnd'] = mean_rnd.abs().gt(true_df['mean'].abs(), axis=0).sum(axis=1) / mean_rnd.shape[1]
+        true_df['tval_pval_rnd'] = tval_rnd.abs().gt(true_df['tval'].abs(), axis=0).sum(axis=1) / tval_rnd.shape[1]
+
         # Westfall & Young FWER cor p-values
 
         stat_max_rnd = tval_rnd.max(axis=0).values #stat_max_rnd.shape: (nperms, )
