@@ -5,11 +5,8 @@ Univariate statistics for clinical variables.
 
 import pandas as pd
 import numpy as np
-
-
 import os
 from config import data, config
-
 
 from utils.stats_pairwise import pairwise_stats
 

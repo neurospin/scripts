@@ -5,7 +5,7 @@ from statsmodels.stats.proportion import proportions_ztest
 
 import itertools
 
-def _var_type(s: pd.Series, max_cat_unique: int = 10) -> str:
+def _var_type(s: pd.Series, max_cat_unique: int = 2) -> str:
     """
     Classify a series as 'constant', 'binary', 'multicategory', or 'quantitative'.
 
