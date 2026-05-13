@@ -17,10 +17,11 @@ _CLUSTER_COLORS = [
 ]
 
 
-def _pub(methods: str, results: str) -> None:
+def _pub(methods: str, results: str) -> dict:
     print("\n── Publication Text ──────────────────────────────────────────────────")
     print(f"[Methods] {methods}")
     print(f"[Results] {results}")
+    return {"methods": methods, "results": results}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -46,12 +47,14 @@ def _var_type(s: pd.Series, max_cat_unique: int = 2) -> str:
 
 # ── 1. Descriptive Statistics & Class Balance ──────────────────────────────
 def descriptive_stats(X_df: pd.DataFrame,
-                      max_cat_unique: int = 2) -> tuple[pd.DataFrame, pd.DataFrame]:
+                      max_cat_unique: int = 2,
+                      ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Split columns into quantitative and categorical using _var_type, then
-    return two DataFrames:
+    return two DataFrames and a publication-text dict:
       - quant_df : describe().T + skewness + kurtosis (quantitative + constant)
       - cat_df   : long-form with columns var, level, count, prop (binary + multicategory)
+      - pub      : dict with keys 'methods' and 'results' (ready-to-paste text)
     """
     types = {col: _var_type(X_df[col], max_cat_unique) for col in X_df.columns}
     quant_cols = [c for c, t in types.items() if t in ('quantitative', 'constant')]
@@ -107,22 +110,22 @@ def descriptive_stats(X_df: pd.DataFrame,
         res_parts.append(
             f"{len(cat_cols)} categorical variable(s): " + "; ".join(cat_summaries) + "."
         )
-    _pub(methods, " ".join(res_parts))
-
-    return quant_df, cat_df
+    pub = _pub(methods, " ".join(res_parts))
+    return quant_df, cat_df, pub
 
 
 # ── 2. Correlation Matrices ────────────────────────────────────────────────
 def plot_correlations(X_df: pd.DataFrame,
                       filename: str | None = None,
                       spearman: bool = True,
-                      ) -> tuple[pd.DataFrame, pd.DataFrame]:
+                      ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
-    Returns (pearson, spearman) correlation matrices.
+    Returns (pearson_mat, spearman_mat, pub).
 
     spearman : bool
         If True (default), plot both Pearson and Spearman side by side.
-        If False, plot Pearson only.
+        If False, plot Pearson only (spearman_mat will be an empty DataFrame).
+    pub : dict with keys 'methods' and 'results' (ready-to-paste publication text).
     """
     pearson_mat  = X_df.corr(method="pearson")
     spearman_mat = X_df.corr(method="spearman") if spearman else pd.DataFrame()
@@ -170,20 +173,22 @@ def plot_correlations(X_df: pd.DataFrame,
         f"correlation (|r| > 0.50). The strongest correlation was observed between "
         f"{strongest[0]} and {strongest[1]} (r = {r_max:.2f})."
     )
-    _pub(methods, results)
-    return pearson_mat, spearman_mat
+    pub = _pub(methods, results)
+    return pearson_mat, spearman_mat, pub
 
 
 # ── 2b. Clustered Correlation Heatmap ─────────────────────────────────────
 def plot_correlation_clustermap(X_df: pd.DataFrame,
                                 filename: str | None = None,
                                 cluster_color_threshold: float | None = 0.7,
-                                ) -> pd.DataFrame:
+                                ) -> tuple[pd.DataFrame, dict]:
     """
     Pearson correlation heatmap with features reordered by Ward hierarchical
     clustering so that highly correlated features appear adjacent.
     Uses seaborn.clustermap which draws the dendrogram alongside the heatmap.
-    Returns the Pearson correlation matrix reindexed in clustering order.
+    Returns (corr_reordered, pub):
+      - corr_reordered : Pearson correlation matrix reindexed in clustering order
+      - pub            : dict with keys 'methods' and 'results' (ready-to-paste text)
 
     cluster_color_threshold : float or None
         Controls cluster coloring of dendrogram branches and tick labels.
@@ -268,12 +273,17 @@ def plot_correlation_clustermap(X_df: pd.DataFrame,
         f"Hierarchical clustering of {n} features revealed a structured correlation "
         f"pattern. The clustering-derived feature order was: {', '.join(reordered)}."
     )
-    _pub(methods, results)
-    return corr.loc[reordered, reordered]
+    pub = _pub(methods, results)
+    return corr.loc[reordered, reordered], pub
 
 
 # ── 3. Variance Inflation Factors ─────────────────────────────────────────
-def plot_variance_inflation_factors(X_df: pd.DataFrame, filename: str | None = None) -> pd.DataFrame:
+def plot_variance_inflation_factors(X_df: pd.DataFrame, filename: str | None = None) -> tuple[pd.DataFrame, dict]:
+    """
+    Returns (vif_df, pub):
+      - vif_df : DataFrame [Feature, VIF] sorted by VIF descending
+      - pub    : dict with keys 'methods' and 'results' (ready-to-paste text)
+    """
     from sklearn.linear_model import LinearRegression
     from sklearn.impute import SimpleImputer
 
@@ -324,15 +334,18 @@ def plot_variance_inflation_factors(X_df: pd.DataFrame, filename: str | None = N
         res += f"Moderate multicollinearity (VIF 5–10) was observed for: {', '.join(moderate)}."
     else:
         res += "No feature showed moderate multicollinearity (VIF 5–10)."
-    _pub(methods, res)
-
-    return vif_df
+    pub = _pub(methods, res)
+    return vif_df, pub
 
 
 # ── 4. Hierarchical Feature Clustering ────────────────────────────────────
 def plot_feature_dendrogram(X_df: pd.DataFrame,
-                            filename: str | None = None) -> pd.DataFrame:
-    """Returns a DataFrame with columns [feature, cluster] (Ward cut at distance 0.4)."""
+                            filename: str | None = None) -> tuple[pd.DataFrame, dict]:
+    """
+    Returns (cluster_df, pub):
+      - cluster_df : DataFrame [feature, cluster] with Ward clusters cut at distance 0.4
+      - pub        : dict with keys 'methods' and 'results' (ready-to-paste text)
+    """
     features = list(X_df.columns)
     corr = X_df.corr().abs()
     dist = 1 - corr
@@ -386,15 +399,15 @@ def plot_feature_dendrogram(X_df: pd.DataFrame,
         f"Hierarchical clustering of {len(features)} features yielded {n_clusters} "
         f"cluster(s) at the distance threshold of 0.4 (|ρ| > 0.6)."
     )
-    _pub(methods, results)
-    return cluster_df
+    pub = _pub(methods, results)
+    return cluster_df, pub
 
 
 # ── 5. PCA Optimal Number of Components ───────────────────────────────────
 def plot_pca_components(X_df: pd.DataFrame,
                         var_thresholds: list[float] = [0.80, 0.90, 0.95],
                         filename: str | None = None,
-                        ) -> tuple[pd.DataFrame, int, dict]:
+                        ) -> tuple[pd.DataFrame, int, dict, dict]:
     """
     Fit full PCA on standardised data, plot the scree, and recommend the
     optimal number of components via two complementary criteria:
@@ -405,6 +418,7 @@ def plot_pca_components(X_df: pd.DataFrame,
       scree_df      : DataFrame [component, evr, cumulative_evr]
       elbow_idx     : int — elbow-based recommendation (1-based)
       thresh_results: dict {threshold: n_components}
+      pub           : dict with keys 'methods' and 'results' (ready-to-paste text)
     """
     from sklearn.decomposition import PCA
     from sklearn.preprocessing import StandardScaler
@@ -480,20 +494,24 @@ def plot_pca_components(X_df: pd.DataFrame,
         f"The elbow criterion suggested {elbow_idx} component(s) "
         f"(cumulative variance = {cumev[elbow_idx-1]*100:.1f}%)."
     )
-    _pub(methods, results)
+    pub = _pub(methods, results)
 
     scree_df = pd.DataFrame({
         "component":      comps,
         "evr":            evr,
         "cumulative_evr": cumev,
     })
-    return scree_df, elbow_idx, thresh_results
+    return scree_df, elbow_idx, thresh_results, pub
 
 
 # ── 6. Feature–Response Relationships ─────────────────────────────────────
 def plot_feature_response(X_df: pd.DataFrame, y,
-                          filename: str | None = None) -> pd.DataFrame:
-    """Returns a DataFrame [feature, r_pb, p_mw] sorted by p_mw."""
+                          filename: str | None = None) -> tuple[pd.DataFrame, dict]:
+    """
+    Returns (assoc_df, pub):
+      - assoc_df : DataFrame [feature, r_pb, p_mw] sorted by p_mw
+      - pub      : dict with keys 'methods' and 'results' (ready-to-paste text)
+    """
     y = pd.Series(np.asarray(y), index=X_df.index, name="lithium_response")
     features = list(X_df.columns)
     ncols = 3
@@ -553,8 +571,8 @@ def plot_feature_response(X_df: pd.DataFrame, y,
             f"{row.feature} (p = {row.p_mw:.3f})" for row in trend.itertuples()
         )
         res += f" Trend-level associations (0.05 ≤ p < 0.10): {trend_str}."
-    _pub(methods, res)
-    return assoc_df
+    pub = _pub(methods, res)
+    return assoc_df, pub
 
 # %% Demo
 
@@ -588,38 +606,62 @@ if __name__ == "__main__":
     print("=" * 70)
     print("1. Descriptive statistics")
     print("=" * 70)
-    quant_df, cat_df = descriptive_stats(X)
-
-    print("\n" + "=" * 70)
-    print("2b. Clustered correlation heatmap")
-    print("=" * 70)
-    corr_reordered = plot_correlation_clustermap(X[quant_features])
+    quant_df, cat_df, pub_desc = descriptive_stats(X)
 
     print("\n" + "=" * 70)
     print("2. Correlation matrices")
     print("=" * 70)
-    pearson, spearman = plot_correlations(X[quant_features])
-    pearson, spearman = plot_correlations(X[corr_reordered.index], spearman=False)  # same but reordered by clustering
+    pearson, spearman, pub_corr = plot_correlations(X[quant_features])
+
+    print("\n" + "=" * 70)
+    print("2b. Clustered correlation heatmap")
+    print("=" * 70)
+    corr_reordered, pub_clust = plot_correlation_clustermap(X[quant_features])
 
     print("\n" + "=" * 70)
     print("3. Variance inflation factors")
     print("=" * 70)
-    vif_df = plot_variance_inflation_factors(X[quant_features])
+    vif_df, pub_vif = plot_variance_inflation_factors(X[quant_features])
 
     print("\n" + "=" * 70)
     print("4. Feature dendrogram")
     print("=" * 70)
-    cluster_df = plot_feature_dendrogram(X[quant_features])
+    cluster_df, pub_dend = plot_feature_dendrogram(X[quant_features])
 
     print("\n" + "=" * 70)
     print("5. PCA optimal components")
     print("=" * 70)
-    scree_df, elbow_idx, thresh_results = plot_pca_components(X[quant_features])
+    scree_df, elbow_idx, thresh_results, pub_pca = plot_pca_components(X[quant_features])
 
     print("\n" + "=" * 70)
     print("6. Feature–response relationships")
     print("=" * 70)
-    assoc_df = plot_feature_response(X[quant_features], y)
+    assoc_df, pub_resp = plot_feature_response(X[quant_features], y)
+
+    # ── Save all results to Excel ──────────────────────────────────────────
+    pub_df = pd.DataFrame([
+        {"function": "descriptive_stats",               **pub_desc},
+        {"function": "plot_correlations",               **pub_corr},
+        {"function": "plot_correlation_clustermap",     **pub_clust},
+        {"function": "plot_variance_inflation_factors", **pub_vif},
+        {"function": "plot_feature_dendrogram",         **pub_dend},
+        {"function": "plot_pca_components",             **pub_pca},
+        {"function": "plot_feature_response",           **pub_resp},
+    ])
+
+    excel_path = "eda_results_toydataset.xlsx"
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+        quant_df.to_excel(writer,          sheet_name="desc_quantitative")
+        cat_df.to_excel(writer,            sheet_name="desc_categorical",   index=False)
+        pearson.to_excel(writer,           sheet_name="corr_pearson")
+        spearman.to_excel(writer,          sheet_name="corr_spearman")
+        corr_reordered.to_excel(writer,    sheet_name="corr_clustermap")
+        vif_df.to_excel(writer,            sheet_name="vif",                index=False)
+        cluster_df.to_excel(writer,        sheet_name="feature_clusters",   index=False)
+        scree_df.to_excel(writer,          sheet_name="pca_scree",          index=False)
+        assoc_df.to_excel(writer,          sheet_name="feature_response",   index=False)
+        pub_df.to_excel(writer,            sheet_name="publication_text",   index=False)
+    print(f"\n✔  Saved {excel_path}")
 
 
 
