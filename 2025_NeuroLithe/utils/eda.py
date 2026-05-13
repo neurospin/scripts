@@ -114,21 +114,30 @@ def descriptive_stats(X_df: pd.DataFrame,
 
 # ── 2. Correlation Matrices ────────────────────────────────────────────────
 def plot_correlations(X_df: pd.DataFrame,
-                      filename: str | None = None
+                      filename: str | None = None,
+                      spearman: bool = True,
                       ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Returns (pearson, spearman) correlation matrices."""
-    pearson  = X_df.corr(method="pearson")
-    spearman = X_df.corr(method="spearman")
+    """
+    Returns (pearson, spearman) correlation matrices.
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    for ax, mat, title in zip(axes,
-                              [pearson, spearman],
-                              ["Pearson Correlation", "Spearman Correlation"]):
+    spearman : bool
+        If True (default), plot both Pearson and Spearman side by side.
+        If False, plot Pearson only.
+    """
+    pearson_mat  = X_df.corr(method="pearson")
+    spearman_mat = X_df.corr(method="spearman") if spearman else pd.DataFrame()
+
+    mats   = [pearson_mat, spearman_mat] if spearman else [pearson_mat]
+    titles = ["Pearson Correlation", "Spearman Correlation"] if spearman else ["Pearson Correlation"]
+
+    fig, axes = plt.subplots(1, len(mats), figsize=(8 * len(mats), 6))
+    for ax, mat, title in zip(np.atleast_1d(axes), mats, titles):
         mask = np.triu(np.ones_like(mat, dtype=bool))
         sns.heatmap(mat, mask=mask, annot=True, fmt=".2f",
                     cmap=PALETTE, center=0, vmin=-1, vmax=1,
                     linewidths=0.5, ax=ax, annot_kws={"size": 9})
         ax.set_title(title, fontsize=13, fontweight="bold")
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
     plt.suptitle("Pairwise Feature Correlations", fontsize=15, y=1.01)
     plt.tight_layout()
     if filename is not None:
@@ -137,23 +146,24 @@ def plot_correlations(X_df: pd.DataFrame,
     plt.show()
 
     # ── Publication text ───────────────────────────────────────────────────
-    # Compute on upper triangle (excluding diagonal)
-    p_vals = pearson.values
+    p_vals = pearson_mat.values
     mask_ut = np.triu(np.ones_like(p_vals, dtype=bool), k=1)
     upper   = np.abs(p_vals[mask_ut])
     n_strong = int((upper > 0.5).sum())
     n_pairs  = len(upper)
-    idx_max  = np.unravel_index(np.argmax(np.abs(p_vals - np.eye(len(p_vals)))), p_vals.shape)
-    # pick the strongest off-diagonal pair
     ut_idx = np.argmax(upper)
-    feat_pairs = [(pearson.index[i], pearson.columns[j])
+    feat_pairs = [(pearson_mat.index[i], pearson_mat.columns[j])
                   for i, j in zip(*np.where(mask_ut))]
     strongest  = feat_pairs[ut_idx]
-    r_max      = pearson.loc[strongest[0], strongest[1]]
+    r_max      = pearson_mat.loc[strongest[0], strongest[1]]
 
     methods = (
-        "Pairwise Pearson and Spearman correlation coefficients were computed between "
-        "all features to assess linear and monotonic associations, respectively."
+        "Pairwise Pearson"
+        + (" and Spearman" if spearman else "")
+        + " correlation coefficients were computed between all features to assess"
+        + " linear and monotonic associations, respectively."
+        if spearman else
+        " correlation coefficients were computed between all features to assess linear associations."
     )
     results = (
         f"Among the {n_pairs} unique feature pairs, {n_strong} showed a strong Pearson "
@@ -161,7 +171,7 @@ def plot_correlations(X_df: pd.DataFrame,
         f"{strongest[0]} and {strongest[1]} (r = {r_max:.2f})."
     )
     _pub(methods, results)
-    return pearson, spearman
+    return pearson_mat, spearman_mat
 
 
 # ── 2b. Clustered Correlation Heatmap ─────────────────────────────────────
@@ -346,6 +356,8 @@ def plot_feature_dendrogram(X_df: pd.DataFrame,
         cid = cluster_ids[leaf_idx]
         lbl.set_color(_CLUSTER_COLORS[(cid - 1) % len(_CLUSTER_COLORS)])
         lbl.set_fontweight("bold")
+        lbl.set_rotation(45)
+        lbl.set_ha("right")
 
     ax.axhline(0.4, color="crimson", linestyle="--", lw=1.2,
                label="Cut  (|rho| > 0.6)")
@@ -579,14 +591,15 @@ if __name__ == "__main__":
     quant_df, cat_df = descriptive_stats(X)
 
     print("\n" + "=" * 70)
-    print("2. Correlation matrices")
-    print("=" * 70)
-    pearson, spearman = plot_correlations(X[quant_features])
-
-    print("\n" + "=" * 70)
     print("2b. Clustered correlation heatmap")
     print("=" * 70)
     corr_reordered = plot_correlation_clustermap(X[quant_features])
+
+    print("\n" + "=" * 70)
+    print("2. Correlation matrices")
+    print("=" * 70)
+    pearson, spearman = plot_correlations(X[quant_features])
+    pearson, spearman = plot_correlations(X[corr_reordered.index], spearman=False)  # same but reordered by clustering
 
     print("\n" + "=" * 70)
     print("3. Variance inflation factors")

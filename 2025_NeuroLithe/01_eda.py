@@ -30,8 +30,9 @@ for cls, cnt in counts.items():
     print(f"  Class {cls}: {cnt}  ({100*cnt/len(y):.1f} %)")
 
 quant_df, cat_df                    = descriptive_stats(X_df, max_cat_unique=2)
-corr_reordered                      = plot_correlation_clustermap(X_df, filename="reports/eda_correlation_clustermap.png")
+corr_reordered                      = plot_correlation_clustermap(X_df, cluster_color_threshold=None, filename="reports/eda_correlation_clustermap.png")
+pearson, spearman                   = plot_correlations(X_df[corr_reordered.index], spearman=False, filename="reports/eda_correlation.png")  # same but reordered by clustering
 vif_df                              = plot_variance_inflation_factors(X_df, filename="reports/eda_vif.png")
-#plot_feature_dendrogram(X_df, filename="reports/eda_dendrogram.png")
+cluster_df                          = plot_feature_dendrogram(X_df, filename="reports/eda_dendrogram.png")
 scree_df, elbow_idx, thresh_results = plot_pca_components(X_df, filename="reports/eda_pca_components.png")
 assoc_df                            = plot_feature_response(X_df, y, filename="reports/eda_feature_response.png")
