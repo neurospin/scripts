@@ -1,8 +1,26 @@
 """
-Explainability Analysis Pipeline
-=================================
-"""
+Explainability Analysis Pipeline  —  Lithium Response (Binary Classification)
+=============================================================================
+Inputs:
+    Xdf : pd.DataFrame  — clinical feature matrix
+    y   : array-like    — binary lithium response (0/1)
 
+Model:
+    StandardScaler -> GridSearchCV(LogisticRegression(fit_intercept=False,
+                                                      class_weight='balanced'),
+                                   {'C': 10. ** np.arange(-3, 1)},
+                                   cv=cv_val, n_jobs=5, scoring='accuracy')
+
+Outer evaluation:
+    cv_test = StratifiedKFold(n_splits=5, shuffle=True, random_state=8)
+
+Public API:
+    metrics                              = plot_classification_report(X, y, cv_results['estimator'], cv_test)
+    shapvals_cv, X_trn_cv, shap_stats_df = shap_analysis(cv_results['estimator'], X, y, features, cv_test)
+    perm_imps_cv, perm_stats_df          = permutation_importance_analysis(cv_results['estimator'], X, y, features, cv_test)
+    coefs_boot, boot_stats_df            = bootstrap_stability(model, X, y, features)
+    fig, ax                              = comparison_dashboard({"SHAP": shap_stats_df, ...})
+"""
 
 import numpy as np
 import pandas as pd
@@ -25,6 +43,62 @@ from utils.sklearn_utils import (pipeline_behead, get_predictor, get_coef,
                                  oof_arrays_from_cv, plot_classification_report)
 
 
+def haufe_feature_importance(estimators: list,
+                             X: np.ndarray,
+                             y: np.ndarray,
+                             features: list,
+                             cv) -> tuple:
+    """
+    Compute Haufe activation patterns (forward model) out-of-fold.
+
+    Corrects for the fact that linear classifier weights are not directly
+    interpretable as feature importances when features are correlated.
+    The activation pattern a = Cov(X, s) where s is the decision-function
+    output — Haufe et al. (2014) NeuroImage, eq. 7.
+
+    Parameters
+    ----------
+    estimators : list of fitted pipelines (one per CV fold)
+    X          : raw (unscaled) feature matrix
+    y          : binary response array (used only for cv.split)
+    features   : ordered list of feature names
+    cv         : CV splitter used during fitting
+
+    Returns
+    -------
+    haufe_cv      : list of ndarray (n_features,), one per fold —
+                    Haufe activation pattern estimated on each fold's test set
+    haufe_stats_df : DataFrame with columns [Feature, Mean, Std] sorted by
+                     |Mean| desc — Mean and Std computed across folds
+    """
+    print("\n━━━  Haufe Forward Model  (out-of-fold)  ━━━")
+    haufe_cv = []
+
+    for fold, ((_, te), estimator) in enumerate(zip(cv.split(X, y), estimators), 1):
+        if isinstance(estimator, Pipeline):
+            body, head = pipeline_behead(estimator)
+            X_trn_te   = body.transform(X[te])
+        else:
+            X_trn_te = X[te]
+            head     = estimator
+        predictor = get_predictor(head)
+        # Haufe 2014 eq. 7: a = Cov(X, s) ≈ X_centered^T @ s / N
+        # StandardScaler ensures X_trn_te is already centred.
+        s = predictor.decision_function(X_trn_te)
+        haufe_cv.append(X_trn_te.T @ s / len(s))
+        print(f"   fold {fold} done")
+
+    haufe_arr      = np.vstack(haufe_cv)          # (n_folds, n_features)
+    haufe_stats_df = (pd.DataFrame({
+        "Feature": features,
+        "Mean":    haufe_arr.mean(axis=0),
+        "Std":     haufe_arr.std(axis=0),
+    }).sort_values("Mean", key=lambda s: s.abs(), ascending=False)
+     .reset_index(drop=True))
+
+    print("\n  Haufe activation pattern summary:")
+    print(haufe_stats_df.round(4).to_string(index=False))
+    return haufe_cv, haufe_stats_df
 
 # %% ── A. SHAP — LinearExplainer ─────────────────────────────────────────────────
 def shap_analysis(estimators: list,
@@ -119,8 +193,8 @@ def plot_shap_analysis(shapvals_cv: list,
     ax.set_xlabel("Mean |SHAP value|  (log-odds units)", fontsize=11)
     ax.set_title("SHAP Global Importance — Lithium Response\n"
                  "Correlated features share credit — no double-counting", fontsize=12)
-    plt.tight_layout()
-    plt.savefig("shap_bar.png", dpi=150, bbox_inches="tight")
+    fig.tight_layout()
+    fig.savefig("shap_bar.png", dpi=150, bbox_inches="tight")
     plt.show()
     print("✔  Saved shap_bar.png")
 
@@ -134,8 +208,8 @@ def plot_shap_analysis(shapvals_cv: list,
         ax.set_xlabel(f"{feat}  (standardised)")
         ax.set_ylabel("SHAP value")
         ax.set_title(f"SHAP Dependence — {feat}", fontweight="bold")
-    plt.tight_layout()
-    plt.savefig("shap_dependence.png", dpi=150, bbox_inches="tight")
+    fig.tight_layout()
+    fig.savefig("shap_dependence.png", dpi=150, bbox_inches="tight")
     plt.show()
     print("✔  Saved shap_dependence.png")
 
@@ -190,7 +264,7 @@ def permutation_importance_analysis(estimators: list,
     return imps_cv, imps_stats_df
 
 
-# %% ── D. Bootstrap Coefficient Stability ────────────────────────────────────────
+# %% ── C. Bootstrap Coefficient Stability ────────────────────────────────────────
 def bootstrap_stability(estimator,
                         X: np.ndarray,
                         y: np.ndarray,
@@ -254,8 +328,8 @@ def bootstrap_stability(estimator,
     return coefs_boot, boot_stats_df
 
 
-# ── E. Comparison Dashboard ────────────────────────────────────────────────────
-def comparison_dashboard(stats_dict: dict) -> None:
+# ── D. Comparison Dashboard ────────────────────────────────────────────────────
+def comparison_dashboard(stats_dict: dict) -> tuple:
     """
     Bar chart comparing normalised feature importances across methods.
 
@@ -265,6 +339,11 @@ def comparison_dashboard(stats_dict: dict) -> None:
         Each DataFrame must have 'Feature' and 'Mean' columns (as returned by
         shap_analysis, permutation_importance_analysis, bootstrap_stability).
         The dictionary key is used as the legend label.
+
+    Returns
+    -------
+    fig : matplotlib Figure
+    ax  : matplotlib Axes
     """
     def norm(s):
         s = s.abs()
@@ -299,13 +378,10 @@ from config import data, config
 from sklearn.impute import SimpleImputer
 
 # %% Input data
-input = data[config['clinical_vars']].copy()
-input.Catatonie.sum()
+Xdf_raw = data[config['clinical_vars']].copy()
 
-
-    
 imputer = SimpleImputer(strategy='median')
-X_imp = imputer.fit_transform(input)
+X_imp = imputer.fit_transform(Xdf_raw)
 Xdf = pd.DataFrame(X_imp, columns=config['clinical_vars'])
 y = data['response']
 y        = np.asarray(y)
@@ -313,7 +389,7 @@ features = list(Xdf.columns)
 X        = Xdf.values
 # %% Fit
 # ─────────────────────────────────────────────────────────────────────────────
-#  CONFIG  — matches the brief exactly
+#  CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 RANDOM_STATE = 8
 PALETTE      = "coolwarm"
@@ -343,20 +419,17 @@ cv_results = cross_validate(
     scoring=["balanced_accuracy", "roc_auc"],
     return_train_score=True, return_estimator=True, n_jobs=5,
 )
-# DEBUG
-estimators = cv_results['estimator']
-cv = cv_test
 
 # %% Analysis
 metrics                          = plot_classification_report(X, y, cv_results['estimator'], cv_test)
 
 # SHAP analysis.
 shapvals_cv, X_trn_cv, shap_stats_df = shap_analysis(cv_results['estimator'], X, y, features, cv_test)
+
 plot_shap_analysis(shapvals_cv, X_trn_cv, features, cv_test, X, y)
-shapvals_cv_df = pd.DataFrame(np.vstack([np.abs(imps).mean(axis=0) for imps in shapvals_cv]), columns=features)
-shapvals_cv_df   = shapvals_cv_df[shapvals_cv_df.mean(axis=0).sort_values(ascending=False).index]  # largest → top
-#ax = sns.boxplot(data=shapvals_cv_df, orient="h", palette="Reds_r")
-ax = sns.barplot(data=shapvals_cv_df, orient="h", palette="Reds_r", capsize=.1, errorbar="se")
+shap_imps_cv_df = pd.DataFrame(np.vstack([np.abs(imps).mean(axis=0) for imps in shapvals_cv]), columns=features)
+shap_imps_cv_df = shap_imps_cv_df[shap_imps_cv_df.mean(axis=0).sort_values(ascending=False).index]
+ax = sns.barplot(data=shap_imps_cv_df, orient="h", palette="Reds_r", capsize=.1, errorbar="se")
 ax.axvline(0, color="black", lw=0.8, linestyle="--")
 ax.set_title("SHAP importance averaged within cv folds")
 ax.set_xlabel("Mean absolute SHAP value")
@@ -364,14 +437,11 @@ plt.tight_layout()
 plt.savefig("reports/importance_SHAP.png", dpi=150, bbox_inches="tight")
 plt.show()
 
-
-# Permutation importance is more computationally efficient, so we run it before bootstrap stability (which is more intensive), and we can optionally run it without bootstrap stability if desired.
+# Permutation importance analysis.
 perm_imps_cv, perm_stats_df = permutation_importance_analysis(cv_results['estimator'], X, y, features, cv_test)
 
-#perm_imps_cv_df = pd.DataFrame(np.vstack(perm_imps_cv), columns=features)
 perm_imps_cv_df = pd.DataFrame(np.vstack([imps.mean(axis=0) for imps in perm_imps_cv]), columns=features)
-perm_imps_cv_df   = perm_imps_cv_df[perm_imps_cv_df.mean(axis=0).sort_values(ascending=False).index]  # largest → top
-#ax = sns.boxplot(data=perm_imps_cv_df, orient="h", palette="Reds_r")
+perm_imps_cv_df = perm_imps_cv_df[perm_imps_cv_df.mean(axis=0).sort_values(ascending=False).index]
 ax = sns.barplot(data=perm_imps_cv_df, orient="h", palette="Reds_r", capsize=.1, errorbar="se")
 ax.axvline(0, color="black", lw=0.8, linestyle="--")
 ax.set_title("Permutation importance averaged within cv folds")
@@ -380,7 +450,20 @@ plt.tight_layout()
 plt.savefig("reports/importance_permutation.png", dpi=150, bbox_inches="tight")
 plt.show()
 
-# Bootstrap stability is more computationally intensive, so we run it last and optionally
+# Haufe forward model
+haufe_cv, haufe_stats_df = haufe_feature_importance(cv_results['estimator'], X, y, features, cv_test)
+
+haufe_cv_df = pd.DataFrame(np.vstack(haufe_cv), columns=features)
+haufe_cv_df = haufe_cv_df[haufe_cv_df.mean().abs().sort_values(ascending=False).index]
+ax = sns.barplot(data=haufe_cv_df, orient="h", palette="vlag_r", capsize=.1, errorbar="se")
+ax.axvline(0, color="black", lw=0.8, linestyle="--")
+ax.set_title("Haufe activation pattern averaged within cv folds")
+ax.set_xlabel("Haufe activation (Cov(X, s))")
+plt.tight_layout()
+plt.savefig("reports/importance_haufe.png", dpi=150, bbox_inches="tight")
+plt.show()
+
+# Bootstrap stability
 coefs_boot, boot_stats_df = bootstrap_stability(model, X, y, features)
 
 boot_df   = pd.DataFrame(np.vstack(coefs_boot), columns=features)
@@ -398,6 +481,7 @@ plt.show()
 fig, ax = comparison_dashboard({
     "SHAP":             shap_stats_df,
     "Permutation":      perm_stats_df,
+    "Haufe":            haufe_stats_df,
     "Bootstrap |coef|": boot_stats_df,
 })
 fig.savefig("reports/importance_comparison.png", dpi=150, bbox_inches="tight")
