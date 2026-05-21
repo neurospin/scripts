@@ -10,6 +10,8 @@ from scipy.spatial.distance import squareform
 import warnings
 warnings.filterwarnings("ignore")
 
+#  %% Configuration
+
 PALETTE = "coolwarm"
 _CLUSTER_COLORS = [
     "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
@@ -24,9 +26,9 @@ def _pub(methods: str, results: str) -> dict:
     return {"methods": methods, "results": results}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PART (i) — EXPLORATORY DATA ANALYSIS
-# ══════════════════════════════════════════════════════════════════════════════
+
+#  %% EXPLORATORY DATA ANALYSIS
+
 
 def _var_type(s: pd.Series, max_cat_unique: int = 2) -> str:
     """
@@ -115,7 +117,7 @@ def descriptive_stats(X_df: pd.DataFrame,
 
 
 # ── 2. Correlation Matrices ────────────────────────────────────────────────
-def plot_correlations(X_df: pd.DataFrame,
+def plot_correlation(X_df: pd.DataFrame,
                       filename: str | None = None,
                       spearman: bool = True,
                       ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -131,7 +133,8 @@ def plot_correlations(X_df: pd.DataFrame,
     spearman_mat = X_df.corr(method="spearman") if spearman else pd.DataFrame()
 
     mats   = [pearson_mat, spearman_mat] if spearman else [pearson_mat]
-    titles = ["Pearson Correlation", "Spearman Correlation"] if spearman else ["Pearson Correlation"]
+    titles = ["Pairwise Pearson Correlations", "Pairwise Spearman Correlations"] \
+        if spearman else ["Pairwise Pearson Correlations"]
 
     fig, axes = plt.subplots(1, len(mats), figsize=(8 * len(mats), 6))
     for ax, mat, title in zip(np.atleast_1d(axes), mats, titles):
@@ -141,7 +144,7 @@ def plot_correlations(X_df: pd.DataFrame,
                     linewidths=0.5, ax=ax, annot_kws={"size": 9})
         ax.set_title(title, fontsize=13, fontweight="bold")
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    plt.suptitle("Pairwise Feature Correlations", fontsize=15, y=1.01)
+    # plt.suptitle("Pairwise Feature Correlations", fontsize=15, y=1.01)
     plt.tight_layout()
     if filename is not None:
         plt.savefig(filename, dpi=150, bbox_inches="tight")
@@ -437,34 +440,23 @@ def plot_pca_components(X_df: pd.DataFrame,
     elbow_idx     = int(np.argmax(np.diff(np.diff(cumev))) + 2)   # 1-based
     thresh_results = {t: int(np.searchsorted(cumev, t) + 1) for t in var_thresholds}
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig, ax = plt.subplots(figsize=(7, 5))
 
-    axes[0].bar(comps, evr * 100, color="steelblue", edgecolor="white", label="Individual")
-    axes[0].plot(comps, cumev * 100, "o-", color="crimson", lw=2, ms=5, label="Cumulative")
-    axes[0].axvline(elbow_idx, color="darkorange", linestyle="--", lw=1.5,
-                    label=f"Elbow  (n={elbow_idx})")
+    ax.bar(comps, evr * 100, color="steelblue", edgecolor="white", label="Individual")
+    ax.plot(comps, cumev * 100, "o-", color="crimson", lw=2, ms=5, label="Cumulative")
+    ax.axvline(elbow_idx, color="darkorange", linestyle="--", lw=1.5,
+               label=f"Elbow  (n={elbow_idx})")
     for t, n in thresh_results.items():
-        axes[0].axhline(t * 100, color="grey", linestyle=":", lw=1,
-                        label=f"{int(t*100)}%  →  n={n}")
-    axes[0].set_xlabel("Number of components")
-    axes[0].set_ylabel("Explained variance (%)")
-    axes[0].set_title("Scree Plot", fontweight="bold")
-    axes[0].legend(fontsize=8)
+        ax.axhline(t * 100, color="grey", linestyle=":", lw=1,
+                   label=f"{int(t*100)}%  →  n={n}")
+    ax.set_xlabel("Number of components")
+    ax.set_ylabel("Explained variance (%)")
+    ax.set_title("PCA: Explained Variance Scree Plot", fontweight="bold")
+    ax.legend(fontsize=8)
 
-    d2 = np.diff(np.diff(cumev))
-    axes[1].bar(comps[1:-1], d2, color="mediumpurple", edgecolor="white")
-    axes[1].axvline(elbow_idx, color="darkorange", linestyle="--", lw=1.5,
-                    label=f"Max curvature  (n={elbow_idx})")
-    axes[1].set_xlabel("Number of components")
-    axes[1].set_ylabel("Δ² cumulative variance")
-    axes[1].set_title("Elbow Detection  —  Second Difference", fontweight="bold")
-    axes[1].legend(fontsize=8)
-
-    plt.suptitle("PCA — Optimal Number of Components", fontsize=14,
-                 fontweight="bold", y=1.01)
-    plt.tight_layout()
+    fig.tight_layout()
     if filename is not None:
-        plt.savefig(filename, dpi=150, bbox_inches="tight")
+        fig.savefig(filename, dpi=150, bbox_inches="tight")
         print(f"✔  Saved {filename}")
     plt.show()
 
@@ -574,7 +566,9 @@ def plot_feature_response(X_df: pd.DataFrame, y,
     pub = _pub(methods, res)
     return assoc_df, pub
 
-# %% Demo
+
+
+# %% Use case: synthetic dataset with neuroimaging + clinical features, and binary response
 
 if __name__ == "__main__":
     rng = np.random.default_rng(42)
@@ -611,7 +605,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("2. Correlation matrices")
     print("=" * 70)
-    pearson, spearman, pub_corr = plot_correlations(X[quant_features])
+    pearson, spearman, pub_corr = plot_correlation(X[quant_features])
 
     print("\n" + "=" * 70)
     print("2b. Clustered correlation heatmap")
@@ -641,7 +635,7 @@ if __name__ == "__main__":
     # ── Save all results to Excel ──────────────────────────────────────────
     pub_df = pd.DataFrame([
         {"function": "descriptive_stats",               **pub_desc},
-        {"function": "plot_correlations",               **pub_corr},
+        {"function": "plot_correlation",               **pub_corr},
         {"function": "plot_correlation_clustermap",     **pub_clust},
         {"function": "plot_variance_inflation_factors", **pub_vif},
         {"function": "plot_feature_dendrogram",         **pub_dend},
@@ -665,3 +659,5 @@ if __name__ == "__main__":
 
 
 
+
+# %%

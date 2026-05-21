@@ -1,23 +1,52 @@
+"""
+Exploratory Data Analysis (EDA) — Lithium Response (NeuroLithe)
+===============================================================
+Runs the full EDA pipeline on the clinical feature matrix and saves
+figures and a summary Excel workbook to reports/.
 
-import numpy as np
+Steps
+-----
+1. Class balance — prints lithium-response group sizes.
+2. Descriptive statistics — mean/SD/skewness for continuous variables;
+   frequencies/proportions for binary/categorical variables.
+3. Clustered correlation heatmap — hierarchical clustering of features
+   based on absolute Pearson correlation; saved to eda_correlation_clustermap.png.
+4. Pearson correlation matrix — plotted in the cluster order from step 3;
+   saved to eda_correlation.png.
+5. Variance Inflation Factors (VIF) — multicollinearity diagnosis;
+   saved to eda_vif.png.
+6. Feature dendrogram — Ward linkage on the VIF-standardised matrix;
+   saved to eda_dendrogram.png.
+7. PCA scree plot — explained variance vs. number of components with
+   elbow detection; saved to eda_pca_components.png.
+8. Feature–response associations — per-feature comparison between
+   responders and non-responders; saved to eda_feature_response.png.
+
+Outputs
+-------
+reports/eda_results.xlsx   — one sheet per analysis step, plus
+                              ready-to-paste Methods / Results text.
+reports/eda_*.png          — individual figures (one per step).
+
+Inputs (from config.py)
+-----------------------
+data                    : pd.DataFrame — full patient dataset
+config['clinical_vars'] : list[str]    — clinical feature names to analyse
+"""
+
 import pandas as pd
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# from scipy import stats
-# from scipy.cluster import hierarchy
-# from scipy.spatial.distance import squareform
-
 import warnings
 warnings.filterwarnings("ignore")
 
-PALETTE = "coolwarm"
+from utils.eda import (descriptive_stats, plot_correlation,
+                       plot_correlation_clustermap,
+                       plot_variance_inflation_factors,
+                       plot_feature_dendrogram, plot_pca_components,
+                       plot_feature_response)
 
-from utils.eda import plot_correlations, plot_correlation_clustermap, plot_variance_inflation_factors, plot_feature_dendrogram, plot_pca_components, plot_feature_response, descriptive_stats
-
-
-# %% Input data
 from config import data, config
 
+# %% Input data
 X_df = data[config['clinical_vars']].copy()
 X_df.Catatonie.sum()
 
@@ -31,7 +60,7 @@ for cls, cnt in counts.items():
 
 quant_df, cat_df, pub_desc             = descriptive_stats(X_df, max_cat_unique=2)
 corr_reordered, pub_clust              = plot_correlation_clustermap(X_df, cluster_color_threshold=None, filename="reports/eda_correlation_clustermap.png")
-pearson, spearman, pub_corr            = plot_correlations(X_df[corr_reordered.index], spearman=False, filename="reports/eda_correlation.png")
+pearson, spearman, pub_corr            = plot_correlation(X_df[corr_reordered.index], spearman=False, filename="reports/eda_correlation.png")
 vif_df, pub_vif                        = plot_variance_inflation_factors(X_df, filename="reports/eda_vif.png")
 cluster_df, pub_dend                   = plot_feature_dendrogram(X_df, filename="reports/eda_dendrogram.png")
 scree_df, elbow_idx, thresh_results, pub_pca = plot_pca_components(X_df, filename="reports/eda_pca_components.png")
@@ -41,7 +70,7 @@ assoc_df, pub_resp                     = plot_feature_response(X_df, y, filename
 pub_df = pd.DataFrame([
     {"function": "descriptive_stats",               **pub_desc},
     {"function": "plot_correlation_clustermap",     **pub_clust},
-    {"function": "plot_correlations",               **pub_corr},
+    {"function": "plot_correlation",                **pub_corr},
     {"function": "plot_variance_inflation_factors", **pub_vif},
     {"function": "plot_feature_dendrogram",         **pub_dend},
     {"function": "plot_pca_components",             **pub_pca},
@@ -60,4 +89,3 @@ with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
     assoc_df.to_excel(writer,       sheet_name="feature_response",  index=False)
     pub_df.to_excel(writer,         sheet_name="publication_text",  index=False)
 print(f"\n✔  Saved {excel_path}")
-
