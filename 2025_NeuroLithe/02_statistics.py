@@ -76,7 +76,7 @@ all_stats = pd.concat([
     Antécédents_stat, Qi_stat, Traitements_T1_stat, Traitements_T2_stat,
 ], ignore_index=True)
 
-excel_path = os.path.join(config['output_models'], 'reports/descriptive_statistics.xlsx')
+excel_path = 'reports/descriptive_statistics.xlsx'
 with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
     all_stats.to_excel(writer, sheet_name="all_domains", index=False)
     for domain, df in all_stats.groupby("Domain", sort=False):
